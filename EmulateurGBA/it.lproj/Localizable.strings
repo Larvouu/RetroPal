@@ -1,0 +1,317 @@
+/* Italian - Localizable.strings */
+
+/* Tabs */
+"tab.library" = "Libreria";
+"tab.settings" = "Impostazioni";
+
+/* Library */
+"library.title" = "Libreria";
+"library.empty.title" = "Benvenuto su Retro Pal";
+"library.empty.subtitle" = "Gioca ai tuoi giochi retrò su iPhone. Niente pubblicità, niente tracciamento, mai.";
+"library.empty.button" = "Aggiungi un gioco";
+"library.empty.step1" = "Porta un gioco (.gba, .gb, .gbc o .nds) sul tuo iPhone, tramite Safari, AirDrop o iCloud Drive.";
+"library.empty.step2" = "Tocca %@, poi scegli il file nell'app File.";
+"library.empty.step3" = "Gioca. I tuoi progressi si salvano automaticamente";
+"library.empty.romHint" = "Ancora nessuna ROM? Esistono tanti giochi gratuiti e legali. Cerca \"GBA homebrew\" online.";
+"library.empty.legal" = "Importa solo file che possiedi legalmente.";
+"library.search" = "Cerca giochi";
+"library.sort.lastPlayed" = "Giocato di recente";
+"library.sort.title" = "Titolo";
+"library.sort.dateAdded" = "Data di aggiunta";
+"library.played.ago" = "Giocato %@";
+"library.playTime" = "%@h %@m giocato";
+"library.playTime.minutes" = "%@m giocato";
+
+/* Game Details */
+"details.continue" = "Continua l'ultima sessione";
+"details.newGame" = "Nuova partita";
+"details.saveSlots" = "Slot di salvataggio";
+"details.delete" = "Elimina gioco";
+"details.delete.confirm" = "Eliminare questo gioco e tutti i dati di salvataggio?";
+"details.rename" = "Rinomina";
+"details.rename.title" = "Rinomina gioco";
+"details.newGame.confirm.title" = "Iniziare una nuova partita?";
+
+/* In-Game Overlay */
+"overlay.paused" = "IN PAUSA";
+"overlay.resume" = "Riprendi";
+"overlay.rewind" = "Riavvolgi %@s";
+"overlay.screenshot" = "Condividi screenshot";
+"overlay.quit" = "Torna alla libreria";
+"overlay.speed" = "VELOCITÀ";
+"overlay.saveSlots" = "SLOT DI SALVATAGGIO";
+"overlay.slot" = "Slot %@";
+"overlay.slot.empty" = "Vuoto";
+"overlay.save" = "Salva";
+"overlay.load" = "Carica";
+
+/* Settings */
+"settings.title" = "Impostazioni";
+"settings.controls" = "Comandi";
+"settings.opacity" = "Opacità dei pulsanti";
+"settings.size" = "Dimensione dei pulsanti";
+"settings.haptics" = "Feedback aptico";
+"settings.buttonLock" = "Blocca i pulsanti tenendo premuto";
+"settings.buttonLock.controllerNote" = "Non utilizzato quando è collegato un controller.";
+"settings.controller.footer" = "Controller Bluetooth (Xbox, PlayStation, MFi) supportati. Abbinalo nelle Impostazioni di iOS.";
+"settings.dpad" = "Croce direzionale";
+"settings.joystick" = "Joystick";
+"settings.nds.swapScreens" = "Inverti schermi";
+"settings.nds.language" = "Lingua del gioco";
+"settings.nds.language.auto" = "Auto (%@)";
+"settings.nds.language.footer" = "«Auto» segue la lingua del tuo iPhone, o l'inglese se il DS non la supporta. La lingua si applica all'avvio di una nuova partita. La maggior parte dei giochi salva la lingua nel file di salvataggio e non la modifica più. La lingua cambia solo se la ROM lo consente. Molte ROM contengono una sola lingua.";
+"settings.nds.clock.manual" = "Imposta data e ora manualmente";
+"settings.nds.clock.pickerLabel" = "Data e ora";
+"settings.general" = "Generali";
+"settings.legal" = "Note legali e licenze";
+"settings.about" = "Informazioni";
+"settings.app" = "Retro Pal";
+"settings.version" = "Versione";
+"settings.core" = "Core dell'emulatore";
+"settings.disclaimer" = "Retro Pal è un emulatore locale. Non include giochi. Importa solo file di cui possiedi legalmente i diritti.";
+"settings.restore" = "Ripristina acquisti";
+
+/* Pro */
+"pro.title" = "Retro Pal Pro";
+"pro.purchased" = "Acquistato";
+"pro.forever" = "%@, per sempre";
+"pro.monthly" = "o %@/mese";
+"pro.notNow" = "Non ora";
+"pro.restore" = "Ripristina acquisti";
+"pro.unavailable" = "Pro non disponibile. Controlla la connessione.";
+"pro.retry" = "Riprova";
+"pro.purchasing" = "Acquisto in corso...";
+"pro.waiting" = "In attesa di approvazione";
+"pro.waitingDetail" = "Pro verrà sbloccato automaticamente dopo l'approvazione.";
+"pro.failed" = "Acquisto non riuscito. Riprovare?";
+"pro.tryAgain" = "Riprova";
+"pro.welcome" = "Benvenuto in Pro!";
+"pro.benefit.speed" = "Tutte le velocità: da 0,25x a 4x";
+"pro.benefit.slots" = "5 slot di salvataggio (invece di 2)";
+"pro.benefit.rewind" = "Riavvolgimento di 30 secondi (GBA/GB/GBC)";
+"pro.benefit.cheats" = "Codici trucco (GameShark / Action Replay)";
+"pro.benefit.controls" = "Comandi personalizzati (fino a 3 preset)";
+"pro.benefit.speed.short" = "Tutte le velocità";
+"pro.benefit.slots.short" = "5 slot di salvataggio";
+"pro.benefit.rewind.short" = "Riavvolgimento 30s";
+"pro.benefit.cheats.short" = "Codici trucco";
+"pro.benefit.controls.short" = "Controlli personalizzati";
+"pro.badge" = "Funzione Pro";
+"pro.seeAllBenefits" = "Vedi tutti i vantaggi Pro";
+
+"pro.compare.header.free" = "Gratis";
+"pro.compare.header.pro" = "Pro";
+"pro.compare.sectionDivider" = "Con Pro";
+"pro.compare.row.noAds" = "Niente pubblicità";
+"pro.compare.row.allSystems" = "Tutte le console";
+"pro.compare.row.autoSave" = "Salvataggio auto";
+"pro.compare.row.screenshots" = "Condivisione screenshot";
+"pro.compare.row.iCloud" = "Sincronizzazione iCloud";
+"pro.compare.row.controllers" = "Controller Bluetooth";
+"pro.compare.row.slots" = "Slot di salvataggio";
+"pro.compare.row.speeds" = "Velocità";
+"pro.compare.row.rewind" = "Riavvolgimento (GBA/GB/GBC)";
+"pro.compare.row.cheats" = "Codici trucco";
+"pro.compare.row.controls" = "Comandi personalizzati";
+"pro.compare.values.freeSpeeds" = "1×, 1,5×";
+"pro.compare.values.proSpeeds" = "0,25×–4×";
+"pro.compare.values.proControls" = "3 preset";
+
+/* Prompts */
+"prompt.speed.title" = "Hai giocato %@ minuti a 1,5x";
+"prompt.speed.subtitle" = "A 4x, la stessa sessione vola via. Sblocca tutte le velocità, per sempre.";
+"prompt.slots.title" = "Tutti gli slot di salvataggio sono pieni";
+"prompt.slots.subtitle" = "Sblocca 5 slot per non dover mai sovrascrivere. Un solo acquisto, per sempre.";
+"prompt.milestone.title" = "Hai giocato %@ minuti a giochi retro";
+"prompt.milestone.subtitle" = "Ti piace davvero. Sblocca l'esperienza completa.";
+"prompt.rewind.title" = "Devi tornare più indietro?";
+"prompt.rewind.subtitle" = "Pro ti dà 30 secondi di riavvolgimento su GBA/GB/GBC. Non perdere mai più una boss fight.";
+"prompt.cheats.title" = "Hai giocato 4 ore a %@. Pronto a giocare senza limiti?";
+"prompt.cheats.subtitle" = "Sblocca codici trucco, velocità massima e altro. Un acquisto, e basta. Per sempre.";
+"prompt.generic.title" = "Retro Pal Pro";
+"prompt.generic.subtitle" = "Sblocca tutte le velocità, 5 slot, riavvolgimento di 30s (GBA/GB/GBC) e altro.";
+
+/* Screenshot */
+"screenshot.share" = "Condividi";
+"screenshot.save" = "Salva";
+"screenshot.dismiss" = "Chiudi";
+"screenshot.footer" = "Retro Pal sull'App Store";
+"screenshot.newGame" = "Appena iniziato";
+"screenshot.proMember" = "👑 Membro Pro";
+"screenshot.permissionDenied.title" = "Accesso foto richiesto";
+"screenshot.permissionDenied.message" = "Consenti a Retro Pal di salvare screenshot nella tua libreria foto dalle Impostazioni.";
+"screenshot.permissionDenied.settings" = "Apri Impostazioni";
+"screenshot.permissionDenied.cancel" = "Annulla";
+"screenshot.saveError.title" = "Salvataggio non riuscito";
+"screenshot.saveError.message" = "Impossibile salvare lo screenshot.";
+
+/* Legal */
+"legal.title" = "Note legali";
+"legal.disclaimer" = "Questa app non include giochi. Devi fornire i tuoi file ROM. Importa solo file di cui possiedi legalmente i diritti.";
+"legal.mgba" = "Licenza mGBA";
+"legal.melonds" = "Licenza melonDS";
+"legal.importantNotice.title" = "Avviso importante";
+"legal.aboutApp.title" = "Informazioni sull'app";
+"legal.aboutApp.description1" = "Retro Pal è un emulatore locale per giochi Game Boy Advance, Game Boy, Game Boy Color e Nintendo DS. Non scarica, distribuisce né fornisce accesso a contenuti di gioco. Tutti i file ROM devono essere importati dall'utente dalla memoria del proprio dispositivo tramite l'app File.";
+"legal.aboutApp.description2" = "Questa app non si connette ad alcun server esterno, non fornisce un catalogo di giochi e non facilita il download di materiale protetto da copyright.";
+"legal.privacy.title" = "Privacy";
+"legal.privacy.description" = "Retro Pal memorizza tutti i dati localmente sul tuo dispositivo. Non vengono raccolti né trasmessi dati personali, statistiche d'uso o informazioni sui giochi. L'app non richiede connessione Internet per funzionare.";
+"legal.licenses.title" = "Licenze open source";
+"legal.mgba.licenseLine" = "Concesso in licenza sotto la Mozilla Public License 2.0 (MPL-2.0)";
+"legal.mgba.description" = "mGBA è un emulatore Game Boy Advance utilizzato come motore di emulazione principale in questa app. Il codice sorgente di mGBA è disponibile su [https://mgba.io](https://mgba.io)";
+"legal.melonds.licenseLine" = "Concesso in licenza sotto la GNU General Public License v3.0 (GPL-3.0)";
+"legal.melonds.description" = "melonDS è un emulatore Nintendo DS utilizzato come motore di emulazione per i giochi DS in questa app. Il codice sorgente di melonDS è disponibile su [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.retropal" = "Licenza Retro Pal";
+"legal.retropal.licenseLine" = "Concesso in licenza sotto la GNU General Public License v3.0 (GPL-3.0)";
+"legal.retropal.description" = "Il codice sorgente completo di Retro Pal è disponibile su [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Il software è fornito senza alcuna garanzia.";
+"legal.compliance" = "Retro Pal è distribuito sotto la GNU General Public License v3.0. Si basa su mGBA (Mozilla Public License 2.0) e melonDS (GPL-3.0), utilizzati senza modifiche. Il codice sorgente corrispondente completo è disponibile nel repository collegato sopra, e il software è fornito senza alcuna garanzia.";
+
+"details.noSaves" = "Nessun salvataggio. Salva durante il gioco con il pulsante menu.";
+"library.importing" = "Importazione ROM...";
+
+/* Game Details - New */
+"details.play" = "Gioca";
+"library.importError" = "Errore di importazione";
+
+/* Overlay - New */
+"overlay.cheats" = "Codici trucco";
+"overlay.sound" = "Audio";
+"overlay.sound.off" = "Audio disattivato";
+"overlay.overwrite.title" = "Sovrascrivere lo slot %@?";
+"overlay.overwrite.message" = "Lo stato di salvataggio esistente verrà sostituito.";
+"overlay.overwrite" = "Sovrascrivi";
+"overlay.load.confirm.title" = "Caricare lo slot %@?";
+"overlay.load.confirm.message" = "I progressi non salvati andranno persi.";
+
+/* Cheats */
+"cheats.hint.gba" = "Formato GameShark, CodeBreaker o Action Replay";
+"cheats.hint.nds" = "Formato Action Replay DS (XXXXXXXX YYYYYYYY)";
+"cheats.namePlaceholder" = "Nome (facoltativo)";
+"cheats.add" = "Aggiungi codice";
+"cheats.invalid.gba" = "Codice non riconosciuto. Formato atteso: GameShark, CodeBreaker o Action Replay.";
+"cheats.invalid.nds" = "Codice non riconosciuto. Formato atteso: Action Replay DS (XXXXXXXX YYYYYYYY, una coppia per riga).";
+"cheats.empty" = "Nessun trucco attivo";
+"cheats.findHint" = "I codici si trovano facilmente online. Cerca i cheat code del tuo gioco.";
+"cheats.clearAll" = "Cancella tutto";
+"cheats.done" = "Fatto";
+"cheats.permanenceWarning" = "Alcuni trucchi hanno effetti permanenti una volta caricati. Puoi ripristinare il salvataggio pre-trucco per annullarli, ma perderai i progressi fatti da allora.";
+"cheats.hackDisclaimer" = "I trucchi usano indirizzi di memoria del gioco originale. La maggior parte delle versioni modificate di un gioco resta compatibile, ma alcune potrebbero causare comportamenti imprevisti.";
+
+/* Emulator */
+"emulator.loading" = "Caricamento ROM...";
+"emulator.loadFailed" = "Impossibile caricare la ROM\n%@";
+
+/* Common */
+"common.cancel" = "Annulla";
+"common.ok" = "OK";
+"common.save" = "Salva";
+
+/* Pro Prompts - New */
+"prompt.cheatsTapped.title" = "Pronto a giocare senza limiti?";
+"prompt.cheatsTapped.subtitle" = "Sblocca codici trucco, velocità massima e altro. Un acquisto, e basta. Per sempre.";
+"prompt.speedTapped.title" = "Attraversa i tuoi giochi più velocemente";
+"prompt.speedTapped.subtitle" = "A 4×, la stessa sessione vola via. 0,25× e 0,5× per i momenti difficili. Sblocca tutte le velocità, per sempre.";
+"prompt.slotsTapped.title" = "Niente più limiti di slot";
+"prompt.slotsTapped.subtitle" = "Sblocca 5 slot di salvataggio così c'è sempre posto. Un acquisto, per sempre.";
+"settings.appLabel" = "App";
+
+"review.headline" = "Ti stai divertendo?";
+"review.body" = "Le recensioni sono ciò che tiene in vita le piccole app sull'App Store. Una frase aiuta tantissimo.";
+"review.cta" = "Valuta 5 stelle";
+"review.later" = "Non ora";
+"cheats.type" = "Tipo di codice";
+"cheats.restore" = "Ripristina salvataggio pre-trucchi";
+"cheats.restore.confirm.title" = "Ripristinare il salvataggio pre-trucchi?";
+"cheats.restore.confirm.message" = "Verrà caricato lo stato del gioco precedente all'inserimento di qualunque codice trucco. I progressi successivi andranno persi. Da usare soprattutto se un trucco ha causato un bug.";
+"cheats.restore.confirm.action" = "Ripristina";
+
+/* Control Layout */
+"settings.customizeControls" = "Personalizza controlli";
+"layout.activeLayout" = "Layout attivo";
+"layout.default" = "Predefinito";
+"layout.presets" = "Preset";
+"layout.presets.footer" = "Ruota il dispositivo nell'editor per personalizzare il layout orizzontale separatamente.";
+"layout.newPreset" = "Nuovo preset";
+"layout.newPreset.title" = "Nuovo preset";
+"layout.newPreset.message" = "Inserisci un nome per questo preset.";
+"layout.newPreset.namePlaceholder" = "Nome del preset";
+"layout.newPreset.create" = "Crea";
+"layout.editor.screenPreview" = "Schermo di gioco";
+"layout.editor.touchScreen" = "Schermo tattile";
+"layout.editor.landscape" = "Modifica: Orizzontale";
+"layout.editor.portrait" = "Modifica: Verticale";
+"layout.editor.reset" = "Reimposta";
+"layout.editor.reset.title" = "Reimposta predefiniti";
+"layout.editor.reset.message" = "Questo riporterà tutte le posizioni dei pulsanti per l'orientamento attuale alle posizioni predefinite.";
+"layout.editor.visibility" = "Visibilità";
+"layout.editor.visibility.message" = "Tocca un pulsante per mostrarlo o nasconderlo.";
+"layout.editor.show" = "Mostra";
+"layout.editor.hide" = "Nascondi";
+"layout.editor.menuCannotHide" = "Il pulsante menu non può essere nascosto.";
+"layout.editor.topScreen" = "Schermo superiore";
+"layout.editor.bottomScreen" = "Schermo inferiore";
+"layout.screenSize.small" = "Piccolo";
+"layout.screenSize.medium" = "Medio";
+"layout.screenSize.large" = "Grande";
+"layout.editor.done" = "Fatto";
+"layout.newPreset.systems" = "Sistemi";
+"layout.editor.buttons" = "Pulsanti";
+"prompt.controls.title" = "Trova la posizione perfetta per le tue mani";
+"prompt.controls.subtitle" = "Personalizza posizione, dimensione e opacità dei pulsanti. Crea fino a 3 preset per giochi diversi.";
+"layout.editor.screenSize" = "Dimensione schermo";
+"layout.editor.landscapeShort" = "Orizzontale";
+"layout.editor.portraitShort" = "Verticale";
+"layout.editor.screenSizeLandscapeInfo" = "La dimensione dello schermo è modificabile solo in modalità verticale. In orizzontale, entrambi gli schermi vengono visualizzati affiancati alla stessa dimensione.";
+/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+"pro.legal.terms" = "Termini di utilizzo";
+"pro.legal.privacy" = "Politica sulla privacy";
+
+/* Settings — sezione sincronizzazione iCloud (Settimana 4) */
+"settings.sync.section" = "Sincronizzazione";
+"settings.sync.state.resolving" = "Connessione in corso…";
+"settings.sync.state.available" = "Sincronizzato";
+"settings.sync.state.unavailable" = "Non disponibile";
+
+/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+"saveImport.title" = "Importa salvataggio";
+"saveImport.success.title" = "Salvataggio importato";
+"saveImport.success.message" = "Avvia %@ e riprendi dal menu del gioco. Questo salvataggio non compare negli slot di salvataggio dell'app.";
+"saveImport.overwrite.title" = "Salvataggio esistente";
+"saveImport.overwrite.message" = "%@ ha già un salvataggio. Verrà conservato come backup se lo sostituisci.";
+"saveImport.overwrite.confirm" = "Sostituisci";
+"saveImport.error.invalidFormat" = "Questo file non è un salvataggio riconosciuto. Importa un file .sav o .srm esportato da un altro emulatore.";
+"saveImport.error.wrongSystem" = "Questo salvataggio non è compatibile con questo gioco.";
+"saveImport.error.duplicateExists" = "Esiste già un salvataggio per questo gioco.";
+"saveImport.error.fileAccessDenied" = "Impossibile leggere il file selezionato.";
+"saveImport.error.writeFailed" = "Impossibile salvare il file.";
+"saveImport.redirect.message" = "Per importare un salvataggio da un altro emulatore, apri la scheda del gioco e tocca «Importa salvataggio». Importa prima la ROM del gioco se non è nella tua libreria.";
+
+/* Guides section + how-to sheets (Week 5) */
+"guide.importRom.title" = "Aggiungi un gioco";
+"guide.importRom.intro" = "Retro Pal non include giochi. Sei tu a fornire i tuoi file ROM, di cui possiedi legalmente i diritti (le tue cartucce o giochi homebrew gratuiti e legali).";
+"guide.importRom.step1" = "Porta il file del gioco (.gba, .gb, .gbc o .nds) sul tuo iPhone: scaricalo in Safari, via AirDrop da un computer o da iCloud Drive.";
+"guide.importRom.step2" = "Controlla che compaia nell'app File (in Download, Su iPhone o iCloud Drive).";
+"guide.importRom.step3" = "In Retro Pal, tocca il pulsante + in alto nella libreria.";
+"guide.importRom.step4" = "Scegli il file. Il gioco compare subito nella tua libreria, pronto da giocare.";
+"guide.importRom.footer" = "Formati supportati: .gba, .gb, .gbc, .nds e file .zip con un solo gioco. I .7z e gli archivi con più giochi non sono supportati; estrai prima un singolo file. Importa solo file di cui possiedi i diritti.";
+"settings.guides.section" = "Guide";
+"settings.controller.row" = "Controller";
+"common.done" = "Fine";
+"guide.saveImport.intro" = "Riprendi i tuoi progressi da un altro emulatore (Manic, Delta, OpenEmu, RetroArch).";
+"guide.saveImport.step1" = "Esporta il salvataggio dal tuo altro emulatore (un file .sav o .srm) e salvalo nell'app File.";
+"guide.saveImport.step2" = "In Retro Pal, importa la ROM del gioco se non è già nella tua libreria.";
+"guide.saveImport.step3" = "Apri la scheda del gioco e tocca «Importa salvataggio».";
+"guide.saveImport.step4" = "Scegli il file, avvia il gioco e riprendi dal menu del gioco.";
+"guide.saveImport.footer" = "È il salvataggio interno del gioco, diverso dagli slot di salvataggio rapido dell'app.";
+"guide.controller.title" = "Collegare un controller";
+"guide.controller.step1" = "Metti il controller in modalità di abbinamento.";
+"guide.controller.step2" = "Apri Impostazioni iOS, poi Bluetooth, e collega il controller al tuo iPhone.";
+"guide.controller.step3" = "Torna in Retro Pal. Il controller viene rilevato automaticamente e i comandi a schermo scompaiono.";
+"guide.controller.footer" = "Compatibile con controller MFi, Xbox, PlayStation, 8BitDo e la maggior parte dei controller Bluetooth.";
+"guide.controller.status.connected" = "Controller collegato: %@";
+"guide.controller.status.disconnected" = "Nessun controller collegato";
+"guide.controller.genericName" = "Controller";
+"guide.controller.status.none" = "Nessun controller";
+"saveImport.mismatch.title" = "Salvataggio di un altro gioco?";
+"saveImport.mismatch.message" = "Il nome del file non corrisponde a %@. Importalo solo se sei certo che appartenga a questo gioco.";
+"saveImport.mismatch.confirm" = "Importa comunque";

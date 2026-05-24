@@ -1,0 +1,317 @@
+/* Romanian - Localizable.strings */
+
+/* Tabs */
+"tab.library" = "Bibliotecă";
+"tab.settings" = "Setări";
+
+/* Library */
+"library.title" = "Bibliotecă";
+"library.empty.title" = "Bun venit pe Retro Pal";
+"library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire, niciodată.";
+"library.empty.button" = "Adaugă un joc";
+"library.empty.step1" = "Adu un joc (.gba, .gb, .gbc sau .nds) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
+"library.empty.step2" = "Atinge %@, apoi alege fișierul în aplicația Fișiere.";
+"library.empty.step3" = "Joacă. Progresul se salvează automat";
+"library.empty.romHint" = "Încă nu ai ROM-uri? Există multe jocuri gratuite și legale. Caută online \"GBA homebrew\".";
+"library.empty.legal" = "Importă doar fișiere pe care le deții legal.";
+"library.search" = "Caută jocuri";
+"library.sort.lastPlayed" = "Jucat recent";
+"library.sort.title" = "Titlu";
+"library.sort.dateAdded" = "Data adăugării";
+"library.played.ago" = "Jucat %@";
+"library.playTime" = "%@h %@m jucate";
+"library.playTime.minutes" = "%@m jucate";
+
+/* Game Details */
+"details.continue" = "Continuă ultima sesiune";
+"details.newGame" = "Joc nou";
+"details.saveSlots" = "Sloturi de salvare";
+"details.delete" = "Șterge jocul";
+"details.delete.confirm" = "Ștergi acest joc și toate datele salvate?";
+"details.rename" = "Redenumește";
+"details.rename.title" = "Redenumește jocul";
+"details.newGame.confirm.title" = "Începi un joc nou?";
+
+/* In-Game Overlay */
+"overlay.paused" = "PAUZĂ";
+"overlay.resume" = "Continuă";
+"overlay.rewind" = "Derulează %@s";
+"overlay.screenshot" = "Partajează captură de ecran";
+"overlay.quit" = "Înapoi la bibliotecă";
+"overlay.speed" = "VITEZĂ";
+"overlay.saveSlots" = "SLOTURI DE SALVARE";
+"overlay.slot" = "Slot %@";
+"overlay.slot.empty" = "Gol";
+"overlay.save" = "Salvează";
+"overlay.load" = "Încarcă";
+
+/* Settings */
+"settings.title" = "Setări";
+"settings.controls" = "Comenzi";
+"settings.opacity" = "Opacitatea butoanelor";
+"settings.size" = "Dimensiunea butoanelor";
+"settings.haptics" = "Feedback haptic";
+"settings.buttonLock" = "Blochează butoanele ținând apăsat";
+"settings.buttonLock.controllerNote" = "Nu este folosit când un controller este conectat.";
+"settings.controller.footer" = "Controlere Bluetooth (Xbox, PlayStation, MFi) acceptate. Asociază-l în Setările iOS.";
+"settings.dpad" = "D-Pad";
+"settings.joystick" = "Joystick";
+"settings.nds.swapScreens" = "Inversează ecranele";
+"settings.nds.language" = "Limba jocului";
+"settings.nds.language.auto" = "Auto (%@)";
+"settings.nds.language.footer" = "„Auto” urmează limba iPhone-ului tău sau engleza, dacă DS nu o acceptă. Limba se aplică la pornirea unui joc nou. Majoritatea jocurilor salvează limba în fișierul de salvare și nu o mai modifică ulterior. Limba se schimbă doar dacă ROM-ul permite acest lucru. Multe ROM-uri conțin o singură limbă.";
+"settings.nds.clock.manual" = "Setează data și ora manual";
+"settings.nds.clock.pickerLabel" = "Data și ora";
+"settings.general" = "General";
+"settings.legal" = "Mențiuni legale și licențe";
+"settings.about" = "Despre";
+"settings.app" = "Retro Pal";
+"settings.version" = "Versiune";
+"settings.core" = "Nucleul emulatorului";
+"settings.disclaimer" = "Retro Pal este un emulator local. Nu include niciun joc. Importă doar fișiere pe care le deții legal.";
+"settings.restore" = "Restaurează achizițiile";
+
+/* Pro */
+"pro.title" = "Retro Pal Pro";
+"pro.purchased" = "Achiziționat";
+"pro.forever" = "%@, pentru totdeauna";
+"pro.monthly" = "sau %@/lună";
+"pro.notNow" = "Nu acum";
+"pro.restore" = "Restaurează achizițiile";
+"pro.unavailable" = "Pro indisponibil. Verifică-ți conexiunea.";
+"pro.retry" = "Reîncearcă";
+"pro.purchasing" = "Se achiziționează...";
+"pro.waiting" = "Se așteaptă aprobarea";
+"pro.waitingDetail" = "Pro va fi deblocat automat după aprobare.";
+"pro.failed" = "Achiziția a eșuat. Încerci din nou?";
+"pro.tryAgain" = "Încearcă din nou";
+"pro.welcome" = "Bine ai venit în Pro!";
+"pro.benefit.speed" = "Toate vitezele: de la 0,25x la 4x";
+"pro.benefit.slots" = "5 sloturi de salvare (în loc de 2)";
+"pro.benefit.rewind" = "Derulare înapoi de 30 de secunde (GBA/GB/GBC)";
+"pro.benefit.cheats" = "Coduri de trișare (GameShark / Action Replay)";
+"pro.benefit.controls" = "Comenzi personalizate (până la 3 presetări)";
+"pro.benefit.speed.short" = "Toate vitezele";
+"pro.benefit.slots.short" = "5 sloturi de salvare";
+"pro.benefit.rewind.short" = "Derulare 30 s";
+"pro.benefit.cheats.short" = "Coduri de trișare";
+"pro.benefit.controls.short" = "Controale personalizate";
+"pro.badge" = "Funcție Pro";
+"pro.seeAllBenefits" = "Vezi toate avantajele Pro";
+
+"pro.compare.header.free" = "Gratuit";
+"pro.compare.header.pro" = "Pro";
+"pro.compare.sectionDivider" = "Cu Pro";
+"pro.compare.row.noAds" = "Fără reclame";
+"pro.compare.row.allSystems" = "Toate consolele";
+"pro.compare.row.autoSave" = "Salvare auto";
+"pro.compare.row.screenshots" = "Partajare capturi";
+"pro.compare.row.iCloud" = "Sincronizare iCloud";
+"pro.compare.row.controllers" = "Controlere Bluetooth";
+"pro.compare.row.slots" = "Sloturi de salvare";
+"pro.compare.row.speeds" = "Viteze";
+"pro.compare.row.rewind" = "Derulare (GBA/GB/GBC)";
+"pro.compare.row.cheats" = "Coduri de trișare";
+"pro.compare.row.controls" = "Comenzi personalizate";
+"pro.compare.values.freeSpeeds" = "1×, 1,5×";
+"pro.compare.values.proSpeeds" = "0,25×–4×";
+"pro.compare.values.proControls" = "3 presetări";
+
+/* Prompts */
+"prompt.speed.title" = "Ai jucat %@ minute la 1,5x";
+"prompt.speed.subtitle" = "La 4x, aceeași sesiune trece într-o clipă. Deblochează toate vitezele, pentru totdeauna.";
+"prompt.slots.title" = "Toate sloturile de salvare sunt pline";
+"prompt.slots.subtitle" = "Deblochează 5 sloturi ca să nu mai suprascrii niciodată. O singură achiziție, pentru totdeauna.";
+"prompt.milestone.title" = "Ai jucat %@ minute de jocuri retro";
+"prompt.milestone.subtitle" = "E clar că adoră asta. Deblochează experiența completă.";
+"prompt.rewind.title" = "Trebuie să te întorci mai mult?";
+"prompt.rewind.subtitle" = "Pro îți oferă 30 de secunde de derulare înapoi pe GBA/GB/GBC. Nu mai pierde niciodată o luptă cu un boss.";
+"prompt.cheats.title" = "Ai jucat 4 ore de %@. Gata să joci fără limite?";
+"prompt.cheats.subtitle" = "Deblochează coduri de trișare, viteză maximă și multe altele. O singură achiziție, atât. Pe viață.";
+"prompt.generic.title" = "Retro Pal Pro";
+"prompt.generic.subtitle" = "Deblochează toate vitezele, 5 sloturi, derulare 30s (GBA/GB/GBC) și multe altele.";
+
+/* Screenshot */
+"screenshot.share" = "Partajează";
+"screenshot.save" = "Salvează";
+"screenshot.dismiss" = "Închide";
+"screenshot.footer" = "Retro Pal pe App Store";
+"screenshot.newGame" = "Tocmai început";
+"screenshot.proMember" = "👑 Membru Pro";
+"screenshot.permissionDenied.title" = "Acces la fotografii necesar";
+"screenshot.permissionDenied.message" = "Permite Retro Pal să salveze capturi de ecran în biblioteca ta foto din Setări.";
+"screenshot.permissionDenied.settings" = "Deschide Setările";
+"screenshot.permissionDenied.cancel" = "Anulează";
+"screenshot.saveError.title" = "Salvarea a eșuat";
+"screenshot.saveError.message" = "Nu s-a putut salva captura de ecran.";
+
+/* Legal */
+"legal.title" = "Mențiuni legale";
+"legal.disclaimer" = "Această aplicație nu include jocuri. Trebuie să furnizezi propriile fișiere ROM. Importă doar fișiere pe care le deții legal.";
+"legal.mgba" = "Licența mGBA";
+"legal.melonds" = "Licența melonDS";
+"legal.importantNotice.title" = "Notificare importantă";
+"legal.aboutApp.title" = "Despre această aplicație";
+"legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color și Nintendo DS. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
+"legal.aboutApp.description2" = "Această aplicație nu se conectează la niciun server extern, nu oferă un catalog de jocuri și nu facilitează descărcarea de material protejat prin drepturi de autor.";
+"legal.privacy.title" = "Confidențialitate";
+"legal.privacy.description" = "Retro Pal stochează toate datele local pe dispozitivul tău. Nu sunt colectate sau transmise date personale, statistici de utilizare sau informații despre jocuri. Aplicația nu necesită conexiune la internet pentru a funcționa.";
+"legal.licenses.title" = "Licențe open source";
+"legal.mgba.licenseLine" = "Licențiat sub Mozilla Public License 2.0 (MPL-2.0)";
+"legal.mgba.description" = "mGBA este un emulator Game Boy Advance folosit ca motor principal de emulare în această aplicație. Codul sursă al mGBA este disponibil la [https://mgba.io](https://mgba.io)";
+"legal.melonds.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
+"legal.melonds.description" = "melonDS este un emulator Nintendo DS folosit ca motor de emulare pentru jocurile DS în această aplicație. Codul sursă al melonDS este disponibil la [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.retropal" = "Licența Retro Pal";
+"legal.retropal.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
+"legal.retropal.description" = "Codul sursă complet al Retro Pal este disponibil la [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Software-ul este furnizat fără nicio garanție.";
+"legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și melonDS (GPL-3.0), utilizate fără modificări. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
+
+"details.noSaves" = "Nicio salvare. Salvează în joc cu butonul de meniu.";
+"library.importing" = "Se importă ROM...";
+
+/* Game Details - New */
+"details.play" = "Joacă";
+"library.importError" = "Eroare la import";
+
+/* Overlay - New */
+"overlay.cheats" = "Coduri de trișare";
+"overlay.sound" = "Sunet";
+"overlay.sound.off" = "Sunet oprit";
+"overlay.overwrite.title" = "Suprascrii slotul %@?";
+"overlay.overwrite.message" = "Salvarea existentă va fi înlocuită.";
+"overlay.overwrite" = "Suprascrie";
+"overlay.load.confirm.title" = "Încarci slotul %@?";
+"overlay.load.confirm.message" = "Progresul nesalvat va fi pierdut.";
+
+/* Cheats */
+"cheats.hint.gba" = "Format GameShark, CodeBreaker sau Action Replay";
+"cheats.hint.nds" = "Format Action Replay DS (XXXXXXXX YYYYYYYY)";
+"cheats.namePlaceholder" = "Nume (opțional)";
+"cheats.add" = "Adaugă cod";
+"cheats.invalid.gba" = "Cod nerecunoscut. Format așteptat: GameShark, CodeBreaker sau Action Replay.";
+"cheats.invalid.nds" = "Cod nerecunoscut. Format așteptat: Action Replay DS (XXXXXXXX YYYYYYYY, o pereche pe linie).";
+"cheats.empty" = "Niciun cod activ";
+"cheats.findHint" = "Codurile se găsesc ușor online. Caută cheat codes pentru jocul tău.";
+"cheats.clearAll" = "Șterge tot";
+"cheats.done" = "Gata";
+"cheats.permanenceWarning" = "Unele coduri de trișare au efecte permanente odată încărcate. Poți restaura salvarea dinainte de coduri pentru a le anula, dar vei pierde progresul realizat de atunci.";
+"cheats.hackDisclaimer" = "Codurile de trișare folosesc adrese de memorie din jocul original. Majoritatea versiunilor modificate ale unui joc rămân compatibile, dar unele pot cauza comportamente neașteptate.";
+
+/* Emulator */
+"emulator.loading" = "Se încarcă ROM...";
+"emulator.loadFailed" = "Nu s-a putut încărca ROM\n%@";
+
+/* Common */
+"common.cancel" = "Anulează";
+"common.ok" = "OK";
+"common.save" = "Salvează";
+
+/* Pro Prompts - New */
+"prompt.cheatsTapped.title" = "Gata să joci fără limite?";
+"prompt.cheatsTapped.subtitle" = "Deblochează coduri de trișare, viteză maximă și multe altele. O singură achiziție, atât. Pe viață.";
+"prompt.speedTapped.title" = "Parcurge-ți jocurile mai repede";
+"prompt.speedTapped.subtitle" = "La 4×, aceeași sesiune trece într-o clipă. 0,25× și 0,5× pentru momentele dificile. Deblochează toate vitezele, pentru totdeauna.";
+"prompt.slotsTapped.title" = "Fără limite de sloturi";
+"prompt.slotsTapped.subtitle" = "Deblochează 5 sloturi de salvare ca să ai întotdeauna loc. O singură achiziție, pentru totdeauna.";
+"settings.appLabel" = "Aplicație";
+
+"review.headline" = "Te distrezi?";
+"review.body" = "Recenziile sunt ceea ce ține aplicațiile mici în viață pe App Store. O frază ajută enorm.";
+"review.cta" = "Evaluează cu 5 stele";
+"review.later" = "Nu acum";
+"cheats.type" = "Tip cod";
+"cheats.restore" = "Restaurează salvarea de dinainte de coduri";
+"cheats.restore.confirm.title" = "Restaurezi salvarea de dinainte de coduri?";
+"cheats.restore.confirm.message" = "Se va încărca starea jocului dinainte de adăugarea oricărui cod de trișare. Progresul de atunci va fi pierdut. Folosește mai ales dacă un cod a cauzat o eroare.";
+"cheats.restore.confirm.action" = "Restaurează";
+
+/* Control Layout */
+"settings.customizeControls" = "Personalizează comenzile";
+"layout.activeLayout" = "Aspect activ";
+"layout.default" = "Implicit";
+"layout.presets" = "Presetări";
+"layout.presets.footer" = "Rotește dispozitivul în editor pentru a personaliza aspectul peisaj separat.";
+"layout.newPreset" = "Presetare nouă";
+"layout.newPreset.title" = "Presetare nouă";
+"layout.newPreset.message" = "Introdu un nume pentru această presetare.";
+"layout.newPreset.namePlaceholder" = "Nume presetare";
+"layout.newPreset.create" = "Creează";
+"layout.editor.screenPreview" = "Ecran de joc";
+"layout.editor.touchScreen" = "Ecran tactil";
+"layout.editor.landscape" = "Editare: Peisaj";
+"layout.editor.portrait" = "Editare: Portret";
+"layout.editor.reset" = "Resetează";
+"layout.editor.reset.title" = "Resetează la implicit";
+"layout.editor.reset.message" = "Aceasta va reseta toate pozițiile butoanelor pentru orientarea curentă la locațiile lor implicite.";
+"layout.editor.visibility" = "Vizibilitate";
+"layout.editor.visibility.message" = "Apasă pe un buton pentru a-l arăta sau ascunde.";
+"layout.editor.show" = "Arată";
+"layout.editor.hide" = "Ascunde";
+"layout.editor.menuCannotHide" = "Butonul de meniu nu poate fi ascuns.";
+"layout.editor.topScreen" = "Ecran superior";
+"layout.editor.bottomScreen" = "Ecran inferior";
+"layout.screenSize.small" = "Mic";
+"layout.screenSize.medium" = "Mediu";
+"layout.screenSize.large" = "Mare";
+"layout.editor.done" = "Gata";
+"layout.newPreset.systems" = "Sisteme";
+"layout.editor.buttons" = "Butoane";
+"prompt.controls.title" = "Găsește poziția perfectă pentru mâinile tale";
+"prompt.controls.subtitle" = "Personalizează poziția, dimensiunea și opacitatea butoanelor. Creează până la 3 presetări pentru jocuri diferite.";
+"layout.editor.screenSize" = "Dimensiune ecran";
+"layout.editor.landscapeShort" = "Peisaj";
+"layout.editor.portraitShort" = "Portret";
+"layout.editor.screenSizeLandscapeInfo" = "Dimensiunea ecranului poate fi modificată doar în modul portret. În peisaj, ambele ecrane sunt afișate una lângă alta la aceeași dimensiune.";
+/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+"pro.legal.terms" = "Termeni de utilizare";
+"pro.legal.privacy" = "Politică de confidențialitate";
+
+/* Settings — secțiunea de sincronizare iCloud (Săptămâna 4) */
+"settings.sync.section" = "Sincronizare";
+"settings.sync.state.resolving" = "Se conectează…";
+"settings.sync.state.available" = "Sincronizat";
+"settings.sync.state.unavailable" = "Indisponibil";
+
+/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+"saveImport.title" = "Importă salvarea";
+"saveImport.success.title" = "Salvare importată";
+"saveImport.success.message" = "Deschide %@ și reia din meniul jocului. Această salvare nu apare în sloturile de salvare ale aplicației.";
+"saveImport.overwrite.title" = "Salvare existentă";
+"saveImport.overwrite.message" = "%@ are deja o salvare. Va fi păstrată ca rezervă dacă o înlocuiești.";
+"saveImport.overwrite.confirm" = "Înlocuiește";
+"saveImport.error.invalidFormat" = "Acest fișier nu este o salvare recunoscută. Importă un fișier .sav sau .srm exportat din alt emulator.";
+"saveImport.error.wrongSystem" = "Această salvare nu este compatibilă cu acest joc.";
+"saveImport.error.duplicateExists" = "Există deja o salvare pentru acest joc.";
+"saveImport.error.fileAccessDenied" = "Fișierul selectat nu a putut fi citit.";
+"saveImport.error.writeFailed" = "Salvarea nu a putut fi scrisă.";
+"saveImport.redirect.message" = "Pentru a importa o salvare din alt emulator, deschide detaliile jocului și atinge „Importă salvarea”. Importă întâi ROM-ul jocului dacă nu este în biblioteca ta.";
+
+/* Guides section + how-to sheets (Week 5) */
+"guide.importRom.title" = "Adaugă un joc";
+"guide.importRom.intro" = "Retro Pal nu include jocuri. Tu îți furnizezi propriile fișiere ROM, pentru care deții drepturile legal (propriile cartușe sau jocuri homebrew gratuite și legale).";
+"guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc sau .nds) pe iPhone: descarcă-l în Safari, prin AirDrop de pe un computer, sau din iCloud Drive.";
+"guide.importRom.step2" = "Verifică să apară în aplicația Fișiere (în Descărcări, Pe iPhone-ul meu sau iCloud Drive).";
+"guide.importRom.step3" = "În Retro Pal, atinge butonul + din partea de sus a bibliotecii.";
+"guide.importRom.step4" = "Alege fișierul. Jocul apare imediat în biblioteca ta, gata de jucat.";
+"guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds și fișiere .zip cu un singur joc. Fișierele .7z și arhivele cu mai multe jocuri nu sunt acceptate; extrage mai întâi un singur fișier. Importă doar fișiere pentru care deții drepturile.";
+"settings.guides.section" = "Ghiduri";
+"settings.controller.row" = "Controler";
+"common.done" = "Gata";
+"guide.saveImport.intro" = "Reia-ți progresul dintr-un alt emulator (Manic, Delta, OpenEmu, RetroArch).";
+"guide.saveImport.step1" = "Exportă salvarea din celălalt emulator (un fișier .sav sau .srm) și salveaz-o în aplicația Fișiere.";
+"guide.saveImport.step2" = "În Retro Pal, importă ROM-ul jocului dacă nu este deja în biblioteca ta.";
+"guide.saveImport.step3" = "Deschide detaliile jocului și atinge „Importă salvarea”.";
+"guide.saveImport.step4" = "Alege fișierul, deschide jocul și reia din meniul jocului.";
+"guide.saveImport.footer" = "Aceasta este salvarea internă a jocului, diferită de sloturile de salvare rapidă ale aplicației.";
+"guide.controller.title" = "Conectează un controler";
+"guide.controller.step1" = "Pune controlerul în modul de asociere.";
+"guide.controller.step2" = "Deschide Setări iOS, apoi Bluetooth, și conectează controlerul la iPhone.";
+"guide.controller.step3" = "Revino în Retro Pal. Controlerul este detectat automat, iar comenzile de pe ecran dispar.";
+"guide.controller.footer" = "Compatibil cu controlere MFi, Xbox, PlayStation, 8BitDo și majoritatea controlerelor Bluetooth.";
+"guide.controller.status.connected" = "Controler conectat: %@";
+"guide.controller.status.disconnected" = "Niciun controler conectat";
+"guide.controller.genericName" = "Controler";
+"guide.controller.status.none" = "Niciun controler";
+"saveImport.mismatch.title" = "Salvare de la alt joc?";
+"saveImport.mismatch.message" = "Numele fișierului nu corespunde cu %@. Importă-o doar dacă ești sigur că aparține acestui joc.";
+"saveImport.mismatch.confirm" = "Importă oricum";

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23231" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="NO">
+    <entity name="GameEntity" representedClassName="GameEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="coverType" optional="YES" attributeType="String" defaultValueString="placeholder"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="importedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastOpenedSaveSlot" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lastPlayedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastSaveStateAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="romFilePath" attributeType="String"/>
+        <attribute name="romHash" attributeType="String"/>
+        <attribute name="romSize" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="systemType" attributeType="String" defaultValueString="gba"/>
+        <attribute name="title" attributeType="String"/>
+    </entity>
+</model>

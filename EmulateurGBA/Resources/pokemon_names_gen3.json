@@ -1,0 +1,2704 @@
+{
+ "1": {
+  "fr": "Bulbizarre",
+  "de": "Bisasam",
+  "es": "Bulbasaur",
+  "it": "Bulbasaur",
+  "en": "Bulbasaur"
+ },
+ "2": {
+  "fr": "Herbizarre",
+  "de": "Bisaknosp",
+  "es": "Ivysaur",
+  "it": "Ivysaur",
+  "en": "Ivysaur"
+ },
+ "3": {
+  "fr": "Florizarre",
+  "de": "Bisaflor",
+  "es": "Venusaur",
+  "it": "Venusaur",
+  "en": "Venusaur"
+ },
+ "4": {
+  "fr": "Salamèche",
+  "de": "Glumanda",
+  "es": "Charmander",
+  "it": "Charmander",
+  "en": "Charmander"
+ },
+ "5": {
+  "fr": "Reptincel",
+  "de": "Glutexo",
+  "es": "Charmeleon",
+  "it": "Charmeleon",
+  "en": "Charmeleon"
+ },
+ "6": {
+  "fr": "Dracaufeu",
+  "de": "Glurak",
+  "es": "Charizard",
+  "it": "Charizard",
+  "en": "Charizard"
+ },
+ "7": {
+  "fr": "Carapuce",
+  "de": "Schiggy",
+  "es": "Squirtle",
+  "it": "Squirtle",
+  "en": "Squirtle"
+ },
+ "8": {
+  "fr": "Carabaffe",
+  "de": "Schillok",
+  "es": "Wartortle",
+  "it": "Wartortle",
+  "en": "Wartortle"
+ },
+ "9": {
+  "fr": "Tortank",
+  "de": "Turtok",
+  "es": "Blastoise",
+  "it": "Blastoise",
+  "en": "Blastoise"
+ },
+ "10": {
+  "fr": "Chenipan",
+  "de": "Raupy",
+  "es": "Caterpie",
+  "it": "Caterpie",
+  "en": "Caterpie"
+ },
+ "11": {
+  "fr": "Chrysacier",
+  "de": "Safcon",
+  "es": "Metapod",
+  "it": "Metapod",
+  "en": "Metapod"
+ },
+ "12": {
+  "fr": "Papilusion",
+  "de": "Smettbo",
+  "es": "Butterfree",
+  "it": "Butterfree",
+  "en": "Butterfree"
+ },
+ "13": {
+  "fr": "Aspicot",
+  "de": "Hornliu",
+  "es": "Weedle",
+  "it": "Weedle",
+  "en": "Weedle"
+ },
+ "14": {
+  "fr": "Coconfort",
+  "de": "Kokuna",
+  "es": "Kakuna",
+  "it": "Kakuna",
+  "en": "Kakuna"
+ },
+ "15": {
+  "fr": "Dardargnan",
+  "de": "Bibor",
+  "es": "Beedrill",
+  "it": "Beedrill",
+  "en": "Beedrill"
+ },
+ "16": {
+  "fr": "Roucool",
+  "de": "Taubsi",
+  "es": "Pidgey",
+  "it": "Pidgey",
+  "en": "Pidgey"
+ },
+ "17": {
+  "fr": "Roucoups",
+  "de": "Tauboga",
+  "es": "Pidgeotto",
+  "it": "Pidgeotto",
+  "en": "Pidgeotto"
+ },
+ "18": {
+  "fr": "Roucarnage",
+  "de": "Tauboss",
+  "es": "Pidgeot",
+  "it": "Pidgeot",
+  "en": "Pidgeot"
+ },
+ "19": {
+  "fr": "Rattata",
+  "de": "Rattfratz",
+  "es": "Rattata",
+  "it": "Rattata",
+  "en": "Rattata"
+ },
+ "20": {
+  "fr": "Rattatac",
+  "de": "Rattikarl",
+  "es": "Raticate",
+  "it": "Raticate",
+  "en": "Raticate"
+ },
+ "21": {
+  "fr": "Piafabec",
+  "de": "Habitak",
+  "es": "Spearow",
+  "it": "Spearow",
+  "en": "Spearow"
+ },
+ "22": {
+  "fr": "Rapasdepic",
+  "de": "Ibitak",
+  "es": "Fearow",
+  "it": "Fearow",
+  "en": "Fearow"
+ },
+ "23": {
+  "fr": "Abo",
+  "de": "Rettan",
+  "es": "Ekans",
+  "it": "Ekans",
+  "en": "Ekans"
+ },
+ "24": {
+  "fr": "Arbok",
+  "de": "Arbok",
+  "es": "Arbok",
+  "it": "Arbok",
+  "en": "Arbok"
+ },
+ "25": {
+  "fr": "Pikachu",
+  "de": "Pikachu",
+  "es": "Pikachu",
+  "it": "Pikachu",
+  "en": "Pikachu"
+ },
+ "26": {
+  "fr": "Raichu",
+  "de": "Raichu",
+  "es": "Raichu",
+  "it": "Raichu",
+  "en": "Raichu"
+ },
+ "27": {
+  "fr": "Sabelette",
+  "de": "Sandan",
+  "es": "Sandshrew",
+  "it": "Sandshrew",
+  "en": "Sandshrew"
+ },
+ "28": {
+  "fr": "Sablaireau",
+  "de": "Sandamer",
+  "es": "Sandslash",
+  "it": "Sandslash",
+  "en": "Sandslash"
+ },
+ "29": {
+  "fr": "Nidoran♀",
+  "de": "Nidoran♀",
+  "es": "Nidoran♀",
+  "it": "Nidoran♀",
+  "en": "Nidoran♀"
+ },
+ "30": {
+  "fr": "Nidorina",
+  "de": "Nidorina",
+  "es": "Nidorina",
+  "it": "Nidorina",
+  "en": "Nidorina"
+ },
+ "31": {
+  "fr": "Nidoqueen",
+  "de": "Nidoqueen",
+  "es": "Nidoqueen",
+  "it": "Nidoqueen",
+  "en": "Nidoqueen"
+ },
+ "32": {
+  "fr": "Nidoran♂",
+  "de": "Nidoran♂",
+  "es": "Nidoran♂",
+  "it": "Nidoran♂",
+  "en": "Nidoran♂"
+ },
+ "33": {
+  "fr": "Nidorino",
+  "de": "Nidorino",
+  "es": "Nidorino",
+  "it": "Nidorino",
+  "en": "Nidorino"
+ },
+ "34": {
+  "fr": "Nidoking",
+  "de": "Nidoking",
+  "es": "Nidoking",
+  "it": "Nidoking",
+  "en": "Nidoking"
+ },
+ "35": {
+  "fr": "Mélofée",
+  "de": "Piepi",
+  "es": "Clefairy",
+  "it": "Clefairy",
+  "en": "Clefairy"
+ },
+ "36": {
+  "fr": "Mélodelfe",
+  "de": "Pixi",
+  "es": "Clefable",
+  "it": "Clefable",
+  "en": "Clefable"
+ },
+ "37": {
+  "fr": "Goupix",
+  "de": "Vulpix",
+  "es": "Vulpix",
+  "it": "Vulpix",
+  "en": "Vulpix"
+ },
+ "38": {
+  "fr": "Feunard",
+  "de": "Vulnona",
+  "es": "Ninetales",
+  "it": "Ninetales",
+  "en": "Ninetales"
+ },
+ "39": {
+  "fr": "Rondoudou",
+  "de": "Pummeluff",
+  "es": "Jigglypuff",
+  "it": "Jigglypuff",
+  "en": "Jigglypuff"
+ },
+ "40": {
+  "fr": "Grodoudou",
+  "de": "Knuddeluff",
+  "es": "Wigglytuff",
+  "it": "Wigglytuff",
+  "en": "Wigglytuff"
+ },
+ "41": {
+  "fr": "Nosferapti",
+  "de": "Zubat",
+  "es": "Zubat",
+  "it": "Zubat",
+  "en": "Zubat"
+ },
+ "42": {
+  "fr": "Nosferalto",
+  "de": "Golbat",
+  "es": "Golbat",
+  "it": "Golbat",
+  "en": "Golbat"
+ },
+ "43": {
+  "fr": "Mystherbe",
+  "de": "Myrapla",
+  "es": "Oddish",
+  "it": "Oddish",
+  "en": "Oddish"
+ },
+ "44": {
+  "fr": "Ortide",
+  "de": "Duflor",
+  "es": "Gloom",
+  "it": "Gloom",
+  "en": "Gloom"
+ },
+ "45": {
+  "fr": "Rafflesia",
+  "de": "Giflor",
+  "es": "Vileplume",
+  "it": "Vileplume",
+  "en": "Vileplume"
+ },
+ "46": {
+  "fr": "Paras",
+  "de": "Paras",
+  "es": "Paras",
+  "it": "Paras",
+  "en": "Paras"
+ },
+ "47": {
+  "fr": "Parasect",
+  "de": "Parasek",
+  "es": "Parasect",
+  "it": "Parasect",
+  "en": "Parasect"
+ },
+ "48": {
+  "fr": "Mimitoss",
+  "de": "Bluzuk",
+  "es": "Venonat",
+  "it": "Venonat",
+  "en": "Venonat"
+ },
+ "49": {
+  "fr": "Aéromite",
+  "de": "Omot",
+  "es": "Venomoth",
+  "it": "Venomoth",
+  "en": "Venomoth"
+ },
+ "50": {
+  "fr": "Taupiqueur",
+  "de": "Digda",
+  "es": "Diglett",
+  "it": "Diglett",
+  "en": "Diglett"
+ },
+ "51": {
+  "fr": "Triopikeur",
+  "de": "Digdri",
+  "es": "Dugtrio",
+  "it": "Dugtrio",
+  "en": "Dugtrio"
+ },
+ "52": {
+  "fr": "Miaouss",
+  "de": "Mauzi",
+  "es": "Meowth",
+  "it": "Meowth",
+  "en": "Meowth"
+ },
+ "53": {
+  "fr": "Persian",
+  "de": "Snobilikat",
+  "es": "Persian",
+  "it": "Persian",
+  "en": "Persian"
+ },
+ "54": {
+  "fr": "Psykokwak",
+  "de": "Enton",
+  "es": "Psyduck",
+  "it": "Psyduck",
+  "en": "Psyduck"
+ },
+ "55": {
+  "fr": "Akwakwak",
+  "de": "Entoron",
+  "es": "Golduck",
+  "it": "Golduck",
+  "en": "Golduck"
+ },
+ "56": {
+  "fr": "Férosinge",
+  "de": "Menki",
+  "es": "Mankey",
+  "it": "Mankey",
+  "en": "Mankey"
+ },
+ "57": {
+  "fr": "Colossinge",
+  "de": "Rasaff",
+  "es": "Primeape",
+  "it": "Primeape",
+  "en": "Primeape"
+ },
+ "58": {
+  "fr": "Caninos",
+  "de": "Fukano",
+  "es": "Growlithe",
+  "it": "Growlithe",
+  "en": "Growlithe"
+ },
+ "59": {
+  "fr": "Arcanin",
+  "de": "Arkani",
+  "es": "Arcanine",
+  "it": "Arcanine",
+  "en": "Arcanine"
+ },
+ "60": {
+  "fr": "Ptitard",
+  "de": "Quapsel",
+  "es": "Poliwag",
+  "it": "Poliwag",
+  "en": "Poliwag"
+ },
+ "61": {
+  "fr": "Têtarte",
+  "de": "Quaputzi",
+  "es": "Poliwhirl",
+  "it": "Poliwhirl",
+  "en": "Poliwhirl"
+ },
+ "62": {
+  "fr": "Tartard",
+  "de": "Quappo",
+  "es": "Poliwrath",
+  "it": "Poliwrath",
+  "en": "Poliwrath"
+ },
+ "63": {
+  "fr": "Abra",
+  "de": "Abra",
+  "es": "Abra",
+  "it": "Abra",
+  "en": "Abra"
+ },
+ "64": {
+  "fr": "Kadabra",
+  "de": "Kadabra",
+  "es": "Kadabra",
+  "it": "Kadabra",
+  "en": "Kadabra"
+ },
+ "65": {
+  "fr": "Alakazam",
+  "de": "Simsala",
+  "es": "Alakazam",
+  "it": "Alakazam",
+  "en": "Alakazam"
+ },
+ "66": {
+  "fr": "Machoc",
+  "de": "Machollo",
+  "es": "Machop",
+  "it": "Machop",
+  "en": "Machop"
+ },
+ "67": {
+  "fr": "Machopeur",
+  "de": "Maschock",
+  "es": "Machoke",
+  "it": "Machoke",
+  "en": "Machoke"
+ },
+ "68": {
+  "fr": "Mackogneur",
+  "de": "Machomei",
+  "es": "Machamp",
+  "it": "Machamp",
+  "en": "Machamp"
+ },
+ "69": {
+  "fr": "Chétiflor",
+  "de": "Knofensa",
+  "es": "Bellsprout",
+  "it": "Bellsprout",
+  "en": "Bellsprout"
+ },
+ "70": {
+  "fr": "Boustiflor",
+  "de": "Ultrigaria",
+  "es": "Weepinbell",
+  "it": "Weepinbell",
+  "en": "Weepinbell"
+ },
+ "71": {
+  "fr": "Empiflor",
+  "de": "Sarzenia",
+  "es": "Victreebel",
+  "it": "Victreebel",
+  "en": "Victreebel"
+ },
+ "72": {
+  "fr": "Tentacool",
+  "de": "Tentacha",
+  "es": "Tentacool",
+  "it": "Tentacool",
+  "en": "Tentacool"
+ },
+ "73": {
+  "fr": "Tentacruel",
+  "de": "Tentoxa",
+  "es": "Tentacruel",
+  "it": "Tentacruel",
+  "en": "Tentacruel"
+ },
+ "74": {
+  "fr": "Racaillou",
+  "de": "Kleinstein",
+  "es": "Geodude",
+  "it": "Geodude",
+  "en": "Geodude"
+ },
+ "75": {
+  "fr": "Gravalanch",
+  "de": "Georok",
+  "es": "Graveler",
+  "it": "Graveler",
+  "en": "Graveler"
+ },
+ "76": {
+  "fr": "Grolem",
+  "de": "Geowaz",
+  "es": "Golem",
+  "it": "Golem",
+  "en": "Golem"
+ },
+ "77": {
+  "fr": "Ponyta",
+  "de": "Ponita",
+  "es": "Ponyta",
+  "it": "Ponyta",
+  "en": "Ponyta"
+ },
+ "78": {
+  "fr": "Galopa",
+  "de": "Gallopa",
+  "es": "Rapidash",
+  "it": "Rapidash",
+  "en": "Rapidash"
+ },
+ "79": {
+  "fr": "Ramoloss",
+  "de": "Flegmon",
+  "es": "Slowpoke",
+  "it": "Slowpoke",
+  "en": "Slowpoke"
+ },
+ "80": {
+  "fr": "Flagadoss",
+  "de": "Lahmus",
+  "es": "Slowbro",
+  "it": "Slowbro",
+  "en": "Slowbro"
+ },
+ "81": {
+  "fr": "Magnéti",
+  "de": "Magnetilo",
+  "es": "Magnemite",
+  "it": "Magnemite",
+  "en": "Magnemite"
+ },
+ "82": {
+  "fr": "Magnéton",
+  "de": "Magneton",
+  "es": "Magneton",
+  "it": "Magneton",
+  "en": "Magneton"
+ },
+ "83": {
+  "fr": "Canarticho",
+  "de": "Porenta",
+  "es": "Farfetch’d",
+  "it": "Farfetch’d",
+  "en": "Farfetch’d"
+ },
+ "84": {
+  "fr": "Doduo",
+  "de": "Dodu",
+  "es": "Doduo",
+  "it": "Doduo",
+  "en": "Doduo"
+ },
+ "85": {
+  "fr": "Dodrio",
+  "de": "Dodri",
+  "es": "Dodrio",
+  "it": "Dodrio",
+  "en": "Dodrio"
+ },
+ "86": {
+  "fr": "Otaria",
+  "de": "Jurob",
+  "es": "Seel",
+  "it": "Seel",
+  "en": "Seel"
+ },
+ "87": {
+  "fr": "Lamantine",
+  "de": "Jugong",
+  "es": "Dewgong",
+  "it": "Dewgong",
+  "en": "Dewgong"
+ },
+ "88": {
+  "fr": "Tadmorv",
+  "de": "Sleima",
+  "es": "Grimer",
+  "it": "Grimer",
+  "en": "Grimer"
+ },
+ "89": {
+  "fr": "Grotadmorv",
+  "de": "Sleimok",
+  "es": "Muk",
+  "it": "Muk",
+  "en": "Muk"
+ },
+ "90": {
+  "fr": "Kokiyas",
+  "de": "Muschas",
+  "es": "Shellder",
+  "it": "Shellder",
+  "en": "Shellder"
+ },
+ "91": {
+  "fr": "Crustabri",
+  "de": "Austos",
+  "es": "Cloyster",
+  "it": "Cloyster",
+  "en": "Cloyster"
+ },
+ "92": {
+  "fr": "Fantominus",
+  "de": "Nebulak",
+  "es": "Gastly",
+  "it": "Gastly",
+  "en": "Gastly"
+ },
+ "93": {
+  "fr": "Spectrum",
+  "de": "Alpollo",
+  "es": "Haunter",
+  "it": "Haunter",
+  "en": "Haunter"
+ },
+ "94": {
+  "fr": "Ectoplasma",
+  "de": "Gengar",
+  "es": "Gengar",
+  "it": "Gengar",
+  "en": "Gengar"
+ },
+ "95": {
+  "fr": "Onix",
+  "de": "Onix",
+  "es": "Onix",
+  "it": "Onix",
+  "en": "Onix"
+ },
+ "96": {
+  "fr": "Soporifik",
+  "de": "Traumato",
+  "es": "Drowzee",
+  "it": "Drowzee",
+  "en": "Drowzee"
+ },
+ "97": {
+  "fr": "Hypnomade",
+  "de": "Hypno",
+  "es": "Hypno",
+  "it": "Hypno",
+  "en": "Hypno"
+ },
+ "98": {
+  "fr": "Krabby",
+  "de": "Krabby",
+  "es": "Krabby",
+  "it": "Krabby",
+  "en": "Krabby"
+ },
+ "99": {
+  "fr": "Krabboss",
+  "de": "Kingler",
+  "es": "Kingler",
+  "it": "Kingler",
+  "en": "Kingler"
+ },
+ "100": {
+  "fr": "Voltorbe",
+  "de": "Voltobal",
+  "es": "Voltorb",
+  "it": "Voltorb",
+  "en": "Voltorb"
+ },
+ "101": {
+  "fr": "Électrode",
+  "de": "Lektrobal",
+  "es": "Electrode",
+  "it": "Electrode",
+  "en": "Electrode"
+ },
+ "102": {
+  "fr": "Noeunoeuf",
+  "de": "Owei",
+  "es": "Exeggcute",
+  "it": "Exeggcute",
+  "en": "Exeggcute"
+ },
+ "103": {
+  "fr": "Noadkoko",
+  "de": "Kokowei",
+  "es": "Exeggutor",
+  "it": "Exeggutor",
+  "en": "Exeggutor"
+ },
+ "104": {
+  "fr": "Osselait",
+  "de": "Tragosso",
+  "es": "Cubone",
+  "it": "Cubone",
+  "en": "Cubone"
+ },
+ "105": {
+  "fr": "Ossatueur",
+  "de": "Knogga",
+  "es": "Marowak",
+  "it": "Marowak",
+  "en": "Marowak"
+ },
+ "106": {
+  "fr": "Kicklee",
+  "de": "Kicklee",
+  "es": "Hitmonlee",
+  "it": "Hitmonlee",
+  "en": "Hitmonlee"
+ },
+ "107": {
+  "fr": "Tygnon",
+  "de": "Nockchan",
+  "es": "Hitmonchan",
+  "it": "Hitmonchan",
+  "en": "Hitmonchan"
+ },
+ "108": {
+  "fr": "Excelangue",
+  "de": "Schlurp",
+  "es": "Lickitung",
+  "it": "Lickitung",
+  "en": "Lickitung"
+ },
+ "109": {
+  "fr": "Smogo",
+  "de": "Smogon",
+  "es": "Koffing",
+  "it": "Koffing",
+  "en": "Koffing"
+ },
+ "110": {
+  "fr": "Smogogo",
+  "de": "Smogmog",
+  "es": "Weezing",
+  "it": "Weezing",
+  "en": "Weezing"
+ },
+ "111": {
+  "fr": "Rhinocorne",
+  "de": "Rihorn",
+  "es": "Rhyhorn",
+  "it": "Rhyhorn",
+  "en": "Rhyhorn"
+ },
+ "112": {
+  "fr": "Rhinoféros",
+  "de": "Rizeros",
+  "es": "Rhydon",
+  "it": "Rhydon",
+  "en": "Rhydon"
+ },
+ "113": {
+  "fr": "Leveinard",
+  "de": "Chaneira",
+  "es": "Chansey",
+  "it": "Chansey",
+  "en": "Chansey"
+ },
+ "114": {
+  "fr": "Saquedeneu",
+  "de": "Tangela",
+  "es": "Tangela",
+  "it": "Tangela",
+  "en": "Tangela"
+ },
+ "115": {
+  "fr": "Kangourex",
+  "de": "Kangama",
+  "es": "Kangaskhan",
+  "it": "Kangaskhan",
+  "en": "Kangaskhan"
+ },
+ "116": {
+  "fr": "Hypotrempe",
+  "de": "Seeper",
+  "es": "Horsea",
+  "it": "Horsea",
+  "en": "Horsea"
+ },
+ "117": {
+  "fr": "Hypocéan",
+  "de": "Seemon",
+  "es": "Seadra",
+  "it": "Seadra",
+  "en": "Seadra"
+ },
+ "118": {
+  "fr": "Poissirène",
+  "de": "Goldini",
+  "es": "Goldeen",
+  "it": "Goldeen",
+  "en": "Goldeen"
+ },
+ "119": {
+  "fr": "Poissoroy",
+  "de": "Golking",
+  "es": "Seaking",
+  "it": "Seaking",
+  "en": "Seaking"
+ },
+ "120": {
+  "fr": "Stari",
+  "de": "Sterndu",
+  "es": "Staryu",
+  "it": "Staryu",
+  "en": "Staryu"
+ },
+ "121": {
+  "fr": "Staross",
+  "de": "Starmie",
+  "es": "Starmie",
+  "it": "Starmie",
+  "en": "Starmie"
+ },
+ "122": {
+  "fr": "M. Mime",
+  "de": "Pantimos",
+  "es": "Mr. Mime",
+  "it": "Mr. Mime",
+  "en": "Mr. Mime"
+ },
+ "123": {
+  "fr": "Insécateur",
+  "de": "Sichlor",
+  "es": "Scyther",
+  "it": "Scyther",
+  "en": "Scyther"
+ },
+ "124": {
+  "fr": "Lippoutou",
+  "de": "Rossana",
+  "es": "Jynx",
+  "it": "Jynx",
+  "en": "Jynx"
+ },
+ "125": {
+  "fr": "Élektek",
+  "de": "Elektek",
+  "es": "Electabuzz",
+  "it": "Electabuzz",
+  "en": "Electabuzz"
+ },
+ "126": {
+  "fr": "Magmar",
+  "de": "Magmar",
+  "es": "Magmar",
+  "it": "Magmar",
+  "en": "Magmar"
+ },
+ "127": {
+  "fr": "Scarabrute",
+  "de": "Pinsir",
+  "es": "Pinsir",
+  "it": "Pinsir",
+  "en": "Pinsir"
+ },
+ "128": {
+  "fr": "Tauros",
+  "de": "Tauros",
+  "es": "Tauros",
+  "it": "Tauros",
+  "en": "Tauros"
+ },
+ "129": {
+  "fr": "Magicarpe",
+  "de": "Karpador",
+  "es": "Magikarp",
+  "it": "Magikarp",
+  "en": "Magikarp"
+ },
+ "130": {
+  "fr": "Léviator",
+  "de": "Garados",
+  "es": "Gyarados",
+  "it": "Gyarados",
+  "en": "Gyarados"
+ },
+ "131": {
+  "fr": "Lokhlass",
+  "de": "Lapras",
+  "es": "Lapras",
+  "it": "Lapras",
+  "en": "Lapras"
+ },
+ "132": {
+  "fr": "Métamorph",
+  "de": "Ditto",
+  "es": "Ditto",
+  "it": "Ditto",
+  "en": "Ditto"
+ },
+ "133": {
+  "fr": "Évoli",
+  "de": "Evoli",
+  "es": "Eevee",
+  "it": "Eevee",
+  "en": "Eevee"
+ },
+ "134": {
+  "fr": "Aquali",
+  "de": "Aquana",
+  "es": "Vaporeon",
+  "it": "Vaporeon",
+  "en": "Vaporeon"
+ },
+ "135": {
+  "fr": "Voltali",
+  "de": "Blitza",
+  "es": "Jolteon",
+  "it": "Jolteon",
+  "en": "Jolteon"
+ },
+ "136": {
+  "fr": "Pyroli",
+  "de": "Flamara",
+  "es": "Flareon",
+  "it": "Flareon",
+  "en": "Flareon"
+ },
+ "137": {
+  "fr": "Porygon",
+  "de": "Porygon",
+  "es": "Porygon",
+  "it": "Porygon",
+  "en": "Porygon"
+ },
+ "138": {
+  "fr": "Amonita",
+  "de": "Amonitas",
+  "es": "Omanyte",
+  "it": "Omanyte",
+  "en": "Omanyte"
+ },
+ "139": {
+  "fr": "Amonistar",
+  "de": "Amoroso",
+  "es": "Omastar",
+  "it": "Omastar",
+  "en": "Omastar"
+ },
+ "140": {
+  "fr": "Kabuto",
+  "de": "Kabuto",
+  "es": "Kabuto",
+  "it": "Kabuto",
+  "en": "Kabuto"
+ },
+ "141": {
+  "fr": "Kabutops",
+  "de": "Kabutops",
+  "es": "Kabutops",
+  "it": "Kabutops",
+  "en": "Kabutops"
+ },
+ "142": {
+  "fr": "Ptéra",
+  "de": "Aerodactyl",
+  "es": "Aerodactyl",
+  "it": "Aerodactyl",
+  "en": "Aerodactyl"
+ },
+ "143": {
+  "fr": "Ronflex",
+  "de": "Relaxo",
+  "es": "Snorlax",
+  "it": "Snorlax",
+  "en": "Snorlax"
+ },
+ "144": {
+  "fr": "Artikodin",
+  "de": "Arktos",
+  "es": "Articuno",
+  "it": "Articuno",
+  "en": "Articuno"
+ },
+ "145": {
+  "fr": "Électhor",
+  "de": "Zapdos",
+  "es": "Zapdos",
+  "it": "Zapdos",
+  "en": "Zapdos"
+ },
+ "146": {
+  "fr": "Sulfura",
+  "de": "Lavados",
+  "es": "Moltres",
+  "it": "Moltres",
+  "en": "Moltres"
+ },
+ "147": {
+  "fr": "Minidraco",
+  "de": "Dratini",
+  "es": "Dratini",
+  "it": "Dratini",
+  "en": "Dratini"
+ },
+ "148": {
+  "fr": "Draco",
+  "de": "Dragonir",
+  "es": "Dragonair",
+  "it": "Dragonair",
+  "en": "Dragonair"
+ },
+ "149": {
+  "fr": "Dracolosse",
+  "de": "Dragoran",
+  "es": "Dragonite",
+  "it": "Dragonite",
+  "en": "Dragonite"
+ },
+ "150": {
+  "fr": "Mewtwo",
+  "de": "Mewtu",
+  "es": "Mewtwo",
+  "it": "Mewtwo",
+  "en": "Mewtwo"
+ },
+ "151": {
+  "fr": "Mew",
+  "de": "Mew",
+  "es": "Mew",
+  "it": "Mew",
+  "en": "Mew"
+ },
+ "152": {
+  "fr": "Germignon",
+  "de": "Endivie",
+  "es": "Chikorita",
+  "it": "Chikorita",
+  "en": "Chikorita"
+ },
+ "153": {
+  "fr": "Macronium",
+  "de": "Lorblatt",
+  "es": "Bayleef",
+  "it": "Bayleef",
+  "en": "Bayleef"
+ },
+ "154": {
+  "fr": "Méganium",
+  "de": "Meganie",
+  "es": "Meganium",
+  "it": "Meganium",
+  "en": "Meganium"
+ },
+ "155": {
+  "fr": "Héricendre",
+  "de": "Feurigel",
+  "es": "Cyndaquil",
+  "it": "Cyndaquil",
+  "en": "Cyndaquil"
+ },
+ "156": {
+  "fr": "Feurisson",
+  "de": "Igelavar",
+  "es": "Quilava",
+  "it": "Quilava",
+  "en": "Quilava"
+ },
+ "157": {
+  "fr": "Typhlosion",
+  "de": "Tornupto",
+  "es": "Typhlosion",
+  "it": "Typhlosion",
+  "en": "Typhlosion"
+ },
+ "158": {
+  "fr": "Kaiminus",
+  "de": "Karnimani",
+  "es": "Totodile",
+  "it": "Totodile",
+  "en": "Totodile"
+ },
+ "159": {
+  "fr": "Crocrodil",
+  "de": "Tyracroc",
+  "es": "Croconaw",
+  "it": "Croconaw",
+  "en": "Croconaw"
+ },
+ "160": {
+  "fr": "Aligatueur",
+  "de": "Impergator",
+  "es": "Feraligatr",
+  "it": "Feraligatr",
+  "en": "Feraligatr"
+ },
+ "161": {
+  "fr": "Fouinette",
+  "de": "Wiesor",
+  "es": "Sentret",
+  "it": "Sentret",
+  "en": "Sentret"
+ },
+ "162": {
+  "fr": "Fouinar",
+  "de": "Wiesenior",
+  "es": "Furret",
+  "it": "Furret",
+  "en": "Furret"
+ },
+ "163": {
+  "fr": "Hoothoot",
+  "de": "Hoothoot",
+  "es": "Hoothoot",
+  "it": "Hoothoot",
+  "en": "Hoothoot"
+ },
+ "164": {
+  "fr": "Noarfang",
+  "de": "Noctuh",
+  "es": "Noctowl",
+  "it": "Noctowl",
+  "en": "Noctowl"
+ },
+ "165": {
+  "fr": "Coxy",
+  "de": "Ledyba",
+  "es": "Ledyba",
+  "it": "Ledyba",
+  "en": "Ledyba"
+ },
+ "166": {
+  "fr": "Coxyclaque",
+  "de": "Ledian",
+  "es": "Ledian",
+  "it": "Ledian",
+  "en": "Ledian"
+ },
+ "167": {
+  "fr": "Mimigal",
+  "de": "Webarak",
+  "es": "Spinarak",
+  "it": "Spinarak",
+  "en": "Spinarak"
+ },
+ "168": {
+  "fr": "Migalos",
+  "de": "Ariados",
+  "es": "Ariados",
+  "it": "Ariados",
+  "en": "Ariados"
+ },
+ "169": {
+  "fr": "Nostenfer",
+  "de": "Iksbat",
+  "es": "Crobat",
+  "it": "Crobat",
+  "en": "Crobat"
+ },
+ "170": {
+  "fr": "Loupio",
+  "de": "Lampi",
+  "es": "Chinchou",
+  "it": "Chinchou",
+  "en": "Chinchou"
+ },
+ "171": {
+  "fr": "Lanturn",
+  "de": "Lanturn",
+  "es": "Lanturn",
+  "it": "Lanturn",
+  "en": "Lanturn"
+ },
+ "172": {
+  "fr": "Pichu",
+  "de": "Pichu",
+  "es": "Pichu",
+  "it": "Pichu",
+  "en": "Pichu"
+ },
+ "173": {
+  "fr": "Mélo",
+  "de": "Pii",
+  "es": "Cleffa",
+  "it": "Cleffa",
+  "en": "Cleffa"
+ },
+ "174": {
+  "fr": "Toudoudou",
+  "de": "Fluffeluff",
+  "es": "Igglybuff",
+  "it": "Igglybuff",
+  "en": "Igglybuff"
+ },
+ "175": {
+  "fr": "Togepi",
+  "de": "Togepi",
+  "es": "Togepi",
+  "it": "Togepi",
+  "en": "Togepi"
+ },
+ "176": {
+  "fr": "Togetic",
+  "de": "Togetic",
+  "es": "Togetic",
+  "it": "Togetic",
+  "en": "Togetic"
+ },
+ "177": {
+  "fr": "Natu",
+  "de": "Natu",
+  "es": "Natu",
+  "it": "Natu",
+  "en": "Natu"
+ },
+ "178": {
+  "fr": "Xatu",
+  "de": "Xatu",
+  "es": "Xatu",
+  "it": "Xatu",
+  "en": "Xatu"
+ },
+ "179": {
+  "fr": "Wattouat",
+  "de": "Voltilamm",
+  "es": "Mareep",
+  "it": "Mareep",
+  "en": "Mareep"
+ },
+ "180": {
+  "fr": "Lainergie",
+  "de": "Waaty",
+  "es": "Flaaffy",
+  "it": "Flaaffy",
+  "en": "Flaaffy"
+ },
+ "181": {
+  "fr": "Pharamp",
+  "de": "Ampharos",
+  "es": "Ampharos",
+  "it": "Ampharos",
+  "en": "Ampharos"
+ },
+ "182": {
+  "fr": "Joliflor",
+  "de": "Blubella",
+  "es": "Bellossom",
+  "it": "Bellossom",
+  "en": "Bellossom"
+ },
+ "183": {
+  "fr": "Marill",
+  "de": "Marill",
+  "es": "Marill",
+  "it": "Marill",
+  "en": "Marill"
+ },
+ "184": {
+  "fr": "Azumarill",
+  "de": "Azumarill",
+  "es": "Azumarill",
+  "it": "Azumarill",
+  "en": "Azumarill"
+ },
+ "185": {
+  "fr": "Simularbre",
+  "de": "Mogelbaum",
+  "es": "Sudowoodo",
+  "it": "Sudowoodo",
+  "en": "Sudowoodo"
+ },
+ "186": {
+  "fr": "Tarpaud",
+  "de": "Quaxo",
+  "es": "Politoed",
+  "it": "Politoed",
+  "en": "Politoed"
+ },
+ "187": {
+  "fr": "Granivol",
+  "de": "Hoppspross",
+  "es": "Hoppip",
+  "it": "Hoppip",
+  "en": "Hoppip"
+ },
+ "188": {
+  "fr": "Floravol",
+  "de": "Hubelupf",
+  "es": "Skiploom",
+  "it": "Skiploom",
+  "en": "Skiploom"
+ },
+ "189": {
+  "fr": "Cotovol",
+  "de": "Papungha",
+  "es": "Jumpluff",
+  "it": "Jumpluff",
+  "en": "Jumpluff"
+ },
+ "190": {
+  "fr": "Capumain",
+  "de": "Griffel",
+  "es": "Aipom",
+  "it": "Aipom",
+  "en": "Aipom"
+ },
+ "191": {
+  "fr": "Tournegrin",
+  "de": "Sonnkern",
+  "es": "Sunkern",
+  "it": "Sunkern",
+  "en": "Sunkern"
+ },
+ "192": {
+  "fr": "Héliatronc",
+  "de": "Sonnflora",
+  "es": "Sunflora",
+  "it": "Sunflora",
+  "en": "Sunflora"
+ },
+ "193": {
+  "fr": "Yanma",
+  "de": "Yanma",
+  "es": "Yanma",
+  "it": "Yanma",
+  "en": "Yanma"
+ },
+ "194": {
+  "fr": "Axoloto",
+  "de": "Felino",
+  "es": "Wooper",
+  "it": "Wooper",
+  "en": "Wooper"
+ },
+ "195": {
+  "fr": "Maraiste",
+  "de": "Morlord",
+  "es": "Quagsire",
+  "it": "Quagsire",
+  "en": "Quagsire"
+ },
+ "196": {
+  "fr": "Mentali",
+  "de": "Psiana",
+  "es": "Espeon",
+  "it": "Espeon",
+  "en": "Espeon"
+ },
+ "197": {
+  "fr": "Noctali",
+  "de": "Nachtara",
+  "es": "Umbreon",
+  "it": "Umbreon",
+  "en": "Umbreon"
+ },
+ "198": {
+  "fr": "Cornèbre",
+  "de": "Kramurx",
+  "es": "Murkrow",
+  "it": "Murkrow",
+  "en": "Murkrow"
+ },
+ "199": {
+  "fr": "Roigada",
+  "de": "Laschoking",
+  "es": "Slowking",
+  "it": "Slowking",
+  "en": "Slowking"
+ },
+ "200": {
+  "fr": "Feuforêve",
+  "de": "Traunfugil",
+  "es": "Misdreavus",
+  "it": "Misdreavus",
+  "en": "Misdreavus"
+ },
+ "201": {
+  "fr": "Zarbi",
+  "de": "Icognito",
+  "es": "Unown",
+  "it": "Unown",
+  "en": "Unown"
+ },
+ "202": {
+  "fr": "Qulbutoké",
+  "de": "Woingenau",
+  "es": "Wobbuffet",
+  "it": "Wobbuffet",
+  "en": "Wobbuffet"
+ },
+ "203": {
+  "fr": "Girafarig",
+  "de": "Girafarig",
+  "es": "Girafarig",
+  "it": "Girafarig",
+  "en": "Girafarig"
+ },
+ "204": {
+  "fr": "Pomdepik",
+  "de": "Tannza",
+  "es": "Pineco",
+  "it": "Pineco",
+  "en": "Pineco"
+ },
+ "205": {
+  "fr": "Foretress",
+  "de": "Forstellka",
+  "es": "Forretress",
+  "it": "Forretress",
+  "en": "Forretress"
+ },
+ "206": {
+  "fr": "Insolourdo",
+  "de": "Dummisel",
+  "es": "Dunsparce",
+  "it": "Dunsparce",
+  "en": "Dunsparce"
+ },
+ "207": {
+  "fr": "Scorplane",
+  "de": "Skorgla",
+  "es": "Gligar",
+  "it": "Gligar",
+  "en": "Gligar"
+ },
+ "208": {
+  "fr": "Steelix",
+  "de": "Stahlos",
+  "es": "Steelix",
+  "it": "Steelix",
+  "en": "Steelix"
+ },
+ "209": {
+  "fr": "Snubbull",
+  "de": "Snubbull",
+  "es": "Snubbull",
+  "it": "Snubbull",
+  "en": "Snubbull"
+ },
+ "210": {
+  "fr": "Granbull",
+  "de": "Granbull",
+  "es": "Granbull",
+  "it": "Granbull",
+  "en": "Granbull"
+ },
+ "211": {
+  "fr": "Qwilfish",
+  "de": "Baldorfish",
+  "es": "Qwilfish",
+  "it": "Qwilfish",
+  "en": "Qwilfish"
+ },
+ "212": {
+  "fr": "Cizayox",
+  "de": "Scherox",
+  "es": "Scizor",
+  "it": "Scizor",
+  "en": "Scizor"
+ },
+ "213": {
+  "fr": "Caratroc",
+  "de": "Pottrott",
+  "es": "Shuckle",
+  "it": "Shuckle",
+  "en": "Shuckle"
+ },
+ "214": {
+  "fr": "Scarhino",
+  "de": "Skaraborn",
+  "es": "Heracross",
+  "it": "Heracross",
+  "en": "Heracross"
+ },
+ "215": {
+  "fr": "Farfuret",
+  "de": "Sniebel",
+  "es": "Sneasel",
+  "it": "Sneasel",
+  "en": "Sneasel"
+ },
+ "216": {
+  "fr": "Teddiursa",
+  "de": "Teddiursa",
+  "es": "Teddiursa",
+  "it": "Teddiursa",
+  "en": "Teddiursa"
+ },
+ "217": {
+  "fr": "Ursaring",
+  "de": "Ursaring",
+  "es": "Ursaring",
+  "it": "Ursaring",
+  "en": "Ursaring"
+ },
+ "218": {
+  "fr": "Limagma",
+  "de": "Schneckmag",
+  "es": "Slugma",
+  "it": "Slugma",
+  "en": "Slugma"
+ },
+ "219": {
+  "fr": "Volcaropod",
+  "de": "Magcargo",
+  "es": "Magcargo",
+  "it": "Magcargo",
+  "en": "Magcargo"
+ },
+ "220": {
+  "fr": "Marcacrin",
+  "de": "Quiekel",
+  "es": "Swinub",
+  "it": "Swinub",
+  "en": "Swinub"
+ },
+ "221": {
+  "fr": "Cochignon",
+  "de": "Keifel",
+  "es": "Piloswine",
+  "it": "Piloswine",
+  "en": "Piloswine"
+ },
+ "222": {
+  "fr": "Corayon",
+  "de": "Corasonn",
+  "es": "Corsola",
+  "it": "Corsola",
+  "en": "Corsola"
+ },
+ "223": {
+  "fr": "Rémoraid",
+  "de": "Remoraid",
+  "es": "Remoraid",
+  "it": "Remoraid",
+  "en": "Remoraid"
+ },
+ "224": {
+  "fr": "Octillery",
+  "de": "Octillery",
+  "es": "Octillery",
+  "it": "Octillery",
+  "en": "Octillery"
+ },
+ "225": {
+  "fr": "Cadoizo",
+  "de": "Botogel",
+  "es": "Delibird",
+  "it": "Delibird",
+  "en": "Delibird"
+ },
+ "226": {
+  "fr": "Démanta",
+  "de": "Mantax",
+  "es": "Mantine",
+  "it": "Mantine",
+  "en": "Mantine"
+ },
+ "227": {
+  "fr": "Airmure",
+  "de": "Panzaeron",
+  "es": "Skarmory",
+  "it": "Skarmory",
+  "en": "Skarmory"
+ },
+ "228": {
+  "fr": "Malosse",
+  "de": "Hunduster",
+  "es": "Houndour",
+  "it": "Houndour",
+  "en": "Houndour"
+ },
+ "229": {
+  "fr": "Démolosse",
+  "de": "Hundemon",
+  "es": "Houndoom",
+  "it": "Houndoom",
+  "en": "Houndoom"
+ },
+ "230": {
+  "fr": "Hyporoi",
+  "de": "Seedraking",
+  "es": "Kingdra",
+  "it": "Kingdra",
+  "en": "Kingdra"
+ },
+ "231": {
+  "fr": "Phanpy",
+  "de": "Phanpy",
+  "es": "Phanpy",
+  "it": "Phanpy",
+  "en": "Phanpy"
+ },
+ "232": {
+  "fr": "Donphan",
+  "de": "Donphan",
+  "es": "Donphan",
+  "it": "Donphan",
+  "en": "Donphan"
+ },
+ "233": {
+  "fr": "Porygon2",
+  "de": "Porygon2",
+  "es": "Porygon2",
+  "it": "Porygon2",
+  "en": "Porygon2"
+ },
+ "234": {
+  "fr": "Cerfrousse",
+  "de": "Damhirplex",
+  "es": "Stantler",
+  "it": "Stantler",
+  "en": "Stantler"
+ },
+ "235": {
+  "fr": "Queulorior",
+  "de": "Farbeagle",
+  "es": "Smeargle",
+  "it": "Smeargle",
+  "en": "Smeargle"
+ },
+ "236": {
+  "fr": "Debugant",
+  "de": "Rabauz",
+  "es": "Tyrogue",
+  "it": "Tyrogue",
+  "en": "Tyrogue"
+ },
+ "237": {
+  "fr": "Kapoera",
+  "de": "Kapoera",
+  "es": "Hitmontop",
+  "it": "Hitmontop",
+  "en": "Hitmontop"
+ },
+ "238": {
+  "fr": "Lippouti",
+  "de": "Kussilla",
+  "es": "Smoochum",
+  "it": "Smoochum",
+  "en": "Smoochum"
+ },
+ "239": {
+  "fr": "Élekid",
+  "de": "Elekid",
+  "es": "Elekid",
+  "it": "Elekid",
+  "en": "Elekid"
+ },
+ "240": {
+  "fr": "Magby",
+  "de": "Magby",
+  "es": "Magby",
+  "it": "Magby",
+  "en": "Magby"
+ },
+ "241": {
+  "fr": "Écrémeuh",
+  "de": "Miltank",
+  "es": "Miltank",
+  "it": "Miltank",
+  "en": "Miltank"
+ },
+ "242": {
+  "fr": "Leuphorie",
+  "de": "Heiteira",
+  "es": "Blissey",
+  "it": "Blissey",
+  "en": "Blissey"
+ },
+ "243": {
+  "fr": "Raikou",
+  "de": "Raikou",
+  "es": "Raikou",
+  "it": "Raikou",
+  "en": "Raikou"
+ },
+ "244": {
+  "fr": "Entei",
+  "de": "Entei",
+  "es": "Entei",
+  "it": "Entei",
+  "en": "Entei"
+ },
+ "245": {
+  "fr": "Suicune",
+  "de": "Suicune",
+  "es": "Suicune",
+  "it": "Suicune",
+  "en": "Suicune"
+ },
+ "246": {
+  "fr": "Embrylex",
+  "de": "Larvitar",
+  "es": "Larvitar",
+  "it": "Larvitar",
+  "en": "Larvitar"
+ },
+ "247": {
+  "fr": "Ymphect",
+  "de": "Pupitar",
+  "es": "Pupitar",
+  "it": "Pupitar",
+  "en": "Pupitar"
+ },
+ "248": {
+  "fr": "Tyranocif",
+  "de": "Despotar",
+  "es": "Tyranitar",
+  "it": "Tyranitar",
+  "en": "Tyranitar"
+ },
+ "249": {
+  "fr": "Lugia",
+  "de": "Lugia",
+  "es": "Lugia",
+  "it": "Lugia",
+  "en": "Lugia"
+ },
+ "250": {
+  "fr": "Ho-Oh",
+  "de": "Ho-Oh",
+  "es": "Ho-Oh",
+  "it": "Ho-Oh",
+  "en": "Ho-Oh"
+ },
+ "251": {
+  "fr": "Celebi",
+  "de": "Celebi",
+  "es": "Celebi",
+  "it": "Celebi",
+  "en": "Celebi"
+ },
+ "277": {
+  "fr": "Arcko",
+  "de": "Geckarbor",
+  "es": "Treecko",
+  "it": "Treecko",
+  "en": "Treecko"
+ },
+ "278": {
+  "fr": "Massko",
+  "de": "Reptain",
+  "es": "Grovyle",
+  "it": "Grovyle",
+  "en": "Grovyle"
+ },
+ "279": {
+  "fr": "Jungko",
+  "de": "Gewaldro",
+  "es": "Sceptile",
+  "it": "Sceptile",
+  "en": "Sceptile"
+ },
+ "280": {
+  "fr": "Poussifeu",
+  "de": "Flemmli",
+  "es": "Torchic",
+  "it": "Torchic",
+  "en": "Torchic"
+ },
+ "281": {
+  "fr": "Galifeu",
+  "de": "Jungglut",
+  "es": "Combusken",
+  "it": "Combusken",
+  "en": "Combusken"
+ },
+ "282": {
+  "fr": "Braségali",
+  "de": "Lohgock",
+  "es": "Blaziken",
+  "it": "Blaziken",
+  "en": "Blaziken"
+ },
+ "283": {
+  "fr": "Gobou",
+  "de": "Hydropi",
+  "es": "Mudkip",
+  "it": "Mudkip",
+  "en": "Mudkip"
+ },
+ "284": {
+  "fr": "Flobio",
+  "de": "Moorabbel",
+  "es": "Marshtomp",
+  "it": "Marshtomp",
+  "en": "Marshtomp"
+ },
+ "285": {
+  "fr": "Laggron",
+  "de": "Sumpex",
+  "es": "Swampert",
+  "it": "Swampert",
+  "en": "Swampert"
+ },
+ "286": {
+  "fr": "Medhyèna",
+  "de": "Fiffyen",
+  "es": "Poochyena",
+  "it": "Poochyena",
+  "en": "Poochyena"
+ },
+ "287": {
+  "fr": "Grahyèna",
+  "de": "Magnayen",
+  "es": "Mightyena",
+  "it": "Mightyena",
+  "en": "Mightyena"
+ },
+ "288": {
+  "fr": "Zigzaton",
+  "de": "Zigzachs",
+  "es": "Zigzagoon",
+  "it": "Zigzagoon",
+  "en": "Zigzagoon"
+ },
+ "289": {
+  "fr": "Linéon",
+  "de": "Geradaks",
+  "es": "Linoone",
+  "it": "Linoone",
+  "en": "Linoone"
+ },
+ "290": {
+  "fr": "Chenipotte",
+  "de": "Waumpel",
+  "es": "Wurmple",
+  "it": "Wurmple",
+  "en": "Wurmple"
+ },
+ "291": {
+  "fr": "Armulys",
+  "de": "Schaloko",
+  "es": "Silcoon",
+  "it": "Silcoon",
+  "en": "Silcoon"
+ },
+ "292": {
+  "fr": "Charmillon",
+  "de": "Papinella",
+  "es": "Beautifly",
+  "it": "Beautifly",
+  "en": "Beautifly"
+ },
+ "293": {
+  "fr": "Blindalys",
+  "de": "Panekon",
+  "es": "Cascoon",
+  "it": "Cascoon",
+  "en": "Cascoon"
+ },
+ "294": {
+  "fr": "Papinox",
+  "de": "Pudox",
+  "es": "Dustox",
+  "it": "Dustox",
+  "en": "Dustox"
+ },
+ "295": {
+  "fr": "Nénupiot",
+  "de": "Loturzel",
+  "es": "Lotad",
+  "it": "Lotad",
+  "en": "Lotad"
+ },
+ "296": {
+  "fr": "Lombre",
+  "de": "Lombrero",
+  "es": "Lombre",
+  "it": "Lombre",
+  "en": "Lombre"
+ },
+ "297": {
+  "fr": "Ludicolo",
+  "de": "Kappalores",
+  "es": "Ludicolo",
+  "it": "Ludicolo",
+  "en": "Ludicolo"
+ },
+ "298": {
+  "fr": "Grainipiot",
+  "de": "Samurzel",
+  "es": "Seedot",
+  "it": "Seedot",
+  "en": "Seedot"
+ },
+ "299": {
+  "fr": "Pifeuil",
+  "de": "Blanas",
+  "es": "Nuzleaf",
+  "it": "Nuzleaf",
+  "en": "Nuzleaf"
+ },
+ "300": {
+  "fr": "Tengalice",
+  "de": "Tengulist",
+  "es": "Shiftry",
+  "it": "Shiftry",
+  "en": "Shiftry"
+ },
+ "301": {
+  "fr": "Nirondelle",
+  "de": "Schwalbini",
+  "es": "Taillow",
+  "it": "Taillow",
+  "en": "Taillow"
+ },
+ "302": {
+  "fr": "Hélédelle",
+  "de": "Schwalboss",
+  "es": "Swellow",
+  "it": "Swellow",
+  "en": "Swellow"
+ },
+ "303": {
+  "fr": "Goélise",
+  "de": "Wingull",
+  "es": "Wingull",
+  "it": "Wingull",
+  "en": "Wingull"
+ },
+ "304": {
+  "fr": "Bekipan",
+  "de": "Pelipper",
+  "es": "Pelipper",
+  "it": "Pelipper",
+  "en": "Pelipper"
+ },
+ "305": {
+  "fr": "Tarsal",
+  "de": "Trasla",
+  "es": "Ralts",
+  "it": "Ralts",
+  "en": "Ralts"
+ },
+ "306": {
+  "fr": "Kirlia",
+  "de": "Kirlia",
+  "es": "Kirlia",
+  "it": "Kirlia",
+  "en": "Kirlia"
+ },
+ "307": {
+  "fr": "Gardevoir",
+  "de": "Guardevoir",
+  "es": "Gardevoir",
+  "it": "Gardevoir",
+  "en": "Gardevoir"
+ },
+ "308": {
+  "fr": "Arakdo",
+  "de": "Gehweiher",
+  "es": "Surskit",
+  "it": "Surskit",
+  "en": "Surskit"
+ },
+ "309": {
+  "fr": "Maskadra",
+  "de": "Maskeregen",
+  "es": "Masquerain",
+  "it": "Masquerain",
+  "en": "Masquerain"
+ },
+ "310": {
+  "fr": "Balignon",
+  "de": "Knilz",
+  "es": "Shroomish",
+  "it": "Shroomish",
+  "en": "Shroomish"
+ },
+ "311": {
+  "fr": "Chapignon",
+  "de": "Kapilz",
+  "es": "Breloom",
+  "it": "Breloom",
+  "en": "Breloom"
+ },
+ "312": {
+  "fr": "Parecool",
+  "de": "Bummelz",
+  "es": "Slakoth",
+  "it": "Slakoth",
+  "en": "Slakoth"
+ },
+ "313": {
+  "fr": "Vigoroth",
+  "de": "Muntier",
+  "es": "Vigoroth",
+  "it": "Vigoroth",
+  "en": "Vigoroth"
+ },
+ "314": {
+  "fr": "Monaflèmit",
+  "de": "Letarking",
+  "es": "Slaking",
+  "it": "Slaking",
+  "en": "Slaking"
+ },
+ "315": {
+  "fr": "Ningale",
+  "de": "Nincada",
+  "es": "Nincada",
+  "it": "Nincada",
+  "en": "Nincada"
+ },
+ "316": {
+  "fr": "Ninjask",
+  "de": "Ninjask",
+  "es": "Ninjask",
+  "it": "Ninjask",
+  "en": "Ninjask"
+ },
+ "317": {
+  "fr": "Munja",
+  "de": "Ninjatom",
+  "es": "Shedinja",
+  "it": "Shedinja",
+  "en": "Shedinja"
+ },
+ "318": {
+  "fr": "Chuchmur",
+  "de": "Flurmel",
+  "es": "Whismur",
+  "it": "Whismur",
+  "en": "Whismur"
+ },
+ "319": {
+  "fr": "Ramboum",
+  "de": "Krakeelo",
+  "es": "Loudred",
+  "it": "Loudred",
+  "en": "Loudred"
+ },
+ "320": {
+  "fr": "Brouhabam",
+  "de": "Krawumms",
+  "es": "Exploud",
+  "it": "Exploud",
+  "en": "Exploud"
+ },
+ "321": {
+  "fr": "Makuhita",
+  "de": "Makuhita",
+  "es": "Makuhita",
+  "it": "Makuhita",
+  "en": "Makuhita"
+ },
+ "322": {
+  "fr": "Hariyama",
+  "de": "Hariyama",
+  "es": "Hariyama",
+  "it": "Hariyama",
+  "en": "Hariyama"
+ },
+ "323": {
+  "fr": "Azurill",
+  "de": "Azurill",
+  "es": "Azurill",
+  "it": "Azurill",
+  "en": "Azurill"
+ },
+ "324": {
+  "fr": "Tarinor",
+  "de": "Nasgnet",
+  "es": "Nosepass",
+  "it": "Nosepass",
+  "en": "Nosepass"
+ },
+ "325": {
+  "fr": "Skitty",
+  "de": "Eneco",
+  "es": "Skitty",
+  "it": "Skitty",
+  "en": "Skitty"
+ },
+ "326": {
+  "fr": "Delcatty",
+  "de": "Enekoro",
+  "es": "Delcatty",
+  "it": "Delcatty",
+  "en": "Delcatty"
+ },
+ "327": {
+  "fr": "Ténéfix",
+  "de": "Zobiris",
+  "es": "Sableye",
+  "it": "Sableye",
+  "en": "Sableye"
+ },
+ "328": {
+  "fr": "Mysdibule",
+  "de": "Flunkifer",
+  "es": "Mawile",
+  "it": "Mawile",
+  "en": "Mawile"
+ },
+ "329": {
+  "fr": "Galekid",
+  "de": "Stollunior",
+  "es": "Aron",
+  "it": "Aron",
+  "en": "Aron"
+ },
+ "330": {
+  "fr": "Galegon",
+  "de": "Stollrak",
+  "es": "Lairon",
+  "it": "Lairon",
+  "en": "Lairon"
+ },
+ "331": {
+  "fr": "Galeking",
+  "de": "Stolloss",
+  "es": "Aggron",
+  "it": "Aggron",
+  "en": "Aggron"
+ },
+ "332": {
+  "fr": "Méditikka",
+  "de": "Meditie",
+  "es": "Meditite",
+  "it": "Meditite",
+  "en": "Meditite"
+ },
+ "333": {
+  "fr": "Charmina",
+  "de": "Meditalis",
+  "es": "Medicham",
+  "it": "Medicham",
+  "en": "Medicham"
+ },
+ "334": {
+  "fr": "Dynavolt",
+  "de": "Frizelbliz",
+  "es": "Electrike",
+  "it": "Electrike",
+  "en": "Electrike"
+ },
+ "335": {
+  "fr": "Élecsprint",
+  "de": "Voltenso",
+  "es": "Manectric",
+  "it": "Manectric",
+  "en": "Manectric"
+ },
+ "336": {
+  "fr": "Posipi",
+  "de": "Plusle",
+  "es": "Plusle",
+  "it": "Plusle",
+  "en": "Plusle"
+ },
+ "337": {
+  "fr": "Négapi",
+  "de": "Minun",
+  "es": "Minun",
+  "it": "Minun",
+  "en": "Minun"
+ },
+ "338": {
+  "fr": "Muciole",
+  "de": "Volbeat",
+  "es": "Volbeat",
+  "it": "Volbeat",
+  "en": "Volbeat"
+ },
+ "339": {
+  "fr": "Lumivole",
+  "de": "Illumise",
+  "es": "Illumise",
+  "it": "Illumise",
+  "en": "Illumise"
+ },
+ "340": {
+  "fr": "Rosélia",
+  "de": "Roselia",
+  "es": "Roselia",
+  "it": "Roselia",
+  "en": "Roselia"
+ },
+ "341": {
+  "fr": "Gloupti",
+  "de": "Schluppuck",
+  "es": "Gulpin",
+  "it": "Gulpin",
+  "en": "Gulpin"
+ },
+ "342": {
+  "fr": "Avaltout",
+  "de": "Schlukwech",
+  "es": "Swalot",
+  "it": "Swalot",
+  "en": "Swalot"
+ },
+ "343": {
+  "fr": "Carvanha",
+  "de": "Kanivanha",
+  "es": "Carvanha",
+  "it": "Carvanha",
+  "en": "Carvanha"
+ },
+ "344": {
+  "fr": "Sharpedo",
+  "de": "Tohaido",
+  "es": "Sharpedo",
+  "it": "Sharpedo",
+  "en": "Sharpedo"
+ },
+ "345": {
+  "fr": "Wailmer",
+  "de": "Wailmer",
+  "es": "Wailmer",
+  "it": "Wailmer",
+  "en": "Wailmer"
+ },
+ "346": {
+  "fr": "Wailord",
+  "de": "Wailord",
+  "es": "Wailord",
+  "it": "Wailord",
+  "en": "Wailord"
+ },
+ "347": {
+  "fr": "Chamallot",
+  "de": "Camaub",
+  "es": "Numel",
+  "it": "Numel",
+  "en": "Numel"
+ },
+ "348": {
+  "fr": "Camérupt",
+  "de": "Camerupt",
+  "es": "Camerupt",
+  "it": "Camerupt",
+  "en": "Camerupt"
+ },
+ "349": {
+  "fr": "Chartor",
+  "de": "Qurtel",
+  "es": "Torkoal",
+  "it": "Torkoal",
+  "en": "Torkoal"
+ },
+ "350": {
+  "fr": "Spoink",
+  "de": "Spoink",
+  "es": "Spoink",
+  "it": "Spoink",
+  "en": "Spoink"
+ },
+ "351": {
+  "fr": "Groret",
+  "de": "Groink",
+  "es": "Grumpig",
+  "it": "Grumpig",
+  "en": "Grumpig"
+ },
+ "352": {
+  "fr": "Spinda",
+  "de": "Pandir",
+  "es": "Spinda",
+  "it": "Spinda",
+  "en": "Spinda"
+ },
+ "353": {
+  "fr": "Kraknoix",
+  "de": "Knacklion",
+  "es": "Trapinch",
+  "it": "Trapinch",
+  "en": "Trapinch"
+ },
+ "354": {
+  "fr": "Vibraninf",
+  "de": "Vibrava",
+  "es": "Vibrava",
+  "it": "Vibrava",
+  "en": "Vibrava"
+ },
+ "355": {
+  "fr": "Libégon",
+  "de": "Libelldra",
+  "es": "Flygon",
+  "it": "Flygon",
+  "en": "Flygon"
+ },
+ "356": {
+  "fr": "Cacnea",
+  "de": "Tuska",
+  "es": "Cacnea",
+  "it": "Cacnea",
+  "en": "Cacnea"
+ },
+ "357": {
+  "fr": "Cacturne",
+  "de": "Noktuska",
+  "es": "Cacturne",
+  "it": "Cacturne",
+  "en": "Cacturne"
+ },
+ "358": {
+  "fr": "Tylton",
+  "de": "Wablu",
+  "es": "Swablu",
+  "it": "Swablu",
+  "en": "Swablu"
+ },
+ "359": {
+  "fr": "Altaria",
+  "de": "Altaria",
+  "es": "Altaria",
+  "it": "Altaria",
+  "en": "Altaria"
+ },
+ "360": {
+  "fr": "Mangriff",
+  "de": "Sengo",
+  "es": "Zangoose",
+  "it": "Zangoose",
+  "en": "Zangoose"
+ },
+ "361": {
+  "fr": "Séviper",
+  "de": "Vipitis",
+  "es": "Seviper",
+  "it": "Seviper",
+  "en": "Seviper"
+ },
+ "362": {
+  "fr": "Séléroc",
+  "de": "Lunastein",
+  "es": "Lunatone",
+  "it": "Lunatone",
+  "en": "Lunatone"
+ },
+ "363": {
+  "fr": "Solaroc",
+  "de": "Sonnfel",
+  "es": "Solrock",
+  "it": "Solrock",
+  "en": "Solrock"
+ },
+ "364": {
+  "fr": "Barloche",
+  "de": "Schmerbe",
+  "es": "Barboach",
+  "it": "Barboach",
+  "en": "Barboach"
+ },
+ "365": {
+  "fr": "Barbicha",
+  "de": "Welsar",
+  "es": "Whiscash",
+  "it": "Whiscash",
+  "en": "Whiscash"
+ },
+ "366": {
+  "fr": "Écrapince",
+  "de": "Krebscorps",
+  "es": "Corphish",
+  "it": "Corphish",
+  "en": "Corphish"
+ },
+ "367": {
+  "fr": "Colhomard",
+  "de": "Krebutack",
+  "es": "Crawdaunt",
+  "it": "Crawdaunt",
+  "en": "Crawdaunt"
+ },
+ "368": {
+  "fr": "Balbuto",
+  "de": "Puppance",
+  "es": "Baltoy",
+  "it": "Baltoy",
+  "en": "Baltoy"
+ },
+ "369": {
+  "fr": "Kaorine",
+  "de": "Lepumentas",
+  "es": "Claydol",
+  "it": "Claydol",
+  "en": "Claydol"
+ },
+ "370": {
+  "fr": "Lilia",
+  "de": "Liliep",
+  "es": "Lileep",
+  "it": "Lileep",
+  "en": "Lileep"
+ },
+ "371": {
+  "fr": "Vacilys",
+  "de": "Wielie",
+  "es": "Cradily",
+  "it": "Cradily",
+  "en": "Cradily"
+ },
+ "372": {
+  "fr": "Anorith",
+  "de": "Anorith",
+  "es": "Anorith",
+  "it": "Anorith",
+  "en": "Anorith"
+ },
+ "373": {
+  "fr": "Armaldo",
+  "de": "Armaldo",
+  "es": "Armaldo",
+  "it": "Armaldo",
+  "en": "Armaldo"
+ },
+ "374": {
+  "fr": "Barpau",
+  "de": "Barschwa",
+  "es": "Feebas",
+  "it": "Feebas",
+  "en": "Feebas"
+ },
+ "375": {
+  "fr": "Milobellus",
+  "de": "Milotic",
+  "es": "Milotic",
+  "it": "Milotic",
+  "en": "Milotic"
+ },
+ "376": {
+  "fr": "Morphéo",
+  "de": "Formeo",
+  "es": "Castform",
+  "it": "Castform",
+  "en": "Castform"
+ },
+ "377": {
+  "fr": "Kecleon",
+  "de": "Kecleon",
+  "es": "Kecleon",
+  "it": "Kecleon",
+  "en": "Kecleon"
+ },
+ "378": {
+  "fr": "Polichombr",
+  "de": "Shuppet",
+  "es": "Shuppet",
+  "it": "Shuppet",
+  "en": "Shuppet"
+ },
+ "379": {
+  "fr": "Branette",
+  "de": "Banette",
+  "es": "Banette",
+  "it": "Banette",
+  "en": "Banette"
+ },
+ "380": {
+  "fr": "Skelénox",
+  "de": "Zwirrlicht",
+  "es": "Duskull",
+  "it": "Duskull",
+  "en": "Duskull"
+ },
+ "381": {
+  "fr": "Téraclope",
+  "de": "Zwirrklop",
+  "es": "Dusclops",
+  "it": "Dusclops",
+  "en": "Dusclops"
+ },
+ "382": {
+  "fr": "Tropius",
+  "de": "Tropius",
+  "es": "Tropius",
+  "it": "Tropius",
+  "en": "Tropius"
+ },
+ "383": {
+  "fr": "Éoko",
+  "de": "Palimpalim",
+  "es": "Chimecho",
+  "it": "Chimecho",
+  "en": "Chimecho"
+ },
+ "384": {
+  "fr": "Absol",
+  "de": "Absol",
+  "es": "Absol",
+  "it": "Absol",
+  "en": "Absol"
+ },
+ "385": {
+  "fr": "Okéoké",
+  "de": "Isso",
+  "es": "Wynaut",
+  "it": "Wynaut",
+  "en": "Wynaut"
+ },
+ "386": {
+  "fr": "Stalgamin",
+  "de": "Schneppke",
+  "es": "Snorunt",
+  "it": "Snorunt",
+  "en": "Snorunt"
+ },
+ "387": {
+  "fr": "Oniglali",
+  "de": "Firnontor",
+  "es": "Glalie",
+  "it": "Glalie",
+  "en": "Glalie"
+ },
+ "388": {
+  "fr": "Obalie",
+  "de": "Seemops",
+  "es": "Spheal",
+  "it": "Spheal",
+  "en": "Spheal"
+ },
+ "389": {
+  "fr": "Phogleur",
+  "de": "Seejong",
+  "es": "Sealeo",
+  "it": "Sealeo",
+  "en": "Sealeo"
+ },
+ "390": {
+  "fr": "Kaimorse",
+  "de": "Walraisa",
+  "es": "Walrein",
+  "it": "Walrein",
+  "en": "Walrein"
+ },
+ "391": {
+  "fr": "Coquiperl",
+  "de": "Perlu",
+  "es": "Clamperl",
+  "it": "Clamperl",
+  "en": "Clamperl"
+ },
+ "392": {
+  "fr": "Serpang",
+  "de": "Aalabyss",
+  "es": "Huntail",
+  "it": "Huntail",
+  "en": "Huntail"
+ },
+ "393": {
+  "fr": "Rosabyss",
+  "de": "Saganabyss",
+  "es": "Gorebyss",
+  "it": "Gorebyss",
+  "en": "Gorebyss"
+ },
+ "394": {
+  "fr": "Relicanth",
+  "de": "Relicanth",
+  "es": "Relicanth",
+  "it": "Relicanth",
+  "en": "Relicanth"
+ },
+ "395": {
+  "fr": "Lovdisc",
+  "de": "Liebiskus",
+  "es": "Luvdisc",
+  "it": "Luvdisc",
+  "en": "Luvdisc"
+ },
+ "396": {
+  "fr": "Draby",
+  "de": "Kindwurm",
+  "es": "Bagon",
+  "it": "Bagon",
+  "en": "Bagon"
+ },
+ "397": {
+  "fr": "Drackhaus",
+  "de": "Draschel",
+  "es": "Shelgon",
+  "it": "Shelgon",
+  "en": "Shelgon"
+ },
+ "398": {
+  "fr": "Drattak",
+  "de": "Brutalanda",
+  "es": "Salamence",
+  "it": "Salamence",
+  "en": "Salamence"
+ },
+ "399": {
+  "fr": "Terhal",
+  "de": "Tanhel",
+  "es": "Beldum",
+  "it": "Beldum",
+  "en": "Beldum"
+ },
+ "400": {
+  "fr": "Métang",
+  "de": "Metang",
+  "es": "Metang",
+  "it": "Metang",
+  "en": "Metang"
+ },
+ "401": {
+  "fr": "Métalosse",
+  "de": "Metagross",
+  "es": "Metagross",
+  "it": "Metagross",
+  "en": "Metagross"
+ },
+ "402": {
+  "fr": "Regirock",
+  "de": "Regirock",
+  "es": "Regirock",
+  "it": "Regirock",
+  "en": "Regirock"
+ },
+ "403": {
+  "fr": "Regice",
+  "de": "Regice",
+  "es": "Regice",
+  "it": "Regice",
+  "en": "Regice"
+ },
+ "404": {
+  "fr": "Registeel",
+  "de": "Registeel",
+  "es": "Registeel",
+  "it": "Registeel",
+  "en": "Registeel"
+ },
+ "405": {
+  "fr": "Latias",
+  "de": "Latias",
+  "es": "Latias",
+  "it": "Latias",
+  "en": "Latias"
+ },
+ "406": {
+  "fr": "Latios",
+  "de": "Latios",
+  "es": "Latios",
+  "it": "Latios",
+  "en": "Latios"
+ },
+ "407": {
+  "fr": "Kyogre",
+  "de": "Kyogre",
+  "es": "Kyogre",
+  "it": "Kyogre",
+  "en": "Kyogre"
+ },
+ "408": {
+  "fr": "Groudon",
+  "de": "Groudon",
+  "es": "Groudon",
+  "it": "Groudon",
+  "en": "Groudon"
+ },
+ "409": {
+  "fr": "Rayquaza",
+  "de": "Rayquaza",
+  "es": "Rayquaza",
+  "it": "Rayquaza",
+  "en": "Rayquaza"
+ },
+ "410": {
+  "fr": "Jirachi",
+  "de": "Jirachi",
+  "es": "Jirachi",
+  "it": "Jirachi",
+  "en": "Jirachi"
+ },
+ "411": {
+  "fr": "Deoxys",
+  "de": "Deoxys",
+  "es": "Deoxys",
+  "it": "Deoxys",
+  "en": "Deoxys"
+ }
+}

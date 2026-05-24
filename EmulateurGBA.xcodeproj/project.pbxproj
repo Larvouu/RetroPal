@@ -1,0 +1,514 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000011AAAA0011AAAAAAAA /* libmelonds-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */; };
+		AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002AAAA0002AAAAAAAA /* libteakra.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		261E138A2FBABA3E00C59F11 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 26E03F6A2F72C166004BD51E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 26E03F712F72C166004BD51E;
+			remoteInfo = EmulateurGBA;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EmulateurGBATests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		26E03F722F72C166004BD51E /* EmulateurGBA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EmulateurGBA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmelonds-core.a"; path = "Vendor/melonds-ios/lib/libmelonds-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000002AAAA0002AAAAAAAA /* libteakra.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libteakra.a; path = "Vendor/melonds-ios/lib/libteakra.a"; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FF000040FF000040FF000040 /* Exceptions for "EmulateurGBA" folder in "EmulateurGBA" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 26E03F712F72C166004BD51E /* EmulateurGBA */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		261E13872FBABA3E00C59F11 /* EmulateurGBATests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EmulateurGBATests;
+			sourceTree = "<group>";
+		};
+		26E03F742F72C166004BD51E /* EmulateurGBA */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FF000040FF000040FF000040 /* Exceptions for "EmulateurGBA" folder in "EmulateurGBA" target */,
+			);
+			path = EmulateurGBA;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		261E13832FBABA3E00C59F11 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		26E03F6F2F72C166004BD51E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000011AAAA0011AAAAAAAA /* libmelonds-core.a in Frameworks */,
+				AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		26E03F692F72C166004BD51E = {
+			isa = PBXGroup;
+			children = (
+				26E03F742F72C166004BD51E /* EmulateurGBA */,
+				261E13872FBABA3E00C59F11 /* EmulateurGBATests */,
+				AA000020AAAA0020AAAAAAAA /* Frameworks */,
+				26E03F732F72C166004BD51E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		26E03F732F72C166004BD51E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				26E03F722F72C166004BD51E /* EmulateurGBA.app */,
+				261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA000020AAAA0020AAAAAAAA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */,
+				AA000002AAAA0002AAAAAAAA /* libteakra.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		261E13852FBABA3E00C59F11 /* EmulateurGBATests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 261E138C2FBABA3E00C59F11 /* Build configuration list for PBXNativeTarget "EmulateurGBATests" */;
+			buildPhases = (
+				261E13822FBABA3E00C59F11 /* Sources */,
+				261E13832FBABA3E00C59F11 /* Frameworks */,
+				261E13842FBABA3E00C59F11 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				261E138B2FBABA3E00C59F11 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				261E13872FBABA3E00C59F11 /* EmulateurGBATests */,
+			);
+			name = EmulateurGBATests;
+			packageProductDependencies = (
+			);
+			productName = EmulateurGBATests;
+			productReference = 261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		26E03F712F72C166004BD51E /* EmulateurGBA */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 26E03F802F72C167004BD51E /* Build configuration list for PBXNativeTarget "EmulateurGBA" */;
+			buildPhases = (
+				26E03F6E2F72C166004BD51E /* Sources */,
+				26E03F6F2F72C166004BD51E /* Frameworks */,
+				26E03F702F72C166004BD51E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				26E03F742F72C166004BD51E /* EmulateurGBA */,
+			);
+			name = EmulateurGBA;
+			packageProductDependencies = (
+			);
+			productName = EmulateurGBA;
+			productReference = 26E03F722F72C166004BD51E /* EmulateurGBA.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		26E03F6A2F72C166004BD51E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					261E13852FBABA3E00C59F11 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 26E03F712F72C166004BD51E;
+					};
+					26E03F712F72C166004BD51E = {
+						CreatedOnToolsVersion = 16.2;
+					};
+				};
+			};
+			buildConfigurationList = 26E03F6D2F72C166004BD51E /* Build configuration list for PBXProject "EmulateurGBA" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				es,
+				it,
+				fr,
+				ro,
+				de,
+				"pt-PT",
+				pl,
+				nl,
+				sv,
+			);
+			mainGroup = 26E03F692F72C166004BD51E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 26E03F732F72C166004BD51E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				26E03F712F72C166004BD51E /* EmulateurGBA */,
+				261E13852FBABA3E00C59F11 /* EmulateurGBATests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		261E13842FBABA3E00C59F11 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		26E03F702F72C166004BD51E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		261E13822FBABA3E00C59F11 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		26E03F6E2F72C166004BD51E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		261E138B2FBABA3E00C59F11 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 26E03F712F72C166004BD51E /* EmulateurGBA */;
+			targetProxy = 261E138A2FBABA3E00C59F11 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		261E138D2FBABA3E00C59F11 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.EmulateurGBATests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EmulateurGBA.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EmulateurGBA";
+			};
+			name = Debug;
+		};
+		261E138E2FBABA3E00C59F11 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.EmulateurGBATests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EmulateurGBA.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EmulateurGBA";
+			};
+			name = Release;
+		};
+		26E03F7E2F72C167004BD51E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		26E03F7F2F72C167004BD51E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		26E03F812F72C167004BD51E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Vendor/mgba/include",
+					"$(SRCROOT)/Vendor/mgba/src",
+					"$(SRCROOT)/Vendor/mgba-ios/include",
+					"$(SRCROOT)/Vendor/melonds-ios/include",
+				);
+				INFOPLIST_FILE = EmulateurGBA/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.simulation-games";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Vendor/melonds-ios/lib",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "EmulateurGBA/EmulatorCore/Bridge/EmulateurGBA-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		26E03F822F72C167004BD51E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Vendor/mgba/include",
+					"$(SRCROOT)/Vendor/mgba/src",
+					"$(SRCROOT)/Vendor/mgba-ios/include",
+					"$(SRCROOT)/Vendor/melonds-ios/include",
+				);
+				INFOPLIST_FILE = EmulateurGBA/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.simulation-games";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Vendor/melonds-ios/lib",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "EmulateurGBA/EmulatorCore/Bridge/EmulateurGBA-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		261E138C2FBABA3E00C59F11 /* Build configuration list for PBXNativeTarget "EmulateurGBATests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				261E138D2FBABA3E00C59F11 /* Debug */,
+				261E138E2FBABA3E00C59F11 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		26E03F6D2F72C166004BD51E /* Build configuration list for PBXProject "EmulateurGBA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26E03F7E2F72C167004BD51E /* Debug */,
+				26E03F7F2F72C167004BD51E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		26E03F802F72C167004BD51E /* Build configuration list for PBXNativeTarget "EmulateurGBA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26E03F812F72C167004BD51E /* Debug */,
+				26E03F822F72C167004BD51E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 26E03F6A2F72C166004BD51E /* Project object */;
+}

@@ -1,0 +1,2480 @@
+{
+ "1": {
+  "fr": "Écras’Face",
+  "de": "Klaps",
+  "es": "Destructor",
+  "it": "Botta",
+  "en": "Pound"
+ },
+ "2": {
+  "fr": "Poing Karaté",
+  "de": "Karateschlag",
+  "es": "Golpe Kárate",
+  "it": "Colpokarate",
+  "en": "Karate Chop"
+ },
+ "3": {
+  "fr": "Torgnoles",
+  "de": "Duplexhieb",
+  "es": "Doble Bofetón",
+  "it": "Doppiasberla",
+  "en": "Double Slap"
+ },
+ "4": {
+  "fr": "Poing Comète",
+  "de": "Kometenhieb",
+  "es": "Puño Cometa",
+  "it": "Cometapugno",
+  "en": "Comet Punch"
+ },
+ "5": {
+  "fr": "Ultimapoing",
+  "de": "Megahieb",
+  "es": "Megapuño",
+  "it": "Megapugno",
+  "en": "Mega Punch"
+ },
+ "6": {
+  "fr": "Jackpot",
+  "de": "Zahltag",
+  "es": "Día de Pago",
+  "it": "Giornopaga",
+  "en": "Pay Day"
+ },
+ "7": {
+  "fr": "Poing Feu",
+  "de": "Feuerschlag",
+  "es": "Puño Fuego",
+  "it": "Fuocopugno",
+  "en": "Fire Punch"
+ },
+ "8": {
+  "fr": "Poing Glace",
+  "de": "Eishieb",
+  "es": "Puño Hielo",
+  "it": "Gelopugno",
+  "en": "Ice Punch"
+ },
+ "9": {
+  "fr": "Poing Éclair",
+  "de": "Donnerschlag",
+  "es": "Puño Trueno",
+  "it": "Tuonopugno",
+  "en": "Thunder Punch"
+ },
+ "10": {
+  "fr": "Griffe",
+  "de": "Kratzer",
+  "es": "Arañazo",
+  "it": "Graffio",
+  "en": "Scratch"
+ },
+ "11": {
+  "fr": "Force Poigne",
+  "de": "Klammer",
+  "es": "Agarre",
+  "it": "Presa",
+  "en": "Vise Grip"
+ },
+ "12": {
+  "fr": "Guillotine",
+  "de": "Guillotine",
+  "es": "Guillotina",
+  "it": "Ghigliottina",
+  "en": "Guillotine"
+ },
+ "13": {
+  "fr": "Coupe-Vent",
+  "de": "Klingensturm",
+  "es": "Viento Cortante",
+  "it": "Ventagliente",
+  "en": "Razor Wind"
+ },
+ "14": {
+  "fr": "Danse Lames",
+  "de": "Schwerttanz",
+  "es": "Danza Espada",
+  "it": "Danzaspada",
+  "en": "Swords Dance"
+ },
+ "15": {
+  "fr": "Coupe",
+  "de": "Zerschneider",
+  "es": "Corte",
+  "it": "Taglio",
+  "en": "Cut"
+ },
+ "16": {
+  "fr": "Tornade",
+  "de": "Windstoß",
+  "es": "Tornado",
+  "it": "Raffica",
+  "en": "Gust"
+ },
+ "17": {
+  "fr": "Cru-Ailes",
+  "de": "Flügelschlag",
+  "es": "Ataque Ala",
+  "it": "Attacco d’Ala",
+  "en": "Wing Attack"
+ },
+ "18": {
+  "fr": "Cyclone",
+  "de": "Wirbelwind",
+  "es": "Remolino",
+  "it": "Turbine",
+  "en": "Whirlwind"
+ },
+ "19": {
+  "fr": "Vol",
+  "de": "Fliegen",
+  "es": "Vuelo",
+  "it": "Volo",
+  "en": "Fly"
+ },
+ "20": {
+  "fr": "Étreinte",
+  "de": "Klammergriff",
+  "es": "Atadura",
+  "it": "Legatutto",
+  "en": "Bind"
+ },
+ "21": {
+  "fr": "Souplesse",
+  "de": "Slam",
+  "es": "Atizar",
+  "it": "Schianto",
+  "en": "Slam"
+ },
+ "22": {
+  "fr": "Fouet Lianes",
+  "de": "Rankenhieb",
+  "es": "Látigo Cepa",
+  "it": "Frustata",
+  "en": "Vine Whip"
+ },
+ "23": {
+  "fr": "Écrasement",
+  "de": "Stampfer",
+  "es": "Pisotón",
+  "it": "Pestone",
+  "en": "Stomp"
+ },
+ "24": {
+  "fr": "Double Pied",
+  "de": "Doppelkick",
+  "es": "Doble Patada",
+  "it": "Doppiocalcio",
+  "en": "Double Kick"
+ },
+ "25": {
+  "fr": "Ultimawashi",
+  "de": "Megakick",
+  "es": "Megapatada",
+  "it": "Megacalcio",
+  "en": "Mega Kick"
+ },
+ "26": {
+  "fr": "Pied Sauté",
+  "de": "Sprungkick",
+  "es": "Patada Salto",
+  "it": "Calciosalto",
+  "en": "Jump Kick"
+ },
+ "27": {
+  "fr": "Mawashi Geri",
+  "de": "Fegekick",
+  "es": "Patada Giro",
+  "it": "Calciorullo",
+  "en": "Rolling Kick"
+ },
+ "28": {
+  "fr": "Jet de Sable",
+  "de": "Sandwirbel",
+  "es": "Ataque Arena",
+  "it": "Turbosabbia",
+  "en": "Sand Attack"
+ },
+ "29": {
+  "fr": "Coup d’Boule",
+  "de": "Kopfnuss",
+  "es": "Golpe Cabeza",
+  "it": "Bottintesta",
+  "en": "Headbutt"
+ },
+ "30": {
+  "fr": "Koud’Korne",
+  "de": "Hornattacke",
+  "es": "Cornada",
+  "it": "Incornata",
+  "en": "Horn Attack"
+ },
+ "31": {
+  "fr": "Furie",
+  "de": "Furienschlag",
+  "es": "Ataque Furia",
+  "it": "Furia",
+  "en": "Fury Attack"
+ },
+ "32": {
+  "fr": "Empal’Korne",
+  "de": "Hornbohrer",
+  "es": "Perforador",
+  "it": "Perforcorno",
+  "en": "Horn Drill"
+ },
+ "33": {
+  "fr": "Charge",
+  "de": "Tackle",
+  "es": "Placaje",
+  "it": "Azione",
+  "en": "Tackle"
+ },
+ "34": {
+  "fr": "Plaquage",
+  "de": "Bodyslam",
+  "es": "Golpe Cuerpo",
+  "it": "Corposcontro",
+  "en": "Body Slam"
+ },
+ "35": {
+  "fr": "Ligotage",
+  "de": "Wickel",
+  "es": "Constricción",
+  "it": "Avvolgibotta",
+  "en": "Wrap"
+ },
+ "36": {
+  "fr": "Bélier",
+  "de": "Bodycheck",
+  "es": "Derribo",
+  "it": "Riduttore",
+  "en": "Take Down"
+ },
+ "37": {
+  "fr": "Mania",
+  "de": "Fuchtler",
+  "es": "Golpe",
+  "it": "Colpo",
+  "en": "Thrash"
+ },
+ "38": {
+  "fr": "Damoclès",
+  "de": "Risikotackle",
+  "es": "Doble Filo",
+  "it": "Sdoppiatore",
+  "en": "Double-Edge"
+ },
+ "39": {
+  "fr": "Mimi-Queue",
+  "de": "Rutenschlag",
+  "es": "Látigo",
+  "it": "Colpocoda",
+  "en": "Tail Whip"
+ },
+ "40": {
+  "fr": "Dard-Venin",
+  "de": "Giftstachel",
+  "es": "Picotazo Veneno",
+  "it": "Velenospina",
+  "en": "Poison Sting"
+ },
+ "41": {
+  "fr": "Double Dard",
+  "de": "Duonadel",
+  "es": "Doble Ataque",
+  "it": "Doppio Ago",
+  "en": "Twineedle"
+ },
+ "42": {
+  "fr": "Dard-Nuée",
+  "de": "Nadelrakete",
+  "es": "Pin Misil",
+  "it": "Missilspillo",
+  "en": "Pin Missile"
+ },
+ "43": {
+  "fr": "Groz’Yeux",
+  "de": "Silberblick",
+  "es": "Malicioso",
+  "it": "Fulmisguardo",
+  "en": "Leer"
+ },
+ "44": {
+  "fr": "Morsure",
+  "de": "Biss",
+  "es": "Mordisco",
+  "it": "Morso",
+  "en": "Bite"
+ },
+ "45": {
+  "fr": "Rugissement",
+  "de": "Heuler",
+  "es": "Gruñido",
+  "it": "Ruggito",
+  "en": "Growl"
+ },
+ "46": {
+  "fr": "Hurlement",
+  "de": "Brüller",
+  "es": "Rugido",
+  "it": "Boato",
+  "en": "Roar"
+ },
+ "47": {
+  "fr": "Berceuse",
+  "de": "Gesang",
+  "es": "Canto",
+  "it": "Canto",
+  "en": "Sing"
+ },
+ "48": {
+  "fr": "Ultrason",
+  "de": "Superschall",
+  "es": "Supersónico",
+  "it": "Supersuono",
+  "en": "Supersonic"
+ },
+ "49": {
+  "fr": "Sonic Boom",
+  "de": "Ultraschall",
+  "es": "Bomba Sónica",
+  "it": "Sonicboom",
+  "en": "Sonic Boom"
+ },
+ "50": {
+  "fr": "Entrave",
+  "de": "Aussetzer",
+  "es": "Anulación",
+  "it": "Inibitore",
+  "en": "Disable"
+ },
+ "51": {
+  "fr": "Acide",
+  "de": "Säure",
+  "es": "Ácido",
+  "it": "Acido",
+  "en": "Acid"
+ },
+ "52": {
+  "fr": "Flammèche",
+  "de": "Glut",
+  "es": "Ascuas",
+  "it": "Braciere",
+  "en": "Ember"
+ },
+ "53": {
+  "fr": "Lance-Flammes",
+  "de": "Flammenwurf",
+  "es": "Lanzallamas",
+  "it": "Lanciafiamme",
+  "en": "Flamethrower"
+ },
+ "54": {
+  "fr": "Brume",
+  "de": "Weißnebel",
+  "es": "Neblina",
+  "it": "Nebbia",
+  "en": "Mist"
+ },
+ "55": {
+  "fr": "Pistolet à O",
+  "de": "Aquaknarre",
+  "es": "Pistola Agua",
+  "it": "Pistolacqua",
+  "en": "Water Gun"
+ },
+ "56": {
+  "fr": "Hydrocanon",
+  "de": "Hydropumpe",
+  "es": "Hidrobomba",
+  "it": "Idropompa",
+  "en": "Hydro Pump"
+ },
+ "57": {
+  "fr": "Surf",
+  "de": "Surfer",
+  "es": "Surf",
+  "it": "Surf",
+  "en": "Surf"
+ },
+ "58": {
+  "fr": "Laser Glace",
+  "de": "Eisstrahl",
+  "es": "Rayo Hielo",
+  "it": "Geloraggio",
+  "en": "Ice Beam"
+ },
+ "59": {
+  "fr": "Blizzard",
+  "de": "Blizzard",
+  "es": "Ventisca",
+  "it": "Bora",
+  "en": "Blizzard"
+ },
+ "60": {
+  "fr": "Rafale Psy",
+  "de": "Psystrahl",
+  "es": "Psicorrayo",
+  "it": "Psicoraggio",
+  "en": "Psybeam"
+ },
+ "61": {
+  "fr": "Bulles d’O",
+  "de": "Blubbstrahl",
+  "es": "Rayo Burbuja",
+  "it": "Bollaraggio",
+  "en": "Bubble Beam"
+ },
+ "62": {
+  "fr": "Onde Boréale",
+  "de": "Aurorastrahl",
+  "es": "Rayo Aurora",
+  "it": "Raggiaurora",
+  "en": "Aurora Beam"
+ },
+ "63": {
+  "fr": "Ultralaser",
+  "de": "Hyperstrahl",
+  "es": "Hiperrayo",
+  "it": "Iper Raggio",
+  "en": "Hyper Beam"
+ },
+ "64": {
+  "fr": "Picpic",
+  "de": "Pikser",
+  "es": "Picotazo",
+  "it": "Beccata",
+  "en": "Peck"
+ },
+ "65": {
+  "fr": "Bec Vrille",
+  "de": "Bohrschnabel",
+  "es": "Pico Taladro",
+  "it": "Perforbecco",
+  "en": "Drill Peck"
+ },
+ "66": {
+  "fr": "Sacrifice",
+  "de": "Überroller",
+  "es": "Sumisión",
+  "it": "Sottomissione",
+  "en": "Submission"
+ },
+ "67": {
+  "fr": "Balayage",
+  "de": "Fußkick",
+  "es": "Patada Baja",
+  "it": "Colpo Basso",
+  "en": "Low Kick"
+ },
+ "68": {
+  "fr": "Riposte",
+  "de": "Konter",
+  "es": "Contraataque",
+  "it": "Contrattacco",
+  "en": "Counter"
+ },
+ "69": {
+  "fr": "Frappe Atlas",
+  "de": "Geowurf",
+  "es": "Sísmico",
+  "it": "Movim. Sismico",
+  "en": "Seismic Toss"
+ },
+ "70": {
+  "fr": "Force",
+  "de": "Stärke",
+  "es": "Fuerza",
+  "it": "Forza",
+  "en": "Strength"
+ },
+ "71": {
+  "fr": "Vole-Vie",
+  "de": "Absorber",
+  "es": "Absorber",
+  "it": "Assorbimento",
+  "en": "Absorb"
+ },
+ "72": {
+  "fr": "Méga-Sangsue",
+  "de": "Megasauger",
+  "es": "Megaagotar",
+  "it": "Megassorbimento",
+  "en": "Mega Drain"
+ },
+ "73": {
+  "fr": "Vampigraine",
+  "de": "Egelsamen",
+  "es": "Drenadoras",
+  "it": "Parassiseme",
+  "en": "Leech Seed"
+ },
+ "74": {
+  "fr": "Croissance",
+  "de": "Wachstum",
+  "es": "Desarrollo",
+  "it": "Crescita",
+  "en": "Growth"
+ },
+ "75": {
+  "fr": "Tranch’Herbe",
+  "de": "Rasierblatt",
+  "es": "Hoja Afilada",
+  "it": "Foglielama",
+  "en": "Razor Leaf"
+ },
+ "76": {
+  "fr": "Lance-Soleil",
+  "de": "Solarstrahl",
+  "es": "Rayo Solar",
+  "it": "Solarraggio",
+  "en": "Solar Beam"
+ },
+ "77": {
+  "fr": "Poudre Toxik",
+  "de": "Giftpuder",
+  "es": "Polvo Veneno",
+  "it": "Velenpolvere",
+  "en": "Poison Powder"
+ },
+ "78": {
+  "fr": "Para-Spore",
+  "de": "Stachelspore",
+  "es": "Paralizador",
+  "it": "Paralizzante",
+  "en": "Stun Spore"
+ },
+ "79": {
+  "fr": "Poudre Dodo",
+  "de": "Schlafpuder",
+  "es": "Somnífero",
+  "it": "Sonnifero",
+  "en": "Sleep Powder"
+ },
+ "80": {
+  "fr": "Danse Fleurs",
+  "de": "Blättertanz",
+  "es": "Danza Pétalo",
+  "it": "Petalodanza",
+  "en": "Petal Dance"
+ },
+ "81": {
+  "fr": "Sécrétion",
+  "de": "Fadenschuss",
+  "es": "Disparo Demora",
+  "it": "Millebave",
+  "en": "String Shot"
+ },
+ "82": {
+  "fr": "Draco-Rage",
+  "de": "Drachenwut",
+  "es": "Furia Dragón",
+  "it": "Ira di Drago",
+  "en": "Dragon Rage"
+ },
+ "83": {
+  "fr": "Danse Flammes",
+  "de": "Feuerwirbel",
+  "es": "Giro Fuego",
+  "it": "Turbofuoco",
+  "en": "Fire Spin"
+ },
+ "84": {
+  "fr": "Éclair",
+  "de": "Donnerschock",
+  "es": "Impactrueno",
+  "it": "Tuonoshock",
+  "en": "Thunder Shock"
+ },
+ "85": {
+  "fr": "Tonnerre",
+  "de": "Donnerblitz",
+  "es": "Rayo",
+  "it": "Fulmine",
+  "en": "Thunderbolt"
+ },
+ "86": {
+  "fr": "Cage Éclair",
+  "de": "Donnerwelle",
+  "es": "Onda Trueno",
+  "it": "Tuononda",
+  "en": "Thunder Wave"
+ },
+ "87": {
+  "fr": "Fatal-Foudre",
+  "de": "Donner",
+  "es": "Trueno",
+  "it": "Tuono",
+  "en": "Thunder"
+ },
+ "88": {
+  "fr": "Jet-Pierres",
+  "de": "Steinwurf",
+  "es": "Lanzarrocas",
+  "it": "Sassata",
+  "en": "Rock Throw"
+ },
+ "89": {
+  "fr": "Séisme",
+  "de": "Erdbeben",
+  "es": "Terremoto",
+  "it": "Terremoto",
+  "en": "Earthquake"
+ },
+ "90": {
+  "fr": "Abîme",
+  "de": "Geofissur",
+  "es": "Fisura",
+  "it": "Abisso",
+  "en": "Fissure"
+ },
+ "91": {
+  "fr": "Tunnel",
+  "de": "Schaufler",
+  "es": "Excavar",
+  "it": "Fossa",
+  "en": "Dig"
+ },
+ "92": {
+  "fr": "Toxik",
+  "de": "Toxin",
+  "es": "Tóxico",
+  "it": "Tossina",
+  "en": "Toxic"
+ },
+ "93": {
+  "fr": "Choc Mental",
+  "de": "Konfusion",
+  "es": "Confusión",
+  "it": "Confusione",
+  "en": "Confusion"
+ },
+ "94": {
+  "fr": "Psyko",
+  "de": "Psychokinese",
+  "es": "Psíquico",
+  "it": "Psichico",
+  "en": "Psychic"
+ },
+ "95": {
+  "fr": "Hypnose",
+  "de": "Hypnose",
+  "es": "Hipnosis",
+  "it": "Ipnosi",
+  "en": "Hypnosis"
+ },
+ "96": {
+  "fr": "Yoga",
+  "de": "Meditation",
+  "es": "Meditación",
+  "it": "Meditazione",
+  "en": "Meditate"
+ },
+ "97": {
+  "fr": "Hâte",
+  "de": "Agilität",
+  "es": "Agilidad",
+  "it": "Agilità",
+  "en": "Agility"
+ },
+ "98": {
+  "fr": "Vive-Attaque",
+  "de": "Ruckzuckhieb",
+  "es": "Ataque Rápido",
+  "it": "Attacco Rapido",
+  "en": "Quick Attack"
+ },
+ "99": {
+  "fr": "Frénésie",
+  "de": "Raserei",
+  "es": "Furia",
+  "it": "Ira",
+  "en": "Rage"
+ },
+ "100": {
+  "fr": "Téléport",
+  "de": "Teleport",
+  "es": "Teletransporte",
+  "it": "Teletrasporto",
+  "en": "Teleport"
+ },
+ "101": {
+  "fr": "Ombre Nocturne",
+  "de": "Nachtnebel",
+  "es": "Tinieblas",
+  "it": "Ombra Notturna",
+  "en": "Night Shade"
+ },
+ "102": {
+  "fr": "Copie",
+  "de": "Mimikry",
+  "es": "Mimético",
+  "it": "Mimica",
+  "en": "Mimic"
+ },
+ "103": {
+  "fr": "Grincement",
+  "de": "Kreideschrei",
+  "es": "Chirrido",
+  "it": "Stridio",
+  "en": "Screech"
+ },
+ "104": {
+  "fr": "Reflet",
+  "de": "Doppelteam",
+  "es": "Doble Equipo",
+  "it": "Doppioteam",
+  "en": "Double Team"
+ },
+ "105": {
+  "fr": "Soin",
+  "de": "Genesung",
+  "es": "Recuperación",
+  "it": "Ripresa",
+  "en": "Recover"
+ },
+ "106": {
+  "fr": "Armure",
+  "de": "Härtner",
+  "es": "Fortaleza",
+  "it": "Rafforzatore",
+  "en": "Harden"
+ },
+ "107": {
+  "fr": "Lilliput",
+  "de": "Komprimator",
+  "es": "Reducción",
+  "it": "Minimizzato",
+  "en": "Minimize"
+ },
+ "108": {
+  "fr": "Brouillard",
+  "de": "Rauchwolke",
+  "es": "Pantalla de Humo",
+  "it": "Muro di Fumo",
+  "en": "Smokescreen"
+ },
+ "109": {
+  "fr": "Onde Folie",
+  "de": "Konfusstrahl",
+  "es": "Rayo Confuso",
+  "it": "Stordiraggio",
+  "en": "Confuse Ray"
+ },
+ "110": {
+  "fr": "Repli",
+  "de": "Panzerschutz",
+  "es": "Refugio",
+  "it": "Ritirata",
+  "en": "Withdraw"
+ },
+ "111": {
+  "fr": "Boul’Armure",
+  "de": "Einigler",
+  "es": "Rizo Defensa",
+  "it": "Ricciolscudo",
+  "en": "Defense Curl"
+ },
+ "112": {
+  "fr": "Bouclier",
+  "de": "Barriere",
+  "es": "Barrera",
+  "it": "Barriera",
+  "en": "Barrier"
+ },
+ "113": {
+  "fr": "Mur Lumière",
+  "de": "Lichtschild",
+  "es": "Pantalla de Luz",
+  "it": "Schermoluce",
+  "en": "Light Screen"
+ },
+ "114": {
+  "fr": "Buée Noire",
+  "de": "Dunkelnebel",
+  "es": "Niebla",
+  "it": "Nube",
+  "en": "Haze"
+ },
+ "115": {
+  "fr": "Protection",
+  "de": "Reflektor",
+  "es": "Reflejo",
+  "it": "Riflesso",
+  "en": "Reflect"
+ },
+ "116": {
+  "fr": "Puissance",
+  "de": "Energiefokus",
+  "es": "Foco Energía",
+  "it": "Focalenergia",
+  "en": "Focus Energy"
+ },
+ "117": {
+  "fr": "Patience",
+  "de": "Geduld",
+  "es": "Venganza",
+  "it": "Pazienza",
+  "en": "Bide"
+ },
+ "118": {
+  "fr": "Métronome",
+  "de": "Metronom",
+  "es": "Metrónomo",
+  "it": "Metronomo",
+  "en": "Metronome"
+ },
+ "119": {
+  "fr": "Mimique",
+  "de": "Spiegeltrick",
+  "es": "Espejo",
+  "it": "Speculmossa",
+  "en": "Mirror Move"
+ },
+ "120": {
+  "fr": "Destruction",
+  "de": "Finale",
+  "es": "Autodestrucción",
+  "it": "Autodistruzione",
+  "en": "Self-Destruct"
+ },
+ "121": {
+  "fr": "Bombe Œuf",
+  "de": "Eierbombe",
+  "es": "Bomba Huevo",
+  "it": "Uovobomba",
+  "en": "Egg Bomb"
+ },
+ "122": {
+  "fr": "Léchouille",
+  "de": "Schlecker",
+  "es": "Lengüetazo",
+  "it": "Leccata",
+  "en": "Lick"
+ },
+ "123": {
+  "fr": "Purédpois",
+  "de": "Smog",
+  "es": "Polución",
+  "it": "Smog",
+  "en": "Smog"
+ },
+ "124": {
+  "fr": "Détritus",
+  "de": "Schlammbad",
+  "es": "Residuos",
+  "it": "Fango",
+  "en": "Sludge"
+ },
+ "125": {
+  "fr": "Massd’Os",
+  "de": "Knochenkeule",
+  "es": "Hueso Palo",
+  "it": "Ossoclava",
+  "en": "Bone Club"
+ },
+ "126": {
+  "fr": "Déflagration",
+  "de": "Feuersturm",
+  "es": "Llamarada",
+  "it": "Fuocobomba",
+  "en": "Fire Blast"
+ },
+ "127": {
+  "fr": "Cascade",
+  "de": "Kaskade",
+  "es": "Cascada",
+  "it": "Cascata",
+  "en": "Waterfall"
+ },
+ "128": {
+  "fr": "Claquoir",
+  "de": "Schnapper",
+  "es": "Tenaza",
+  "it": "Tenaglia",
+  "en": "Clamp"
+ },
+ "129": {
+  "fr": "Météores",
+  "de": "Sternschauer",
+  "es": "Rapidez",
+  "it": "Comete",
+  "en": "Swift"
+ },
+ "130": {
+  "fr": "Coud’Krâne",
+  "de": "Schädelwumme",
+  "es": "Cabezazo",
+  "it": "Capocciata",
+  "en": "Skull Bash"
+ },
+ "131": {
+  "fr": "Picanon",
+  "de": "Dornkanone",
+  "es": "Clavo Cañón",
+  "it": "Sparalance",
+  "en": "Spike Cannon"
+ },
+ "132": {
+  "fr": "Constriction",
+  "de": "Umklammerung",
+  "es": "Restricción",
+  "it": "Limitazione",
+  "en": "Constrict"
+ },
+ "133": {
+  "fr": "Amnésie",
+  "de": "Amnesie",
+  "es": "Amnesia",
+  "it": "Amnesia",
+  "en": "Amnesia"
+ },
+ "134": {
+  "fr": "Télékinésie",
+  "de": "Psykraft",
+  "es": "Kinético",
+  "it": "Cinèsi",
+  "en": "Kinesis"
+ },
+ "135": {
+  "fr": "E-Coque",
+  "de": "Weichei",
+  "es": "Amortiguador",
+  "it": "Covauova",
+  "en": "Soft-Boiled"
+ },
+ "136": {
+  "fr": "Pied Voltige",
+  "de": "Turmkick",
+  "es": "Pat. Salto Alta",
+  "it": "Calcinvolo",
+  "en": "High Jump Kick"
+ },
+ "137": {
+  "fr": "Regard Médusant",
+  "de": "Schlangenblick",
+  "es": "Deslumbrar",
+  "it": "Sguardo Feroce",
+  "en": "Glare"
+ },
+ "138": {
+  "fr": "Dévorêve",
+  "de": "Traumfresser",
+  "es": "Comesueños",
+  "it": "Mangiasogni",
+  "en": "Dream Eater"
+ },
+ "139": {
+  "fr": "Gaz Toxik",
+  "de": "Giftwolke",
+  "es": "Gas Venenoso",
+  "it": "Velenogas",
+  "en": "Poison Gas"
+ },
+ "140": {
+  "fr": "Pilonnage",
+  "de": "Stakkato",
+  "es": "Bombardeo",
+  "it": "Attacco Pioggia",
+  "en": "Barrage"
+ },
+ "141": {
+  "fr": "Vampirisme",
+  "de": "Blutsauger",
+  "es": "Chupavidas",
+  "it": "Sanguisuga",
+  "en": "Leech Life"
+ },
+ "142": {
+  "fr": "Grobisou",
+  "de": "Todeskuss",
+  "es": "Beso Amoroso",
+  "it": "Demonbacio",
+  "en": "Lovely Kiss"
+ },
+ "143": {
+  "fr": "Piqué",
+  "de": "Himmelsfeger",
+  "es": "Ataque Aéreo",
+  "it": "Aeroattacco",
+  "en": "Sky Attack"
+ },
+ "144": {
+  "fr": "Morphing",
+  "de": "Wandler",
+  "es": "Transformación",
+  "it": "Trasformazione",
+  "en": "Transform"
+ },
+ "145": {
+  "fr": "Écume",
+  "de": "Blubber",
+  "es": "Burbuja",
+  "it": "Bolla",
+  "en": "Bubble"
+ },
+ "146": {
+  "fr": "Uppercut",
+  "de": "Irrschlag",
+  "es": "Puño Mareo",
+  "it": "Stordipugno",
+  "en": "Dizzy Punch"
+ },
+ "147": {
+  "fr": "Spore",
+  "de": "Pilzspore",
+  "es": "Espora",
+  "it": "Spora",
+  "en": "Spore"
+ },
+ "148": {
+  "fr": "Flash",
+  "de": "Blitz",
+  "es": "Destello",
+  "it": "Flash",
+  "en": "Flash"
+ },
+ "149": {
+  "fr": "Vague Psy",
+  "de": "Psywelle",
+  "es": "Psicoonda",
+  "it": "Psiconda",
+  "en": "Psywave"
+ },
+ "150": {
+  "fr": "Trempette",
+  "de": "Platscher",
+  "es": "Salpicadura",
+  "it": "Splash",
+  "en": "Splash"
+ },
+ "151": {
+  "fr": "Acidarmure",
+  "de": "Säurepanzer",
+  "es": "Armadura Ácida",
+  "it": "Scudo Acido",
+  "en": "Acid Armor"
+ },
+ "152": {
+  "fr": "Pince-Masse",
+  "de": "Krabbhammer",
+  "es": "Martillazo",
+  "it": "Martellata",
+  "en": "Crabhammer"
+ },
+ "153": {
+  "fr": "Explosion",
+  "de": "Explosion",
+  "es": "Explosión",
+  "it": "Esplosione",
+  "en": "Explosion"
+ },
+ "154": {
+  "fr": "Combo-Griffe",
+  "de": "Kratzfurie",
+  "es": "Golpes Furia",
+  "it": "Sfuriate",
+  "en": "Fury Swipes"
+ },
+ "155": {
+  "fr": "Osmerang",
+  "de": "Knochmerang",
+  "es": "Huesomerang",
+  "it": "Ossomerang",
+  "en": "Bonemerang"
+ },
+ "156": {
+  "fr": "Repos",
+  "de": "Erholung",
+  "es": "Descanso",
+  "it": "Riposo",
+  "en": "Rest"
+ },
+ "157": {
+  "fr": "Éboulement",
+  "de": "Steinhagel",
+  "es": "Avalancha",
+  "it": "Frana",
+  "en": "Rock Slide"
+ },
+ "158": {
+  "fr": "Croc de Mort",
+  "de": "Hyperzahn",
+  "es": "Hipercolmillo",
+  "it": "Iperzanna",
+  "en": "Hyper Fang"
+ },
+ "159": {
+  "fr": "Affûtage",
+  "de": "Schärfer",
+  "es": "Afilar",
+  "it": "Affilatore",
+  "en": "Sharpen"
+ },
+ "160": {
+  "fr": "Conversion",
+  "de": "Umwandlung",
+  "es": "Conversión",
+  "it": "Conversione",
+  "en": "Conversion"
+ },
+ "161": {
+  "fr": "Triplattaque",
+  "de": "Triplette",
+  "es": "Triataque",
+  "it": "Tripletta",
+  "en": "Tri Attack"
+ },
+ "162": {
+  "fr": "Croc Fatal",
+  "de": "Superzahn",
+  "es": "Superdiente",
+  "it": "Superzanna",
+  "en": "Super Fang"
+ },
+ "163": {
+  "fr": "Tranche",
+  "de": "Schlitzer",
+  "es": "Cuchillada",
+  "it": "Lacerazione",
+  "en": "Slash"
+ },
+ "164": {
+  "fr": "Clonage",
+  "de": "Delegator",
+  "es": "Sustituto",
+  "it": "Sostituto",
+  "en": "Substitute"
+ },
+ "165": {
+  "fr": "Lutte",
+  "de": "Verzweifler",
+  "es": "Forcejeo",
+  "it": "Scontro",
+  "en": "Struggle"
+ },
+ "166": {
+  "fr": "Gribouille",
+  "de": "Nachahmer",
+  "es": "Esquema",
+  "it": "Schizzo",
+  "en": "Sketch"
+ },
+ "167": {
+  "fr": "Triple Pied",
+  "de": "Dreifachkick",
+  "es": "Triple Patada",
+  "it": "Triplocalcio",
+  "en": "Triple Kick"
+ },
+ "168": {
+  "fr": "Larcin",
+  "de": "Raub",
+  "es": "Ladrón",
+  "it": "Furto",
+  "en": "Thief"
+ },
+ "169": {
+  "fr": "Toile",
+  "de": "Spinnennetz",
+  "es": "Telaraña",
+  "it": "Ragnatela",
+  "en": "Spider Web"
+ },
+ "170": {
+  "fr": "Lire-Esprit",
+  "de": "Willensleser",
+  "es": "Telépata",
+  "it": "Leggimente",
+  "en": "Mind Reader"
+ },
+ "171": {
+  "fr": "Cauchemar",
+  "de": "Nachtmahr",
+  "es": "Pesadilla",
+  "it": "Incubo",
+  "en": "Nightmare"
+ },
+ "172": {
+  "fr": "Roue de Feu",
+  "de": "Flammenrad",
+  "es": "Rueda Fuego",
+  "it": "Ruotafuoco",
+  "en": "Flame Wheel"
+ },
+ "173": {
+  "fr": "Ronflement",
+  "de": "Schnarcher",
+  "es": "Ronquido",
+  "it": "Russare",
+  "en": "Snore"
+ },
+ "174": {
+  "fr": "Malédiction",
+  "de": "Fluch",
+  "es": "Maldición",
+  "it": "Maledizione",
+  "en": "Curse"
+ },
+ "175": {
+  "fr": "Gigotage",
+  "de": "Dreschflegel",
+  "es": "Azote",
+  "it": "Flagello",
+  "en": "Flail"
+ },
+ "176": {
+  "fr": "Conversion 2",
+  "de": "Umwandlung2",
+  "es": "Conversión2",
+  "it": "Conversione2",
+  "en": "Conversion 2"
+ },
+ "177": {
+  "fr": "Aéroblast",
+  "de": "Luftstoß",
+  "es": "Aerochorro",
+  "it": "Aerocolpo",
+  "en": "Aeroblast"
+ },
+ "178": {
+  "fr": "Spore Coton",
+  "de": "Baumwollsaat",
+  "es": "Esporagodón",
+  "it": "Cottonspora",
+  "en": "Cotton Spore"
+ },
+ "179": {
+  "fr": "Contre",
+  "de": "Gegenschlag",
+  "es": "Inversión",
+  "it": "Contropiede",
+  "en": "Reversal"
+ },
+ "180": {
+  "fr": "Dépit",
+  "de": "Groll",
+  "es": "Rencor",
+  "it": "Dispetto",
+  "en": "Spite"
+ },
+ "181": {
+  "fr": "Poudreuse",
+  "de": "Pulverschnee",
+  "es": "Nieve Polvo",
+  "it": "Polneve",
+  "en": "Powder Snow"
+ },
+ "182": {
+  "fr": "Abri",
+  "de": "Schutzschild",
+  "es": "Protección",
+  "it": "Protezione",
+  "en": "Protect"
+ },
+ "183": {
+  "fr": "Mach Punch",
+  "de": "Tempohieb",
+  "es": "Ultrapuño",
+  "it": "Pugnorapido",
+  "en": "Mach Punch"
+ },
+ "184": {
+  "fr": "Grimace",
+  "de": "Grimasse",
+  "es": "Cara Susto",
+  "it": "Visotruce",
+  "en": "Scary Face"
+ },
+ "185": {
+  "fr": "Feinte",
+  "de": "Finte",
+  "es": "Finta",
+  "it": "Finta",
+  "en": "Feint Attack"
+ },
+ "186": {
+  "fr": "Doux Baiser",
+  "de": "Bitterkuss",
+  "es": "Beso Dulce",
+  "it": "Dolcebacio",
+  "en": "Sweet Kiss"
+ },
+ "187": {
+  "fr": "Cognobidon",
+  "de": "Bauchtrommel",
+  "es": "Tambor",
+  "it": "Panciamburo",
+  "en": "Belly Drum"
+ },
+ "188": {
+  "fr": "Bombe Beurk",
+  "de": "Matschbombe",
+  "es": "Bomba Lodo",
+  "it": "Fangobomba",
+  "en": "Sludge Bomb"
+ },
+ "189": {
+  "fr": "Coud’Boue",
+  "de": "Lehmschelle",
+  "es": "Bofetón Lodo",
+  "it": "Fangosberla",
+  "en": "Mud-Slap"
+ },
+ "190": {
+  "fr": "Octazooka",
+  "de": "Octazooka",
+  "es": "Pulpocañón",
+  "it": "Octazooka",
+  "en": "Octazooka"
+ },
+ "191": {
+  "fr": "Picots",
+  "de": "Stachler",
+  "es": "Púas",
+  "it": "Punte",
+  "en": "Spikes"
+ },
+ "192": {
+  "fr": "Élecanon",
+  "de": "Blitzkanone",
+  "es": "Electrocañón",
+  "it": "Falcecannone",
+  "en": "Zap Cannon"
+ },
+ "193": {
+  "fr": "Clairvoyance",
+  "de": "Scharfblick",
+  "es": "Profecía",
+  "it": "Preveggenza",
+  "en": "Foresight"
+ },
+ "194": {
+  "fr": "Lien du Destin",
+  "de": "Abgangsbund",
+  "es": "Mismo Destino",
+  "it": "Destinobbligato",
+  "en": "Destiny Bond"
+ },
+ "195": {
+  "fr": "Requiem",
+  "de": "Abgesang",
+  "es": "Canto Mortal",
+  "it": "Ultimocanto",
+  "en": "Perish Song"
+ },
+ "196": {
+  "fr": "Vent Glace",
+  "de": "Eissturm",
+  "es": "Viento Hielo",
+  "it": "Ventogelato",
+  "en": "Icy Wind"
+ },
+ "197": {
+  "fr": "Détection",
+  "de": "Scanner",
+  "es": "Detección",
+  "it": "Individua",
+  "en": "Detect"
+ },
+ "198": {
+  "fr": "Charge Os",
+  "de": "Knochenhatz",
+  "es": "Ataque Óseo",
+  "it": "Ossoraffica",
+  "en": "Bone Rush"
+ },
+ "199": {
+  "fr": "Verrouillage",
+  "de": "Zielschuss",
+  "es": "Fijar Blanco",
+  "it": "Localizza",
+  "en": "Lock-On"
+ },
+ "200": {
+  "fr": "Colère",
+  "de": "Wutanfall",
+  "es": "Enfado",
+  "it": "Oltraggio",
+  "en": "Outrage"
+ },
+ "201": {
+  "fr": "Tempête de Sable",
+  "de": "Sandsturm",
+  "es": "Tormenta Arena",
+  "it": "Terrempesta",
+  "en": "Sandstorm"
+ },
+ "202": {
+  "fr": "Giga-Sangsue",
+  "de": "Gigasauger",
+  "es": "Gigadrenado",
+  "it": "Gigassorbimento",
+  "en": "Giga Drain"
+ },
+ "203": {
+  "fr": "Ténacité",
+  "de": "Ausdauer",
+  "es": "Aguante",
+  "it": "Resistenza",
+  "en": "Endure"
+ },
+ "204": {
+  "fr": "Charme",
+  "de": "Charme",
+  "es": "Encanto",
+  "it": "Fascino",
+  "en": "Charm"
+ },
+ "205": {
+  "fr": "Roulade",
+  "de": "Walzer",
+  "es": "Rodar",
+  "it": "Rotolamento",
+  "en": "Rollout"
+ },
+ "206": {
+  "fr": "Faux-Chage",
+  "de": "Trugschlag",
+  "es": "Falso Tortazo",
+  "it": "Falsofinale",
+  "en": "False Swipe"
+ },
+ "207": {
+  "fr": "Vantardise",
+  "de": "Angeberei",
+  "es": "Contoneo",
+  "it": "Bullo",
+  "en": "Swagger"
+ },
+ "208": {
+  "fr": "Lait à Boire",
+  "de": "Milchgetränk",
+  "es": "Batido",
+  "it": "Buonlatte",
+  "en": "Milk Drink"
+ },
+ "209": {
+  "fr": "Étincelle",
+  "de": "Funkensprung",
+  "es": "Chispa",
+  "it": "Scintilla",
+  "en": "Spark"
+ },
+ "210": {
+  "fr": "Taillade",
+  "de": "Zornklinge",
+  "es": "Corte Furia",
+  "it": "Tagliofuria",
+  "en": "Fury Cutter"
+ },
+ "211": {
+  "fr": "Ailes d’Acier",
+  "de": "Stahlflügel",
+  "es": "Ala de Acero",
+  "it": "Alacciaio",
+  "en": "Steel Wing"
+ },
+ "212": {
+  "fr": "Regard Noir",
+  "de": "Horrorblick",
+  "es": "Mal de Ojo",
+  "it": "Malosguardo",
+  "en": "Mean Look"
+ },
+ "213": {
+  "fr": "Attraction",
+  "de": "Anziehung",
+  "es": "Atracción",
+  "it": "Attrazione",
+  "en": "Attract"
+ },
+ "214": {
+  "fr": "Blabla Dodo",
+  "de": "Schlafrede",
+  "es": "Sonámbulo",
+  "it": "Sonnolalia",
+  "en": "Sleep Talk"
+ },
+ "215": {
+  "fr": "Glas de Soin",
+  "de": "Vitalglocke",
+  "es": "Campana Cura",
+  "it": "Rintoccasana",
+  "en": "Heal Bell"
+ },
+ "216": {
+  "fr": "Retour",
+  "de": "Rückkehr",
+  "es": "Retribución",
+  "it": "Ritorno",
+  "en": "Return"
+ },
+ "217": {
+  "fr": "Cadeau",
+  "de": "Geschenk",
+  "es": "Presente",
+  "it": "Regalino",
+  "en": "Present"
+ },
+ "218": {
+  "fr": "Frustration",
+  "de": "Frustration",
+  "es": "Frustración",
+  "it": "Frustrazione",
+  "en": "Frustration"
+ },
+ "219": {
+  "fr": "Rune Protect",
+  "de": "Bodyguard",
+  "es": "Velo Sagrado",
+  "it": "Salvaguardia",
+  "en": "Safeguard"
+ },
+ "220": {
+  "fr": "Balance",
+  "de": "Leidteiler",
+  "es": "Divide Dolor",
+  "it": "Malcomune",
+  "en": "Pain Split"
+ },
+ "221": {
+  "fr": "Feu Sacré",
+  "de": "Läuterfeuer",
+  "es": "Fuego Sagrado",
+  "it": "Magifuoco",
+  "en": "Sacred Fire"
+ },
+ "222": {
+  "fr": "Ampleur",
+  "de": "Intensität",
+  "es": "Magnitud",
+  "it": "Magnitudo",
+  "en": "Magnitude"
+ },
+ "223": {
+  "fr": "Dynamo-Poing",
+  "de": "Wuchtschlag",
+  "es": "Puño Dinámico",
+  "it": "Dinamipugno",
+  "en": "Dynamic Punch"
+ },
+ "224": {
+  "fr": "Mégacorne",
+  "de": "Vielender",
+  "es": "Megacuerno",
+  "it": "Megacorno",
+  "en": "Megahorn"
+ },
+ "225": {
+  "fr": "Draco-Souffle",
+  "de": "Feuerodem",
+  "es": "Dragoaliento",
+  "it": "Dragospiro",
+  "en": "Dragon Breath"
+ },
+ "226": {
+  "fr": "Relais",
+  "de": "Stafette",
+  "es": "Relevo",
+  "it": "Staffetta",
+  "en": "Baton Pass"
+ },
+ "227": {
+  "fr": "Encore",
+  "de": "Zugabe",
+  "es": "Otra Vez",
+  "it": "Ripeti",
+  "en": "Encore"
+ },
+ "228": {
+  "fr": "Poursuite",
+  "de": "Verfolgung",
+  "es": "Persecución",
+  "it": "Inseguimento",
+  "en": "Pursuit"
+ },
+ "229": {
+  "fr": "Tour Rapide",
+  "de": "Turbodreher",
+  "es": "Giro Rápido",
+  "it": "Rapigiro",
+  "en": "Rapid Spin"
+ },
+ "230": {
+  "fr": "Doux Parfum",
+  "de": "Lockduft",
+  "es": "Dulce Aroma",
+  "it": "Profumino",
+  "en": "Sweet Scent"
+ },
+ "231": {
+  "fr": "Queue de Fer",
+  "de": "Eisenschweif",
+  "es": "Cola Férrea",
+  "it": "Codacciaio",
+  "en": "Iron Tail"
+ },
+ "232": {
+  "fr": "Griffe Acier",
+  "de": "Metallklaue",
+  "es": "Garra Metal",
+  "it": "Ferrartigli",
+  "en": "Metal Claw"
+ },
+ "233": {
+  "fr": "Corps Perdu",
+  "de": "Überwurf",
+  "es": "Tiro Vital",
+  "it": "Vitaltiro",
+  "en": "Vital Throw"
+ },
+ "234": {
+  "fr": "Aurore",
+  "de": "Morgengrauen",
+  "es": "Sol Matinal",
+  "it": "Mattindoro",
+  "en": "Morning Sun"
+ },
+ "235": {
+  "fr": "Synthèse",
+  "de": "Synthese",
+  "es": "Síntesis",
+  "it": "Sintesi",
+  "en": "Synthesis"
+ },
+ "236": {
+  "fr": "Rayon Lune",
+  "de": "Mondschein",
+  "es": "Luz Lunar",
+  "it": "Lucelunare",
+  "en": "Moonlight"
+ },
+ "237": {
+  "fr": "Puissance Cachée",
+  "de": "Kraftreserve",
+  "es": "Poder Oculto",
+  "it": "Introforza",
+  "en": "Hidden Power"
+ },
+ "238": {
+  "fr": "Coup Croix",
+  "de": "Kreuzhieb",
+  "es": "Tajo Cruzado",
+  "it": "Incrocolpo",
+  "en": "Cross Chop"
+ },
+ "239": {
+  "fr": "Ouragan",
+  "de": "Windhose",
+  "es": "Ciclón",
+  "it": "Tornado",
+  "en": "Twister"
+ },
+ "240": {
+  "fr": "Danse Pluie",
+  "de": "Regentanz",
+  "es": "Danza Lluvia",
+  "it": "Pioggiadanza",
+  "en": "Rain Dance"
+ },
+ "241": {
+  "fr": "Zénith",
+  "de": "Sonnentag",
+  "es": "Día Soleado",
+  "it": "Giornodisole",
+  "en": "Sunny Day"
+ },
+ "242": {
+  "fr": "Mâchouille",
+  "de": "Knirscher",
+  "es": "Triturar",
+  "it": "Sgranocchio",
+  "en": "Crunch"
+ },
+ "243": {
+  "fr": "Voile Miroir",
+  "de": "Spiegelcape",
+  "es": "Manto Espejo",
+  "it": "Specchiovelo",
+  "en": "Mirror Coat"
+ },
+ "244": {
+  "fr": "Boost",
+  "de": "Psycho-Plus",
+  "es": "Más Psique",
+  "it": "Psicamisù",
+  "en": "Psych Up"
+ },
+ "245": {
+  "fr": "Vitesse Extrême",
+  "de": "Turbotempo",
+  "es": "Veloc. Extrema",
+  "it": "Extrarapido",
+  "en": "Extreme Speed"
+ },
+ "246": {
+  "fr": "Pouvoir Antique",
+  "de": "Antik-Kraft",
+  "es": "Poder Pasado",
+  "it": "Forzantica",
+  "en": "Ancient Power"
+ },
+ "247": {
+  "fr": "Ball’Ombre",
+  "de": "Spukball",
+  "es": "Bola Sombra",
+  "it": "Palla Ombra",
+  "en": "Shadow Ball"
+ },
+ "248": {
+  "fr": "Prescience",
+  "de": "Seher",
+  "es": "Premonición",
+  "it": "Divinazione",
+  "en": "Future Sight"
+ },
+ "249": {
+  "fr": "Éclate-Roc",
+  "de": "Zertrümmerer",
+  "es": "Golpe Roca",
+  "it": "Spaccaroccia",
+  "en": "Rock Smash"
+ },
+ "250": {
+  "fr": "Siphon",
+  "de": "Whirlpool",
+  "es": "Torbellino",
+  "it": "Mulinello",
+  "en": "Whirlpool"
+ },
+ "251": {
+  "fr": "Baston",
+  "de": "Prügler",
+  "es": "Paliza",
+  "it": "Picchiaduro",
+  "en": "Beat Up"
+ },
+ "252": {
+  "fr": "Bluff",
+  "de": "Mogelhieb",
+  "es": "Sorpresa",
+  "it": "Bruciapelo",
+  "en": "Fake Out"
+ },
+ "253": {
+  "fr": "Brouhaha",
+  "de": "Aufruhr",
+  "es": "Alboroto",
+  "it": "Baraonda",
+  "en": "Uproar"
+ },
+ "254": {
+  "fr": "Stockage",
+  "de": "Horter",
+  "es": "Reserva",
+  "it": "Accumulo",
+  "en": "Stockpile"
+ },
+ "255": {
+  "fr": "Relâche",
+  "de": "Entfessler",
+  "es": "Escupir",
+  "it": "Sfoghenergia",
+  "en": "Spit Up"
+ },
+ "256": {
+  "fr": "Avale",
+  "de": "Verzehrer",
+  "es": "Tragar",
+  "it": "Introenergia",
+  "en": "Swallow"
+ },
+ "257": {
+  "fr": "Canicule",
+  "de": "Hitzewelle",
+  "es": "Onda Ígnea",
+  "it": "Ondacalda",
+  "en": "Heat Wave"
+ },
+ "258": {
+  "fr": "Grêle",
+  "de": "Hagelsturm",
+  "es": "Granizo",
+  "it": "Grandine",
+  "en": "Hail"
+ },
+ "259": {
+  "fr": "Tourmente",
+  "de": "Folterknecht",
+  "es": "Tormento",
+  "it": "Attaccalite",
+  "en": "Torment"
+ },
+ "260": {
+  "fr": "Flatterie",
+  "de": "Schmeichler",
+  "es": "Camelo",
+  "it": "Adulazione",
+  "en": "Flatter"
+ },
+ "261": {
+  "fr": "Feu Follet",
+  "de": "Irrlicht",
+  "es": "Fuego Fatuo",
+  "it": "Fuocofatuo",
+  "en": "Will-O-Wisp"
+ },
+ "262": {
+  "fr": "Souvenir",
+  "de": "Memento-Mori",
+  "es": "Legado",
+  "it": "Memento",
+  "en": "Memento"
+ },
+ "263": {
+  "fr": "Façade",
+  "de": "Fassade",
+  "es": "Imagen",
+  "it": "Facciata",
+  "en": "Facade"
+ },
+ "264": {
+  "fr": "Mitra-Poing",
+  "de": "Power-Punch",
+  "es": "Puño Certero",
+  "it": "Centripugno",
+  "en": "Focus Punch"
+ },
+ "265": {
+  "fr": "Stimulant",
+  "de": "Riechsalz",
+  "es": "Estímulo",
+  "it": "Maniereforti",
+  "en": "Smelling Salts"
+ },
+ "266": {
+  "fr": "Par Ici",
+  "de": "Spotlight",
+  "es": "Señuelo",
+  "it": "Sonoqui",
+  "en": "Follow Me"
+ },
+ "267": {
+  "fr": "Force Nature",
+  "de": "Natur-Kraft",
+  "es": "Adaptación",
+  "it": "Naturforza",
+  "en": "Nature Power"
+ },
+ "268": {
+  "fr": "Chargeur",
+  "de": "Ladevorgang",
+  "es": "Carga",
+  "it": "Sottocarica",
+  "en": "Charge"
+ },
+ "269": {
+  "fr": "Provoc",
+  "de": "Verhöhner",
+  "es": "Mofa",
+  "it": "Provocazione",
+  "en": "Taunt"
+ },
+ "270": {
+  "fr": "Coup d’Main",
+  "de": "Rechte Hand",
+  "es": "Refuerzo",
+  "it": "Altruismo",
+  "en": "Helping Hand"
+ },
+ "271": {
+  "fr": "Tour de Magie",
+  "de": "Trickbetrug",
+  "es": "Truco",
+  "it": "Raggiro",
+  "en": "Trick"
+ },
+ "272": {
+  "fr": "Imitation",
+  "de": "Rollenspiel",
+  "es": "Imitación",
+  "it": "Giocodiruolo",
+  "en": "Role Play"
+ },
+ "273": {
+  "fr": "Vœu",
+  "de": "Wunschtraum",
+  "es": "Deseo",
+  "it": "Desiderio",
+  "en": "Wish"
+ },
+ "274": {
+  "fr": "Assistance",
+  "de": "Zuschuss",
+  "es": "Ayuda",
+  "it": "Assistente",
+  "en": "Assist"
+ },
+ "275": {
+  "fr": "Racines",
+  "de": "Verwurzler",
+  "es": "Arraigo",
+  "it": "Radicamento",
+  "en": "Ingrain"
+ },
+ "276": {
+  "fr": "Surpuissance",
+  "de": "Kraftkoloss",
+  "es": "Fuerza Bruta",
+  "it": "Troppoforte",
+  "en": "Superpower"
+ },
+ "277": {
+  "fr": "Reflet Magik",
+  "de": "Magiemantel",
+  "es": "Capa Mágica",
+  "it": "Magivelo",
+  "en": "Magic Coat"
+ },
+ "278": {
+  "fr": "Recyclage",
+  "de": "Aufbereitung",
+  "es": "Reciclaje",
+  "it": "Riciclo",
+  "en": "Recycle"
+ },
+ "279": {
+  "fr": "Vendetta",
+  "de": "Vergeltung",
+  "es": "Desquite",
+  "it": "Vendetta",
+  "en": "Revenge"
+ },
+ "280": {
+  "fr": "Casse-Brique",
+  "de": "Durchbruch",
+  "es": "Demolición",
+  "it": "Breccia",
+  "en": "Brick Break"
+ },
+ "281": {
+  "fr": "Bâillement",
+  "de": "Gähner",
+  "es": "Bostezo",
+  "it": "Sbadiglio",
+  "en": "Yawn"
+ },
+ "282": {
+  "fr": "Sabotage",
+  "de": "Abschlag",
+  "es": "Desarme",
+  "it": "Privazione",
+  "en": "Knock Off"
+ },
+ "283": {
+  "fr": "Effort",
+  "de": "Notsituation",
+  "es": "Esfuerzo",
+  "it": "Rimonta",
+  "en": "Endeavor"
+ },
+ "284": {
+  "fr": "Éruption",
+  "de": "Eruption",
+  "es": "Estallido",
+  "it": "Eruzione",
+  "en": "Eruption"
+ },
+ "285": {
+  "fr": "Échange",
+  "de": "Fähigkeitstausch",
+  "es": "Intercambio",
+  "it": "Baratto",
+  "en": "Skill Swap"
+ },
+ "286": {
+  "fr": "Possessif",
+  "de": "Begrenzer",
+  "es": "Sellar",
+  "it": "Esclusiva",
+  "en": "Imprison"
+ },
+ "287": {
+  "fr": "Régénération",
+  "de": "Heilung",
+  "es": "Alivio",
+  "it": "Rinfrescata",
+  "en": "Refresh"
+ },
+ "288": {
+  "fr": "Rancune",
+  "de": "Nachspiel",
+  "es": "Rabia",
+  "it": "Rancore",
+  "en": "Grudge"
+ },
+ "289": {
+  "fr": "Saisie",
+  "de": "Übernahme",
+  "es": "Robo",
+  "it": "Scippo",
+  "en": "Snatch"
+ },
+ "290": {
+  "fr": "Force Cachée",
+  "de": "Geheimpower",
+  "es": "Daño Secreto",
+  "it": "Forzasegreta",
+  "en": "Secret Power"
+ },
+ "291": {
+  "fr": "Plongée",
+  "de": "Taucher",
+  "es": "Buceo",
+  "it": "Sub",
+  "en": "Dive"
+ },
+ "292": {
+  "fr": "Cogne",
+  "de": "Armstoß",
+  "es": "Empujón",
+  "it": "Sberletese",
+  "en": "Arm Thrust"
+ },
+ "293": {
+  "fr": "Camouflage",
+  "de": "Tarnung",
+  "es": "Camuflaje",
+  "it": "Camuffamento",
+  "en": "Camouflage"
+ },
+ "294": {
+  "fr": "Lumi-Queue",
+  "de": "Schweifglanz",
+  "es": "Ráfaga",
+  "it": "Codadiluce",
+  "en": "Tail Glow"
+ },
+ "295": {
+  "fr": "Lumi-Éclat",
+  "de": "Scheinwerfer",
+  "es": "Resplandor",
+  "it": "Abbagliante",
+  "en": "Luster Purge"
+ },
+ "296": {
+  "fr": "Ball’Brume",
+  "de": "Nebelball",
+  "es": "Bola Neblina",
+  "it": "Foschisfera",
+  "en": "Mist Ball"
+ },
+ "297": {
+  "fr": "Danse Plumes",
+  "de": "Daunenreigen",
+  "es": "Danza Pluma",
+  "it": "Danzadipiume",
+  "en": "Feather Dance"
+ },
+ "298": {
+  "fr": "Danse Folle",
+  "de": "Taumeltanz",
+  "es": "Danza Caos",
+  "it": "Strampadanza",
+  "en": "Teeter Dance"
+ },
+ "299": {
+  "fr": "Pied Brûleur",
+  "de": "Feuerfeger",
+  "es": "Patada Ígnea",
+  "it": "Calciardente",
+  "en": "Blaze Kick"
+ },
+ "300": {
+  "fr": "Lance-Boue",
+  "de": "Lehmsuhler",
+  "es": "Chapoteo Lodo",
+  "it": "Fangata",
+  "en": "Mud Sport"
+ },
+ "301": {
+  "fr": "Ball’Glace",
+  "de": "Frostbeule",
+  "es": "Bola Hielo",
+  "it": "Palla Gelo",
+  "en": "Ice Ball"
+ },
+ "302": {
+  "fr": "Poing Dard",
+  "de": "Nietenranke",
+  "es": "Brazo Pincho",
+  "it": "Pugnospine",
+  "en": "Needle Arm"
+ },
+ "303": {
+  "fr": "Paresse",
+  "de": "Tagedieb",
+  "es": "Relajo",
+  "it": "Pigro",
+  "en": "Slack Off"
+ },
+ "304": {
+  "fr": "Mégaphone",
+  "de": "Schallwelle",
+  "es": "Vozarrón",
+  "it": "Granvoce",
+  "en": "Hyper Voice"
+ },
+ "305": {
+  "fr": "Crochet Venin",
+  "de": "Giftzahn",
+  "es": "Colmillo Veneno",
+  "it": "Velenodenti",
+  "en": "Poison Fang"
+ },
+ "306": {
+  "fr": "Éclate Griffe",
+  "de": "Zermalmklaue",
+  "es": "Garra Brutal",
+  "it": "Tritartigli",
+  "en": "Crush Claw"
+ },
+ "307": {
+  "fr": "Rafale Feu",
+  "de": "Lohekanonade",
+  "es": "Anillo Ígneo",
+  "it": "Incendio",
+  "en": "Blast Burn"
+ },
+ "308": {
+  "fr": "Hydroblast",
+  "de": "Aquahaubitze",
+  "es": "Hidrocañón",
+  "it": "Idrocannone",
+  "en": "Hydro Cannon"
+ },
+ "309": {
+  "fr": "Poing Météore",
+  "de": "Sternenhieb",
+  "es": "Puño Meteoro",
+  "it": "Meteorpugno",
+  "en": "Meteor Mash"
+ },
+ "310": {
+  "fr": "Étonnement",
+  "de": "Erstauner",
+  "es": "Impresionar",
+  "it": "Sgomento",
+  "en": "Astonish"
+ },
+ "311": {
+  "fr": "Ball’Météo",
+  "de": "Meteorologe",
+  "es": "Meteorobola",
+  "it": "Palla Clima",
+  "en": "Weather Ball"
+ },
+ "312": {
+  "fr": "Aromathérapie",
+  "de": "Aromakur",
+  "es": "Aromaterapia",
+  "it": "Aromaterapia",
+  "en": "Aromatherapy"
+ },
+ "313": {
+  "fr": "Croco Larme",
+  "de": "Trugträne",
+  "es": "Llanto Falso",
+  "it": "Falselacrime",
+  "en": "Fake Tears"
+ },
+ "314": {
+  "fr": "Tranch’Air",
+  "de": "Windschnitt",
+  "es": "Aire Afilado",
+  "it": "Aerasoio",
+  "en": "Air Cutter"
+ },
+ "315": {
+  "fr": "Surchauffe",
+  "de": "Hitzekoller",
+  "es": "Sofoco",
+  "it": "Vampata",
+  "en": "Overheat"
+ },
+ "316": {
+  "fr": "Flair",
+  "de": "Schnüffler",
+  "es": "Rastreo",
+  "it": "Segugio",
+  "en": "Odor Sleuth"
+ },
+ "317": {
+  "fr": "Tomberoche",
+  "de": "Felsgrab",
+  "es": "Tumba Rocas",
+  "it": "Rocciotomba",
+  "en": "Rock Tomb"
+ },
+ "318": {
+  "fr": "Vent Argenté",
+  "de": "Silberhauch",
+  "es": "Viento Plata",
+  "it": "Ventargenteo",
+  "en": "Silver Wind"
+ },
+ "319": {
+  "fr": "Strido-Son",
+  "de": "Metallsound",
+  "es": "Eco Metálico",
+  "it": "Ferrostrido",
+  "en": "Metal Sound"
+ },
+ "320": {
+  "fr": "Siffl’Herbe",
+  "de": "Grasflöte",
+  "es": "Silbato",
+  "it": "Meloderba",
+  "en": "Grass Whistle"
+ },
+ "321": {
+  "fr": "Chatouille",
+  "de": "Spaßkanone",
+  "es": "Cosquillas",
+  "it": "Solletico",
+  "en": "Tickle"
+ },
+ "322": {
+  "fr": "Force Cosmique",
+  "de": "Kosmik-Kraft",
+  "es": "Masa Cósmica",
+  "it": "Cosmoforza",
+  "en": "Cosmic Power"
+ },
+ "323": {
+  "fr": "Giclédo",
+  "de": "Fontränen",
+  "es": "Salpicar",
+  "it": "Zampillo",
+  "en": "Water Spout"
+ },
+ "324": {
+  "fr": "Rayon Signal",
+  "de": "Ampelleuchte",
+  "es": "Doble Rayo",
+  "it": "Segnoraggio",
+  "en": "Signal Beam"
+ },
+ "325": {
+  "fr": "Poing Ombre",
+  "de": "Finsterfaust",
+  "es": "Puño Sombra",
+  "it": "Pugnodombra",
+  "en": "Shadow Punch"
+ },
+ "326": {
+  "fr": "Extrasenseur",
+  "de": "Sondersensor",
+  "es": "Paranormal",
+  "it": "Extrasenso",
+  "en": "Extrasensory"
+ },
+ "327": {
+  "fr": "Stratopercut",
+  "de": "Himmelhieb",
+  "es": "Gancho Alto",
+  "it": "Stramontante",
+  "en": "Sky Uppercut"
+ },
+ "328": {
+  "fr": "Tourbi-Sable",
+  "de": "Sandgrab",
+  "es": "Bucle Arena",
+  "it": "Sabbiotomba",
+  "en": "Sand Tomb"
+ },
+ "329": {
+  "fr": "Glaciation",
+  "de": "Eiseskälte",
+  "es": "Frío Polar",
+  "it": "Purogelo",
+  "en": "Sheer Cold"
+ },
+ "330": {
+  "fr": "Ocroupi",
+  "de": "Lehmbrühe",
+  "es": "Agua Lodosa",
+  "it": "Fanghiglia",
+  "en": "Muddy Water"
+ },
+ "331": {
+  "fr": "Balle Graine",
+  "de": "Kugelsaat",
+  "es": "Semilladora",
+  "it": "Semitraglia",
+  "en": "Bullet Seed"
+ },
+ "332": {
+  "fr": "Aéropique",
+  "de": "Aero-Ass",
+  "es": "Golpe Aéreo",
+  "it": "Aeroassalto",
+  "en": "Aerial Ace"
+ },
+ "333": {
+  "fr": "Stalactite",
+  "de": "Eisspeer",
+  "es": "Carámbano",
+  "it": "Gelolancia",
+  "en": "Icicle Spear"
+ },
+ "334": {
+  "fr": "Mur de Fer",
+  "de": "Eisenabwehr",
+  "es": "Defensa Férrea",
+  "it": "Ferroscudo",
+  "en": "Iron Defense"
+ },
+ "335": {
+  "fr": "Barrage",
+  "de": "Rückentzug",
+  "es": "Bloqueo",
+  "it": "Blocco",
+  "en": "Block"
+ },
+ "336": {
+  "fr": "Grondement",
+  "de": "Jauler",
+  "es": "Aullido",
+  "it": "Gridodilotta",
+  "en": "Howl"
+ },
+ "337": {
+  "fr": "Draco-Griffe",
+  "de": "Drachenklaue",
+  "es": "Garra Dragón",
+  "it": "Dragartigli",
+  "en": "Dragon Claw"
+ },
+ "338": {
+  "fr": "Végé-Attaque",
+  "de": "Flora-Statue",
+  "es": "Planta Feroz",
+  "it": "Radicalbero",
+  "en": "Frenzy Plant"
+ },
+ "339": {
+  "fr": "Gonflette",
+  "de": "Protzer",
+  "es": "Corpulencia",
+  "it": "Granfisico",
+  "en": "Bulk Up"
+ },
+ "340": {
+  "fr": "Rebond",
+  "de": "Sprungfeder",
+  "es": "Bote",
+  "it": "Rimbalzo",
+  "en": "Bounce"
+ },
+ "341": {
+  "fr": "Tir de Boue",
+  "de": "Lehmschuss",
+  "es": "Disparo Lodo",
+  "it": "Colpodifango",
+  "en": "Mud Shot"
+ },
+ "342": {
+  "fr": "Queue-Poison",
+  "de": "Giftschweif",
+  "es": "Cola Veneno",
+  "it": "Velenocoda",
+  "en": "Poison Tail"
+ },
+ "343": {
+  "fr": "Implore",
+  "de": "Bezirzer",
+  "es": "Antojo",
+  "it": "Supplica",
+  "en": "Covet"
+ },
+ "344": {
+  "fr": "Électacle",
+  "de": "Volttackle",
+  "es": "Placaje Eléc",
+  "it": "Locomovolt",
+  "en": "Volt Tackle"
+ },
+ "345": {
+  "fr": "Feuille Magik",
+  "de": "Zauberblatt",
+  "es": "Hoja Mágica",
+  "it": "Fogliamagica",
+  "en": "Magical Leaf"
+ },
+ "346": {
+  "fr": "Tourniquet",
+  "de": "Nassmacher",
+  "es": "Hidrochorro",
+  "it": "Docciascudo",
+  "en": "Water Sport"
+ },
+ "347": {
+  "fr": "Plénitude",
+  "de": "Gedankengut",
+  "es": "Paz Mental",
+  "it": "Calmamente",
+  "en": "Calm Mind"
+ },
+ "348": {
+  "fr": "Lame Feuille",
+  "de": "Laubklinge",
+  "es": "Hoja Aguda",
+  "it": "Fendifoglia",
+  "en": "Leaf Blade"
+ },
+ "349": {
+  "fr": "Danse Draco",
+  "de": "Drachentanz",
+  "es": "Danza Dragón",
+  "it": "Dragodanza",
+  "en": "Dragon Dance"
+ },
+ "350": {
+  "fr": "Boule Roc",
+  "de": "Felswurf",
+  "es": "Pedrada",
+  "it": "Cadutamassi",
+  "en": "Rock Blast"
+ },
+ "351": {
+  "fr": "Onde de Choc",
+  "de": "Schockwelle",
+  "es": "Onda Voltio",
+  "it": "Ondashock",
+  "en": "Shock Wave"
+ },
+ "352": {
+  "fr": "Vibraqua",
+  "de": "Aquawelle",
+  "es": "Hidropulso",
+  "it": "Idropulsar",
+  "en": "Water Pulse"
+ },
+ "353": {
+  "fr": "Vœu Destructeur",
+  "de": "Kismetwunsch",
+  "es": "Deseo Oculto",
+  "it": "Obbliderio",
+  "en": "Doom Desire"
+ },
+ "354": {
+  "fr": "Psycho-Boost",
+  "de": "Psyschub",
+  "es": "Psicoataque",
+  "it": "Psicoslancio",
+  "en": "Psycho Boost"
+ }
+}

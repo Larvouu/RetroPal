@@ -1,0 +1,317 @@
+/* Dutch - Localizable.strings */
+
+/* Tabs */
+"tab.library" = "Bibliotheek";
+"tab.settings" = "Instellingen";
+
+/* Library */
+"library.title" = "Bibliotheek";
+"library.empty.title" = "Welkom bij Retro Pal";
+"library.empty.subtitle" = "Speel je retrogames op je iPhone. Geen reclame, geen tracking, nooit.";
+"library.empty.button" = "Spel toevoegen";
+"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc of .nds) op je iPhone, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step2" = "Tik op %@ en kies het bestand in de Bestanden-app.";
+"library.empty.step3" = "Spelen. Je voortgang wordt automatisch opgeslagen";
+"library.empty.romHint" = "Nog geen ROMs? Er bestaan veel gratis, legale spellen. Zoek online naar \"GBA homebrew\".";
+"library.empty.legal" = "Importeer alleen bestanden die je legaal bezit.";
+"library.search" = "Spellen zoeken";
+"library.sort.lastPlayed" = "Laatst gespeeld";
+"library.sort.title" = "Titel";
+"library.sort.dateAdded" = "Datum toegevoegd";
+"library.played.ago" = "Gespeeld %@";
+"library.playTime" = "%@u %@m gespeeld";
+"library.playTime.minutes" = "%@m gespeeld";
+
+/* Game Details */
+"details.continue" = "Laatste sessie hervatten";
+"details.newGame" = "Nieuw spel";
+"details.saveSlots" = "Opslagslots";
+"details.delete" = "Spel verwijderen";
+"details.delete.confirm" = "Dit spel en alle opslaggegevens verwijderen?";
+"details.rename" = "Hernoemen";
+"details.rename.title" = "Spel hernoemen";
+"details.newGame.confirm.title" = "Een nieuw spel starten?";
+
+/* In-Game Overlay */
+"overlay.paused" = "GEPAUZEERD";
+"overlay.resume" = "Hervatten";
+"overlay.rewind" = "%@s terugspoelen";
+"overlay.screenshot" = "Screenshot delen";
+"overlay.quit" = "Terug naar bibliotheek";
+"overlay.speed" = "SNELHEID";
+"overlay.saveSlots" = "OPSLAGSLOTS";
+"overlay.slot" = "Slot %@";
+"overlay.slot.empty" = "Leeg";
+"overlay.save" = "Opslaan";
+"overlay.load" = "Laden";
+
+/* Settings */
+"settings.title" = "Instellingen";
+"settings.controls" = "Bediening";
+"settings.opacity" = "Knop-doorzichtigheid";
+"settings.size" = "Knopgrootte";
+"settings.haptics" = "Haptische feedback";
+"settings.buttonLock" = "Knoppen vergrendelen door vasthouden";
+"settings.buttonLock.controllerNote" = "Niet gebruikt wanneer een controller is verbonden.";
+"settings.controller.footer" = "Bluetooth-controllers (Xbox, PlayStation, MFi) worden ondersteund. Koppel er een in iOS-instellingen.";
+"settings.dpad" = "D-Pad";
+"settings.joystick" = "Joystick";
+"settings.nds.swapScreens" = "Schermen wisselen";
+"settings.nds.language" = "Speltaal";
+"settings.nds.language.auto" = "Auto (%@)";
+"settings.nds.language.footer" = "\"Auto\" volgt de taal van je iPhone, of Engels als de DS dit niet ondersteunt. De taal wordt toegepast bij het starten van een nieuw spel. De meeste games slaan de taal op in het opslagbestand en wijzigen deze daarna niet meer. De taal verandert alleen als de ROM dit ondersteunt. Veel ROMs bevatten slechts één taal.";
+"settings.nds.clock.manual" = "Datum en tijd handmatig instellen";
+"settings.nds.clock.pickerLabel" = "Datum en tijd";
+"settings.general" = "Algemeen";
+"settings.legal" = "Juridische informatie & licenties";
+"settings.about" = "Over";
+"settings.app" = "Retro Pal";
+"settings.version" = "Versie";
+"settings.core" = "Emulatorkern";
+"settings.disclaimer" = "Retro Pal is een lokale emulator. Er zijn geen spellen inbegrepen. Importeer alleen bestanden die je rechtmatig bezit.";
+"settings.restore" = "Aankopen herstellen";
+
+/* Pro */
+"pro.title" = "Retro Pal Pro";
+"pro.purchased" = "Gekocht";
+"pro.forever" = "%@, voor altijd";
+"pro.monthly" = "of %@/maand";
+"pro.notNow" = "Nu niet";
+"pro.restore" = "Aankopen herstellen";
+"pro.unavailable" = "Pro niet beschikbaar. Controleer je verbinding.";
+"pro.retry" = "Opnieuw proberen";
+"pro.purchasing" = "Bezig met aankoop...";
+"pro.waiting" = "Wachten op goedkeuring";
+"pro.waitingDetail" = "Pro wordt automatisch ontgrendeld na goedkeuring.";
+"pro.failed" = "Aankoop mislukt. Opnieuw proberen?";
+"pro.tryAgain" = "Opnieuw proberen";
+"pro.welcome" = "Welkom bij Pro!";
+"pro.benefit.speed" = "Alle snelheden: 0,25x tot 4x";
+"pro.benefit.slots" = "5 opslagslots (in plaats van 2)";
+"pro.benefit.rewind" = "30 seconden terugspoelen (GBA/GB/GBC)";
+"pro.benefit.cheats" = "Cheatcodes (GameShark / Action Replay)";
+"pro.benefit.controls" = "Aangepaste bediening (tot 3 voorinstellingen)";
+"pro.benefit.speed.short" = "Alle snelheden";
+"pro.benefit.slots.short" = "5 opslagslots";
+"pro.benefit.rewind.short" = "30 sec. terugspoelen";
+"pro.benefit.cheats.short" = "Cheatcodes";
+"pro.benefit.controls.short" = "Eigen besturing";
+"pro.badge" = "Pro-functie";
+"pro.seeAllBenefits" = "Bekijk alle Pro-voordelen";
+
+"pro.compare.header.free" = "Gratis";
+"pro.compare.header.pro" = "Pro";
+"pro.compare.sectionDivider" = "Met Pro";
+"pro.compare.row.noAds" = "Geen reclame";
+"pro.compare.row.allSystems" = "Alle consoles";
+"pro.compare.row.autoSave" = "Automatisch opslaan";
+"pro.compare.row.screenshots" = "Screenshots delen";
+"pro.compare.row.iCloud" = "iCloud-synchronisatie";
+"pro.compare.row.controllers" = "Bluetooth-controllers";
+"pro.compare.row.slots" = "Opslagslots";
+"pro.compare.row.speeds" = "Snelheden";
+"pro.compare.row.rewind" = "Terugspoelen (GBA/GB/GBC)";
+"pro.compare.row.cheats" = "Cheatcodes";
+"pro.compare.row.controls" = "Aangepaste bediening";
+"pro.compare.values.freeSpeeds" = "1×, 1,5×";
+"pro.compare.values.proSpeeds" = "0,25×–4×";
+"pro.compare.values.proControls" = "3 voorinstellingen";
+
+/* Prompts */
+"prompt.speed.title" = "Je hebt %@ minuten op 1,5x gespeeld";
+"prompt.speed.subtitle" = "Op 4x vliegt dezelfde sessie voorbij. Ontgrendel alle snelheden, voor altijd.";
+"prompt.slots.title" = "Alle opslagslots zijn vol";
+"prompt.slots.subtitle" = "Ontgrendel 5 opslagslots zodat je nooit hoeft te overschrijven. Eenmalige aankoop, voor altijd.";
+"prompt.milestone.title" = "Je hebt %@ minuten retrogames gespeeld";
+"prompt.milestone.subtitle" = "Je houdt er duidelijk van. Ontgrendel de volledige ervaring.";
+"prompt.rewind.title" = "Moet je verder terug?";
+"prompt.rewind.subtitle" = "Pro geeft je 30 seconden terugspoeltijd op GBA/GB/GBC. Verlies nooit meer een baasgevecht.";
+"prompt.cheats.title" = "Je hebt 4 uur %@ gespeeld. Klaar om zonder grenzen te spelen?";
+"prompt.cheats.subtitle" = "Ontgrendel cheatcodes, maximale snelheid en meer. Eenmalige aankoop, klaar. Voor altijd.";
+"prompt.generic.title" = "Retro Pal Pro";
+"prompt.generic.subtitle" = "Ontgrendel alle snelheden, 5 opslagslots, 30s terugspoelen (GBA/GB/GBC) en meer.";
+
+/* Screenshot */
+"screenshot.share" = "Delen";
+"screenshot.save" = "Bewaar";
+"screenshot.dismiss" = "Sluiten";
+"screenshot.footer" = "Retro Pal in de App Store";
+"screenshot.newGame" = "Net begonnen";
+"screenshot.proMember" = "👑 Pro-lid";
+"screenshot.permissionDenied.title" = "Fototoegang vereist";
+"screenshot.permissionDenied.message" = "Sta Retro Pal toe om schermafbeeldingen op te slaan in je fotobibliotheek via Instellingen.";
+"screenshot.permissionDenied.settings" = "Open Instellingen";
+"screenshot.permissionDenied.cancel" = "Annuleer";
+"screenshot.saveError.title" = "Opslaan mislukt";
+"screenshot.saveError.message" = "Kon de schermafbeelding niet opslaan.";
+
+/* Legal */
+"legal.title" = "Juridische informatie";
+"legal.disclaimer" = "Deze app bevat geen spellen. Je moet je eigen ROM-bestanden aanleveren. Importeer alleen bestanden die je rechtmatig bezit.";
+"legal.mgba" = "mGBA-licentie";
+"legal.melonds" = "melonDS-licentie";
+"legal.importantNotice.title" = "Belangrijke mededeling";
+"legal.aboutApp.title" = "Over deze app";
+"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color- en Nintendo DS-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
+"legal.aboutApp.description2" = "Deze app maakt geen verbinding met externe servers, biedt geen spelcatalogus en faciliteert niet het downloaden van auteursrechtelijk beschermd materiaal.";
+"legal.privacy.title" = "Privacy";
+"legal.privacy.description" = "Retro Pal slaat alle gegevens lokaal op je apparaat op. Er worden geen persoonlijke gegevens, gebruiksstatistieken of spelinformatie verzameld of verzonden. De app heeft geen internetverbinding nodig om te werken.";
+"legal.licenses.title" = "Open-sourcelicenties";
+"legal.mgba.licenseLine" = "Gelicentieerd onder de Mozilla Public License 2.0 (MPL-2.0)";
+"legal.mgba.description" = "mGBA is een Game Boy Advance-emulator die in deze app wordt gebruikt als de kern-emulator-engine. De broncode van mGBA is beschikbaar op [https://mgba.io](https://mgba.io)";
+"legal.melonds.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
+"legal.melonds.description" = "melonDS is een Nintendo DS-emulator die in deze app wordt gebruikt als emulator-engine voor DS-spellen. De broncode van melonDS is beschikbaar op [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.retropal" = "Retro Pal-licentie";
+"legal.retropal.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
+"legal.retropal.description" = "De volledige broncode van Retro Pal is beschikbaar op [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). De software wordt geleverd zonder enige garantie.";
+"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en melonDS (GPL-3.0), die ongewijzigd worden gebruikt. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
+
+"details.noSaves" = "Nog geen opslagpunten. Sla op tijdens het spelen via de menuknop.";
+"library.importing" = "ROM importeren...";
+
+/* Game Details - New */
+"details.play" = "Spelen";
+"library.importError" = "Importfout";
+
+/* Overlay - New */
+"overlay.cheats" = "Cheatcodes";
+"overlay.sound" = "Geluid";
+"overlay.sound.off" = "Geluid uit";
+"overlay.overwrite.title" = "Slot %@ overschrijven?";
+"overlay.overwrite.message" = "Dit vervangt de bestaande opslagstatus.";
+"overlay.overwrite" = "Overschrijven";
+"overlay.load.confirm.title" = "Slot %@ laden?";
+"overlay.load.confirm.message" = "Niet-opgeslagen voortgang gaat verloren.";
+
+/* Cheats */
+"cheats.hint.gba" = "GameShark-, CodeBreaker- of Action Replay-formaat";
+"cheats.hint.nds" = "Action Replay DS-formaat (XXXXXXXX YYYYYYYY)";
+"cheats.namePlaceholder" = "Naam (optioneel)";
+"cheats.add" = "Code toevoegen";
+"cheats.invalid.gba" = "Code niet herkend. Verwacht: GameShark-, CodeBreaker- of Action Replay-formaat.";
+"cheats.invalid.nds" = "Code niet herkend. Verwacht: Action Replay DS-formaat (XXXXXXXX YYYYYYYY, één paar per regel).";
+"cheats.empty" = "Geen actieve cheats";
+"cheats.findHint" = "Codes zijn makkelijk online te vinden. Zoek naar de cheat codes van je spel.";
+"cheats.clearAll" = "Alles wissen";
+"cheats.done" = "Klaar";
+"cheats.permanenceWarning" = "Sommige cheats hebben permanente effecten na het laden. Je kunt je opslag van voor de cheats herstellen, maar je verliest dan de voortgang sindsdien.";
+"cheats.hackDisclaimer" = "Cheats gebruiken geheugenadressen van het originele spel. De meeste aangepaste versies van een spel blijven compatibel, maar sommige kunnen onverwacht gedrag veroorzaken.";
+
+/* Emulator */
+"emulator.loading" = "ROM laden...";
+"emulator.loadFailed" = "Kan ROM niet laden\n%@";
+
+/* Common */
+"common.cancel" = "Annuleren";
+"common.ok" = "OK";
+"common.save" = "Opslaan";
+
+/* Pro Prompts - New */
+"prompt.cheatsTapped.title" = "Klaar om zonder grenzen te spelen?";
+"prompt.cheatsTapped.subtitle" = "Ontgrendel cheatcodes, maximale snelheid en meer. Eenmalige aankoop, klaar. Voor altijd.";
+"prompt.speedTapped.title" = "Sneller door je games";
+"prompt.speedTapped.subtitle" = "Op 4× vliegt dezelfde sessie voorbij. 0,25× en 0,5× voor lastige momenten. Ontgrendel alle snelheden, voor altijd.";
+"prompt.slotsTapped.title" = "Nooit meer zonder opslagslots";
+"prompt.slotsTapped.subtitle" = "Ontgrendel 5 opslagslots zodat een save altijd plek heeft. Eenmalige aankoop, voor altijd.";
+"settings.appLabel" = "App";
+
+"review.headline" = "Bevalt het?";
+"review.body" = "Recensies houden kleine apps levend in de App Store. Eén zin helpt enorm.";
+"review.cta" = "Geef 5 sterren";
+"review.later" = "Niet nu";
+"cheats.type" = "Codetype";
+"cheats.restore" = "Herstel opslag voor cheats";
+"cheats.restore.confirm.title" = "Opslag van voor de cheats herstellen?";
+"cheats.restore.confirm.message" = "Hiermee wordt de spelstand geladen van voordat er cheats werden toegevoegd. Voortgang sindsdien gaat verloren. Vooral nuttig als een cheat een bug heeft veroorzaakt.";
+"cheats.restore.confirm.action" = "Herstellen";
+
+/* Control Layout */
+"settings.customizeControls" = "Bediening aanpassen";
+"layout.activeLayout" = "Actieve indeling";
+"layout.default" = "Standaard";
+"layout.presets" = "Voorinstellingen";
+"layout.presets.footer" = "Draai je apparaat in de editor om de liggende indeling apart aan te passen.";
+"layout.newPreset" = "Nieuwe voorinstelling";
+"layout.newPreset.title" = "Nieuwe voorinstelling";
+"layout.newPreset.message" = "Voer een naam in voor deze voorinstelling.";
+"layout.newPreset.namePlaceholder" = "Naam voorinstelling";
+"layout.newPreset.create" = "Aanmaken";
+"layout.editor.screenPreview" = "Spelscherm";
+"layout.editor.touchScreen" = "Aanraakscherm";
+"layout.editor.landscape" = "Bewerken: Liggend";
+"layout.editor.portrait" = "Bewerken: Staand";
+"layout.editor.reset" = "Herstellen";
+"layout.editor.reset.title" = "Standaardwaarden herstellen";
+"layout.editor.reset.message" = "Dit herstelt alle knopposities voor de huidige oriëntatie naar hun standaardlocaties.";
+"layout.editor.visibility" = "Zichtbaarheid";
+"layout.editor.visibility.message" = "Tik op een knop om deze te tonen of verbergen.";
+"layout.editor.show" = "Tonen";
+"layout.editor.hide" = "Verbergen";
+"layout.editor.menuCannotHide" = "De menuknop kan niet verborgen worden.";
+"layout.editor.topScreen" = "Bovenste scherm";
+"layout.editor.bottomScreen" = "Onderste scherm";
+"layout.screenSize.small" = "Klein";
+"layout.screenSize.medium" = "Gemiddeld";
+"layout.screenSize.large" = "Groot";
+"layout.editor.done" = "Gereed";
+"layout.newPreset.systems" = "Systemen";
+"layout.editor.buttons" = "Knoppen";
+"prompt.controls.title" = "Vind de perfecte indeling voor je handen";
+"prompt.controls.subtitle" = "Pas knoppositie, grootte en transparantie aan. Maak tot 3 voorinstellingen voor verschillende spellen.";
+"layout.editor.screenSize" = "Schermgrootte";
+"layout.editor.landscapeShort" = "Liggend";
+"layout.editor.portraitShort" = "Staand";
+"layout.editor.screenSizeLandscapeInfo" = "Schermgrootte is alleen beschikbaar in staande modus. In liggende modus worden beide schermen naast elkaar op dezelfde grootte weergegeven.";
+/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+"pro.legal.terms" = "Gebruiksvoorwaarden";
+"pro.legal.privacy" = "Privacybeleid";
+
+/* Settings — iCloud-synchronisatie sectie (Week 4) */
+"settings.sync.section" = "Synchronisatie";
+"settings.sync.state.resolving" = "Verbinden…";
+"settings.sync.state.available" = "Gesynchroniseerd";
+"settings.sync.state.unavailable" = "Niet beschikbaar";
+
+/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+"saveImport.title" = "Save importeren";
+"saveImport.success.title" = "Save geïmporteerd";
+"saveImport.success.message" = "Start %@ en ga verder via het eigen menu van het spel. Deze save verschijnt niet in de saveslots van de app.";
+"saveImport.overwrite.title" = "Bestaande save";
+"saveImport.overwrite.message" = "%@ heeft al een save. Deze wordt als back-up bewaard als je hem vervangt.";
+"saveImport.overwrite.confirm" = "Vervangen";
+"saveImport.error.invalidFormat" = "Dit bestand is geen herkende save. Importeer een .sav- of .srm-bestand uit een andere emulator.";
+"saveImport.error.wrongSystem" = "Deze save is niet compatibel met dit spel.";
+"saveImport.error.duplicateExists" = "Er bestaat al een save voor dit spel.";
+"saveImport.error.fileAccessDenied" = "Het geselecteerde bestand kon niet worden gelezen.";
+"saveImport.error.writeFailed" = "De save kon niet worden opgeslagen.";
+"saveImport.redirect.message" = "Om een save uit een andere emulator te importeren, open je de details van het spel en tik je op \"Save importeren\". Importeer eerst de ROM van het spel als die nog niet in je bibliotheek staat.";
+
+/* Guides section + how-to sheets (Week 5) */
+"guide.importRom.title" = "Spel toevoegen";
+"guide.importRom.intro" = "Retro Pal bevat geen games. Je levert je eigen ROM-bestanden aan, waarvan je de rechten bezit (je eigen cartridges of gratis, legale homebrew-games).";
+"guide.importRom.step1" = "Zet het spelbestand (.gba, .gb, .gbc of .nds) op je iPhone: download het in Safari, via AirDrop vanaf een computer, of via iCloud Drive.";
+"guide.importRom.step2" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPhone of iCloud Drive).";
+"guide.importRom.step3" = "Tik in Retro Pal op de knop + bovenaan de bibliotheek.";
+"guide.importRom.step4" = "Kies het bestand. De game verschijnt meteen in je bibliotheek, klaar om te spelen.";
+"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds en .zip-bestanden met één game. .7z en archieven met meerdere games worden niet ondersteund; pak eerst één bestand uit. Importeer alleen bestanden waarvan je de rechten bezit.";
+"settings.guides.section" = "Handleidingen";
+"settings.controller.row" = "Controller";
+"common.done" = "Klaar";
+"guide.saveImport.intro" = "Neem je voortgang mee uit een andere emulator (Manic, Delta, OpenEmu, RetroArch).";
+"guide.saveImport.step1" = "Exporteer de save uit je andere emulator (een .sav- of .srm-bestand) en bewaar die in de Bestanden-app.";
+"guide.saveImport.step2" = "Importeer in Retro Pal de ROM van het spel als die nog niet in je bibliotheek staat.";
+"guide.saveImport.step3" = "Open de details van het spel en tik op \"Save importeren\".";
+"guide.saveImport.step4" = "Kies het bestand, start het spel en ga verder via het eigen menu van het spel.";
+"guide.saveImport.footer" = "Dit is de save van het spel zelf, anders dan de snelle saveslots van de app.";
+"guide.controller.title" = "Een controller verbinden";
+"guide.controller.step1" = "Zet je controller in de koppelmodus.";
+"guide.controller.step2" = "Open iOS-instellingen, dan Bluetooth, en verbind de controller met je iPhone.";
+"guide.controller.step3" = "Ga terug naar Retro Pal. De controller wordt automatisch herkend en de schermbediening verdwijnt.";
+"guide.controller.footer" = "Werkt met MFi-, Xbox-, PlayStation-, 8BitDo- en de meeste Bluetooth-controllers.";
+"guide.controller.status.connected" = "Controller verbonden: %@";
+"guide.controller.status.disconnected" = "Geen controller verbonden";
+"guide.controller.genericName" = "Controller";
+"guide.controller.status.none" = "Geen controller";
+"saveImport.mismatch.title" = "Save van een ander spel?";
+"saveImport.mismatch.message" = "De bestandsnaam komt niet overeen met %@. Importeer alleen als je zeker weet dat de save bij dit spel hoort.";
+"saveImport.mismatch.confirm" = "Toch importeren";

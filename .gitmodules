@@ -1,0 +1,6 @@
+[submodule "Vendor/mgba"]
+	path = Vendor/mgba
+	url = https://github.com/mgba-emu/mgba.git
+[submodule "Vendor/melonds"]
+	path = Vendor/melonds
+	url = https://github.com/melonDS-emu/melonDS.git
