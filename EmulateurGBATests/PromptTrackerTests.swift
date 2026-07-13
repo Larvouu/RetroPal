@@ -3,9 +3,10 @@
 //  EmulateurGBATests
 //
 //  Covers the Week-5 engagedFirstTimer review-prompt arm and its
-//  recordSaveStateCreated() gate. Each test injects its own isolated
-//  UserDefaults(suiteName:) so nothing touches real device state or
-//  leaks between tests.
+//  recordSaveStateCreated() gate, plus the 1.2.2 ra_unlock arm (a fresh
+//  RetroAchievements unlock opens a 30-min celebration window). Each test
+//  injects its own isolated UserDefaults(suiteName:) so nothing touches
+//  real device state or leaks between tests.
 //
 //  The new arm: prompt #1 fires for a user still in their first session
 //  (sessionCount == 0) who has played >= 15 min AND created at least one
@@ -112,5 +113,53 @@ struct PromptTrackerTests {
 
         #expect(pt.hasCreatedSaveState == true)
         #expect(pt.shouldShowReviewPrompt(currentSessionSeconds: fifteenMinutes) == true)
+    }
+
+    // MARK: - ra_unlock arm (1.2.2)
+
+    @Test
+    func test_raUnlock_firesAt15minWithFreshUnlock() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // A fresh RA unlock + 15 min cumulative, NO save state: the engaged
+        // arm is gated off, so only the ra_unlock arm can explain a fire.
+        pt.recordAchievementUnlocked()
+        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == "ra_unlock")
+    }
+
+    @Test
+    func test_raUnlock_doesNotFireBelow15min() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // The time bar keeps a 2-minute drive-by unlock from prompting.
+        pt.recordAchievementUnlocked()
+        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes - 1) == nil)
+    }
+
+    @Test
+    func test_raUnlock_takesAttributionPriorityOverOtherArms() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // Conditions satisfy BOTH engaged_first_timer and ra_unlock; the
+        // unlock is the moment that actually put the user in a rating mood,
+        // so it must win the trigger attribution.
+        pt.recordSaveStateCreated()
+        pt.recordAchievementUnlocked()
+        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == "ra_unlock")
+    }
+
+    @Test
+    func test_raUnlock_worksBeyondTheFirstSession() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // Unlike the two first-session arms, ra_unlock counts CUMULATIVE play:
+        // a returning user (session 2, 10 min banked + 5 min live) qualifies.
+        pt.recordSessionEnd(playSeconds: 600)
+        pt.recordAchievementUnlocked()
+        #expect(pt.reviewPromptArm(currentSessionSeconds: 300) == "ra_unlock")
     }
 }

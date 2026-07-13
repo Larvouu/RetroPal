@@ -8,6 +8,8 @@
 
 import Foundation
 import CoreGraphics
+import UIKit
+import os
 
 final class EmulatorSession: ObservableObject {
     static let defaultScreenWidth = Int(GBAScreenWidth)    // 240
@@ -58,6 +60,9 @@ final class EmulatorSession: ObservableObject {
             // Initialize rewind buffer at max capacity (35 seconds).
             // Frame count is gated by Pro status at rewind time, not buffer size.
             bridge.initRewind(35)
+            // Start a RetroAchievements session (hashes the ROM, loads the set).
+            // No-op unless RA is enabled and the user is logged in.
+            RetroAchievements.shared.startSession(self, romPath: url.path)
         }
         return success
     }
@@ -71,6 +76,11 @@ final class EmulatorSession: ObservableObject {
 
     /// Set to true to skip audio drain (used at high speeds to save CPU)
     var skipAudio = false
+
+    /// Called once per emulated frame, after the frame is produced, on the
+    /// emulation thread. RetroAchievements installs this to drive
+    /// `rc_client_do_frame`; nil (zero cost) when no RA session is active.
+    var onFrameAdvance: (() -> Void)?
 
     func runFrame() {
         guard isROMLoaded else { return }
@@ -96,6 +106,9 @@ final class EmulatorSession: ObservableObject {
         if !skipAudio {
             audioEngine?.drainSamples()
         }
+
+        // Feed the RetroAchievements runtime the frame it watches for unlocks.
+        onFrameAdvance?()
     }
 
     func rewind(frames: Int = 60) -> Bool {
@@ -105,6 +118,7 @@ final class EmulatorSession: ObservableObject {
         let result = bridge.rewindFrames(safeFrames)
         if result {
             rewindFramesAvailable = max(0, rewindFramesAvailable - safeFrames)
+            Analytics.signal("rewind_used")
         }
         return result
     }
@@ -142,9 +156,30 @@ final class EmulatorSession: ObservableObject {
         return bridge.createFrameImage()
     }
 
-    /// Dual-screen capture for NDS screenshot cards. Falls back to single-screen for GBA/GB/GBC.
+    /// Dual-screen capture for NDS screenshot + clip cards. Falls back to single-screen for
+    /// GBA/GB/GBC. Honours the NDS "Swap screens" setting so the share cards show the same top/bottom
+    /// order as in-game (both the screenshot and the clip capture flow through here).
     func createScreenshotImage() -> CGImage? {
-        return bridge.createDualScreenFrameImage() ?? bridge.createFrameImage()
+        guard let dual = bridge.createDualScreenFrameImage() else { return bridge.createFrameImage() }
+        guard UserDefaults.standard.bool(forKey: "ndsSwapScreens") else { return dual }
+        return Self.swappingDualScreenHalves(dual)
+    }
+
+    /// Returns the stacked dual-screen image with its top and bottom halves exchanged (each kept
+    /// upright) — the NDS "Swap screens" preference applied to the share-card capture.
+    private static func swappingDualScreenHalves(_ image: CGImage) -> CGImage {
+        let w = CGFloat(image.width), h = CGFloat(image.height)
+        let half = (h / 2).rounded()
+        guard let top = image.cropping(to: CGRect(x: 0, y: 0, width: w, height: half)),
+              let bottom = image.cropping(to: CGRect(x: 0, y: half, width: w, height: h - half))
+        else { return image }
+        let fmt = UIGraphicsImageRendererFormat.default()
+        fmt.scale = 1; fmt.opaque = true
+        let swapped = UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: fmt).image { _ in
+            UIImage(cgImage: bottom).draw(in: CGRect(x: 0, y: 0, width: w, height: h - half))
+            UIImage(cgImage: top).draw(in: CGRect(x: 0, y: h - half, width: w, height: half))
+        }
+        return swapped.cgImage ?? image
     }
 
     // MARK: - Input
@@ -169,24 +204,6 @@ final class EmulatorSession: ObservableObject {
         (bridge as? MelonDSBridge)?.setMicBlowActive(active)
     }
 
-    // MARK: - Memory Access (GBA only)
-
-    /// Read a byte / halfword / word from the emulated machine's address space.
-    /// GBA-only: routed through the concrete MGBABridge (the EmulatorBridge
-    /// protocol stays clean). Returns 0 for non-GBA cores or no loaded ROM.
-    /// Used by the in-game translation feature to read structured game state.
-    func readMemory8(_ address: UInt32) -> UInt8 {
-        (bridge as? MGBABridge)?.readMemory8(address) ?? 0
-    }
-
-    func readMemory16(_ address: UInt32) -> UInt16 {
-        (bridge as? MGBABridge)?.readMemory16(address) ?? 0
-    }
-
-    func readMemory32(_ address: UInt32) -> UInt32 {
-        (bridge as? MGBABridge)?.readMemory32(address) ?? 0
-    }
-
     // MARK: - Speed
 
     func setSpeed(_ multiplier: Double) {
@@ -195,16 +212,52 @@ final class EmulatorSession: ObservableObject {
         bridge.setSpeedMultiplier(Int32(max(1, Int(multiplier))))
     }
 
+    // MARK: - Memory (RetroAchievements)
+
+    /// Read `length` bytes of live console memory at the REAL bus `address` into
+    /// `buffer`; returns the number of bytes read (0 = unmapped). The RA runtime's
+    /// read_memory callback uses this; the RA-flat→real address translation lives
+    /// in the RetroAchievements layer (`rc_console_memory_regions`). All 4
+    /// consoles: mGBA serves the GBA/GB/GBC bus, melonDS serves the NDS main
+    /// RAM + ARM9 DTCM. Read-only, no emulation side effects, called on the
+    /// emulation thread inside `rc_client_do_frame`.
+    func readMemory(at address: UInt32, into buffer: UnsafeMutablePointer<UInt8>, length: Int) -> Int {
+        guard isROMLoaded else { return 0 }
+        return bridge.readMemory(atAddress: address, into: buffer, length: length)
+    }
+
     // MARK: - Save States
 
-    func saveState(slot: Int) -> Bool {
+    /// `coordinated: false` writes the state binary and its preview with a direct
+    /// atomic write instead of going through `NSFileCoordinator`. Used by the
+    /// background-durability auto-save: the coordinated write can stall on the
+    /// iCloud daemon, and a force-kill won't wait for it, so the snapshot would
+    /// be lost. The bridge writes atomically (temp + rename), so the uncoordinated
+    /// write can't tear a file; iCloud syncs the change afterward.
+    func saveState(slot: Int, coordinated: Bool = true) -> Bool {
         guard let manager = saveStateManager else { return false }
         var success = false
-        CoordinatedFileIO.write(at: manager.stateFileURL(slot: slot)) { coordURL in
-            success = bridge.saveState(toPath: coordURL.path)
+        let stateURL = manager.stateFileURL(slot: slot)
+        if coordinated {
+            CoordinatedFileIO.write(at: stateURL) { coordURL in
+                success = bridge.saveState(toPath: coordURL.path)
+            }
+        } else {
+            success = bridge.saveState(toPath: stateURL.path)
         }
         if success, let image = bridge.createFrameImage() {
-            manager.savePreviewImage(image, slot: slot)
+            manager.savePreviewImage(image, slot: slot, coordinated: coordinated)
+        }
+        // Snapshot the RetroAchievements runtime beside the state so loading this
+        // slot restores RA tracking to match the restored memory (no missed or
+        // repeated unlocks). Sidecar is removed when there's no active RA session.
+        if success {
+            let sidecar = stateURL.appendingPathExtension("ra")
+            if let raData = RetroAchievements.shared.serializeProgress() {
+                try? raData.write(to: sidecar, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: sidecar)
+            }
         }
         // A manual save (slots 1-5) is a deliberate engagement signal that
         // feeds the engagedFirstTimer review prompt. The silent auto-save
@@ -212,6 +265,15 @@ final class EmulatorSession: ObservableObject {
         // would be meaningless.
         if success, slot != SaveStateManager.autoSaveSlotIndex {
             PromptTracker.shared.recordSaveStateCreated()
+        }
+        if slot == SaveStateManager.autoSaveSlotIndex {
+            Self.logAutoSave(verb: "write", url: stateURL, success: success)
+        }
+        if !success {
+            Analytics.signal("save_failure", [
+                "kind": slot == SaveStateManager.autoSaveSlotIndex ? "auto_save" : "state_write",
+                "system": bridge is MelonDSBridge ? "nds" : "gba"
+            ])
         }
         return success
     }
@@ -233,12 +295,38 @@ final class EmulatorSession: ObservableObject {
             // not only on a fresh boot. mGBA games get their RTC from the
             // host clock, so this is a no-op there.
             (bridge as? MelonDSBridge)?.seedRealTimeClock()
+            // Restore the RA runtime captured with this slot (if any), so unlock
+            // tracking matches the memory we just loaded.
+            let sidecar = manager.stateFileURL(slot: slot).appendingPathExtension("ra")
+            if let raData = try? Data(contentsOf: sidecar) {
+                RetroAchievements.shared.deserializeProgress(raData)
+            }
+        }
+        if slot == SaveStateManager.autoSaveSlotIndex {
+            Self.logAutoSave(verb: "load", url: manager.stateFileURL(slot: slot), success: success)
+        }
+        if !success {
+            Analytics.signal("save_failure", [
+                "kind": "state_load",
+                "system": bridge is MelonDSBridge ? "nds" : "gba"
+            ])
         }
         return success
     }
 
-    func autoSave() -> Bool {
-        return saveState(slot: SaveStateManager.autoSaveSlotIndex)
+    func autoSave(coordinated: Bool = true) -> Bool {
+        return saveState(slot: SaveStateManager.autoSaveSlotIndex, coordinated: coordinated)
+    }
+
+    private static let autoSaveLog = Logger(subsystem: "com.retropal", category: "autosave")
+
+    /// Diagnostics for the rare slot-0 loss: logs the written/loaded auto-save's
+    /// size + mtime so a recurrence is traceable from Console even in Release.
+    private static func logAutoSave(verb: String, url: URL, success: Bool) {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attrs?[.size] as? NSNumber)?.int64Value ?? -1
+        let mtime = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? -1
+        autoSaveLog.notice("auto-save \(verb, privacy: .public) success=\(success) bytes=\(size) mtime=\(mtime)")
     }
 
     /// Force the battery save (in-game progress) to disk. Called when the app
@@ -337,6 +425,8 @@ final class EmulatorSession: ObservableObject {
 
     func shutdown() {
         isRunning = false
+        RetroAchievements.shared.endSession()
+        onFrameAdvance = nil
         audioEngine?.stop()
         audioEngine = nil
         isROMLoaded = false

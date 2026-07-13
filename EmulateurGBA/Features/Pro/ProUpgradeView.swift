@@ -9,11 +9,12 @@
 //  landscape share a single source of truth for every visual atom.
 //
 //  Portrait: single scroll with crown → pitch → benefits → CTAs.
-//  Landscape contextual: 2-column — hero left + mini-card grid right +
-//    pinned CTA strip. sessionMilestone (no featured) → 5-card vertical
-//    stack on the right instead of a 2×2 grid.
-//  Landscape comparison: single-column paralleling portrait — slim
-//    crown+title header + full-width table + pinned CTAs.
+//  Landscape contextual: 2-column — the "everything else" benefit list on
+//    the left, the compact Free→Pro hero + headline on the right with the
+//    price pinned right/bottom. sessionMilestone → full bundle card left.
+//  Landscape comparison: 3-column — the always-included baseline (Free==Pro)
+//    in a neutral card, what Pro adds in the neon card, and a purchase panel
+//    (brand + price) on the right.
 //
 
 import SwiftUI
@@ -21,14 +22,17 @@ import StoreKit
 
 struct ProUpgradeView: View {
     let context: ProPromptContext
+    private let isNested: Bool
 
     @ObservedObject private var proManager = ProManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var showComparison: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(context: ProPromptContext = .tappedLockedFeature) {
+    init(context: ProPromptContext = .tappedLockedFeature, isNested: Bool = false) {
         self.context = context
+        self.isNested = isNested
     }
 
     // MARK: - Body
@@ -47,7 +51,7 @@ struct ProUpgradeView: View {
             // Nested comparison sheet (from "See all benefits" link).
             // Same view re-presented with the comparison context — inherits
             // whatever layout the device orientation demands.
-            ProUpgradeView(context: .tappedLockedFeature)
+            ProUpgradeView(context: .tappedLockedFeature, isNested: true)
                 .presentationDetents([.large])
         }
         .onChange(of: proManager.isPro) { newValue in
@@ -55,171 +59,472 @@ struct ProUpgradeView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
             }
         }
+        .onAppear {
+            guard !isNested else { return }   // skip the "see all benefits" drill-down
+            proManager.activeTrigger = context
+            Analytics.signal("pro_sheet_shown", ["trigger": context.analyticsID])
+        }
     }
 
-    // MARK: - Portrait layout (visual unchanged)
+    // MARK: - Portrait layout
 
+    /// Every contextual trigger with a single featured benefit gets the card-led
+    /// treatment (a Free→Pro hero + the bundle strip). sessionMilestone (no
+    /// featured benefit) and the deliberate .tappedLockedFeature comparison keep
+    /// the comparison table in a card; sessionMilestone → a full-bundle card.
+    @ViewBuilder
     private var portraitLayout: some View {
-        ZStack {
-            // Glow floats above the crown — original portrait treatment.
-            GlowCircle(size: 280)
-                .offset(y: -220)
+        if heroConfig != nil {
+            contextualCardPortrait
+        } else if context == .tappedLockedFeature {
+            comparisonCardPortrait
+        } else {
+            sessionMilestonePortrait
+        }
+    }
 
+    /// Card-led contextual sheet: a Free→Pro hero card for the triggered
+    /// benefit, the earned headline, the "everything else" bundle strip (two
+    /// rows of badges since the skins benefit), the CTA strip, and the
+    /// (mandatory) legal footer. Compact metrics throughout so everything
+    /// stays visible without scrolling down to SE-class heights; the
+    /// ScrollView remains as a safety net (large Dynamic Type).
+    ///
+    /// The stack stretches to the full sheet height (GeometryReader) so the
+    /// two flexible spacers can absorb the slack on tall sheets: the CTA
+    /// block lands in the bottom thumb zone and the hero group sits visually
+    /// balanced instead of hugging the top with dead space below. On short
+    /// heights the spacers collapse to their minimums and the ScrollView
+    /// takes over, exactly as before.
+    private var contextualCardPortrait: some View {
+        GeometryReader { geo in
             ScrollView {
-                VStack(spacing: 20) {
-                    AnimatedCrown()
-                        .padding(.top, 32)
+                VStack(spacing: 14) {
+                    Spacer(minLength: 16)
 
-                    if context == .tappedLockedFeature {
-                        comparisonContent
-                    } else {
+                    if let hero = heroConfig {
+                        ProFeatureHeroCard(reduceMotion: reduceMotion,
+                                           icon: hero.icon, title: hero.title,
+                                           freeLabel: hero.free, proLabel: hero.pro)
+                            .padding(.horizontal, 24)
+                    }
+
+                    VStack(spacing: 8) {
                         Text(headline)
                             .font(.title3.bold())
                             .foregroundStyle(ProPalette.crownGradient)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 28)
-
                         Text(subtitle)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 28)
-
-                        portraitBenefits
                     }
+                    .padding(.horizontal, 28)
 
-                    Spacer(minLength: 16)
+                    // Everything else Pro unlocks — a glanceable icon strip so the
+                    // full bundle stays visible (value-stacking to justify the
+                    // price) without bringing back a text wall.
+                    VStack(spacing: 8) {
+                        Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
+                            .font(.caption2.weight(.bold))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.4))
+                        ProBenefitStrip(items: otherBenefits.map {
+                            ProBenefitStrip.Item(icon: $0.icon, label: $0.shortText)
+                        })
+                    }
+                    .padding(.horizontal, 20)
+
+                    Spacer(minLength: 8)
 
                     ProCTAStrip(compact: false, onDismiss: { dismiss() })
-                        .padding(.bottom, 8)
+
+                    Button {
+                        showComparison = true
+                    } label: {
+                        Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.5))
+                            .underline()
+                    }
 
                     legalFooter
-                        .padding(.bottom, 16)
+                        .padding(.bottom, 10)
+                }
+                .frame(width: geo.size.width)
+                .frame(minHeight: geo.size.height)
+            }
+        }
+    }
+
+    // MARK: - Comparison sheet (deliberate "see all Pro" — high intent)
+
+    /// The full Free-vs-Pro table wrapped in a premium card. This is the
+    /// analytical surface, so the table IS the right content; the card frame
+    /// just brings it into the same visual language. Static (no motion) — a
+    /// dense table is for reading, not spectacle.
+    /// Compact metrics throughout (row padding 3, row spacing 4, tighter card +
+    /// section paddings) so the full table, CTA and legal footer fit the portrait
+    /// sheet without scrolling; the ScrollView stays as a safety net for the
+    /// smallest devices / large Dynamic Type.
+    private var comparisonCardPortrait: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                // Header slightly smaller than before (headline + a 22pt crown)
+                // in exchange for more air around it, keeping the no-scroll fit.
+                HStack(spacing: 8) {
+                    AnimatedCrown(size: 22)
+                    Text(NSLocalizedString("prompt.generic.title", comment: ""))
+                        .font(.headline)
+                        .foregroundStyle(ProPalette.crownGradient)
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 6)
+
+                comparisonTable(rowPadding: 3, rowSpacing: 4)
+                    .padding(.vertical, 12)
+                    .background(proCardSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(proCardBorder)
+                    .shadow(color: Color(red: 0.45, green: 0.2, blue: 0.85).opacity(0.35), radius: 14, y: 6)
+                    .padding(.horizontal, 16)
+
+                Spacer(minLength: 4)
+
+                ProCTAStrip(compact: false, onDismiss: { dismiss() })
+                    .padding(.bottom, 4)
+
+                legalFooter
+                    .padding(.bottom, 10)
+            }
+        }
+    }
+
+    // MARK: - Session-milestone sheet (no single feature — sell the whole bundle)
+
+    /// A "you've played a while" moment where the whole bundle is the pitch, so
+    /// the hero is a premium card listing every benefit under the milestone
+    /// headline.
+    private var sessionMilestonePortrait: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                VStack(spacing: 8) {
+                    Text(headline)
+                        .font(.title3.bold())
+                        .foregroundStyle(ProPalette.crownGradient)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 28)
+                .padding(.horizontal, 28)
+
+                bundleCard()
+                    .padding(.horizontal, 24)
+
+                Spacer(minLength: 12)
+
+                ProCTAStrip(compact: false, onDismiss: { dismiss() })
+                    .padding(.bottom, 8)
+
+                legalFooter
+                    .padding(.bottom, 16)
+            }
+        }
+    }
+
+    /// Premium card listing the full Pro bundle (every benefit as a gold icon +
+    /// label). Used by the session-milestone sheet (no single benefit to hero).
+    ///
+    /// `dense: true` is the narrow-column variant (landscape comparison): a
+    /// tighter purple glow and smaller benefit rows so labels wrap to fewer
+    /// lines in a ~1/3-width column.
+    /// `fillHeight: true` stretches the card to its host's full height with the
+    /// content centered — used so the comparison columns can be the same height.
+    private func bundleCard(dense: Bool = false, fillHeight: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
+                .font(.caption2.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.4))
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            benefitRows(allBenefits, compact: dense)
+        }
+        .padding(.vertical, dense ? 16 : 22)
+        .padding(.horizontal, dense ? 16 : 22)
+        .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .center)
+        .background(proCardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(proCardBorder)
+        .shadow(color: Color(red: 0.45, green: 0.2, blue: 0.85).opacity(dense ? 0.22 : 0.35),
+                radius: dense ? 7 : 14, y: dense ? 4 : 6)
+    }
+
+    /// Vertical list of benefits (gold icon badge + label). Shared by the
+    /// bundle card and the landscape "everything else" column. `compact`
+    /// shrinks the icon and text so labels fit a narrow column in fewer lines.
+    @ViewBuilder
+    private func benefitRows(_ benefits: [Benefit], compact: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 9 : 12) {
+            ForEach(benefits, id: \.text) { benefit in
+                HStack(spacing: compact ? 10 : 12) {
+                    ZStack {
+                        Circle().fill(ProPalette.gold.opacity(0.12))
+                        Circle().strokeBorder(ProPalette.gold.opacity(0.35), lineWidth: 1)
+                        Image(systemName: benefit.icon)
+                            .font(.system(size: compact ? 12 : 15, weight: .medium))
+                            .foregroundStyle(ProPalette.crownGradient)
+                    }
+                    .frame(width: compact ? 26 : 34, height: compact ? 26 : 34)
+
+                    Text(benefit.text)
+                        .font(compact ? .footnote : .subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
                 }
             }
         }
     }
 
-    /// Featured MiniBenefitCard + caption-style other-benefits list +
-    /// "See all benefits" link. Portrait-specific — landscape uses a 2×2
-    /// grid of mini cards instead of the caption list.
-    @ViewBuilder
-    private var portraitBenefits: some View {
-        VStack(spacing: 20) {
-            if let featured = featuredBenefit {
-                MiniBenefitCard(icon: featured.icon,
-                                text: featured.text,
-                                style: .featured)
-                    .padding(.horizontal, 28)
-            }
+    // MARK: - Shared premium card chrome
 
-            // Subtle caption list — intentionally low-emphasis in portrait
-            // (mini-card treatment is reserved for the featured card here;
-            // landscape promotes everything to cards to use the extra
-            // horizontal room). Portrait visual identical to pre-refactor.
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(otherBenefits, id: \.text) { benefit in
-                    HStack(spacing: 12) {
-                        Image(systemName: benefit.icon)
-                            .frame(width: 20)
-                            .foregroundStyle(.white.opacity(0.4))
-                            .font(.system(size: 13))
-                        Text(benefit.text)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                }
-            }
-            .padding(.horizontal, 32)
+    private var proCardSurface: some View {
+        LinearGradient(
+            colors: [Color(red: 0.12, green: 0.08, blue: 0.22),
+                     Color(red: 0.05, green: 0.03, blue: 0.11)],
+            startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
 
-            Button {
-                showComparison = true
-            } label: {
-                Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
-                    .underline()
-            }
-            .padding(.top, 4)
-        }
+    private var proCardBorder: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .strokeBorder(
+                LinearGradient(colors: [ProPalette.gold.opacity(0.85),
+                                        Color(red: 0.55, green: 0.3, blue: 1.0).opacity(0.85)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 1.5)
+    }
+
+    /// A restrained, near-goldless border for the "neutral" surfaces (e.g. the
+    /// Free-vs-Pro comparison column) so the gold reads as a deliberate accent
+    /// reserved for the Pro side, not a default.
+    private var neutralCardBorder: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
     }
 
     // MARK: - Landscape layout (branches on context)
 
     @ViewBuilder
     private var landscapeLayout: some View {
-        if context == .tappedLockedFeature {
-            landscapeComparisonLayout
+        if heroConfig != nil {
+            landscapeContextualCard
+        } else if context == .tappedLockedFeature {
+            landscapeComparisonCard
         } else {
-            landscapeContextualLayout
+            landscapeMilestoneCard
         }
     }
 
-    /// Single-column flow paralleling portrait structure — slim header
-    /// (inline crown + title) + full-width table + pinned CTAs.
-    private var landscapeComparisonLayout: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                AnimatedCrown(size: 24)
-                Text(NSLocalizedString("prompt.generic.title", comment: ""))
-                    .font(.title3.bold())
-                    .foregroundStyle(ProPalette.crownGradient)
-            }
-            .padding(.vertical, 10)
-
-            ScrollView {
-                comparisonTable(rowPadding: 4)
-                    .padding(.bottom, 8)
-            }
-
-            Divider().background(Color.white.opacity(0.08))
-
-            ProCTAStrip(compact: true, onDismiss: { dismiss() })
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
-            legalFooter
-                .padding(.bottom, 8)
-        }
-    }
-
-    /// 2-column layout for the 9 contextual sheets. Left = hero, Right =
-    /// benefit cards + pinned CTAs. sessionMilestone (nil featuredBenefit)
-    /// swaps the 2×2 grid for a 5-card vertical stack on the right.
-    private var landscapeContextualLayout: some View {
+    /// Single-benefit landscape: the "everything else" rows + see-all on the
+    /// LEFT; the Free→Pro hero card (compact) + its headline on the RIGHT, with
+    /// the price pinned right/bottom. The left list is vertically centered; the
+    /// right column shows the card and both texts without scrolling.
+    private var landscapeContextualCard: some View {
         HStack(spacing: 0) {
-            LandscapeContextualHero(
-                headline: headline,
-                subtitle: subtitle,
-                featuredIcon: featuredBenefit?.icon,
-                featuredText: featuredBenefit?.text
-            )
-            .frame(maxWidth: .infinity)
+            // LEFT — everything else Pro unlocks, vertically centered.
+            VStack(alignment: .leading, spacing: 12) {
+                Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
+                    .font(.caption2.weight(.bold)).tracking(1.2)
+                    .foregroundStyle(.white.opacity(0.4))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                benefitRows(otherBenefits)
 
+                Button {
+                    showComparison = true
+                } label: {
+                    Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.5))
+                        .underline()
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 4)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // RIGHT — the triggered Free→Pro hero + headline (no scroll), price below.
             VStack(spacing: 0) {
-                ScrollView {
-                    if featuredBenefit == nil {
-                        sessionMilestoneStack
-                    } else {
-                        contextualBenefitsGrid
+                VStack(spacing: 12) {
+                    if let hero = heroConfig {
+                        ProFeatureHeroCard(reduceMotion: reduceMotion, compact: true,
+                                           icon: hero.icon, title: hero.title,
+                                           freeLabel: hero.free, proLabel: hero.pro)
+                    }
+                    VStack(spacing: 6) {
+                        Text(headline)
+                            .font(.headline)
+                            .foregroundStyle(ProPalette.crownGradient)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 40)
-                .padding(.bottom, 8)
+                .padding(.horizontal, 18)
+                .padding(.top, 20)
+
+                Spacer(minLength: 12)
 
                 Divider().background(Color.white.opacity(0.08))
-
                 ProCTAStrip(compact: true, onDismiss: { dismiss() })
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-
-                legalFooter
-                    .padding(.bottom, 8)
+                    .padding(.top, 8).padding(.bottom, 4)
+                legalFooter.padding(.bottom, 8)
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// Milestone landscape: the full-bundle card on the LEFT, the milestone
+    /// headline on the RIGHT with the price pinned right/bottom.
+    private var landscapeMilestoneCard: some View {
+        HStack(spacing: 0) {
+            // LEFT — the whole bundle is the pitch.
+            ScrollView {
+                bundleCard()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 20)
+            }
+            .frame(maxWidth: .infinity)
+
+            // RIGHT — milestone headline (no scroll), price below.
+            VStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    Text(headline)
+                        .font(.title3.bold())
+                        .foregroundStyle(ProPalette.crownGradient)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+
+                Spacer(minLength: 12)
+
+                Divider().background(Color.white.opacity(0.08))
+                ProCTAStrip(compact: true, onDismiss: { dismiss() })
+                    .padding(.top, 8).padding(.bottom, 4)
+                legalFooter.padding(.bottom, 8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// Comparison landscape: a dedicated three-column layout for the wide space.
+    /// 1) the always-included baseline (rows identical for Free and Pro) in a
+    /// neutral card; 2) what Pro adds, in the full neon-luxury card; 3) the
+    /// purchase panel (brand + price), which carries the sheet identity so the
+    /// two tables can self-explain via their own headers.
+    private var landscapeComparisonCard: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            HStack(spacing: 0) {
+                // Columns 1 & 2 — the same height (fixedSize on the row hugs the
+                // taller card; both fill it), content centered inside each, and
+                // the whole pair floated to the vertical center of the sheet.
+                HStack(spacing: 0) {
+                    baselineColumnCard
+                        .padding(.leading, 14)
+                        .padding(.trailing, 6)
+                        .frame(width: w * 0.40)
+
+                    bundleCard(dense: true, fillHeight: true)
+                        .padding(.leading, 6)
+                        .padding(.trailing, 14)
+                        .frame(width: w * 0.32)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .padding(.vertical, 14)
+
+                // Column 3 — the purchase panel: centered identity + price CTA +
+                // legal links. A faint surface + leading hairline make it read as
+                // a deliberate panel on the right.
+                VStack(spacing: 14) {
+                    VStack(spacing: 8) {
+                        AnimatedCrown(size: 30)
+                        Text(NSLocalizedString("prompt.generic.title", comment: ""))
+                            .font(.title3.bold())
+                            .foregroundStyle(ProPalette.crownGradient)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 22)
+
+                    Spacer(minLength: 8)
+
+                    ProCTAStrip(compact: true, onDismiss: { dismiss() })
+
+                    legalLinksStacked
+
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 12)
+                .frame(width: w * 0.28)
+                .frame(maxHeight: .infinity)
+                .background(Color.white.opacity(0.03))
+                .overlay(alignment: .leading) {
+                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                }
+            }
+        }
+    }
+
+    /// Column 1 of the landscape comparison: the always-included baseline in a
+    /// neutral card, content vertically centered and filling the shared height.
+    private var baselineColumnCard: some View {
+        comparisonTable(rowPadding: 6, includePro: false, cellWidth: 44, hPadding: 10)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .background(proCardSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(neutralCardBorder)
+    }
+
+    /// Terms + Privacy stacked vertically (one above the other) for the slim
+    /// landscape-comparison price column. Same links as `legalFooter`, just
+    /// laid out for a narrow width.
+    private var legalLinksStacked: some View {
+        VStack(spacing: 4) {
+            Link(destination: termsURL) {
+                Text(NSLocalizedString("pro.legal.terms", comment: "")).underline()
+            }
+            Link(destination: privacyURL) {
+                Text(NSLocalizedString("pro.legal.privacy", comment: "")).underline()
+            }
+        }
+        .font(.caption2)
+        .foregroundColor(.white.opacity(0.55))
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Legal footer (App Store Guideline 3.1.2(c))
@@ -264,60 +569,6 @@ struct ProUpgradeView: View {
         return URL(string: "https://retropal.fr\(path)")!
     }
 
-    /// 2×2 grid of mini benefit cards + "See all benefits" link.
-    /// Used when a featured benefit is shown on the left (8 of 9 contextual).
-    @ViewBuilder
-    private var contextualBenefitsGrid: some View {
-        VStack(spacing: 14) {
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 8),
-                          GridItem(.flexible(), spacing: 8)],
-                spacing: 8
-            ) {
-                ForEach(otherBenefits, id: \.text) { benefit in
-                    MiniBenefitCard(icon: benefit.icon,
-                                    text: benefit.shortText,
-                                    style: .mini)
-                }
-            }
-            .padding(.horizontal, 16)
-
-            Button {
-                showComparison = true
-            } label: {
-                Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
-                    .underline()
-            }
-        }
-    }
-
-    /// Single-column stack of all 5 benefit cards. Used for sessionMilestone
-    /// where no featured benefit sits on the left (the hero is text-only).
-    /// Uniform rhythm, no empty grid cells.
-    @ViewBuilder
-    private var sessionMilestoneStack: some View {
-        VStack(spacing: 6) {
-            ForEach(allBenefits, id: \.text) { benefit in
-                MiniBenefitCard(icon: benefit.icon,
-                                text: benefit.shortText,
-                                style: .mini)
-            }
-
-            Button {
-                showComparison = true
-            } label: {
-                Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
-                    .underline()
-            }
-            .padding(.top, 8)
-        }
-        .padding(.horizontal, 16)
-    }
-
     // MARK: - Contextual content resolution
 
     private var headline: String {
@@ -342,6 +593,8 @@ struct ProUpgradeView: View {
             return NSLocalizedString("prompt.generic.title", comment: "")
         case .customizeControls:
             return NSLocalizedString("prompt.controls.title", comment: "")
+        case .customSkins:
+            return NSLocalizedString("prompt.skins.title", comment: "")
         }
     }
 
@@ -367,6 +620,47 @@ struct ProUpgradeView: View {
             return NSLocalizedString("prompt.generic.subtitle", comment: "")
         case .customizeControls:
             return NSLocalizedString("prompt.controls.subtitle", comment: "")
+        case .customSkins:
+            return NSLocalizedString("prompt.skins.subtitle", comment: "")
+        }
+    }
+
+    /// Per-context hero: icon, title, and the concrete Free→Pro values for the
+    /// triggered benefit. `nil` for contexts with no single featured benefit
+    /// (sessionMilestone, tappedLockedFeature) — those keep the comparison table.
+    /// Values mirror the comparison table so the two never disagree.
+    private var heroConfig: (icon: String, title: String, free: String?, pro: String)? {
+        switch context {
+        case .speedMoment, .speedTapped:
+            return ("gauge.high",
+                    NSLocalizedString("pro.benefit.speed.short", comment: ""),
+                    NSLocalizedString("pro.compare.values.freeSpeeds", comment: ""),
+                    NSLocalizedString("pro.compare.values.proSpeeds", comment: ""))
+        case .saveSlotFull, .saveSlotTapped:
+            return ("tray.2",
+                    NSLocalizedString("pro.benefit.slots.short", comment: ""),
+                    "2", "5")
+        case .rewindLimit:
+            return ("backward.fill",
+                    NSLocalizedString("pro.benefit.rewind.short", comment: ""),
+                    "5s", "30s")
+        case .cheatCodes, .cheatCodesTapped:
+            return ("command",
+                    NSLocalizedString("pro.benefit.cheats.short", comment: ""),
+                    nil, "✓")
+        case .customizeControls:
+            return ("hand.draw",
+                    NSLocalizedString("pro.benefit.controls.short", comment: ""),
+                    nil, "✓")
+        case .customSkins:
+            // Creation is the binary unlock — lock on the Free side, like the
+            // cheats / controls heroes (importing stays free, but the hero
+            // sells creation only; settled after the Import→Create try).
+            return ("paintbrush",
+                    NSLocalizedString("pro.benefit.skins.short", comment: ""),
+                    nil, "✓")
+        case .sessionMilestone, .tappedLockedFeature:
+            return nil
         }
     }
 
@@ -402,6 +696,9 @@ struct ProUpgradeView: View {
             Benefit(icon: "hand.draw",
                     text: NSLocalizedString("pro.benefit.controls", comment: ""),
                     shortText: NSLocalizedString("pro.benefit.controls.short", comment: "")),
+            Benefit(icon: "paintbrush",
+                    text: NSLocalizedString("pro.benefit.skins", comment: ""),
+                    shortText: NSLocalizedString("pro.benefit.skins.short", comment: "")),
         ]
     }
 
@@ -412,6 +709,7 @@ struct ProUpgradeView: View {
         case .rewindLimit:                     return allBenefits[2]
         case .cheatCodes, .cheatCodesTapped:   return allBenefits[3]
         case .customizeControls:               return allBenefits[4]
+        case .customSkins:                     return allBenefits[5]
         case .sessionMilestone, .tappedLockedFeature:
             return nil
         }
@@ -456,65 +754,72 @@ struct ProUpgradeView: View {
             ComparisonRow(label: NSLocalizedString("pro.compare.row.cheats", comment: ""),
                           free: .none, pro: .check),
             ComparisonRow(label: NSLocalizedString("pro.compare.row.controls", comment: ""),
-                          free: .none,
-                          pro: .text(NSLocalizedString("pro.compare.values.proControls", comment: ""))),
+                          free: .none, pro: .check),
+            ComparisonRow(label: NSLocalizedString("pro.compare.row.skins", comment: ""),
+                          free: .none, pro: .check),
         ]
-    }
-
-    /// Portrait comparison: gold title above the table.
-    @ViewBuilder
-    private var comparisonContent: some View {
-        Text(NSLocalizedString("prompt.generic.title", comment: ""))
-            .font(.title3.bold())
-            .foregroundStyle(ProPalette.crownGradient)
-            .padding(.horizontal, 28)
-
-        comparisonTable(rowPadding: 6)
     }
 
     /// Free-vs-Pro table. Row vertical padding parameterizable so landscape
     /// can pass 4 (tighter) while portrait keeps 6.
     @ViewBuilder
-    private func comparisonTable(rowPadding: CGFloat) -> some View {
-        VStack(spacing: 10) {
-            // Column headers
+    /// `includePro: false` renders only the rows that are identical between Free
+    /// and Pro (the always-included baseline) — used by the landscape comparison
+    /// column 1, where the Pro-only upgrades live in their own neon card instead.
+    /// `cellWidth` / `hPadding` shrink the Free/Pro value columns and the table
+    /// margins for narrow hosts (the landscape comparison column 1, where those
+    /// columns only ever hold a checkmark) so the row labels get the room.
+    /// `rowSpacing` is the gap between rows — the portrait comparison passes a
+    /// tighter value so the full table fits the sheet without scrolling.
+    private func comparisonTable(rowPadding: CGFloat,
+                                 includePro: Bool = true,
+                                 cellWidth: CGFloat = 80,
+                                 hPadding: CGFloat = 20,
+                                 rowSpacing: CGFloat = 10) -> some View {
+        VStack(spacing: rowSpacing) {
+            // Column headers — shrink the title font when the columns are narrow.
             HStack(spacing: 0) {
                 Text("")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(NSLocalizedString("pro.compare.header.free", comment: ""))
-                    .font(.caption.bold())
+                    .font((cellWidth < 60 ? Font.caption2 : Font.caption).bold())
                     .foregroundColor(.white.opacity(0.5))
-                    .frame(width: 80)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .frame(width: cellWidth)
                 Text(NSLocalizedString("pro.compare.header.pro", comment: ""))
-                    .font(.caption.bold())
+                    .font((cellWidth < 60 ? Font.caption2 : Font.caption).bold())
                     .foregroundStyle(ProPalette.crownGradient)
-                    .frame(width: 80)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .frame(width: cellWidth)
             }
             .padding(.bottom, 2)
 
             ForEach(sharedRows.indices, id: \.self) { i in
-                comparisonRowView(sharedRows[i], rowPadding: rowPadding)
+                comparisonRowView(sharedRows[i], rowPadding: rowPadding, cellWidth: cellWidth)
             }
 
-            // "Pro adds" divider
-            HStack(spacing: 10) {
-                Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
-                Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
-                    .font(.caption2.bold())
-                    .foregroundColor(.white.opacity(0.5))
-                    .tracking(1)
-                Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
-            }
-            .padding(.vertical, 6)
+            if includePro {
+                // "Pro adds" divider
+                HStack(spacing: 10) {
+                    Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                    Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
+                        .font(.caption2.bold())
+                        .foregroundColor(.white.opacity(0.5))
+                        .tracking(1)
+                    Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                }
+                .padding(.vertical, 6)
 
-            ForEach(proRows.indices, id: \.self) { i in
-                comparisonRowView(proRows[i], rowPadding: rowPadding)
+                ForEach(proRows.indices, id: \.self) { i in
+                    comparisonRowView(proRows[i], rowPadding: rowPadding, cellWidth: cellWidth)
+                }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, hPadding)
     }
 
-    private func comparisonRowView(_ row: ComparisonRow, rowPadding: CGFloat) -> some View {
+    private func comparisonRowView(_ row: ComparisonRow, rowPadding: CGFloat,
+                                   cellWidth: CGFloat = 80) -> some View {
         HStack(spacing: 0) {
             Text(row.label)
                 .font(.subheadline)
@@ -523,10 +828,10 @@ struct ProUpgradeView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             comparisonCell(row.free, highlighted: false)
-                .frame(width: 80)
+                .frame(width: cellWidth)
 
             comparisonCell(row.pro, highlighted: true)
-                .frame(width: 80)
+                .frame(width: cellWidth)
         }
         .padding(.vertical, rowPadding)
     }

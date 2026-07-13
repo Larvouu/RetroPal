@@ -60,7 +60,7 @@ enum ProPalette {
     // MARK: - Shared animation driver
 
     /// Returns a 0..1 phase with a 2-second period, driven by wall-clock time.
-    /// Used by AnimatedCrown and GlowCircle (and any other pulsing Pro element)
+    /// Used by AnimatedCrown (and any other pulsing Pro element)
     /// so they share the same beat without needing a shared @State driver.
     /// TimelineView(.animation) is the caller's responsibility.
     static func pulsePhase(at date: Date) -> CGFloat {

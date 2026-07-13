@@ -4,11 +4,38 @@
 //
 //  "The Thank-You Card" — a warm-up card shown before
 //  SKStoreReviewController to maximize positive ratings.
-//  Reuses the neon aesthetic from ProUpgradeView.
+//
+//  Deliberately calm and static (no card frame / no 3D sway): a rating ask
+//  converts on sincerity and a frictionless tap, not spectacle — the
+//  showpiece-card treatment is reserved for the paywall. The 5 stars are
+//  themselves tappable (people reach for the stars), and trigger the same
+//  rating action as the button.
 //
 
 import SwiftUI
 import StoreKit
+
+/// UIKit host that guarantees exactly one `review_prompt_outcome` signal per
+/// presentation: the Rate action records "rated" (and calls
+/// `markOutcomeRecorded()`); any other teardown — the "Later" button, a sheet
+/// swipe-down, a force-quit-adjacent dismissal — lands in `viewDidDisappear`
+/// as "dismissed". Without this, swipe-down dismissals would silently vanish
+/// from the funnel.
+final class ReviewPromptHostController: UIHostingController<ReviewPromptView> {
+    var arm: String = ""
+    private var didRecordOutcome = false
+
+    func markOutcomeRecorded() {
+        didRecordOutcome = true
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard !didRecordOutcome else { return }
+        didRecordOutcome = true
+        Analytics.signal("review_prompt_outcome", ["outcome": "dismissed", "trigger": arm])
+    }
+}
 
 struct ReviewPromptView: View {
     var onRate: () -> Void
@@ -40,7 +67,7 @@ struct ReviewPromptView: View {
         ZStack {
             bgGradient.ignoresSafeArea()
 
-            // Glow effect
+            // Soft glow behind the content.
             Circle()
                 .fill(
                     RadialGradient(
@@ -56,26 +83,33 @@ struct ReviewPromptView: View {
             VStack(spacing: 20) {
                 Spacer(minLength: 24)
 
-                // 5-star row, staggered fade-in
-                HStack(spacing: 8) {
-                    ForEach(0..<5, id: \.self) { index in
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 36))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [gold, Color(red: 0.9, green: 0.7, blue: 0.2)],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                // 5-star row, staggered fade-in — and tappable: reaching for the
+                // stars is the instinctive gesture, so a tap there fires the same
+                // rating action as the button below.
+                Button(action: onRate) {
+                    HStack(spacing: 8) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [gold, Color(red: 0.9, green: 0.7, blue: 0.2)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .shadow(color: gold.opacity(0.5), radius: 10)
-                            .opacity(starsVisible ? 1 : 0)
-                            .scaleEffect(starsVisible ? 1 : 0.6)
-                            .animation(
-                                .easeOut(duration: 0.3).delay(Double(index) * 0.1),
-                                value: starsVisible
-                            )
+                                .shadow(color: gold.opacity(0.5), radius: 10)
+                                .opacity(starsVisible ? 1 : 0)
+                                .scaleEffect(starsVisible ? 1 : 0.6)
+                                .animation(
+                                    .easeOut(duration: 0.3).delay(Double(index) * 0.1),
+                                    value: starsVisible
+                                )
+                        }
                     }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("review.cta", comment: ""))
 
                 // Headline
                 Text(NSLocalizedString("review.headline", comment: ""))

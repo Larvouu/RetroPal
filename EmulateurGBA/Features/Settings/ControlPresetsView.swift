@@ -11,6 +11,7 @@ import UIKit
 struct ControlPresetsView: View {
     @State private var presets: [ControlPreset] = []
     @State private var activeGBAID: UUID?
+    @State private var activeGBCID: UUID?
     @State private var activeNDSID: UUID?
     @State private var showNewPresetSheet = false
     @State private var editingPreset: ControlPreset?
@@ -31,7 +32,7 @@ struct ControlPresetsView: View {
             newPresetSheet
         }
         .fullScreenCover(item: $editingPreset) { preset in
-            EditorWrapper(preset: preset, isNDS: preset.systems.nds,
+            EditorWrapper(preset: preset, system: preset.systems.system,
                 onSave: { updatedPreset in
                     store.updatePreset(updatedPreset)
                     editingPreset = nil
@@ -40,6 +41,12 @@ struct ControlPresetsView: View {
                 onCancel: {
                     editingPreset = nil
                 })
+            // The editor canvas must span the WHOLE screen like the in-game
+            // view does (the game's cover ignores the safe area too) — without
+            // this, SwiftUI lays the editor out inside the safe areas, every
+            // coordinate is computed against a shorter canvas, and the preview
+            // no longer matches the game.
+            .ignoresSafeArea()
         }
     }
 
@@ -47,45 +54,38 @@ struct ControlPresetsView: View {
 
     private var activeLayoutSection: some View {
         Section {
-            HStack {
-                Text("GBA / GB / GBC")
-                Spacer()
-                Picker("", selection: Binding(
-                    get: { activeGBAID?.uuidString ?? "default" },
-                    set: { val in
-                        let id = val == "default" ? nil : UUID(uuidString: val)
-                        store.setActivePreset(id, forNDS: false)
-                        activeGBAID = id
-                    }
-                )) {
-                    Text(NSLocalizedString("layout.default", comment: "")).tag("default")
-                    ForEach(store.presetsForSystem(forNDS: false)) { preset in
-                        Text(preset.name).tag(preset.id.uuidString)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            HStack {
-                Text("Nintendo DS")
-                Spacer()
-                Picker("", selection: Binding(
-                    get: { activeNDSID?.uuidString ?? "default" },
-                    set: { val in
-                        let id = val == "default" ? nil : UUID(uuidString: val)
-                        store.setActivePreset(id, forNDS: true)
-                        activeNDSID = id
-                    }
-                )) {
-                    Text(NSLocalizedString("layout.default", comment: "")).tag("default")
-                    ForEach(store.presetsForSystem(forNDS: true)) { preset in
-                        Text(preset.name).tag(preset.id.uuidString)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
+            activeRow(label: "GBA", system: .gba,
+                      get: { activeGBAID }, set: { activeGBAID = $0 })
+            activeRow(label: "GB / GBC", system: .gbc,
+                      get: { activeGBCID }, set: { activeGBCID = $0 })
+            activeRow(label: "Nintendo DS", system: .nds,
+                      get: { activeNDSID }, set: { activeNDSID = $0 })
         } header: {
             Text(NSLocalizedString("layout.activeLayout", comment: ""))
+        }
+    }
+
+    /// One "active preset" picker row for a system. `get`/`set` bind the matching
+    /// @State id so the menu reflects and persists the choice.
+    private func activeRow(label: String, system: PresetSystem,
+                           get: @escaping () -> UUID?, set: @escaping (UUID?) -> Void) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Picker("", selection: Binding(
+                get: { get()?.uuidString ?? "default" },
+                set: { val in
+                    let id = val == "default" ? nil : UUID(uuidString: val)
+                    store.setActivePreset(id, system: system)
+                    set(id)
+                }
+            )) {
+                Text(NSLocalizedString("layout.default", comment: "")).tag("default")
+                ForEach(store.presetsForSystem(system)) { preset in
+                    Text(preset.name).tag(preset.id.uuidString)
+                }
+            }
+            .pickerStyle(.menu)
         }
     }
 
@@ -102,7 +102,7 @@ struct ControlPresetsView: View {
                             Text(preset.name)
                                 .foregroundColor(.primary)
                                 .font(.body)
-                            systemTag(preset.systems.nds ? "NDS" : "GBA")
+                            systemTag(Self.systemLabel(preset.systems.system))
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -118,15 +118,13 @@ struct ControlPresetsView: View {
                 reload()
             }
 
-            if presets.count < ControlLayoutStore.maxPresets {
-                Button {
-                    newPresetName = ""
-                    newPresetSystem = .gba
-                    showNewPresetSheet = true
-                } label: {
-                    Label(NSLocalizedString("layout.newPreset", comment: ""),
-                          systemImage: "plus.circle")
-                }
+            Button {
+                newPresetName = ""
+                newPresetSystem = .gba
+                showNewPresetSheet = true
+            } label: {
+                Label(NSLocalizedString("layout.newPreset", comment: ""),
+                      systemImage: "plus.circle")
             }
         } header: {
             Text(NSLocalizedString("layout.presets", comment: ""))
@@ -146,7 +144,8 @@ struct ControlPresetsView: View {
 
                 Section(NSLocalizedString("layout.newPreset.systems", comment: "")) {
                     ColoredSegmentedPicker(
-                        segments: [("GBA / GB / GBC", PresetSystem.gba),
+                        segments: [("GBA", PresetSystem.gba),
+                                   ("GB / GBC", PresetSystem.gbc),
                                    ("Nintendo DS", PresetSystem.nds)],
                         selection: $newPresetSystem,
                         selectedColor: UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 1)
@@ -175,6 +174,15 @@ struct ControlPresetsView: View {
 
     // MARK: - Helpers
 
+    /// Short uppercase tag for a preset's system, shown next to its name.
+    private static func systemLabel(_ system: PresetSystem) -> String {
+        switch system {
+        case .gba: return "GBA"
+        case .gbc: return "GB / GBC"
+        case .nds: return "NDS"
+        }
+    }
+
     private func systemTag(_ text: String) -> some View {
         Text(text)
             .font(.caption2)
@@ -188,8 +196,9 @@ struct ControlPresetsView: View {
 
     private func reload() {
         presets = store.loadPresets()
-        activeGBAID = store.activePresetID(forNDS: false)
-        activeNDSID = store.activePresetID(forNDS: true)
+        activeGBAID = store.activePresetID(system: .gba)
+        activeGBCID = store.activePresetID(system: .gbc)
+        activeNDSID = store.activePresetID(system: .nds)
     }
 
     private func createPreset() {
@@ -197,13 +206,17 @@ struct ControlPresetsView: View {
         guard !name.isEmpty else { return }
 
         let systems = SystemApplicability(system: newPresetSystem)
-        let preset = ControlPreset(name: name, systems: systems)
+        // Seed the new preset's directional style from the current default
+        // (the global Settings choice) so it starts matching what the user
+        // already sees; it becomes independent of the default from here on.
+        let preset = ControlPreset(name: name, systems: systems,
+                                   useJoystick: UserDefaults.standard.bool(forKey: "useJoystick"))
         store.addPreset(preset)
 
         // Auto-activate the new preset for its system — the user explicitly
-        // chose to create a preset for GBA or NDS, so they almost certainly
+        // chose to create a preset for this system, so they almost certainly
         // want it to be the active one. Saves a second tap on "Set active".
-        store.setActivePreset(preset.id, forNDS: newPresetSystem == .nds)
+        store.setActivePreset(preset.id, system: newPresetSystem)
 
         reload()
 
@@ -263,12 +276,14 @@ private struct ColoredSegmentedPicker<Value: Equatable>: UIViewRepresentable {
 
 private struct EditorWrapper: UIViewControllerRepresentable {
     let preset: ControlPreset
-    let isNDS: Bool
+    let system: PresetSystem
     let onSave: (ControlPreset) -> Void
     let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> ControlLayoutEditorViewController {
-        let vc = ControlLayoutEditorViewController(isNDS: isNDS, preset: preset)
+        Analytics.signal("controls_editor", ["action": "opened", "system": "\(system)"])
+        Analytics.signal("pro_feature_used", ["feature": "custom_controls"])
+        let vc = ControlLayoutEditorViewController(system: system, preset: preset)
         vc.delegate = context.coordinator
         return vc
     }
@@ -276,20 +291,24 @@ private struct EditorWrapper: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: ControlLayoutEditorViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onSave: onSave, onCancel: onCancel)
+        Coordinator(onSave: onSave, onCancel: onCancel, system: system)
     }
 
     final class Coordinator: NSObject, ControlLayoutEditorDelegate {
         let onSave: (ControlPreset) -> Void
         let onCancel: () -> Void
+        let system: PresetSystem
 
         init(onSave: @escaping (ControlPreset) -> Void,
-             onCancel: @escaping () -> Void) {
+             onCancel: @escaping () -> Void,
+             system: PresetSystem) {
             self.onSave = onSave
             self.onCancel = onCancel
+            self.system = system
         }
 
         func editorDidSave(preset: ControlPreset) {
+            Analytics.signal("controls_editor", ["action": "preset_saved", "system": "\(system)"])
             onSave(preset)
         }
 

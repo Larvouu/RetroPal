@@ -24,6 +24,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     var ndsSideBySide = false { didSet { if isDualScreen { rebuildNDSVertices() } } }
     var speedMultiplier: Double = 1.0
 
+    /// Optional rolling clip recorder, fed one frame image per produced frame.
+    /// It down-samples internally to its low "gif" fps, so the image is only
+    /// built a few times per second. Owned/assigned by EmulatorViewController.
+    weak var clipRecorder: GameplayClipRecorder?
+
     // GBA frame timing: 16,777,216 Hz CPU / 280,896 cycles per frame ≈ 59.7275 fps
     private static let gbaFrameDuration: CFTimeInterval = 280896.0 / 16777216.0
     private var timeAccumulator: CFTimeInterval = 0
@@ -33,8 +38,30 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     private static let ndsGapRatio: Float = 0.01
 
     /// Ratio of the view height allocated to the top NDS screen (0.0–1.0, excluding gap).
-    /// Default 0.495 = each screen gets ~49.5% with a 1% gap. Set from active preset.
+    /// Default 0.495 = each screen gets ~49.5% with a 1% gap.
     var ndsTopScreenRatio: Float = 0.495 { didSet { if isDualScreen { rebuildNDSVertices() } } }
+
+    /// One NDS screen quad of a preset-customized layout: a rect in this view's
+    /// own coordinate space + the screen's opacity.
+    struct CustomScreenQuad {
+        var rect: CGRect
+        var alpha: CGFloat
+    }
+
+    /// Custom NDS screen layout from an active control preset: arbitrary
+    /// view-space rects with per-screen alpha, in physical order. nil = the
+    /// default stacked / side-by-side split. While set, the view renders
+    /// transparently outside the quads (clear color alpha 0) so whatever sits
+    /// behind shows through; the host must make the view non-opaque with a
+    /// clear background.
+    var ndsCustomScreens: (top: CustomScreenQuad, bottom: CustomScreenQuad)? {
+        didSet {
+            clearColor = ndsCustomScreens != nil
+                ? MTLClearColorMake(0, 0, 0, 0)
+                : MTLClearColorMake(0, 0, 0, 1)
+            if isDualScreen { rebuildNDSVertices() }
+        }
+    }
 
 
     override init(frame: CGRect, device: MTLDevice?) {
@@ -80,11 +107,20 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         singleDesc.colorAttachments[0].pixelFormat = colorPixelFormat
         pipelineState = try? device.makeRenderPipelineState(descriptor: singleDesc)
 
-        // Dual-screen pipeline (NDS) — uses vertex buffer
+        // Dual-screen pipeline (NDS) — uses vertex buffer. Alpha blending carries
+        // a preset's per-screen opacity; at the default alpha of 1.0 the blend
+        // is an exact pass-through, so the default rendering is unchanged.
         let dualDesc = MTLRenderPipelineDescriptor()
         dualDesc.vertexFunction = library.makeFunction(name: "ndsVertexShader")
         dualDesc.fragmentFunction = fragmentFunc
         dualDesc.colorAttachments[0].pixelFormat = colorPixelFormat
+        dualDesc.colorAttachments[0].isBlendingEnabled = true
+        dualDesc.colorAttachments[0].rgbBlendOperation = .add
+        dualDesc.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        dualDesc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        dualDesc.colorAttachments[0].alphaBlendOperation = .add
+        dualDesc.colorAttachments[0].sourceAlphaBlendFactor = .one
+        dualDesc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
         ndsPipelineState = try? device.makeRenderPipelineState(descriptor: dualDesc)
     }
 
@@ -145,12 +181,29 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         let secondVMax: Float = swapped ? 0.5 : 1.0
 
         struct V {
-            var px: Float; var py: Float; var u: Float; var v: Float
+            var px: Float; var py: Float; var u: Float; var v: Float; var a: Float
         }
 
         let vertices: [V]
 
-        if ndsSideBySide {
+        if let custom = ndsCustomScreens {
+            // === Preset layout: arbitrary view-space rect + alpha per screen ===
+            // Convert each rect from view coordinates (y down) to clip space (y up).
+            func quad(_ q: CustomScreenQuad, vMin: Float, vMax: Float) -> [V] {
+                let l = Float(q.rect.minX / CGFloat(viewW)) * 2.0 - 1.0
+                let r = Float(q.rect.maxX / CGFloat(viewW)) * 2.0 - 1.0
+                let t = 1.0 - Float(q.rect.minY / CGFloat(viewH)) * 2.0
+                let b = 1.0 - Float(q.rect.maxY / CGFloat(viewH)) * 2.0
+                let a = Float(q.alpha)
+                return [
+                    V(px: l, py: b, u: 0, v: vMax, a: a), V(px: r, py: b, u: 1, v: vMax, a: a), V(px: l, py: t, u: 0, v: vMin, a: a),
+                    V(px: l, py: t, u: 0, v: vMin, a: a), V(px: r, py: b, u: 1, v: vMax, a: a), V(px: r, py: t, u: 1, v: vMin, a: a),
+                ]
+            }
+            vertices = quad(custom.top, vMin: firstVMin, vMax: firstVMax)
+                + quad(custom.bottom, vMin: secondVMin, vMax: secondVMax)
+
+        } else if ndsSideBySide {
             // === Side-by-side (landscape): left = top screen, right = bottom screen ===
             // Both screens same size, touching each other, centered horizontally.
             // Each screen is aspect-fit to 4:3 within half the view width.
@@ -180,11 +233,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
 
             vertices = [
                 // Left screen (first screen)
-                V(px: leftL, py: leftBot, u: 0, v: firstVMax), V(px: leftR, py: leftBot, u: 1, v: firstVMax), V(px: leftL, py: leftTop, u: 0, v: firstVMin),
-                V(px: leftL, py: leftTop, u: 0, v: firstVMin), V(px: leftR, py: leftBot, u: 1, v: firstVMax), V(px: leftR, py: leftTop, u: 1, v: firstVMin),
+                V(px: leftL, py: leftBot, u: 0, v: firstVMax, a: 1), V(px: leftR, py: leftBot, u: 1, v: firstVMax, a: 1), V(px: leftL, py: leftTop, u: 0, v: firstVMin, a: 1),
+                V(px: leftL, py: leftTop, u: 0, v: firstVMin, a: 1), V(px: leftR, py: leftBot, u: 1, v: firstVMax, a: 1), V(px: leftR, py: leftTop, u: 1, v: firstVMin, a: 1),
                 // Right screen (second screen = touch)
-                V(px: rightL2, py: rightBot, u: 0, v: secondVMax),   V(px: rightR2, py: rightBot, u: 1, v: secondVMax),   V(px: rightL2, py: rightTop, u: 0, v: secondVMin),
-                V(px: rightL2, py: rightTop, u: 0, v: secondVMin),   V(px: rightR2, py: rightBot, u: 1, v: secondVMax),   V(px: rightR2, py: rightTop, u: 1, v: secondVMin),
+                V(px: rightL2, py: rightBot, u: 0, v: secondVMax, a: 1),   V(px: rightR2, py: rightBot, u: 1, v: secondVMax, a: 1),   V(px: rightL2, py: rightTop, u: 0, v: secondVMin, a: 1),
+                V(px: rightL2, py: rightTop, u: 0, v: secondVMin, a: 1),   V(px: rightR2, py: rightBot, u: 1, v: secondVMax, a: 1),   V(px: rightR2, py: rightTop, u: 1, v: secondVMin, a: 1),
             ]
 
         } else {
@@ -223,11 +276,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
 
             vertices = [
                 // Top quad (first screen)
-                V(px: topL, py: topBottom, u: 0, v: firstVMax), V(px: topR, py: topBottom, u: 1, v: firstVMax), V(px: topL, py: topTop, u: 0, v: firstVMin),
-                V(px: topL, py: topTop,    u: 0, v: firstVMin), V(px: topR, py: topBottom, u: 1, v: firstVMax), V(px: topR, py: topTop, u: 1, v: firstVMin),
+                V(px: topL, py: topBottom, u: 0, v: firstVMax, a: 1), V(px: topR, py: topBottom, u: 1, v: firstVMax, a: 1), V(px: topL, py: topTop, u: 0, v: firstVMin, a: 1),
+                V(px: topL, py: topTop,    u: 0, v: firstVMin, a: 1), V(px: topR, py: topBottom, u: 1, v: firstVMax, a: 1), V(px: topR, py: topTop, u: 1, v: firstVMin, a: 1),
                 // Bottom quad (second screen = touch)
-                V(px: botL, py: botBottom, u: 0, v: secondVMax), V(px: botR, py: botBottom, u: 1, v: secondVMax), V(px: botL, py: botTop, u: 0, v: secondVMin),
-                V(px: botL, py: botTop,    u: 0, v: secondVMin), V(px: botR, py: botBottom, u: 1, v: secondVMax), V(px: botR, py: botTop, u: 1, v: secondVMin),
+                V(px: botL, py: botBottom, u: 0, v: secondVMax, a: 1), V(px: botR, py: botBottom, u: 1, v: secondVMax, a: 1), V(px: botL, py: botTop, u: 0, v: secondVMin, a: 1),
+                V(px: botL, py: botTop,    u: 0, v: secondVMin, a: 1), V(px: botR, py: botBottom, u: 1, v: secondVMax, a: 1), V(px: botR, py: botTop, u: 1, v: secondVMin, a: 1),
             ]
         }
 
@@ -275,8 +328,10 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             timeAccumulator = effectiveDuration
         }
 
-        // At high speeds (>2x), skip audio to save CPU for more emulated frames.
-        session.skipAudio = speedMultiplier > 2.0
+        // Skip the audio drain only while muted (saves CPU — notably at high
+        // speeds, which auto-mute by default). When the user keeps sound on, we
+        // drain at every speed so fast-forward plays its (sped-up) audio.
+        session.skipAudio = session.isAudioMuted
 
         var didRunFrame = false
         var framesThisDraw = 0
@@ -302,6 +357,12 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
                             withBytes: frameBuffer,
                             bytesPerRow: bytesPerRow)
             currentTextureIndex = 1 - currentTextureIndex
+
+            // Feed the rolling clip recorder. It down-samples to its low gif fps
+            // by wall-clock, so the clip is the player's actual on-screen
+            // experience (their chosen speed), and createScreenshotImage() runs
+            // only a few times per real second.
+            clipRecorder?.captureIfDue { session.createScreenshotImage() }
         }
 
         // Always render the last-written texture (the one we just flipped away from,

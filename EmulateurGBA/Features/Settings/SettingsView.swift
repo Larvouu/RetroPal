@@ -4,11 +4,12 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled: Bool = true
-    @AppStorage("buttonLockEnabled") private var buttonLockEnabled: Bool = true
     @AppStorage("useJoystick") private var useJoystick: Bool = false
+    @AppStorage("showClipButton") private var showClipButton: Bool = true
     @AppStorage("ndsSwapScreens") private var ndsSwapScreens: Bool = false
     @AppStorage("ndsLanguage") private var ndsLanguage: String = "auto"
     @AppStorage("ndsClockManual") private var ndsClockManual: Bool = false
@@ -19,6 +20,11 @@ struct SettingsView: View {
     @ObservedObject private var controllers = ControllerManager.shared
     @ObservedObject private var iCloudSync = iCloudSaveSync.shared
     @State private var proSheetItem: ProSheetItem?
+    /// Drives the slow gold-glow drift on the Pro card (gradient motion only,
+    /// no position change). Disabled under Reduce Motion.
+    @State private var proGlowShift = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showRALogin = false
     @State private var showRomGuide = false
     @State private var showSaveGuide = false
     @State private var showControllerGuide = false
@@ -32,12 +38,26 @@ struct SettingsView: View {
     @AppStorage("debugForceEmptyState") private var debugForceEmptyState: Bool = false
     #endif
     #if DEBUG
-    @AppStorage("debugTranslationEnabled") private var debugTranslationEnabled: Bool = true
+    @State private var showClipHintPreview = false
+    @State private var showShotHintPreview = false
+    @State private var showRAGameCardPreview = false
+    @State private var showRAOverviewCardPreview = false
+    /// Plain game-frame placeholder so the screenshot-card hint preview can render
+    /// a real card from a source frame.
+    private static let debugGameFrame: CGImage = {
+        let r = UIGraphicsImageRenderer(size: CGSize(width: 240, height: 160))
+        let img = r.image { ctx in
+            UIColor(red: 0.12, green: 0.08, blue: 0.20, alpha: 1).setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 240, height: 160))
+        }
+        return img.cgImage!
+    }()
     #endif
 
-    /// SF Symbol matching the iCloud state — filled when synced, slash
-    /// when unavailable, outline while still resolving.
+    /// SF Symbol matching the iCloud state — filled when on, slash when off or
+    /// unavailable, outline while still resolving.
     private var iCloudIcon: String {
+        guard iCloudSync.syncEnabled else { return "icloud.slash" }
         switch iCloudSync.state {
         case .resolving:   return "icloud"
         case .available:   return "icloud.fill"
@@ -45,8 +65,12 @@ struct SettingsView: View {
         }
     }
 
-    /// Localized one-word status for the iCloud row.
+    /// Localized one-word status for the iCloud row. The user's opt-out takes
+    /// precedence over the resolution state.
     private var iCloudStateLabel: String {
+        guard iCloudSync.syncEnabled else {
+            return NSLocalizedString("settings.sync.state.disabled", comment: "")
+        }
         switch iCloudSync.state {
         case .resolving:   return NSLocalizedString("settings.sync.state.resolving", comment: "")
         case .available:   return NSLocalizedString("settings.sync.state.available", comment: "")
@@ -72,6 +96,25 @@ struct SettingsView: View {
         return String(format: NSLocalizedString("settings.nds.language.auto", comment: ""), name)
     }
 
+    /// A Controls-section row label that, when a controller is connected, shows
+    /// a small controller glyph at the trailing edge (right next to the disabled
+    /// switch), signalling the row is disabled because the setting applies only
+    /// to the on-screen touch controls. The Spacer pushes the glyph to sit
+    /// beside the switch rather than next to the text.
+    @ViewBuilder
+    private func controlsRowLabel(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Text(text)
+            if controllers.isConnected {
+                Spacer()
+                Image(systemName: "gamecontroller.fill")
+                    .imageScale(.small)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
     /// Two-way bridge between the stored epoch (Double) and the DatePicker's
     /// Date. Shows "now" until the user picks a value, so the picker never
     /// opens on 1970.
@@ -95,58 +138,46 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } icon: {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
+                        // The Pro crown badge (same metal emblem as the share cards)
+                        // marks the purchased state, replacing the green checkmark.
+                        Image(uiImage: ScreenshotCardRenderer.proCrownBadgeImage(side: 30))
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 34, height: 34)
                     }
                 } else {
-                    Button {
-                        proSheetItem = ProSheetItem(context: .tappedLockedFeature)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "crown.fill")
-                                .font(.system(size: 18))
-                                .foregroundStyle(goldTitleGradient)
-                                .shadow(color: Color(red: 0.45, green: 0.2, blue: 0.85).opacity(0.35), radius: 3)
-
-                            Text(NSLocalizedString("pro.title", comment: ""))
-                                .fontWeight(.semibold)
-                                .foregroundStyle(goldTitleGradient)
-
-                            Spacer()
-
-                            if let product = proManager.product {
-                                Text(product.displayPrice)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .listRowBackground(premiumRowBackground)
+                    proCard
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
-
-                Button(NSLocalizedString("settings.restore", comment: "")) {
-                    Task { await proManager.restore() }
-                }
-                .font(.subheadline)
+                // "Restaurer les achats" now lives inside the Pro sheet only.
             }
 
             Section(header: Text(NSLocalizedString("settings.controls", comment: "")),
-                    footer: Text(NSLocalizedString("settings.controller.footer", comment: ""))) {
-                Toggle(NSLocalizedString("settings.haptics", comment: ""), isOn: $hapticsEnabled)
-
-                Toggle(NSLocalizedString("settings.buttonLock", comment: ""), isOn: $buttonLockEnabled)
-                    .disabled(controllers.isConnected)
-                if controllers.isConnected {
-                    Text(NSLocalizedString("settings.buttonLock.controllerNote", comment: ""))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    footer: Text(controllers.isConnected
+                                 ? NSLocalizedString("settings.controls.controllerActive.footer", comment: "")
+                                 : NSLocalizedString("settings.controls.dpad.footer", comment: ""))) {
+                Toggle(isOn: $hapticsEnabled) {
+                    controlsRowLabel(NSLocalizedString("settings.haptics", comment: ""))
                 }
+                .disabled(controllers.isConnected)
 
                 Toggle(isOn: $useJoystick) {
-                    Text(useJoystick
+                    controlsRowLabel(useJoystick
                          ? NSLocalizedString("settings.joystick", comment: "")
                          : NSLocalizedString("settings.dpad", comment: ""))
                 }
+                .disabled(controllers.isConnected)
 
+                Toggle(isOn: $showClipButton) {
+                    controlsRowLabel(NSLocalizedString("settings.clipButton", comment: ""))
+                }
+                .disabled(controllers.isConnected)
+
+                // Customize stays tappable even with a controller connected: it
+                // is a setup action for the touch layout (used when the
+                // controller is later disconnected), not a live touch setting.
                 if proManager.isPro {
                     NavigationLink {
                         ControlPresetsView()
@@ -155,17 +186,39 @@ struct SettingsView: View {
                               systemImage: "hand.draw")
                     }
                 } else {
+                    // Locked: a refined Pro invitation. Gold accents (the
+                    // hand.draw icon, the title, a trailing crown) read as premium
+                    // and tempting; the crown — not a lock — keeps it inviting
+                    // rather than barring. Opens the Pro sheet, like the top card.
                     Button {
                         proSheetItem = ProSheetItem(context: .customizeControls)
                     } label: {
-                        Label(NSLocalizedString("settings.customizeControls", comment: ""),
-                              systemImage: "hand.draw")
-                            .foregroundColor(.primary)
+                        HStack(spacing: 12) {
+                            Image(systemName: "hand.draw")
+                                .font(.body)
+                                .foregroundStyle(goldTitleGradient)
+                            Text(NSLocalizedString("settings.customizeControls", comment: ""))
+                                .foregroundStyle(goldTitleGradient)
+                            Spacer(minLength: 8)
+                            Image(systemName: "crown.fill")
+                                .font(.footnote)
+                                .foregroundStyle(goldTitleGradient)
+                                .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.5), radius: 4)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .contentShape(Rectangle())
                     }
                     .accessibilityLabel("\(NSLocalizedString("settings.customizeControls", comment: "")), \(NSLocalizedString("pro.badge", comment: ""))")
                     .listRowBackground(premiumRowBackground)
                 }
+            }
 
+            // Controller in its own section so the Bluetooth-pairing footer stays
+            // attached to it (and the touch section's footer can speak to the
+            // D-pad/Joystick choice).
+            Section(footer: Text(NSLocalizedString("settings.controller.footer", comment: ""))) {
                 Button {
                     showControllerGuide = true
                 } label: {
@@ -201,6 +254,8 @@ struct SettingsView: View {
                 }
             }
 
+            RetroAchievementsSection(onConnect: { showRALogin = true })
+
             Section(NSLocalizedString("settings.guides.section", comment: "")) {
                 Button {
                     showRomGuide = true
@@ -218,13 +273,21 @@ struct SettingsView: View {
                 }
             }
 
-            Section(NSLocalizedString("settings.sync.section", comment: "")) {
+            Section {
+                Toggle(NSLocalizedString("settings.sync.toggle", comment: ""), isOn: Binding(
+                    get: { iCloudSync.syncEnabled },
+                    set: { iCloudSync.setSyncEnabled($0) }
+                ))
                 HStack {
                     Label("iCloud", systemImage: iCloudIcon)
                     Spacer()
                     Text(iCloudStateLabel)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text(NSLocalizedString("settings.sync.section", comment: ""))
+            } footer: {
+                Text(NSLocalizedString("settings.sync.footer", comment: ""))
             }
 
             Section(NSLocalizedString("settings.general", comment: "")) {
@@ -272,11 +335,42 @@ struct SettingsView: View {
                     showReviewPreview = true
                 }
                 Toggle("Force empty-state onboarding", isOn: $debugForceEmptyState)
-                Toggle("Translation overlay", isOn: $debugTranslationEnabled)
                 Button(controllers.isConnected
                        ? "Fake controller: ON (tap to disconnect)"
                        : "Fake controller: OFF (tap to connect)") {
                     controllers.debugSetConnected(!controllers.isConnected)
+                }
+                NavigationLink(destination: LayoutPreviewGallery()) {
+                    Text("Layout preview (SE / Pro Max)")
+                }
+                NavigationLink(destination: SkinPreviewGallery()) {
+                    Text("Skin preview (per console / orientation)")
+                }
+                NavigationLink(destination: OverlayMenuPreviewGallery()) {
+                    Text("Pause menu preview (SE / Pro Max)")
+                }
+                NavigationLink(destination: BadgeGalleryView()) {
+                    Text("Screenshot badges")
+                }
+                NavigationLink(destination: StatsCardPreviewGallery()) {
+                    Text("Stats card preview (SE / Pro Max)")
+                }
+                NavigationLink(destination: StatsCardLandscapePreviewGallery()) {
+                    Text("Stats card LANDSCAPE (SE / Pro Max)")
+                }
+                Button("Clip card hint preview") { showClipHintPreview = true }
+                Button("Screenshot card hint preview") { showShotHintPreview = true }
+                Button("Simulate RA unlock (preview HUD)") {
+                    RetroAchievements.shared.debugSimulateUnlock()
+                }
+                Button("Simulate RA progress (preview pill)") {
+                    RetroAchievements.shared.debugSimulateProgress()
+                }
+                Button("RA game card (157 badges, Fire-Red-sized)") {
+                    showRAGameCardPreview = true
+                }
+                Button("RA overview card (30 games, 4 completed)") {
+                    showRAOverviewCardPreview = true
                 }
             }
 
@@ -291,6 +385,7 @@ struct SettingsView: View {
                 debugProSheetButton("Cheat codes tapped", context: .cheatCodesTapped)
                 debugProSheetButton("Tapped locked feature (generic)", context: .tappedLockedFeature)
                 debugProSheetButton("Customize controls", context: .customizeControls)
+                debugProSheetButton("Custom skins (create/edit/import)", context: .customSkins)
             }
             #endif
 
@@ -302,10 +397,45 @@ struct SettingsView: View {
 
         }
         .navigationTitle(NSLocalizedString("settings.title", comment: ""))
+        // Presented at the List level (not inside the RA section) so a section
+        // re-render can't dismiss it as it animates in.
+        .sheet(isPresented: $showRALogin) { RALoginView() }
         #if DEBUG
+        // Lets the "Simulate RA unlock" debug button preview the in-game HUD here.
+        // RAUnlockHUD ignores the safe area itself and positions the card by the
+        // window top inset, so this preview matches the in-game placement.
+        .overlay(alignment: .top) { RAUnlockHUD() }
+        // Same for "Simulate RA progress": without this overlay the pill has
+        // no host outside gameplay and the button looks dead.
+        .overlay(alignment: .top) { RAProgressHUD() }
         .sheet(isPresented: $showReviewPreview) {
             ReviewPromptView(onRate: { showReviewPreview = false }, onDismiss: { showReviewPreview = false })
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showClipHintPreview) {
+            // Presented exactly like the real card (the view now self-configures its
+            // fill, opaque background, and adaptive detents) — so this previews the
+            // true presentation path, not a hand-built approximation.
+            ClipShareView(model: ClipShareModel(), frameAspect: 1.5,
+                          onClose: { showClipHintPreview = false },
+                          hintText: NSLocalizedString("clip.hint", value: "You can save the last 6 seconds anytime.", comment: ""))
+        }
+        .sheet(isPresented: $showShotHintPreview) {
+            ScreenshotShareView(gameFrame: Self.debugGameFrame, name: "Demo Game",
+                                playTime: 3 * 3600 + 25 * 60,
+                                system: .gbc,   // preview the GB/GBC console Pro card
+                                onClose: { showShotHintPreview = false },
+                                hintText: NSLocalizedString("screenshot.hint", value: "Capture your best moment, anytime.", comment: ""))
+        }
+        .sheet(isPresented: $showRAGameCardPreview) {
+            // Verifies the badge grid shrinks a full Fire-Red-sized set (157)
+            // onto the console screen; badges are generated, no network needed.
+            RAGameCardDebugPreview(onClose: { showRAGameCardPreview = false })
+        }
+        .sheet(isPresented: $showRAOverviewCardPreview) {
+            // The overview card's mosaic tier: 30 generated games, the first 4
+            // fully completed (gold mastered strokes). No network needed.
+            RAOverviewCardDebugPreview(onClose: { showRAOverviewCardPreview = false })
         }
         #endif
         .sheet(item: $proSheetItem) { item in
@@ -366,6 +496,87 @@ struct SettingsView: View {
     }
     #endif
 
+    /// The Pro upsell as a premium card (two rows tall) instead of a plain row:
+    /// a dark neon-luxury card with a gold→purple bezel, a subtle gold corner
+    /// glow + particle drift, and the same tap target as before (opens the Pro
+    /// sheet). Gold is used as accents, never a fill.
+    fileprivate var proCard: some View {
+        Button {
+            proSheetItem = ProSheetItem(context: .tappedLockedFeature)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(goldTitleGradient)
+                    .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.5), radius: 6)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(NSLocalizedString("pro.title", comment: ""))
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(goldTitleGradient)
+                    Text(proCardSubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(proCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.85),
+                                Color(red: 0.45, green: 0.2, blue: 0.85).opacity(0.85)
+                            ],
+                            startPoint: .topLeading, endPoint: .bottomTrailing),
+                        lineWidth: 1.5)
+            )
+            .shadow(color: Color(red: 0.45, green: 0.2, blue: 0.85).opacity(0.35), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            guard !reduceMotion else { return }
+            // Slow gold-glow drift across the top — a luxury light sweep, no
+            // position motion.
+            withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
+                proGlowShift = true
+            }
+        }
+    }
+
+    /// Price-forward value line ("4,99 €, pour toujours" — the anti-subscription
+    /// hook), falling back to the benefits CTA before the product loads.
+    private var proCardSubtitle: String {
+        if let product = proManager.product {
+            return String(format: NSLocalizedString("pro.forever", comment: ""), product.displayPrice)
+        }
+        return NSLocalizedString("pro.seeAllBenefits", comment: "")
+    }
+
+    private var proCardBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.10, green: 0.06, blue: 0.18),
+                         Color(red: 0.04, green: 0.02, blue: 0.08)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+            RadialGradient(
+                colors: [Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.18), .clear],
+                center: proGlowShift ? UnitPoint(x: 0.85, y: 0.18) : UnitPoint(x: 0.15, y: 0.10),
+                startRadius: 4, endRadius: 180)
+            ProParticlesView().opacity(0.5)
+        }
+    }
+
     fileprivate var goldTitleGradient: LinearGradient {
         LinearGradient(
             colors: [
@@ -387,7 +598,8 @@ struct SettingsView: View {
     /// Shared premium treatment for every Pro-gated row. Warm gold → purple
     /// gradient layered over the system row color, a matching gold→purple
     /// accent bar on the leading edge, and the same slow purple particle
-    /// drift used by the pause overlay's Pro buttons.
+    /// drift used by the pause overlay's Pro buttons (kept at 0.5 so the dust is
+    /// a whisper, matching the top Pro card rather than competing with it).
     fileprivate var premiumRowBackground: some View {
         ZStack(alignment: .leading) {
             Color(.secondarySystemGroupedBackground)
@@ -398,7 +610,7 @@ struct SettingsView: View {
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            ProParticlesView()
+            ProParticlesView().opacity(0.5)
             Rectangle()
                 .fill(
                     LinearGradient(

@@ -1,0 +1,465 @@
+/* Traditional Chinese (Taiwan / Hong Kong) */
+
+/* Tabs */
+"tab.library" = "遊戲庫";
+"tab.settings" = "設定";
+
+/* Library */
+"library.title" = "遊戲庫";
+"library.empty.title" = "歡迎使用 Retro Pal";
+"library.empty.subtitle" = "在 iPhone 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
+"library.empty.button" = "加入遊戲";
+"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc 或 .nds）放到 iPhone 上。";
+"library.empty.step2" = "點一下 %@，再到「檔案」App 選取檔案。";
+"library.empty.step3" = "開始玩吧。進度會自動儲存";
+"library.empty.romHint" = "還沒有 ROM？網路上有許多免費且合法的遊戲，搜尋「GBA homebrew」看看。";
+"library.empty.legal" = "請只匯入你合法持有的檔案。";
+"library.search" = "搜尋遊戲";
+"library.sort.lastPlayed" = "最近遊玩";
+"library.sort.title" = "名稱";
+"library.sort.dateAdded" = "加入日期";
+"library.sort.byConsole" = "依主機";
+"library.played.ago" = "%@玩過";
+"library.playTime" = "已遊玩 %@ 小時 %@ 分鐘";
+"library.playTime.minutes" = "已遊玩 %@ 分鐘";
+"library.stats.title" = "統計";
+"library.stats.topGames" = "最常玩";
+"library.stats.totalTime" = "總時數";
+"library.stats.gamesPlayed" = "玩過的遊戲";
+"library.stats.sessions" = "遊玩次數";
+"library.stats.favoriteConsole" = "最愛主機";
+"library.stats.duration" = "%@ 小時 %@ 分鐘";
+"library.stats.durationMin" = "%@ 分鐘";
+
+/* Game Details */
+"details.continue" = "繼續上次進度";
+"details.newGame" = "從標題畫面開始";
+"details.saveSlots" = "即時存檔欄位";
+"details.delete" = "刪除遊戲";
+"details.delete.confirm" = "要刪除這個遊戲和所有存檔資料嗎？";
+"details.rename" = "重新命名";
+"details.rename.title" = "重新命名遊戲";
+"details.cover.choose" = "選擇封面圖片";
+"details.cover.remove" = "移除自訂封面";
+"details.cover.error" = "無法儲存圖片。";
+"details.newGame.confirm.title" = "要從標題畫面開始嗎？";
+"details.newGame.confirm.message" = "將不會接續上次的進度，但遊戲內存檔與即時存檔都會保留。";
+"details.launch.footer" = "要載入遊戲內存檔（在遊戲本身的儲存選單建立的那種），請啟動遊戲並從遊戲選單接續。它與下方的即時存檔欄位是分開的，即時存檔由你自己建立。";
+
+/* Overlay Menu */
+"overlay.paused" = "已暫停";
+"overlay.resume" = "繼續";
+"overlay.rewind" = "%@ 秒";
+"overlay.screenshot" = "截圖";
+"overlay.quit" = "離開遊戲";
+"overlay.speed" = "速度";
+"overlay.saveSlots" = "即時存檔欄位";
+"overlay.slot" = "欄位 %@";
+"overlay.slot.empty" = "空";
+"overlay.save" = "儲存";
+"overlay.load" = "載入";
+
+/* Settings */
+"settings.title" = "設定";
+"settings.controls" = "操作";
+"settings.haptics" = "遊戲中觸覺回饋";
+"settings.controller.footer" = "支援藍牙控制器（Xbox、PlayStation、MFi）。請在 iOS 設定中配對。";
+"settings.controls.controllerActive.footer" = "已連接控制器，上方的觸控操作設定已停用。";
+"settings.controls.dpad.footer" = "十字鍵/搖桿與短片按鈕的選擇會套用到預設佈局。每個自訂預設組各有自己的十字鍵/搖桿選擇，而短片按鈕永遠保持顯示。";
+"settings.dpad" = "十字鍵";
+"settings.joystick" = "搖桿";
+"settings.clipButton" = "短片按鈕";
+"settings.nds.swapScreens" = "交換上下畫面";
+"settings.nds.language" = "遊戲語言";
+"settings.nds.language.auto" = "自動（%@）";
+"settings.nds.language.footer" = "「自動」會跟隨 iPhone 的語言；若 DS 不支援則使用英文。語言會在開始新遊戲時套用。大多數遊戲會把語言寫進存檔，之後就不會再變更。只有 ROM 本身支援時語言才會切換，許多 ROM 只內建單一語言。";
+"settings.nds.clock.manual" = "手動設定日期與時間";
+"settings.nds.clock.pickerLabel" = "日期與時間";
+"settings.general" = "一般";
+"settings.legal" = "法律聲明與授權";
+"settings.about" = "關於";
+"settings.app" = "Retro Pal";
+"settings.version" = "版本";
+"settings.core" = "模擬器核心";
+"settings.disclaimer" = "Retro Pal 是純本機運作的模擬器，不內含任何遊戲。請只匯入你合法持有的檔案。";
+"settings.restore" = "回復購買項目";
+
+/* Pro */
+"pro.title" = "Retro Pal Pro";
+"pro.purchased" = "已購買";
+"pro.forever" = "%@，永久擁有";
+"pro.monthly" = "或每月 %@";
+"pro.notNow" = "暫時不要";
+"pro.restore" = "回復購買項目";
+"pro.unavailable" = "無法載入 Pro，請檢查網路連線。";
+"pro.retry" = "重試";
+"pro.purchasing" = "購買中…";
+"pro.waiting" = "等待核准";
+"pro.waitingDetail" = "核准後 Pro 會自動解鎖。";
+"pro.failed" = "購買失敗。要再試一次嗎？";
+"pro.tryAgain" = "再試一次";
+"pro.welcome" = "歡迎加入 Pro！";
+"pro.benefit.speed" = "全速度範圍：0.25 倍到 4 倍";
+"pro.benefit.slots" = "5 個存檔欄位（原本 2 個）";
+"pro.benefit.rewind" = "30 秒倒帶（GBA/GB/GBC）";
+"pro.benefit.cheats" = "金手指（GameShark / Action Replay）";
+"pro.benefit.controls" = "自訂操作佈局";
+"pro.benefit.speed.short" = "全速度範圍";
+"pro.benefit.slots.short" = "5 個存檔欄位";
+"pro.benefit.rewind.short" = "30 秒倒帶";
+"pro.benefit.cheats.short" = "金手指";
+"pro.benefit.controls.short" = "自訂操作";
+"pro.benefit.skins" = "打造自訂主機外觀";
+"pro.benefit.skins.short" = "自訂外觀";
+"pro.badge" = "Pro 功能";
+"pro.seeAllBenefits" = "查看 Pro 的所有功能";
+
+"pro.compare.header.free" = "免費";
+"pro.compare.header.pro" = "Pro";
+"pro.compare.sectionDivider" = "Pro 加值";
+"pro.compare.row.noAds" = "永遠沒有廣告";
+"pro.compare.row.allSystems" = "所有主機";
+"pro.compare.row.autoSave" = "自動存檔";
+"pro.compare.row.screenshots" = "截圖分享";
+"pro.compare.row.iCloud" = "iCloud 同步";
+"pro.compare.row.controllers" = "藍牙控制器";
+"pro.compare.row.slots" = "存檔欄位";
+"pro.compare.row.speeds" = "速度範圍";
+"pro.compare.row.rewind" = "倒帶（GBA/GB/GBC）";
+"pro.compare.row.cheats" = "金手指";
+"pro.compare.row.controls" = "自訂操作";
+"pro.compare.values.freeSpeeds" = "1 倍、1.5 倍";
+"pro.compare.values.proSpeeds" = "0.25 倍到 4 倍";
+"pro.compare.row.skins" = "外觀製作";
+/* Pro Prompts */
+"prompt.speed.title" = "你已用 1.5 倍速玩了 %@ 分鐘";
+"prompt.speed.subtitle" = "用 4 倍速，同樣的進度一下就跑完。解鎖全部速度，一次購買，永久使用。";
+"prompt.slots.title" = "存檔欄位都滿了";
+"prompt.slots.subtitle" = "解鎖 5 個存檔欄位，再也不必覆蓋舊檔。一次購買，永久擁有。";
+"prompt.milestone.title" = "你已經玩了 %@ 分鐘的復古遊戲";
+"prompt.milestone.subtitle" = "看得出你玩得超投入。解鎖完整體驗吧。";
+"prompt.rewind.title" = "需要回到更久之前嗎？";
+"prompt.rewind.subtitle" = "Pro 讓你在 GBA/GB/GBC 上倒帶 30 秒。魔王戰再也不用怕。";
+"prompt.cheats.title" = "你玩 %@ 已滿 4 小時。準備好無拘無束地玩了嗎？";
+"prompt.cheats.subtitle" = "解鎖金手指、最高速度等功能。付一次錢，就是一輩子。";
+"prompt.generic.title" = "Retro Pal Pro";
+"prompt.generic.subtitle" = "解鎖全部速度、5 個存檔欄位、30 秒倒帶（GBA/GB/GBC）等功能。";
+
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "懷舊";
+"card.style.classic" = "經典";
+
+/* Screenshot */
+"screenshot.share" = "分享";
+"screenshot.save" = "儲存";
+"screenshot.dismiss" = "關閉";
+"screenshot.footer" = "Made with Retro Pal";
+"screenshot.hint" = "隨時捕捉你最精彩的瞬間。";
+"clip.hint" = "隨時可以儲存最後 6 秒的畫面。";
+"clip.loading" = "正在捕捉這一刻…稍等一下。";
+"screenshot.newGame" = "剛開始玩";
+"screenshot.proMember" = "👑 Pro 會員";
+"screenshot.permissionDenied.title" = "需要照片取用權限";
+"screenshot.permissionDenied.message" = "請在「設定」中允許 Retro Pal 把截圖儲存到你的照片圖庫。";
+"screenshot.permissionDenied.settings" = "開啟設定";
+"screenshot.permissionDenied.cancel" = "取消";
+"screenshot.saveError.title" = "儲存失敗";
+"screenshot.saveError.message" = "無法儲存截圖。";
+
+/* Legal */
+"legal.title" = "法律聲明";
+"legal.disclaimer" = "本 App 不內含任何遊戲。ROM 檔案須由你自行提供，且只能匯入你合法持有的檔案。";
+"legal.mgba" = "mGBA 授權";
+"legal.melonds" = "melonDS 授權";
+"legal.importantNotice.title" = "重要聲明";
+"legal.aboutApp.title" = "關於本 App";
+"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color 與任天堂 DS 遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
+"legal.aboutApp.description2" = "本 App 不提供遊戲目錄、不散布遊戲內容，也不協助下載受著作權保護的素材。";
+"legal.privacy.title" = "隱私權";
+"legal.privacy.description" = "你的遊戲與存檔都保留在你的裝置上。為了改進 App，Retro Pal 只傳送匿名使用統計，不含個人資料，也不含廣告識別碼。";
+"legal.licenses.title" = "開放原始碼授權";
+"legal.mgba.licenseLine" = "依 Mozilla Public License 2.0（MPL-2.0）授權";
+"legal.mgba.description" = "mGBA 是本 App 使用的核心模擬引擎，一款 Game Boy Advance 模擬器。其原始碼公開於 [https://mgba.io](https://mgba.io)";
+"legal.melonds.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
+"legal.melonds.description" = "melonDS 是本 App 用於 DS 遊戲的模擬引擎，一款任天堂 DS 模擬器。其原始碼公開於 [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.retropal" = "Retro Pal 授權";
+"legal.retropal.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
+"legal.retropal.description" = "Retro Pal 的完整原始碼公開於 [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal)。本軟體不提供任何保固。";
+"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）與 melonDS（GPL-3.0）之上，均未經修改。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
+
+"details.noSaves" = "還沒有即時存檔。遊戲中按選單按鈕即可建立。";
+"details.play" = "開始遊戲";
+"library.importing" = "正在匯入 ROM…";
+"library.importError" = "匯入錯誤";
+
+/* Overlay extras */
+"overlay.cheats" = "金手指";
+"overlay.shareClip" = "短片";
+"overlay.sound" = "聲音";
+"overlay.sound.off" = "聲音關閉";
+"overlay.overwrite.title" = "要覆蓋欄位 %@ 嗎？";
+"overlay.overwrite.message" = "現有的即時存檔將被取代。";
+"overlay.overwrite" = "覆蓋";
+"overlay.load.confirm.title" = "要載入欄位 %@ 嗎？";
+"overlay.load.confirm.message" = "上次儲存之後的進度將會遺失。";
+
+/* Cheats */
+"cheats.hint.gba" = "GameShark、CodeBreaker 或 Action Replay 格式";
+"cheats.hint.nds" = "Action Replay DS 格式（XXXXXXXX YYYYYYYY）";
+"cheats.namePlaceholder" = "名稱（選填）";
+"cheats.add" = "加入代碼";
+"cheats.invalid.gba" = "無法辨識的代碼。請使用 GameShark、CodeBreaker 或 Action Replay 格式。";
+"cheats.invalid.nds" = "無法辨識的代碼。請使用 Action Replay DS 格式：XXXXXXXX YYYYYYYY（每行一組）。";
+"cheats.empty" = "沒有啟用中的金手指";
+"cheats.findHint" = "代碼可以在網路上找到，搜尋你的遊戲加上金手指即可。";
+"cheats.clearAll" = "全部清除";
+"cheats.done" = "完成";
+"cheats.permanenceWarning" = "部分金手指一旦載入，效果就無法還原。你可以回復開啟金手指前的存檔來復原，但之後的進度將會遺失。";
+"cheats.hackDisclaimer" = "金手指使用原版遊戲的記憶體位址。大多數改版遊戲仍然相容，但少數可能出現異常行為。";
+
+/* Emulator */
+"emulator.loading" = "正在載入 ROM…";
+"emulator.loadFailed" = "無法載入 %@。\n遊戲檔案似乎已損壞。到遊戲詳細資訊頁面更換檔案即可修復，存檔會保留。";
+
+/* Common */
+"common.cancel" = "取消";
+"common.ok" = "好";
+"common.save" = "儲存";
+
+/* Pro Prompt - cheat tap (no time mention) */
+"prompt.cheatsTapped.title" = "準備好無拘無束地玩了嗎？";
+"prompt.cheatsTapped.subtitle" = "解鎖金手指、最高速度等功能。付一次錢，就是一輩子。";
+"prompt.speedTapped.title" = "更快速地推進你的遊戲";
+"prompt.speedTapped.subtitle" = "用 4 倍速，同樣的進度一下就跑完；棘手的關卡有 0.25 倍與 0.5 倍。解鎖全部速度，永久使用。";
+"prompt.slotsTapped.title" = "再也不怕存檔欄位不夠用";
+"prompt.slotsTapped.subtitle" = "解鎖 5 個存檔欄位，存檔永遠有位置。一次購買，永久擁有。";
+"settings.appLabel" = "應用程式";
+
+"review.headline" = "玩得開心嗎？";
+"review.body" = "評論是小型 App 在 App Store 生存的關鍵。一句話就幫上大忙。";
+"review.cta" = "給 5 顆星";
+"review.later" = "暫時不要";
+"cheats.type" = "代碼類型";
+"cheats.restore" = "回復開啟金手指前的存檔";
+"cheats.restore.confirm.title" = "要回復開啟金手指前的存檔嗎？";
+"cheats.restore.confirm.message" = "這會載入加入任何金手指之前的遊戲狀態，之後的進度將會遺失。主要用於金手指造成錯誤的情況。";
+"cheats.restore.confirm.action" = "回復";
+
+/* Control Layout */
+"settings.customizeControls" = "自訂操作";
+"layout.activeLayout" = "使用中的佈局";
+"layout.default" = "預設";
+"layout.presets" = "預設組";
+"layout.presets.footer" = "在編輯器中旋轉裝置，即可另外自訂橫向佈局。";
+"layout.newPreset" = "新增預設組";
+"layout.newPreset.title" = "新增預設組";
+"layout.newPreset.namePlaceholder" = "預設組名稱";
+"layout.newPreset.create" = "建立";
+"layout.editor.screenPreview" = "遊戲畫面";
+"layout.editor.touchScreen" = "觸控螢幕";
+"layout.editor.reset" = "重設";
+"layout.editor.reset.title" = "重設為預設值";
+"layout.editor.reset.message" = "這會把目前方向的所有按鈕與畫面，重設回預設的位置、大小與不透明度。";
+"layout.editor.show" = "顯示";
+"layout.editor.hide" = "隱藏";
+"layout.editor.hint" = "點一下按鈕或畫面即可編輯。拖曳移動，兩指縮放調整大小。";
+"layout.editor.cannotHide" = "選單與短片按鈕永遠保持顯示，讓你隨時可以暫停與錄影。";
+"layout.editor.size" = "大小";
+"layout.editor.opacity" = "不透明度";
+"layout.editor.topScreen" = "上畫面";
+"layout.editor.bottomScreen" = "下畫面";
+"layout.editor.done" = "完成";
+"layout.newPreset.systems" = "主機";
+"prompt.controls.title" = "找到最適合你雙手的佈局";
+"prompt.controls.subtitle" = "自訂按鈕位置、大小與不透明度，為不同遊戲儲存自己的佈局。";
+"prompt.skins.title" = "打造你夢想中的外觀";
+"prompt.skins.subtitle" = "主機的每個顏色都由你決定，還能分享你的作品。";
+"layout.editor.landscapeShort" = "橫向";
+"layout.editor.portraitShort" = "直向";
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
+"pro.legal.terms" = "使用條款";
+"pro.legal.privacy" = "隱私權政策";
+
+/* Settings - iCloud sync section (Week 4) */
+"settings.sync.section" = "同步";
+"settings.sync.state.resolving" = "連線中…";
+"settings.sync.state.available" = "開啟";
+"settings.sync.state.unavailable" = "無法使用";
+
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
+"saveImport.title" = "匯入存檔";
+"saveImport.success.title" = "存檔已匯入";
+"saveImport.success.message" = "啟動 %@，然後從遊戲本身的選單接續。這個存檔不會顯示在 App 的存檔欄位中。";
+"saveImport.overwrite.title" = "已有存檔";
+"saveImport.overwrite.message" = "%@ 已經有存檔。若選擇取代，原存檔會保留為備份。";
+"saveImport.overwrite.confirm" = "取代";
+"saveImport.error.invalidFormat" = "這不是可辨識的存檔。請匯入從其他模擬器匯出的 .sav 或 .srm 檔案。";
+"saveImport.error.wrongSystem" = "這個存檔與此遊戲不相容。";
+"saveImport.error.duplicateExists" = "這個遊戲已經有存檔了。";
+"saveImport.error.fileAccessDenied" = "無法讀取所選檔案。";
+"saveImport.error.writeFailed" = "無法寫入存檔。";
+"saveImport.redirect.message" = "要匯入其他模擬器的存檔，請開啟遊戲的詳細資訊頁面，再點「匯入存檔」。若遊戲還不在遊戲庫中，請先匯入該遊戲的 ROM。";
+
+/* Guides section + how-to sheets (Week 5) */
+"guide.importRom.title" = "加入遊戲";
+"guide.importRom.intro" = "Retro Pal 不內含任何遊戲。ROM 檔案由你自行提供，且必須是你合法持有的（自己的卡帶，或免費合法的自製遊戲）。";
+"guide.importRom.step1" = "把遊戲檔（.gba、.gb、.gbc 或 .nds）放到 iPhone 上：用 Safari 下載、從電腦 AirDrop，或透過 iCloud 雲碟。";
+"guide.importRom.step2" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPhone」或「iCloud 雲碟」）。";
+"guide.importRom.step3" = "在 Retro Pal 中，點遊戲庫上方的 + 按鈕。";
+"guide.importRom.step4" = "選取檔案，遊戲立即出現在遊戲庫中，馬上可以玩。";
+"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds，以及只含單一遊戲的 .zip。不支援 .7z 與多遊戲壓縮檔，請先解壓出單一檔案。請只匯入你合法持有的檔案。";
+"settings.guides.section" = "指南";
+"settings.controller.row" = "控制器";
+"common.done" = "完成";
+"guide.saveImport.intro" = "把你的進度從其他模擬器（Manic、Delta、OpenEmu、RetroArch）搬過來。";
+"guide.saveImport.step1" = "從其他模擬器匯出存檔（.sav 或 .srm 檔案），並存到「檔案」App。";
+"guide.saveImport.step2" = "在 Retro Pal 中，若遊戲的 ROM 還不在遊戲庫，請先匯入。";
+"guide.saveImport.step3" = "開啟遊戲的詳細資訊頁面，點「匯入存檔」。";
+"guide.saveImport.step4" = "選取檔案，啟動遊戲，再從遊戲本身的選單接續。";
+"guide.saveImport.footer" = "這是遊戲內存檔，與 App 的即時存檔欄位不同。";
+"guide.controller.title" = "連接控制器";
+"guide.controller.step1" = "把控制器切換到配對模式。";
+"guide.controller.step2" = "開啟 iOS 設定，進入藍牙，把控制器連接到 iPhone。";
+"guide.controller.step3" = "回到 Retro Pal。控制器會自動偵測，螢幕上的操作按鈕隨即消失。";
+"guide.controller.footer" = "支援 MFi、Xbox、PlayStation、8BitDo 與大多數藍牙控制器。";
+"guide.controller.status.connected" = "已連接控制器：%@";
+"guide.controller.status.disconnected" = "未連接控制器";
+"guide.controller.genericName" = "控制器";
+"guide.controller.status.none" = "沒有控制器";
+"saveImport.mismatch.title" = "這是其他遊戲的存檔？";
+"saveImport.mismatch.message" = "檔案名稱與 %@ 不符。請確定它屬於這個遊戲再匯入。";
+"saveImport.mismatch.confirm" = "仍要匯入";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "更換遊戲檔案";
+"replaceROM.success.title" = "遊戲檔案已更換";
+"replaceROM.success.message" = "遊戲檔案已更換，你的即時存檔都保留著。";
+"replaceROM.error.differentGame" = "這是不同的遊戲。請選擇同一款遊戲的檔案，存檔才會有效。";
+"replaceROM.error.invalid" = "無法讀取這個檔案。請選擇同一款遊戲的有效副本。";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "iCloud 同步";
+"settings.sync.state.disabled" = "關閉";
+"settings.sync.footer" = "你的即時存檔會同步到你的私人 iCloud，並在你的裝置之間共用。關閉後只會保留在這支 iPhone 上。";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "自動按住";
+"overlay.buttonLock.caption" = "長按 %@ 可維持按住，點一下放開。";
+"overlay.orientation" = "畫面方向";
+"overlay.orientation.auto" = "自動";
+"overlay.orientation.landscape" = "橫向";
+"overlay.orientation.portrait" = "直向";
+
+/* Clip card alerts */
+"clip.notReady.title" = "短片還沒準備好";
+"clip.notReady.message" = "再玩幾秒鐘，然後再試一次。";
+"clip.failed.title" = "無法建立短片";
+"clip.failed.message" = "請再試一次。";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "iCloud 即時存檔暫時無法使用";
+"details.iCloudUnavailable.body" = "你的即時存檔安全地存放在 iCloud，只是目前無法連線取得。請不要重設或開始新遊戲，iCloud 重新連線後就會恢復。";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "主機造型外觀需要預設操作佈局。這台主機使用自訂佈局，因此只能選「隱形」。";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "建立外觀";
+"skin.edit" = "編輯";
+"skin.delete" = "刪除";
+"skin.editor.title.create" = "新外觀";
+"skin.editor.title.edit" = "編輯外觀";
+"skin.editor.body" = "機身";
+"skin.editor.surround" = "螢幕邊框";
+"skin.editor.dpad" = "十字鍵";
+"skin.editor.abButtons" = "A/B 按鈕";
+"skin.editor.abLetters" = "A/B 字樣";
+"skin.editor.smallButtons" = "小按鈕";
+"skin.editor.menuIcons" = "選單圖示";
+"skin.editor.labels" = "SELECT/START 字樣";
+"skin.editor.stripe" = "飾條";
+"skin.editor.printedText" = "印刷文字";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "為外觀取個名字";
+"skin.editor.create" = "建立";
+"skin.editor.save" = "儲存";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "分享";
+"skin.import.success.title" = "外觀已匯入";
+"skin.import.success.message" = "「%1$@」已加入你的 %2$@ 外觀。";
+"skin.import.full.title" = "收藏已滿";
+"skin.import.full.message" = "你已經有 6 個 %@ 外觀。請先刪除一個，再重新匯入。";
+"skin.import.failed.title" = "匯入失敗";
+"skin.import.failed.message" = "這個外觀檔案無效或已損壞。";
+"skin.import" = "匯入外觀";
+"skin.importInfo.title" = "匯入外觀";
+"skin.importInfo.message" = "Retro Pal 外觀是「.retropalskin」檔案，可以向朋友索取或在網路上取得。先存到裝置上，再從「檔案」中選取。";
+"skin.import.duplicate.title" = "已經匯入過";
+"skin.import.duplicate.message" = "「%1$@」已在你的 %2$@ 外觀中。";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "按鈕";
+"skin.editor.letters" = "字樣";
+"skin.editor.ink" = "墨色";
+"skin.editor.menuButtons" = "選單按鈕";
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "在支援的遊戲中解鎖成就。免費且完全自由選用，使用你自己的 RetroAchievements 帳號。";
+"ra.connect" = "連結你的帳號";
+"ra.signOut" = "登出";
+"ra.pointsSuffix" = "分";
+"ra.login.username" = "使用者名稱";
+"ra.login.password" = "密碼";
+"ra.login.footer" = "使用你的 RetroAchievements 帳號登入。密碼只會傳送給 RetroAchievements 一次用於登入，不會儲存在這部裝置上。";
+"ra.login.signIn" = "登入";
+"ra.login.createAccount" = "建立 RetroAchievements 帳號";
+"ra.error.login" = "登入失敗。請檢查使用者名稱與密碼。";
+"ra.error.server" = "RetroAchievements 請求失敗。";
+"ra.hud.unlocked" = "成就解鎖";
+"ra.dashboard.title" = "成就";
+"ra.dashboard.unlocked" = "已解鎖";
+"ra.dashboard.locked" = "未解鎖";
+"ra.dashboard.empty" = "這個遊戲沒有成就，或成就尚未載入。";
+"ra.dashboard.summary" = "已解鎖 %lld / %lld";
+"ra.dashboard.rarity" = "%@ 的玩家達成";
+"ra.dashboard.shareHint" = "點一下已解鎖的成就即可分享。";
+"ra.dashboard.pendingSync" = "部分成就正等待同步，恢復連線後會自動上傳。";
+"ra.card.unlocked" = "成就解鎖";
+"details.achievements" = "查看成就";
+"ra.about.title" = "關於 RetroAchievements";
+"ra.about.what" = "RetroAchievements 是一個免費的社群計畫，為經典遊戲加入成就系統。你在遊玩中達成里程碑即可獲得成就，並同步到你的 RetroAchievements 個人檔案。";
+"ra.about.modes" = "你目前在軟核模式中解鎖成就，可以使用倒帶、即時存檔與慢速，成就照樣有效。硬核模式是關閉這些功能的一命通關挑戰，將在 Retro Pal 上架 App Store 滿六個月後推出，約 2026 年 12 月。";
+"ra.details.invite.headline" = "在這個遊戲中解鎖成就";
+"ra.details.invite.caption" = "這個遊戲有 RetroAchievements 成就集：一邊玩一邊完成挑戰，用免費帳號記錄進度。";
+"ra.details.unavailable" = "這個遊戲不支援 RetroAchievements。";
+"ra.library.invite.caption" = "你的遊戲有 RetroAchievements 成就集。連結免費帳號，邊玩邊解鎖成就。";
+"ra.library.recent" = "最近解鎖";
+"ra.library.noUnlocks" = "你最近解鎖的成就會顯示在這裡。";
+"ra.profile.games" = "有成就的遊戲";
+"ra.profile.openGame" = "開啟遊戲頁面";
+"ra.profile.expandHint" = "展開即可查看成就";
+"ra.card.game" = "成就";
+"ra.session.offline" = "成就已離線暫停,將自動恢復。";
+"ra.session.resumed" = "成就已啟用";
+"ra.card.completed" = "完成";
+"ra.card.games" = "遊戲";
+"ra.share.progress" = "分享你的進度";
+"ra.offline" = "沒有網路連線。";
+"ra.load.failed" = "無法載入成就。請檢查網路連線後再試一次。";
+"ra.retry" = "再試一次";
+"ra.profile.unsupported" = "不在 RetroAchievements 上";
+"ra.profile.unsupported.footer" = "這些遊戲在 RetroAchievements 上沒有成就。有時只有遊戲的英文版受到支援。";
+"ra.layout.toggle" = "切換成就顯示方式";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "無法存取所選檔案。請試著從「檔案」App 匯入。";
+"import.error.copyFailed" = "無法將遊戲複製到 Retro Pal。請先釋出一些儲存空間，再試一次。";
+"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc 和 .nds。";
+"import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc 和 .nds 遊戲，不支援其他主機。";
+"import.error.zipMultipleROMs" = "這個 ZIP 內含多個遊戲。請先在「檔案」App 解壓縮，再逐一匯入每個遊戲。";
+"import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
+"import.error.alreadyImported" = "這個遊戲已經在你的遊戲庫裡了。";
+"import.error.saveFailed" = "無法將遊戲加入遊戲庫。請再試一次。";
+"import.error.differentGame" = "這個檔案是另一款遊戲，不是你要取代的那一款。";

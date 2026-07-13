@@ -100,6 +100,37 @@ enum GBAROMParser {
                        systemType: system)
     }
 
+    /// Reads the 4-character cartridge game code from a ROM header (GBA at
+    /// 0xAC, NDS at 0xC; GB/GBC have no unique code). Reads only the header
+    /// bytes — the code survives renaming AND NDS trimming, which is what
+    /// box-art matching uses it for.
+    static func gameCode(url: URL, system: ROMSystemType) -> String? {
+        guard system == .gba || system == .nds,
+              let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 0x200) else { return nil }
+        let code = system == .gba ? readASCII(header, 0x0AC, 0x0B0)
+                                  : readASCII(header, 0x00C, 0x010)
+        return code.count >= 3 ? code : nil
+    }
+
+    /// Reads just the internal header title (offsets as in parse(data:)).
+    /// Box-art matching uses it to detect a library title that merely echoes
+    /// the header — for a ROM hack that echo names the BASE game, not the
+    /// hack, and must not drive identification.
+    static func headerTitle(url: URL, system: ROMSystemType) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 0x200) else { return nil }
+        let title: String
+        switch system {
+        case .nds:      title = readASCII(header, 0x000, 0x00C)
+        case .gb, .gbc: title = readASCII(header, 0x134, 0x143)
+        case .gba:      title = readASCII(header, 0x0A0, 0x0AC)
+        }
+        return title.isEmpty ? nil : title
+    }
+
     /// Cheap system-type probe. With a known file extension this answers
     /// without touching the file at all; otherwise it reads only the
     /// 0x200-byte header. No SHA256, no full mmap. Used on hot paths such

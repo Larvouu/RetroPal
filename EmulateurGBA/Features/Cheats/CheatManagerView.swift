@@ -268,6 +268,7 @@ struct CheatManagerView: View {
                 cheat.wrappedValue.enabled.toggle()
                 saveCheats()
                 reapplyAll()
+                Analytics.signal("cheat", ["action": "toggled", "enabled": cheat.wrappedValue.enabled ? "true" : "false", "system": isNDS ? "nds" : "gba"])
             } label: {
                 Image(systemName: cheat.wrappedValue.enabled ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(cheat.wrappedValue.enabled ? .green : .gray)
@@ -322,6 +323,8 @@ struct CheatManagerView: View {
 
         let success = onAddCheat(code)
         if success {
+            Analytics.signal("cheat", ["action": "added", "system": isNDS ? "nds" : "gba"])
+            Analytics.signal("pro_feature_used", ["feature": "cheats"])
             let name = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
             cheats.append(StoredCheat(code: code, name: name))
             codeInput = ""

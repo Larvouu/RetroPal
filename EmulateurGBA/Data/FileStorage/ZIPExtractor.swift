@@ -3,7 +3,8 @@
 //  EmulateurGBA
 //
 //  Minimal ZIP extraction using Foundation's built-in support.
-//  Finds and extracts a single .gba file from a ZIP archive.
+//  Finds and extracts a single game file (.gba, .gb, .gbc or .nds) from a
+//  ZIP archive.
 //
 
 import Foundation
@@ -19,7 +20,7 @@ enum ZIPExtractorError: Error {
 enum ZIPExtractor {
     private static let romExtensions: Set<String> = ["gba", "gb", "gbc", "nds"]
 
-    /// Extracts a single ROM file (.gba, .gb, .gbc) from a ZIP archive.
+    /// Extracts a single ROM file (.gba, .gb, .gbc, .nds) from a ZIP archive.
     /// Returns the URL of the extracted file in a temp directory.
     static func extractROM(from zipURL: URL) throws -> URL {
         let data = try Data(contentsOf: zipURL)

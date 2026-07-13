@@ -7,7 +7,7 @@
 /* Library */
 "library.title" = "Biblioteca";
 "library.empty.title" = "Bem-vindo ao Retro Pal";
-"library.empty.subtitle" = "Joga os teus jogos retro no iPhone. Sem anúncios, sem rastreio, nunca.";
+"library.empty.subtitle" = "Joga os teus jogos retro no iPhone. Sem anúncios, sem rastreio pessoal.";
 "library.empty.button" = "Adicionar um jogo";
 "library.empty.step1" = "Coloca um jogo (.gba, .gb, .gbc ou .nds) no teu iPhone, através do Safari, AirDrop ou iCloud Drive.";
 "library.empty.step2" = "Toca em %@ e escolhe o ficheiro na app Ficheiros.";
@@ -18,28 +18,42 @@
 "library.sort.lastPlayed" = "Jogado recentemente";
 "library.sort.title" = "Título";
 "library.sort.dateAdded" = "Data de adição";
+"library.sort.byConsole" = "Por consola";
 "library.played.ago" = "Jogado %@";
 "library.playTime" = "%@h %@m jogado";
 "library.playTime.minutes" = "%@m jogado";
+"library.stats.title" = "Estatísticas";
+"library.stats.topGames" = "Mais jogados";
+"library.stats.totalTime" = "Tempo total";
+"library.stats.gamesPlayed" = "Jogos jogados";
+"library.stats.sessions" = "Sessões";
+"library.stats.favoriteConsole" = "Consola favorita";
+"library.stats.duration" = "%@h %@m";
+"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Continuar última sessão";
-"details.newGame" = "Novo jogo";
-"details.saveSlots" = "Slots de gravação";
+"details.newGame" = "Começar no ecrã de título";
+"details.saveSlots" = "Espaços de gravação rápida";
 "details.delete" = "Apagar jogo";
 "details.delete.confirm" = "Apagar este jogo e todos os dados guardados?";
 "details.rename" = "Renomear";
 "details.rename.title" = "Renomear jogo";
-"details.newGame.confirm.title" = "Começar um novo jogo?";
+"details.cover.choose" = "Escolher capa";
+"details.cover.remove" = "Remover capa personalizada";
+"details.cover.error" = "Não foi possível guardar a imagem.";
+"details.newGame.confirm.title" = "Começar no ecrã de título?";
+"details.newGame.confirm.message" = "Não retomas a tua última sessão, mas a gravação interna do jogo e as gravações rápidas ficam seguras.";
+"details.launch.footer" = "Para carregar a gravação interna do jogo (a que fazes a partir do menu do próprio jogo), abre o jogo e retoma a partir do seu menu. É diferente dos espaços de gravação rápida abaixo, que crias tu mesmo.";
 
 /* In-Game Overlay */
 "overlay.paused" = "EM PAUSA";
 "overlay.resume" = "Retomar";
-"overlay.rewind" = "Rebobinar %@s";
-"overlay.screenshot" = "Partilhar captura de ecrã";
-"overlay.quit" = "Voltar à biblioteca";
+"overlay.rewind" = "%@s";
+"overlay.screenshot" = "Captura";
+"overlay.quit" = "Sair do jogo";
 "overlay.speed" = "VELOCIDADE";
-"overlay.saveSlots" = "SLOTS DE GRAVAÇÃO";
+"overlay.saveSlots" = "ESPAÇOS DE GRAVAÇÃO RÁPIDA";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Vazio";
 "overlay.save" = "Gravar";
@@ -48,14 +62,13 @@
 /* Settings */
 "settings.title" = "Definições";
 "settings.controls" = "Controlos";
-"settings.opacity" = "Opacidade dos botões";
-"settings.size" = "Tamanho dos botões";
-"settings.haptics" = "Feedback háptico";
-"settings.buttonLock" = "Mantém premido para bloquear um botão";
-"settings.buttonLock.controllerNote" = "Não é usado quando há um comando ligado.";
+"settings.haptics" = "Vibração no jogo";
 "settings.controller.footer" = "Comandos Bluetooth (Xbox, PlayStation, MFi) suportados. Emparelha nas Definições do iOS.";
+"settings.controls.controllerActive.footer" = "Está um comando ligado, por isso as definições de toque acima estão desativadas.";
+"settings.controls.dpad.footer" = "As opções de cruzeta/joystick e botão de clipe aplicam-se à disposição predefinida. Cada perfil personalizado tem a sua própria opção de cruzeta/joystick, e o seu botão de clipe fica sempre visível.";
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
+"settings.clipButton" = "Botão de clipe";
 "settings.nds.swapScreens" = "Trocar ecrãs";
 "settings.nds.language" = "Idioma do jogo";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -90,12 +103,14 @@
 "pro.benefit.slots" = "5 slots de gravação (em vez de 2)";
 "pro.benefit.rewind" = "Rebobinagem de 30 segundos (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Códigos de batota (GameShark / Action Replay)";
-"pro.benefit.controls" = "Controlos personalizados (até 3 predefinições)";
+"pro.benefit.controls" = "Controlos personalizados";
 "pro.benefit.speed.short" = "Todas as velocidades";
 "pro.benefit.slots.short" = "5 compartimentos";
 "pro.benefit.rewind.short" = "Recuar 30 s";
 "pro.benefit.cheats.short" = "Códigos de batota";
 "pro.benefit.controls.short" = "Controlos personalizados";
+"pro.benefit.skins" = "Criação de skins personalizados";
+"pro.benefit.skins.short" = "Skins personalizados";
 "pro.badge" = "Funcionalidade Pro";
 "pro.seeAllBenefits" = "Ver todos os benefícios Pro";
 
@@ -115,8 +130,7 @@
 "pro.compare.row.controls" = "Controlos personalizados";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
-"pro.compare.values.proControls" = "3 predefinições";
-
+"pro.compare.row.skins" = "Criação de skins";
 /* Prompts */
 "prompt.speed.title" = "Jogaste %@ minutos a 1,5x";
 "prompt.speed.subtitle" = "A 4x, a mesma sessão passa a voar. Desbloqueia todas as velocidades, para sempre.";
@@ -131,11 +145,18 @@
 "prompt.generic.title" = "Retro Pal Pro";
 "prompt.generic.subtitle" = "Desbloqueia todas as velocidades, 5 slots, 30s de rebobinagem (GBA/GB/GBC) e mais.";
 
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "Nostalgia";
+"card.style.classic" = "Clássico";
+
 /* Screenshot */
 "screenshot.share" = "Partilhar";
 "screenshot.save" = "Guardar";
 "screenshot.dismiss" = "Fechar";
-"screenshot.footer" = "Retro Pal na App Store";
+"screenshot.footer" = "Feito com Retro Pal";
+"screenshot.hint" = "Captura o teu melhor momento, a qualquer momento.";
+"clip.hint" = "Podes guardar os últimos 6 segundos a qualquer momento.";
+"clip.loading" = "A capturar o momento… só um segundo.";
 "screenshot.newGame" = "Acabado de começar";
 "screenshot.proMember" = "👑 Membro Pro";
 "screenshot.permissionDenied.title" = "Acesso a fotos necessário";
@@ -153,9 +174,9 @@
 "legal.importantNotice.title" = "Aviso importante";
 "legal.aboutApp.title" = "Sobre esta app";
 "legal.aboutApp.description1" = "Retro Pal é um emulador local para jogos Game Boy Advance, Game Boy, Game Boy Color e Nintendo DS. Não transfere, distribui nem fornece acesso a qualquer conteúdo de jogos. Todos os ficheiros ROM devem ser importados pelo utilizador a partir do armazenamento do seu próprio dispositivo através da app Ficheiros.";
-"legal.aboutApp.description2" = "Esta app não se liga a qualquer servidor externo, não fornece um catálogo de jogos e não facilita o descarregamento de material protegido por direitos de autor.";
+"legal.aboutApp.description2" = "Esta app não fornece um catálogo de jogos, não distribui conteúdo de jogos nem facilita o descarregamento de material protegido por direitos de autor.";
 "legal.privacy.title" = "Privacidade";
-"legal.privacy.description" = "Retro Pal armazena todos os dados localmente no teu dispositivo. Não são recolhidos nem transmitidos quaisquer dados pessoais, estatísticas de utilização ou informações sobre jogos. A app não requer ligação à Internet para funcionar.";
+"legal.privacy.description" = "Os teus jogos e gravações ficam no teu dispositivo. Para melhorar a app, o Retro Pal envia apenas estatísticas de utilização anónimas, sem dados pessoais nem identificadores publicitários.";
 "legal.licenses.title" = "Licenças de código aberto";
 "legal.mgba.licenseLine" = "Licenciado sob a Mozilla Public License 2.0 (MPL-2.0)";
 "legal.mgba.description" = "mGBA é um emulador de Game Boy Advance utilizado como motor de emulação principal nesta app. O código-fonte do mGBA está disponível em [https://mgba.io](https://mgba.io)";
@@ -166,7 +187,7 @@
 "legal.retropal.description" = "O código-fonte completo do Retro Pal está disponível em [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). O software é fornecido sem qualquer garantia.";
 "legal.compliance" = "O Retro Pal é distribuído sob a GNU General Public License v3.0. Baseia-se no mGBA (Mozilla Public License 2.0) e no melonDS (GPL-3.0), utilizados sem modificações. O código-fonte correspondente completo está disponível no repositório ligado acima, e o software é fornecido sem qualquer garantia.";
 
-"details.noSaves" = "Sem salvamentos. Guarda durante o jogo com o botão de menu.";
+"details.noSaves" = "Ainda sem gravações rápidas. Cria uma durante o jogo com o botão de menu.";
 "library.importing" = "A importar ROM...";
 
 /* Game Details - New */
@@ -174,7 +195,8 @@
 "library.importError" = "Erro de importação";
 
 /* Overlay - New */
-"overlay.cheats" = "Códigos de batota";
+"overlay.cheats" = "Códigos";
+"overlay.shareClip" = "Clip";
 "overlay.sound" = "Som";
 "overlay.sound.off" = "Som desativado";
 "overlay.overwrite.title" = "Sobrescrever slot %@?";
@@ -199,7 +221,7 @@
 
 /* Emulator */
 "emulator.loading" = "A carregar ROM...";
-"emulator.loadFailed" = "Falha ao carregar a ROM\n%@";
+"emulator.loadFailed" = "Não foi possível carregar %@.\nO ficheiro do jogo parece danificado. Substitui-o nos detalhes do jogo para o reparar sem perder as tuas gravações.";
 
 /* Common */
 "common.cancel" = "Cancelar";
@@ -233,46 +255,40 @@
 "layout.presets.footer" = "Roda o dispositivo no editor para personalizar a disposição horizontal em separado.";
 "layout.newPreset" = "Nova predefinição";
 "layout.newPreset.title" = "Nova predefinição";
-"layout.newPreset.message" = "Introduz um nome para esta predefinição.";
 "layout.newPreset.namePlaceholder" = "Nome da predefinição";
 "layout.newPreset.create" = "Criar";
 "layout.editor.screenPreview" = "Ecrã de jogo";
 "layout.editor.touchScreen" = "Ecrã tátil";
-"layout.editor.landscape" = "A editar: Horizontal";
-"layout.editor.portrait" = "A editar: Vertical";
 "layout.editor.reset" = "Repor";
 "layout.editor.reset.title" = "Repor predefinições";
-"layout.editor.reset.message" = "Isto irá repor todas as posições dos botões para a orientação atual nas suas localizações predefinidas.";
-"layout.editor.visibility" = "Visibilidade";
-"layout.editor.visibility.message" = "Toca num botão para o mostrar ou ocultar.";
+"layout.editor.reset.message" = "Todos os controlos e ecrãs da orientação atual voltam à posição, tamanho e opacidade predefinidos.";
 "layout.editor.show" = "Mostrar";
 "layout.editor.hide" = "Ocultar";
-"layout.editor.menuCannotHide" = "O botão de menu não pode ser ocultado.";
+"layout.editor.hint" = "Toca num controlo ou num ecrã para o editar. Arrasta para mover, faz o gesto de pinça para redimensionar.";
+"layout.editor.cannotHide" = "Os botões de menu e de clipe ficam sempre visíveis, para poderes pausar e gravar a qualquer momento.";
+"layout.editor.size" = "Tamanho";
+"layout.editor.opacity" = "Opacidade";
 "layout.editor.topScreen" = "Ecrã superior";
 "layout.editor.bottomScreen" = "Ecrã inferior";
-"layout.screenSize.small" = "Pequeno";
-"layout.screenSize.medium" = "Médio";
-"layout.screenSize.large" = "Grande";
 "layout.editor.done" = "Concluído";
 "layout.newPreset.systems" = "Sistemas";
-"layout.editor.buttons" = "Botões";
 "prompt.controls.title" = "Encontre a posição perfeita para as suas mãos";
-"prompt.controls.subtitle" = "Personalize a posição, tamanho e opacidade dos botões. Crie até 3 predefinições para jogos diferentes.";
-"layout.editor.screenSize" = "Tamanho do ecrã";
+"prompt.controls.subtitle" = "Personalize a posição, tamanho e opacidade dos botões. Crie as suas predefinições para jogos diferentes.";
+"prompt.skins.title" = "Crie o skin dos seus sonhos";
+"prompt.skins.subtitle" = "Escolha cada cor da consola, torne-o seu e partilhe as suas criações.";
 "layout.editor.landscapeShort" = "Paisagem";
 "layout.editor.portraitShort" = "Retrato";
-"layout.editor.screenSizeLandscapeInfo" = "O tamanho do ecrã só pode ser alterado no modo retrato. No modo paisagem, ambos os ecrãs são apresentados lado a lado com o mesmo tamanho.";
-/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
 "pro.legal.terms" = "Termos de utilização";
 "pro.legal.privacy" = "Política de privacidade";
 
-/* Settings — secção de sincronização iCloud (Semana 4) */
+/* Settings - secção de sincronização iCloud (Semana 4) */
 "settings.sync.section" = "Sincronização";
 "settings.sync.state.resolving" = "A ligar…";
-"settings.sync.state.available" = "Sincronizado";
+"settings.sync.state.available" = "Ativado";
 "settings.sync.state.unavailable" = "Indisponível";
 
-/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
 "saveImport.title" = "Importar gravação";
 "saveImport.success.title" = "Gravação importada";
 "saveImport.success.message" = "Abre %@ e retoma a partir do menu do próprio jogo. Esta gravação não aparece nos espaços de gravação da app.";
@@ -315,3 +331,138 @@
 "saveImport.mismatch.title" = "Gravação de outro jogo?";
 "saveImport.mismatch.message" = "O nome do ficheiro não corresponde a %@. Importa-a apenas se tiveres a certeza de que pertence a este jogo.";
 "saveImport.mismatch.confirm" = "Importar mesmo assim";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "Substituir o ficheiro do jogo";
+"replaceROM.success.title" = "Ficheiro do jogo substituído";
+"replaceROM.success.message" = "O ficheiro do jogo foi substituído. As tuas gravações são mantidas.";
+"replaceROM.error.differentGame" = "É um jogo diferente. Escolhe o ficheiro do mesmo jogo para que as tuas gravações continuem válidas.";
+"replaceROM.error.invalid" = "Não foi possível ler este ficheiro. Escolhe uma cópia válida do mesmo jogo.";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "Sincronização do iCloud";
+"settings.sync.state.disabled" = "Desativado";
+"settings.sync.footer" = "As tuas gravações rápidas sincronizam no teu iCloud privado e entre os teus dispositivos. Desativa esta opção para as manteres apenas neste iPhone.";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "Bloqueio auto";
+"overlay.buttonLock.caption" = "Mantém premido %@ para o deixar pressionado, toca para soltar.";
+"overlay.orientation" = "Orientação";
+"overlay.orientation.auto" = "Auto";
+"overlay.orientation.landscape" = "Horizontal";
+"overlay.orientation.portrait" = "Vertical";
+
+/* Clip card alerts */
+"clip.notReady.title" = "O clipe ainda não está pronto";
+"clip.notReady.message" = "Joga mais alguns segundos e tenta novamente.";
+"clip.failed.title" = "Não foi possível criar o clipe";
+"clip.failed.message" = "Tenta novamente.";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "Guardados rápidos do iCloud indisponíveis";
+"details.iCloudUnavailable.body" = "Os teus guardados rápidos estão seguros no iCloud mas não estão acessíveis agora. Não reinicies nem comeces um jogo novo. Vão voltar quando o iCloud voltar a ligar.";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "Os skins decorados precisam da disposição de controlos predefinida. Esta consola usa uma personalizada, por isso só Invisible está disponível.";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "Criar um skin";
+"skin.edit" = "Editar";
+"skin.delete" = "Eliminar";
+"skin.editor.title.create" = "Novo skin";
+"skin.editor.title.edit" = "Editar skin";
+"skin.editor.body" = "Corpo";
+"skin.editor.surround" = "Moldura";
+"skin.editor.dpad" = "Direcional";
+"skin.editor.abButtons" = "Botões A/B";
+"skin.editor.abLetters" = "Letras A/B";
+"skin.editor.smallButtons" = "Botões pequenos";
+"skin.editor.menuIcons" = "Ícones de menu";
+"skin.editor.labels" = "Texto SELECT/START";
+"skin.editor.stripe" = "Faixa";
+"skin.editor.printedText" = "Texto impresso";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "Dá um nome ao teu skin";
+"skin.editor.create" = "Criar";
+"skin.editor.save" = "Guardar";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "Partilhar";
+"skin.import.success.title" = "Skin importado";
+"skin.import.success.message" = "«%1$@» foi adicionado aos teus skins %2$@.";
+"skin.import.full.title" = "Biblioteca cheia";
+"skin.import.full.message" = "Já tens 6 skins %@. Elimina um e importa novamente.";
+"skin.import.failed.title" = "Falha na importação";
+"skin.import.failed.message" = "Este ficheiro de skin é inválido ou está danificado.";
+"skin.import" = "Importar skin";
+"skin.importInfo.title" = "Importar um skin";
+"skin.importInfo.message" = "Os skins do Retro Pal são ficheiros «.retropalskin» que podes obter de amigos ou online. Guarda um no teu dispositivo e escolhe-o em Ficheiros.";
+"skin.import.duplicate.title" = "Já importado";
+"skin.import.duplicate.message" = "«%1$@» já está nos teus skins %2$@.";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "Botões";
+"skin.editor.letters" = "Letras";
+"skin.editor.ink" = "Tinta";
+"skin.editor.menuButtons" = "Botões de menu";
+
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "Ganha conquistas em jogos compatíveis. Gratuito e opcional, com a tua conta RetroAchievements.";
+"ra.connect" = "Ligar a tua conta";
+"ra.signOut" = "Terminar sessão";
+"ra.pointsSuffix" = "pts";
+"ra.login.username" = "Nome de utilizador";
+"ra.login.password" = "Palavra-passe";
+"ra.login.footer" = "Inicia sessão com a tua conta RetroAchievements. A tua palavra-passe é enviada uma única vez para o RetroAchievements para iniciar sessão e nunca é guardada neste dispositivo.";
+"ra.login.signIn" = "Iniciar sessão";
+"ra.login.createAccount" = "Criar uma conta RetroAchievements";
+"ra.error.login" = "Falha ao iniciar sessão. Verifica o nome de utilizador e a palavra-passe.";
+"ra.error.server" = "O pedido ao RetroAchievements falhou.";
+"ra.hud.unlocked" = "Conquista desbloqueada";
+"ra.dashboard.title" = "Conquistas";
+"ra.dashboard.unlocked" = "Desbloqueadas";
+"ra.dashboard.locked" = "Restantes";
+"ra.dashboard.empty" = "Este jogo não tem conquistas, ou ainda nenhuma foi carregada.";
+"ra.dashboard.summary" = "%lld de %lld desbloqueadas";
+"ra.dashboard.rarity" = "%@ dos jogadores";
+"ra.dashboard.shareHint" = "Toca numa conquista desbloqueada para a partilhar.";
+"ra.dashboard.pendingSync" = "Algumas conquistas estão a aguardar sincronização. Serão enviadas quando voltares a estar online.";
+"ra.card.unlocked" = "CONQUISTA DESBLOQUEADA";
+"details.achievements" = "Ver conquistas";
+"ra.about.title" = "Acerca do RetroAchievements";
+"ra.about.what" = "O RetroAchievements é um projeto comunitário gratuito que adiciona conquistas a jogos clássicos. Ganha-las ao atingir marcos enquanto jogas, e sincronizam com o teu perfil RetroAchievements.";
+"ra.about.modes" = "Estás a jogar em softcore: podes usar a rebobinagem, os estados guardados e a câmara lenta e mesmo assim manter todas as conquistas. O hardcore é um desafio de uma só vida, com essas opções desativadas. Chegará quando o Retro Pal tiver seis meses na App Store, por volta de dezembro de 2026.";
+"ra.details.invite.headline" = "Ganha conquistas neste jogo";
+"ra.details.invite.caption" = "Este jogo tem conquistas RetroAchievements: desafios para completar enquanto jogas, registados com uma conta gratuita.";
+"ra.details.unavailable" = "RetroAchievements não está disponível para este jogo.";
+"ra.library.invite.caption" = "Os teus jogos têm conquistas RetroAchievements. Liga uma conta gratuita para as ganhares enquanto jogas.";
+"ra.library.recent" = "Últimas desbloqueadas";
+"ra.library.noUnlocks" = "As tuas últimas conquistas vão aparecer aqui.";
+"ra.profile.games" = "Jogos com conquistas";
+"ra.profile.openGame" = "Abrir a página do jogo";
+"ra.profile.expandHint" = "Abre para veres as conquistas";
+"ra.card.game" = "CONQUISTAS";
+"ra.session.offline" = "Conquistas em pausa offline. Retomam automaticamente.";
+"ra.session.resumed" = "Conquistas ativas";
+"ra.card.completed" = "Concluído";
+"ra.card.games" = "Jogos";
+"ra.share.progress" = "Partilhar o teu progresso";
+"ra.offline" = "Sem ligação à Internet.";
+"ra.load.failed" = "Não foi possível carregar as conquistas. Verifica a tua ligação e tenta novamente.";
+"ra.retry" = "Tentar novamente";
+"ra.profile.unsupported" = "Indisponíveis no RetroAchievements";
+"ra.profile.unsupported.footer" = "Estes jogos não têm conquistas no RetroAchievements. Por vezes, apenas a versão inglesa de um jogo é abrangida.";
+"ra.layout.toggle" = "Mudar a vista das conquistas";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "Não é possível aceder ao ficheiro selecionado. Tenta importá-lo a partir da app Ficheiros.";
+"import.error.copyFailed" = "Não foi possível copiar o jogo para o Retro Pal. Liberta espaço de armazenamento e tenta novamente.";
+"import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc e .nds.";
+"import.error.zipNoROM" = "Não foi encontrado nenhum jogo neste ZIP. O Retro Pal lê jogos .gba, .gb, .gbc e .nds; outras consolas não são suportadas.";
+"import.error.zipMultipleROMs" = "Este ZIP contém vários jogos. Extrai-o na app Ficheiros e importa cada jogo separadamente.";
+"import.error.zipExtractionFailed" = "Não foi possível abrir este ZIP. Extrai-o na app Ficheiros e importa diretamente o ficheiro do jogo.";
+"import.error.alreadyImported" = "Este jogo já está na tua biblioteca.";
+"import.error.saveFailed" = "Não foi possível adicionar o jogo à biblioteca. Tenta novamente.";
+"import.error.differentGame" = "Este ficheiro é um jogo diferente daquele que estás a substituir.";

@@ -21,3 +21,6 @@ Packages/
 *.gb
 *.nds
 *.zip
+
+# Personal / non-project files (kept locally, never committed)
+ressources/

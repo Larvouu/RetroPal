@@ -10,15 +10,29 @@ import CoreGraphics
 /// Identifies every movable element in the controls overlay.
 enum ControlElement: String, Codable, CaseIterable {
     // GBA base buttons
-    case dpad, btnA, btnB, btnL, btnR, btnStart, btnSelect, btnMenu
+    case dpad, btnA, btnB, btnL, btnR, btnStart, btnSelect, btnMenu, btnClip
     // NDS additions
     case btnX, btnY, btnMic
 
-    /// Elements present on GBA/GB/GBC.
-    static let gbaElements: [ControlElement] = [.dpad, .btnA, .btnB, .btnL, .btnR, .btnStart, .btnSelect, .btnMenu]
+    /// Elements present on GBA (full Game Boy Advance button set, incl. L/R).
+    static let gbaElements: [ControlElement] = [.dpad, .btnA, .btnB, .btnL, .btnR, .btnStart, .btnSelect, .btnMenu, .btnClip]
+
+    /// Elements present on GB / GBC: the GBA set minus the L/R shoulder buttons,
+    /// which GB/GBC hardware does not have.
+    static let gbcElements: [ControlElement] = [.dpad, .btnA, .btnB, .btnStart, .btnSelect, .btnMenu, .btnClip]
 
     /// Elements present on NDS (all GBA + X/Y/Mic).
     static let ndsElements: [ControlElement] = allCases
+
+    /// The element set for a given system — the single source of truth used by the
+    /// store, the in-game controls, and the editor so they never drift apart.
+    static func elements(for system: PresetSystem) -> [ControlElement] {
+        switch system {
+        case .nds: return ndsElements
+        case .gba: return gbaElements
+        case .gbc: return gbcElements
+        }
+    }
 
     /// Human-readable name for display in the editor.
     var displayName: String {
@@ -34,6 +48,7 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnX: return "X"
         case .btnY: return "Y"
         case .btnMic: return "Mic"
+        case .btnClip: return "Clip"
         }
     }
 
@@ -45,25 +60,30 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnB:      return CGSize(width: 63.8, height: 63.8)
         case .btnX:      return CGSize(width: 63.8, height: 63.8)
         case .btnY:      return CGSize(width: 63.8, height: 63.8)
-        case .btnL:      return CGSize(width: 90, height: 44)
-        case .btnR:      return CGSize(width: 90, height: 44)
+        case .btnL:      return CGSize(width: 90, height: 35.2)   // GBA portrait: 20% thinner (was 44)
+        case .btnR:      return CGSize(width: 90, height: 35.2)   // NDS portrait keeps its own 70x36
         case .btnStart:  return CGSize(width: 64, height: 44)
         case .btnSelect: return CGSize(width: 64, height: 44)
         case .btnMenu:   return CGSize(width: 44, height: 44)
         case .btnMic:    return CGSize(width: 52, height: 36)
+        case .btnClip:   return CGSize(width: 44, height: 44)
         }
     }
 
     /// Default size in landscape (some buttons change size).
     var defaultLandscapeSize: CGSize {
         switch self {
-        case .dpad:      return CGSize(width: 143, height: 143)
+        case .dpad:      return CGSize(width: 160, height: 160)   // testing
         case .btnA:      return CGSize(width: 66, height: 66)
         case .btnB:      return CGSize(width: 59.4, height: 59.4)
         case .btnL:      return CGSize(width: 110, height: 38)
         case .btnR:      return CGSize(width: 110, height: 38)
-        case .btnStart:  return CGSize(width: 56, height: 44)
-        case .btnSelect: return CGSize(width: 56, height: 44)
+        // Start/Select/Menu/Clip form the under-the-screen bottom row; 38 tall (like
+        // L/R) so the row clears the top-aligned game without overlap (testing).
+        case .btnStart:  return CGSize(width: 56, height: 38)
+        case .btnSelect: return CGSize(width: 56, height: 38)
+        case .btnMenu:   return CGSize(width: 44, height: 38)
+        case .btnClip:   return CGSize(width: 44, height: 38)
         default:         return defaultSize
         }
     }
@@ -80,6 +100,7 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnSelect: return CGSize(width: 52, height: 36)
         case .btnMenu:   return CGSize(width: 36, height: 36)
         case .btnMic:    return CGSize(width: 52, height: 36)
+        case .btnClip:   return CGSize(width: 52, height: 36)
         default:         return defaultSize
         }
     }
@@ -98,87 +119,161 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnSelect: return CGSize(width: 52, height: 36)
         case .btnMenu:   return CGSize(width: 36, height: 36)
         case .btnMic:    return CGSize(width: 52, height: 36)
+        case .btnClip:   return CGSize(width: 36, height: 36)   // mirrors Menu (testing)
         }
     }
 }
 
-/// Position and visibility for a single button in one orientation.
+/// Position, visibility, and per-component size/opacity for a single button in
+/// one orientation.
 struct ButtonLayout: Codable, Equatable {
-    /// Center X as fraction of container width (0.0–1.0).
+    /// Center X as fraction of the layout space width (0.0–1.0). Layout space is
+    /// the full view for `OrientationLayout.space == 2`, the legacy controls
+    /// container for `space == 1`.
     var centerX: CGFloat
-    /// Center Y as fraction of container height (0.0–1.0).
+    /// Center Y as fraction of the layout space height (0.0–1.0).
     var centerY: CGFloat
-    /// Whether this button is hidden. Menu button always forced visible at runtime.
+    /// Whether this button is hidden. Menu and Clip are always forced visible
+    /// at resolve time (they are action triggers, not game inputs).
     var isHidden: Bool
+    /// Per-component visual scale (applied as a transform on top of the
+    /// device-scaled base size). nil = fall back to the preset's legacy global
+    /// `scale` (presets saved before components carried their own).
+    var scale: CGFloat?
+    /// Per-component alpha (0.1–1.0). nil = fall back to the preset's legacy
+    /// global `opacity` (which used the historical ×2 effective-alpha mapping).
+    var opacity: CGFloat?
 
-    init(centerX: CGFloat, centerY: CGFloat, isHidden: Bool = false) {
+    init(centerX: CGFloat, centerY: CGFloat, isHidden: Bool = false,
+         scale: CGFloat? = nil, opacity: CGFloat? = nil) {
         self.centerX = centerX
         self.centerY = centerY
         self.isHidden = isHidden
+        self.scale = scale
+        self.opacity = opacity
     }
 }
 
-/// NDS screen size options.
-enum NDSScreenSize: String, Codable, CaseIterable {
-    case small, medium, large
+/// Identifies a game screen as a movable/resizable layout component.
+/// GBA + GB/GBC have one (`main`); NDS has two (`top`, `bottom` — in landscape
+/// they render left/right but keep their physical identity).
+enum ScreenComponent: String, Codable, CaseIterable {
+    case main, top, bottom
 
-    var scaleFactor: CGFloat {
-        switch self {
-        case .small: return 0.8
-        case .medium: return 1.0
-        case .large: return 1.2
-        }
+    /// The screen set for a system — single source of truth, like
+    /// `ControlElement.elements(for:)`.
+    static func components(for system: PresetSystem) -> [ScreenComponent] {
+        system == .nds ? [.top, .bottom] : [.main]
     }
+}
 
-    var displayName: String {
-        switch self {
-        case .small: return NSLocalizedString("layout.screenSize.small", comment: "")
-        case .medium: return NSLocalizedString("layout.screenSize.medium", comment: "")
-        case .large: return NSLocalizedString("layout.screenSize.large", comment: "")
-        }
+/// Position, size, and opacity for one game screen in one orientation.
+/// Screens can never be hidden (a game must stay visible); buttons are the
+/// only hideable components. Coordinates are normalized to the FULL view
+/// (screens only exist in `space == 2` layouts). `scale` multiplies the
+/// system's default screen size for this device + orientation, preserving the
+/// display aspect.
+struct ScreenLayout: Codable, Equatable {
+    var centerX: CGFloat
+    var centerY: CGFloat
+    var scale: CGFloat
+    var opacity: CGFloat
+
+    init(centerX: CGFloat, centerY: CGFloat, scale: CGFloat = 1.0,
+         opacity: CGFloat = 1.0) {
+        self.centerX = centerX
+        self.centerY = centerY
+        self.scale = scale
+        self.opacity = opacity
     }
 }
 
 /// One complete layout for one orientation.
 struct OrientationLayout: Codable, Equatable {
+    /// Coordinate space of the normalized positions in this layout.
+    /// 1 = legacy (buttons normalized to the controls container below the
+    /// screen; no screens stored) — every preset saved before screens became
+    /// components. 2 = full-view space (buttons AND screens normalized to the
+    /// whole view). `PresetLayoutResolver` converts 1 → 2 at resolve time.
+    static let legacySpace = 1
+    static let fullViewSpace = 2
+
+    var space: Int
     /// Button positions keyed by ControlElement.rawValue.
     var buttons: [String: ButtonLayout]
-    /// NDS screen sizes (ignored for GBA).
-    var ndsTopScreenSize: NDSScreenSize
-    var ndsBottomScreenSize: NDSScreenSize
+    /// Screen positions keyed by ScreenComponent.rawValue (space == 2 only).
+    var screens: [String: ScreenLayout]
+
     init(buttons: [String: ButtonLayout] = [:],
-         ndsTopScreenSize: NDSScreenSize = .medium,
-         ndsBottomScreenSize: NDSScreenSize = .medium) {
+         screens: [String: ScreenLayout] = [:],
+         space: Int = OrientationLayout.fullViewSpace) {
         self.buttons = buttons
-        self.ndsTopScreenSize = ndsTopScreenSize
-        self.ndsBottomScreenSize = ndsBottomScreenSize
+        self.screens = screens
+        self.space = space
+    }
+
+    private enum CodingKeys: String, CodingKey { case space, buttons, screens }
+
+    /// Custom decode so layouts saved before `space`/`screens` existed still
+    /// load: a missing `space` marks the layout as legacy (controls-container
+    /// coordinates), instead of failing the decode and silently wiping the
+    /// preset. The old `ndsTopScreenSize`/`ndsBottomScreenSize` keys are
+    /// deliberately ignored — that S/M/L split feature was removed when screens
+    /// became freely movable components. Encoding stays synthesized.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        space = try c.decodeIfPresent(Int.self, forKey: .space) ?? OrientationLayout.legacySpace
+        buttons = try c.decodeIfPresent([String: ButtonLayout].self, forKey: .buttons) ?? [:]
+        screens = try c.decodeIfPresent([String: ScreenLayout].self, forKey: .screens) ?? [:]
     }
 }
 
 /// Which system a preset applies to (one system per preset).
 enum PresetSystem: String, Codable, Equatable {
-    case gba  // includes GB/GBC
-    case nds
+    case gba   // Game Boy Advance
+    case gbc   // Game Boy + Game Boy Color (one shared layout family)
+    case nds   // Nintendo DS
 }
 
-/// Legacy wrapper — presets now use a single PresetSystem.
-/// Kept as Codable bridge for backward compatibility.
+/// Per-system applicability flags for a preset (one system per preset in the UI,
+/// but stored as flags so old data keeps decoding). Acts as the Codable bridge to
+/// the single `PresetSystem` the rest of the app uses.
 struct SystemApplicability: Codable, Equatable {
     var gba: Bool
+    var gbc: Bool
     var nds: Bool
 
-    init(gba: Bool = false, nds: Bool = false) {
+    init(gba: Bool = false, gbc: Bool = false, nds: Bool = false) {
         self.gba = gba
+        self.gbc = gbc
         self.nds = nds
     }
 
     init(system: PresetSystem) {
         self.gba = (system == .gba)
+        self.gbc = (system == .gbc)
         self.nds = (system == .nds)
     }
 
+    /// Resolution order is NDS, then GBC, then GBA (the default). A preset saved
+    /// before GBC existed has no `gbc` flag, so it keeps resolving to GBA/NDS.
     var system: PresetSystem {
-        nds ? .nds : .gba
+        if nds { return .nds }
+        if gbc { return .gbc }
+        return .gba
+    }
+
+    private enum CodingKeys: String, CodingKey { case gba, gbc, nds }
+
+    /// Decode each flag independently so a preset stored before `gbc` existed
+    /// (only `gba`/`nds` keys) still loads instead of failing the whole array
+    /// decode, which would silently wipe every saved preset. Encoding stays
+    /// synthesized and writes all three keys.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        gba = try c.decodeIfPresent(Bool.self, forKey: .gba) ?? false
+        gbc = try c.decodeIfPresent(Bool.self, forKey: .gbc) ?? false
+        nds = try c.decodeIfPresent(Bool.self, forKey: .nds) ?? false
     }
 }
 
@@ -193,12 +288,17 @@ struct ControlPreset: Identifiable, Codable {
     var opacity: CGFloat
     /// Button scale (0.7–1.3). Per-preset, not global.
     var scale: CGFloat
+    /// Directional control type. Per-preset, not global: the Settings toggle
+    /// drives only the built-in default layout, while each preset carries its
+    /// own choice (false = cross D-pad, true = joystick).
+    var useJoystick: Bool
 
     init(id: UUID = UUID(), name: String, systems: SystemApplicability,
          portrait: OrientationLayout = OrientationLayout(),
          landscape: OrientationLayout = OrientationLayout(),
          opacity: CGFloat = 0.25,
-         scale: CGFloat = 1.0) {
+         scale: CGFloat = 1.0,
+         useJoystick: Bool = false) {
         self.id = id
         self.name = name
         self.systems = systems
@@ -206,5 +306,26 @@ struct ControlPreset: Identifiable, Codable {
         self.landscape = landscape
         self.opacity = opacity
         self.scale = scale
+        self.useJoystick = useJoystick
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, systems, portrait, landscape, opacity, scale, useJoystick
+    }
+
+    /// Custom decode so presets saved before these fields existed still load
+    /// (a missing key falls back to the default instead of failing the whole
+    /// decode, which would otherwise silently drop the preset). Encoding stays
+    /// synthesized.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        systems = try c.decode(SystemApplicability.self, forKey: .systems)
+        portrait = try c.decode(OrientationLayout.self, forKey: .portrait)
+        landscape = try c.decode(OrientationLayout.self, forKey: .landscape)
+        opacity = try c.decodeIfPresent(CGFloat.self, forKey: .opacity) ?? 0.25
+        scale = try c.decodeIfPresent(CGFloat.self, forKey: .scale) ?? 1.0
+        useJoystick = try c.decodeIfPresent(Bool.self, forKey: .useJoystick) ?? false
     }
 }

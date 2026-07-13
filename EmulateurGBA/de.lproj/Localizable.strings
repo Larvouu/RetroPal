@@ -7,7 +7,7 @@
 /* Library */
 "library.title" = "Bibliothek";
 "library.empty.title" = "Willkommen bei Retro Pal";
-"library.empty.subtitle" = "Spiele deine Retro-Games auf dem iPhone. Keine Werbung, kein Tracking, nie.";
+"library.empty.subtitle" = "Spiele deine Retro-Games auf dem iPhone. Keine Werbung, kein persönliches Tracking.";
 "library.empty.button" = "Spiel hinzufügen";
 "library.empty.step1" = "Bring ein Spiel (.gba, .gb, .gbc oder .nds) auf dein iPhone, per Safari, AirDrop oder iCloud Drive.";
 "library.empty.step2" = "Tippe auf %@ und wähle die Datei in der Dateien-App aus.";
@@ -18,28 +18,42 @@
 "library.sort.lastPlayed" = "Zuletzt gespielt";
 "library.sort.title" = "Titel";
 "library.sort.dateAdded" = "Hinzugefügt am";
+"library.sort.byConsole" = "Nach Konsole";
 "library.played.ago" = "Gespielt %@";
 "library.playTime" = "%@ Std. %@ Min. gespielt";
 "library.playTime.minutes" = "%@ Min. gespielt";
+"library.stats.title" = "Statistiken";
+"library.stats.topGames" = "Meistgespielt";
+"library.stats.totalTime" = "Gesamtzeit";
+"library.stats.gamesPlayed" = "Gespielte Spiele";
+"library.stats.sessions" = "Sitzungen";
+"library.stats.favoriteConsole" = "Lieblingskonsole";
+"library.stats.duration" = "%@ Std. %@ Min.";
+"library.stats.durationMin" = "%@ Min.";
 
 /* Game Details */
 "details.continue" = "Letzte Sitzung fortsetzen";
-"details.newGame" = "Neues Spiel";
-"details.saveSlots" = "Speicherplätze";
+"details.newGame" = "Vom Titelbildschirm starten";
+"details.saveSlots" = "Schnellspeicher-Plätze";
 "details.delete" = "Spiel löschen";
 "details.delete.confirm" = "Dieses Spiel und alle Speicherdaten löschen?";
 "details.rename" = "Umbenennen";
 "details.rename.title" = "Spiel umbenennen";
-"details.newGame.confirm.title" = "Neues Spiel starten?";
+"details.cover.choose" = "Cover auswählen";
+"details.cover.remove" = "Eigenes Cover entfernen";
+"details.cover.error" = "Das Bild konnte nicht gespeichert werden.";
+"details.newGame.confirm.title" = "Vom Titelbildschirm starten?";
+"details.newGame.confirm.message" = "Deine letzte Sitzung wird nicht fortgesetzt, aber dein spielinterner Spielstand und deine Schnellspeicher bleiben erhalten.";
+"details.launch.footer" = "Um deinen spielinternen Spielstand zu laden (den du über das spieleigene Speichern-Menü machst), starte das Spiel und setze über dessen Menü fort. Er ist getrennt von den Schnellspeicher-Plätzen unten, die du selbst erstellst.";
 
 /* In-Game Overlay */
 "overlay.paused" = "PAUSIERT";
 "overlay.resume" = "Fortsetzen";
-"overlay.rewind" = "%@ Sek. zurückspulen";
-"overlay.screenshot" = "Screenshot teilen";
-"overlay.quit" = "Zur Bibliothek";
+"overlay.rewind" = "%@s";
+"overlay.screenshot" = "Screenshot";
+"overlay.quit" = "Spiel beenden";
 "overlay.speed" = "TEMPO";
-"overlay.saveSlots" = "SPEICHERPLÄTZE";
+"overlay.saveSlots" = "SCHNELLSPEICHER-PLÄTZE";
 "overlay.slot" = "Platz %@";
 "overlay.slot.empty" = "Leer";
 "overlay.save" = "Speichern";
@@ -48,14 +62,13 @@
 /* Settings */
 "settings.title" = "Einstellungen";
 "settings.controls" = "Steuerung";
-"settings.opacity" = "Tasten-Deckkraft";
-"settings.size" = "Tastengröße";
-"settings.haptics" = "Haptisches Feedback";
-"settings.buttonLock" = "Tasten durch Halten sperren";
-"settings.buttonLock.controllerNote" = "Wird nicht verwendet, wenn ein Controller verbunden ist.";
+"settings.haptics" = "Haptik im Spiel";
 "settings.controller.footer" = "Bluetooth-Controller (Xbox, PlayStation, MFi) werden unterstützt. In den iOS-Einstellungen koppeln.";
+"settings.controls.controllerActive.footer" = "Ein Controller ist verbunden, daher sind die Touch-Einstellungen oben deaktiviert.";
+"settings.controls.dpad.footer" = "Die Einstellungen für Steuerkreuz/Joystick und Clip-Schaltfläche gelten für das Standard-Layout. Jedes eigene Profil hat seine eigene Steuerkreuz/Joystick-Einstellung; seine Clip-Schaltfläche bleibt immer sichtbar.";
 "settings.dpad" = "Steuerkreuz";
 "settings.joystick" = "Joystick";
+"settings.clipButton" = "Clip-Schaltfläche";
 "settings.nds.swapScreens" = "Bildschirme tauschen";
 "settings.nds.language" = "Spielsprache";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -90,12 +103,14 @@
 "pro.benefit.slots" = "5 Speicherplätze (statt 2)";
 "pro.benefit.rewind" = "30 Sekunden zurückspulen (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Cheat-Codes (GameShark / Action Replay)";
-"pro.benefit.controls" = "Eigene Steuerungs-Layouts (bis zu 3 Vorlagen)";
+"pro.benefit.controls" = "Eigene Steuerungs-Layouts";
 "pro.benefit.speed.short" = "Alle Geschwindigkeiten";
 "pro.benefit.slots.short" = "5 Speicherplätze";
 "pro.benefit.rewind.short" = "30 Sek. Rücklauf";
 "pro.benefit.cheats.short" = "Cheat-Codes";
 "pro.benefit.controls.short" = "Eigene Steuerung";
+"pro.benefit.skins" = "Eigene Konsolen-Skins erstellen";
+"pro.benefit.skins.short" = "Eigene Skins";
 "pro.badge" = "Pro-Funktion";
 "pro.seeAllBenefits" = "Alle Pro-Vorteile ansehen";
 
@@ -115,8 +130,7 @@
 "pro.compare.row.controls" = "Eigene Steuerung";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
-"pro.compare.values.proControls" = "3 Vorlagen";
-
+"pro.compare.row.skins" = "Skins erstellen";
 /* Prompts */
 "prompt.speed.title" = "Du hast %@ Minuten mit 1,5x gespielt";
 "prompt.speed.subtitle" = "Mit 4x vergeht dieselbe Sitzung im Flug. Schalte alle Geschwindigkeiten frei, für immer.";
@@ -131,11 +145,18 @@
 "prompt.generic.title" = "Retro Pal Pro";
 "prompt.generic.subtitle" = "Schalte alle Geschwindigkeiten, 5 Speicherplätze, 30 Sek. Rückspulen (GBA/GB/GBC) und mehr frei.";
 
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "Nostalgia";
+"card.style.classic" = "Klassisch";
+
 /* Screenshot */
 "screenshot.share" = "Teilen";
 "screenshot.save" = "Sichern";
 "screenshot.dismiss" = "Schließen";
-"screenshot.footer" = "Retro Pal im App Store";
+"screenshot.footer" = "Erstellt mit Retro Pal";
+"screenshot.hint" = "Halte deinen besten Moment fest, jederzeit.";
+"clip.hint" = "Du kannst jederzeit die letzten 6 Sekunden speichern.";
+"clip.loading" = "Wir fangen den Moment ein… einen Augenblick.";
 "screenshot.newGame" = "Gerade angefangen";
 "screenshot.proMember" = "👑 Pro-Mitglied";
 "screenshot.permissionDenied.title" = "Fotozugriff erforderlich";
@@ -153,9 +174,9 @@
 "legal.importantNotice.title" = "Wichtiger Hinweis";
 "legal.aboutApp.title" = "Über diese App";
 "legal.aboutApp.description1" = "Retro Pal ist ein lokales Emulator-Frontend für Game Boy Advance-, Game Boy-, Game Boy Color- und Nintendo DS-Spiele. Die App lädt keine Spiele herunter, verteilt sie nicht und bietet keinen Zugriff auf Spielinhalte. Alle ROM-Dateien müssen vom Nutzer aus dem eigenen Gerätespeicher über die Dateien-App importiert werden.";
-"legal.aboutApp.description2" = "Diese App stellt keine Verbindung zu externen Servern her, bietet keinen Spielkatalog und erleichtert nicht das Herunterladen urheberrechtlich geschützter Inhalte.";
+"legal.aboutApp.description2" = "Diese App bietet keinen Spielekatalog, verteilt keine Spielinhalte und erleichtert nicht das Herunterladen urheberrechtlich geschützter Inhalte.";
 "legal.privacy.title" = "Datenschutz";
-"legal.privacy.description" = "Retro Pal speichert alle Daten lokal auf deinem Gerät. Es werden keine personenbezogenen Daten, Nutzungsstatistiken oder Spielinformationen erfasst oder übertragen. Die App benötigt keine Internetverbindung.";
+"legal.privacy.description" = "Deine Spiele und Spielstände bleiben auf deinem Gerät. Zur Verbesserung der App sendet Retro Pal ausschließlich anonyme Nutzungsstatistiken, ohne personenbezogene Daten und ohne Werbe-IDs.";
 "legal.licenses.title" = "Open-Source-Lizenzen";
 "legal.mgba.licenseLine" = "Lizenziert unter der Mozilla Public License 2.0 (MPL-2.0)";
 "legal.mgba.description" = "mGBA ist ein Game Boy Advance-Emulator, der in dieser App als zentrales Emulator-Engine verwendet wird. Der Quellcode von mGBA ist verfügbar unter [https://mgba.io](https://mgba.io)";
@@ -166,7 +187,7 @@
 "legal.retropal.description" = "Der vollständige Quellcode von Retro Pal ist verfügbar unter [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Die Software wird ohne jegliche Gewährleistung bereitgestellt.";
 "legal.compliance" = "Retro Pal wird unter der GNU General Public License v3.0 vertrieben. Die App baut auf mGBA (Mozilla Public License 2.0) und melonDS (GPL-3.0) auf, die unverändert verwendet werden. Der vollständige zugehörige Quellcode ist im oben verlinkten Repository verfügbar, und die Software wird ohne jegliche Gewährleistung bereitgestellt.";
 
-"details.noSaves" = "Noch keine Spielstände. Speichere im Spiel über die Menütaste.";
+"details.noSaves" = "Noch keine Schnellspeicher. Erstelle einen im Spiel über die Menütaste.";
 "library.importing" = "ROM wird importiert...";
 
 /* Game Details - New */
@@ -174,7 +195,8 @@
 "library.importError" = "Importfehler";
 
 /* Overlay - New */
-"overlay.cheats" = "Cheat-Codes";
+"overlay.cheats" = "Cheats";
+"overlay.shareClip" = "Clip";
 "overlay.sound" = "Ton";
 "overlay.sound.off" = "Ton aus";
 "overlay.overwrite.title" = "Platz %@ überschreiben?";
@@ -199,7 +221,7 @@
 
 /* Emulator */
 "emulator.loading" = "ROM wird geladen...";
-"emulator.loadFailed" = "ROM konnte nicht geladen werden\n%@";
+"emulator.loadFailed" = "%@ konnte nicht geladen werden.\nDie Spieldatei ist offenbar beschädigt. Ersetze sie über die Spieldetails, um sie zu reparieren, ohne deine Spielstände zu verlieren.";
 
 /* Common */
 "common.cancel" = "Abbrechen";
@@ -233,46 +255,40 @@
 "layout.presets.footer" = "Drehe dein Gerät im Editor, um das Querformat-Layout separat anzupassen.";
 "layout.newPreset" = "Neue Vorlage";
 "layout.newPreset.title" = "Neue Vorlage";
-"layout.newPreset.message" = "Gib einen Namen für diese Vorlage ein.";
 "layout.newPreset.namePlaceholder" = "Vorlagenname";
 "layout.newPreset.create" = "Erstellen";
 "layout.editor.screenPreview" = "Spielbildschirm";
 "layout.editor.touchScreen" = "Touchscreen";
-"layout.editor.landscape" = "Bearbeiten: Querformat";
-"layout.editor.portrait" = "Bearbeiten: Hochformat";
 "layout.editor.reset" = "Zurücksetzen";
 "layout.editor.reset.title" = "Auf Standard zurücksetzen";
-"layout.editor.reset.message" = "Dies setzt alle Tastenpositionen für die aktuelle Ausrichtung auf ihre Standardpositionen zurück.";
-"layout.editor.visibility" = "Sichtbarkeit";
-"layout.editor.visibility.message" = "Tippe auf eine Taste, um sie ein- oder auszublenden.";
+"layout.editor.reset.message" = "Alle Steuerelemente und Bildschirme der aktuellen Ausrichtung werden auf ihre Standardposition, -größe und -deckkraft zurückgesetzt.";
 "layout.editor.show" = "Einblenden";
 "layout.editor.hide" = "Ausblenden";
-"layout.editor.menuCannotHide" = "Die Menü-Taste kann nicht ausgeblendet werden.";
+"layout.editor.hint" = "Tippe ein Steuerelement oder einen Bildschirm an, um es zu bearbeiten. Verschieben durch Ziehen, Größe ändern mit zwei Fingern.";
+"layout.editor.cannotHide" = "Die Menü- und die Clip-Schaltfläche bleiben immer sichtbar, damit du jederzeit pausieren und aufnehmen kannst.";
+"layout.editor.size" = "Größe";
+"layout.editor.opacity" = "Deckkraft";
 "layout.editor.topScreen" = "Oberer Bildschirm";
 "layout.editor.bottomScreen" = "Unterer Bildschirm";
-"layout.screenSize.small" = "Klein";
-"layout.screenSize.medium" = "Mittel";
-"layout.screenSize.large" = "Groß";
 "layout.editor.done" = "Fertig";
 "layout.newPreset.systems" = "Systeme";
-"layout.editor.buttons" = "Tasten";
 "prompt.controls.title" = "Finden Sie das perfekte Layout für Ihre Hände";
-"prompt.controls.subtitle" = "Passen Sie Tastenposition, Größe und Transparenz an. Erstellen Sie bis zu 3 Vorlagen für verschiedene Spiele.";
-"layout.editor.screenSize" = "Bildschirmgröße";
+"prompt.controls.subtitle" = "Passen Sie Tastenposition, Größe und Transparenz an. Erstellen Sie eigene Vorlagen für verschiedene Spiele.";
+"prompt.skins.title" = "Erstellen Sie den Skin Ihrer Träume";
+"prompt.skins.subtitle" = "Wählen Sie jede Farbe der Konsole, gestalten Sie sie nach Ihrem Geschmack und teilen Sie Ihre Kreationen.";
 "layout.editor.landscapeShort" = "Querformat";
 "layout.editor.portraitShort" = "Hochformat";
-"layout.editor.screenSizeLandscapeInfo" = "Die Bildschirmgröße kann nur im Hochformat angepasst werden. Im Querformat werden beide Bildschirme nebeneinander in gleicher Größe angezeigt.";
-/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
 "pro.legal.terms" = "Nutzungsbedingungen";
 "pro.legal.privacy" = "Datenschutzrichtlinie";
 
-/* Settings — iCloud-Synchronisation (Woche 4) */
+/* Settings - iCloud-Synchronisation (Woche 4) */
 "settings.sync.section" = "Synchronisation";
 "settings.sync.state.resolving" = "Wird verbunden…";
-"settings.sync.state.available" = "Synchronisiert";
+"settings.sync.state.available" = "Aktiviert";
 "settings.sync.state.unavailable" = "Nicht verfügbar";
 
-/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
 "saveImport.title" = "Spielstand importieren";
 "saveImport.success.title" = "Spielstand importiert";
 "saveImport.success.message" = "Starte %@ und setze über das spieleigene Menü fort. Dieser Spielstand erscheint nicht in den Speicherplätzen der App.";
@@ -315,3 +331,138 @@
 "saveImport.mismatch.title" = "Spielstand eines anderen Spiels?";
 "saveImport.mismatch.message" = "Der Dateiname passt nicht zu %@. Importiere ihn nur, wenn du sicher bist, dass er zu diesem Spiel gehört.";
 "saveImport.mismatch.confirm" = "Trotzdem importieren";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "Spieldatei ersetzen";
+"replaceROM.success.title" = "Spieldatei ersetzt";
+"replaceROM.success.message" = "Die Spieldatei wurde ersetzt. Deine Spielstände bleiben erhalten.";
+"replaceROM.error.differentGame" = "Das ist ein anderes Spiel. Wähle die Datei desselben Spiels, damit deine Spielstände gültig bleiben.";
+"replaceROM.error.invalid" = "Diese Datei konnte nicht gelesen werden. Wähle eine gültige Kopie desselben Spiels.";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "iCloud-Synchronisierung";
+"settings.sync.state.disabled" = "Aus";
+"settings.sync.footer" = "Deine Schnellspeicher werden in deiner privaten iCloud und zwischen deinen Geräten synchronisiert. Schalte dies aus, um sie nur auf diesem iPhone zu behalten.";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "Auto-Sperre";
+"overlay.buttonLock.caption" = "Lange auf %@ drücken, um die Taste gedrückt zu halten, tippen zum Lösen.";
+"overlay.orientation" = "Ausrichtung";
+"overlay.orientation.auto" = "Auto";
+"overlay.orientation.landscape" = "Querformat";
+"overlay.orientation.portrait" = "Hochformat";
+
+/* Clip card alerts */
+"clip.notReady.title" = "Clip noch nicht bereit";
+"clip.notReady.message" = "Spiel noch ein paar Sekunden weiter und versuch es dann erneut.";
+"clip.failed.title" = "Clip konnte nicht erstellt werden";
+"clip.failed.message" = "Bitte versuch es erneut.";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "iCloud-Schnellspeicher nicht verfügbar";
+"details.iCloudUnavailable.body" = "Deine Schnellspeicher sind sicher in iCloud, aber gerade nicht erreichbar. Setze nichts zurück und starte kein neues Spiel. Sie kommen zurück, sobald iCloud wieder verbunden ist.";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "Die gestalteten Skins benötigen das Standard-Steuerungslayout. Diese Konsole nutzt ein eigenes Layout, daher ist nur Invisible verfügbar.";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "Skin erstellen";
+"skin.edit" = "Bearbeiten";
+"skin.delete" = "Löschen";
+"skin.editor.title.create" = "Neuer Skin";
+"skin.editor.title.edit" = "Skin bearbeiten";
+"skin.editor.body" = "Gehäuse";
+"skin.editor.surround" = "Rahmen";
+"skin.editor.dpad" = "Steuerkreuz";
+"skin.editor.abButtons" = "A/B-Tasten";
+"skin.editor.abLetters" = "A/B-Beschriftung";
+"skin.editor.smallButtons" = "Kleine Tasten";
+"skin.editor.menuIcons" = "Menü-Symbole";
+"skin.editor.labels" = "SELECT/START-Text";
+"skin.editor.stripe" = "Streifen";
+"skin.editor.printedText" = "Aufdruck";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "Gib deinem Skin einen Namen";
+"skin.editor.create" = "Erstellen";
+"skin.editor.save" = "Speichern";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "Teilen";
+"skin.import.success.title" = "Skin importiert";
+"skin.import.success.message" = "„%1$@“ wurde zu deinen %2$@-Skins hinzugefügt.";
+"skin.import.full.title" = "Bibliothek voll";
+"skin.import.full.message" = "Du hast bereits 6 %@-Skins. Lösche einen und importiere erneut.";
+"skin.import.failed.title" = "Import fehlgeschlagen";
+"skin.import.failed.message" = "Diese Skin-Datei ist ungültig oder beschädigt.";
+"skin.import" = "Skin importieren";
+"skin.importInfo.title" = "Skin importieren";
+"skin.importInfo.message" = "Retro-Pal-Skins sind „.retropalskin“-Dateien von Freunden oder aus dem Internet. Speichere eine auf deinem Gerät und wähle sie in „Dateien“ aus.";
+"skin.import.duplicate.title" = "Bereits importiert";
+"skin.import.duplicate.message" = "„%1$@“ ist bereits in deinen %2$@-Skins.";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "Tasten";
+"skin.editor.letters" = "Beschriftung";
+"skin.editor.ink" = "Gravur";
+"skin.editor.menuButtons" = "Menü-Tasten";
+
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "Verdiene Erfolge in unterstützten Spielen. Kostenlos und optional, mit deinem eigenen RetroAchievements-Konto.";
+"ra.connect" = "Konto verbinden";
+"ra.signOut" = "Abmelden";
+"ra.pointsSuffix" = "Pkt.";
+"ra.login.username" = "Benutzername";
+"ra.login.password" = "Passwort";
+"ra.login.footer" = "Melde dich mit deinem RetroAchievements-Konto an. Dein Passwort wird einmalig zur Anmeldung an RetroAchievements gesendet und nie auf diesem Gerät gespeichert.";
+"ra.login.signIn" = "Anmelden";
+"ra.login.createAccount" = "RetroAchievements-Konto erstellen";
+"ra.error.login" = "Anmeldung fehlgeschlagen. Überprüfe Benutzername und Passwort.";
+"ra.error.server" = "RetroAchievements-Anfrage fehlgeschlagen.";
+"ra.hud.unlocked" = "Erfolg freigeschaltet";
+"ra.dashboard.title" = "Erfolge";
+"ra.dashboard.unlocked" = "Freigeschaltet";
+"ra.dashboard.locked" = "Verbleibend";
+"ra.dashboard.empty" = "Dieses Spiel hat keine Erfolge oder es sind noch keine geladen.";
+"ra.dashboard.summary" = "%lld von %lld freigeschaltet";
+"ra.dashboard.rarity" = "%@ der Spieler";
+"ra.dashboard.shareHint" = "Tippe auf einen freigeschalteten Erfolg, um ihn zu teilen.";
+"ra.dashboard.pendingSync" = "Einige Erfolge warten auf die Synchronisierung. Sie werden hochgeladen, sobald du wieder online bist.";
+"ra.card.unlocked" = "ERFOLG FREIGESCHALTET";
+"details.achievements" = "Erfolge ansehen";
+"ra.about.title" = "Über RetroAchievements";
+"ra.about.what" = "RetroAchievements ist ein kostenloses Community-Projekt, das klassischen Spielen Erfolge hinzufügt. Du verdienst sie, indem du beim Spielen Meilensteine erreichst, und sie werden mit deinem RetroAchievements-Profil synchronisiert.";
+"ra.about.modes" = "Du spielst im Softcore-Modus: Du kannst Zurückspulen, Savestates und Verlangsamung nutzen und trotzdem jeden Erfolg behalten. Hardcore ist eine reine Herausforderung mit nur einem Leben, ohne diese Funktionen. Er kommt, sobald Retro Pal sechs Monate im App Store ist, etwa im Dezember 2026.";
+"ra.details.invite.headline" = "Verdiene Erfolge in diesem Spiel";
+"ra.details.invite.caption" = "Für dieses Spiel gibt es RetroAchievements-Erfolge: Herausforderungen, die du beim Spielen meisterst, festgehalten mit einem kostenlosen Konto.";
+"ra.details.unavailable" = "RetroAchievements ist für dieses Spiel nicht verfügbar.";
+"ra.library.invite.caption" = "Deine Spiele haben RetroAchievements-Erfolge. Verbinde ein kostenloses Konto, um sie beim Spielen zu verdienen.";
+"ra.library.recent" = "Zuletzt freigeschaltet";
+"ra.library.noUnlocks" = "Deine neuesten Erfolge erscheinen hier.";
+"ra.profile.games" = "Spiele mit Erfolgen";
+"ra.profile.openGame" = "Spielseite öffnen";
+"ra.profile.expandHint" = "Öffnen, um die Erfolge zu sehen";
+"ra.card.game" = "ERFOLGE";
+"ra.session.offline" = "Erfolge offline pausiert. Sie werden automatisch fortgesetzt.";
+"ra.session.resumed" = "Erfolge aktiv";
+"ra.card.completed" = "Abgeschlossen";
+"ra.card.games" = "Spiele";
+"ra.share.progress" = "Fortschritt teilen";
+"ra.offline" = "Keine Internetverbindung.";
+"ra.load.failed" = "Die Erfolge konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.";
+"ra.retry" = "Erneut versuchen";
+"ra.profile.unsupported" = "Nicht auf RetroAchievements";
+"ra.profile.unsupported.footer" = "Diese Spiele haben keine Erfolge auf RetroAchievements. Manchmal ist nur die englische Version eines Spiels abgedeckt.";
+"ra.layout.toggle" = "Erfolgsansicht wechseln";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "Auf die ausgewählte Datei kann nicht zugegriffen werden. Versuche, sie über die Dateien-App zu importieren.";
+"import.error.copyFailed" = "Das Spiel konnte nicht in Retro Pal kopiert werden. Gib Speicherplatz frei und versuche es erneut.";
+"import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc und .nds.";
+"import.error.zipNoROM" = "In diesem ZIP wurde keine Spieldatei gefunden. Retro Pal liest Spiele in .gba, .gb, .gbc und .nds; andere Konsolen werden nicht unterstützt.";
+"import.error.zipMultipleROMs" = "Dieses ZIP enthält mehrere Spiele. Entpacke es in der Dateien-App und importiere dann jedes Spiel einzeln.";
+"import.error.zipExtractionFailed" = "Dieses ZIP konnte nicht geöffnet werden. Entpacke es in der Dateien-App und importiere die Spieldatei direkt.";
+"import.error.alreadyImported" = "Dieses Spiel ist bereits in deiner Bibliothek.";
+"import.error.saveFailed" = "Das Spiel konnte nicht zur Bibliothek hinzugefügt werden. Versuche es erneut.";
+"import.error.differentGame" = "Diese Datei ist ein anderes Spiel als das, das du ersetzt.";

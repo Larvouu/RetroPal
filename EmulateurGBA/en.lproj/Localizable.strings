@@ -7,7 +7,7 @@
 /* Library */
 "library.title" = "Library";
 "library.empty.title" = "Welcome to Retro Pal";
-"library.empty.subtitle" = "Play your retro games on iPhone. No ads, no tracking, ever.";
+"library.empty.subtitle" = "Play your retro games on iPhone. No ads, no personal tracking.";
 "library.empty.button" = "Add a game";
 "library.empty.step1" = "Get a game (.gba, .gb, .gbc or .nds) onto your iPhone, via Safari, AirDrop or iCloud Drive.";
 "library.empty.step2" = "Tap %@, then pick the file in the Files app.";
@@ -18,28 +18,42 @@
 "library.sort.lastPlayed" = "Last Played";
 "library.sort.title" = "Title";
 "library.sort.dateAdded" = "Date Added";
+"library.sort.byConsole" = "By Console";
 "library.played.ago" = "Played %@";
 "library.playTime" = "%@h %@m played";
 "library.playTime.minutes" = "%@m played";
+"library.stats.title" = "Statistics";
+"library.stats.topGames" = "Most played";
+"library.stats.totalTime" = "Total time";
+"library.stats.gamesPlayed" = "Games played";
+"library.stats.sessions" = "Sessions";
+"library.stats.favoriteConsole" = "Favorite console";
+"library.stats.duration" = "%@h %@m";
+"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Continue Last Session";
-"details.newGame" = "New Game";
-"details.saveSlots" = "Save Slots";
+"details.newGame" = "Start from Title Screen";
+"details.saveSlots" = "Quick-Save Slots";
 "details.delete" = "Delete Game";
 "details.delete.confirm" = "Delete this game and all save data?";
 "details.rename" = "Rename";
 "details.rename.title" = "Rename game";
-"details.newGame.confirm.title" = "Start a new game?";
+"details.cover.choose" = "Choose Cover Image";
+"details.cover.remove" = "Remove Custom Cover";
+"details.cover.error" = "The image could not be saved.";
+"details.newGame.confirm.title" = "Start from the title screen?";
+"details.newGame.confirm.message" = "You won't resume your last session, but your in-game save and quick-saves are safe.";
+"details.launch.footer" = "To load your in-game save (the one you make from the game's own Save menu), launch the game and resume from its menu. It's separate from the quick-save slots below, which you create yourself.";
 
 /* Overlay Menu */
 "overlay.paused" = "PAUSED";
 "overlay.resume" = "Resume";
-"overlay.rewind" = "Rewind %@s";
-"overlay.screenshot" = "Share Screenshot";
-"overlay.quit" = "Quit to Library";
+"overlay.rewind" = "%@s";
+"overlay.screenshot" = "Screenshot";
+"overlay.quit" = "Quit Game";
 "overlay.speed" = "SPEED";
-"overlay.saveSlots" = "SAVE SLOTS";
+"overlay.saveSlots" = "QUICK-SAVE SLOTS";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Empty";
 "overlay.save" = "Save";
@@ -48,14 +62,13 @@
 /* Settings */
 "settings.title" = "Settings";
 "settings.controls" = "Controls";
-"settings.opacity" = "Button Opacity";
-"settings.size" = "Button Size";
-"settings.haptics" = "Haptic Feedback";
-"settings.buttonLock" = "Hold to lock buttons";
-"settings.buttonLock.controllerNote" = "Not used while a controller is connected.";
+"settings.haptics" = "In-Game Haptic Feedback";
 "settings.controller.footer" = "Bluetooth controllers (Xbox, PlayStation, MFi) are supported. Pair one in iOS Settings.";
+"settings.controls.controllerActive.footer" = "A controller is connected, so the touch-control settings above are turned off.";
+"settings.controls.dpad.footer" = "The D-Pad/Joystick and clip-button choices apply to the default layout. Each custom preset has its own D-Pad/Joystick choice, and its clip button always stays visible.";
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
+"settings.clipButton" = "Clip button";
 "settings.nds.swapScreens" = "Swap screens";
 "settings.nds.language" = "Game Language";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -90,12 +103,14 @@
 "pro.benefit.slots" = "5 save slots (up from 2)";
 "pro.benefit.rewind" = "30-second rewind (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Cheat codes (GameShark / Action Replay)";
-"pro.benefit.controls" = "Custom control layouts (up to 3 presets)";
+"pro.benefit.controls" = "Custom control layouts";
 "pro.benefit.speed.short" = "All speeds";
 "pro.benefit.slots.short" = "5 save slots";
 "pro.benefit.rewind.short" = "30-second rewind";
 "pro.benefit.cheats.short" = "Cheat codes";
 "pro.benefit.controls.short" = "Custom controls";
+"pro.benefit.skins" = "Create custom console skins";
+"pro.benefit.skins.short" = "Custom skins";
 "pro.badge" = "Pro feature";
 "pro.seeAllBenefits" = "See everything in Pro";
 
@@ -115,8 +130,7 @@
 "pro.compare.row.controls" = "Custom controls";
 "pro.compare.values.freeSpeeds" = "1×, 1.5×";
 "pro.compare.values.proSpeeds" = "0.25×–4×";
-"pro.compare.values.proControls" = "3 presets";
-
+"pro.compare.row.skins" = "Skin creation";
 /* Pro Prompts */
 "prompt.speed.title" = "You've played %@ minutes at 1.5x";
 "prompt.speed.subtitle" = "At 4x, the same session flies by. Unlock all speeds, forever.";
@@ -131,11 +145,18 @@
 "prompt.generic.title" = "Retro Pal Pro";
 "prompt.generic.subtitle" = "Unlock all speeds, 5 save slots, 30s rewind (GBA/GB/GBC), and more.";
 
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "Nostalgia";
+"card.style.classic" = "Classic";
+
 /* Screenshot */
 "screenshot.share" = "Share";
 "screenshot.save" = "Save";
 "screenshot.dismiss" = "Dismiss";
-"screenshot.footer" = "Retro Pal on the App Store";
+"screenshot.footer" = "Made with Retro Pal";
+"screenshot.hint" = "Capture your best moment, anytime.";
+"clip.hint" = "You can save the last 6 seconds anytime.";
+"clip.loading" = "Capturing the moment… one sec.";
 "screenshot.newGame" = "Just started";
 "screenshot.proMember" = "👑 Pro Member";
 "screenshot.permissionDenied.title" = "Photo Access Required";
@@ -153,9 +174,9 @@
 "legal.importantNotice.title" = "Important Notice";
 "legal.aboutApp.title" = "About This App";
 "legal.aboutApp.description1" = "Retro Pal is a local emulator frontend for Game Boy Advance, Game Boy, Game Boy Color, and Nintendo DS games. It does not download, distribute, or provide access to any game content. All ROM files must be imported by the user from their own device storage via the Files app.";
-"legal.aboutApp.description2" = "This app does not connect to any external servers, does not provide a game catalog, and does not facilitate downloading copyrighted material.";
+"legal.aboutApp.description2" = "This app does not provide a game catalog, does not distribute game content, and does not facilitate downloading copyrighted material.";
 "legal.privacy.title" = "Privacy";
-"legal.privacy.description" = "Retro Pal stores all data locally on your device. No personal data, usage statistics, or game information is collected or transmitted. The app requires no internet connection to function.";
+"legal.privacy.description" = "Your games and saves stay on your device. To improve the app, Retro Pal sends only anonymous usage statistics, no personal data, no advertising identifiers.";
 "legal.licenses.title" = "Open Source Licenses";
 "legal.mgba.licenseLine" = "Licensed under the Mozilla Public License 2.0 (MPL-2.0)";
 "legal.mgba.description" = "mGBA is a Game Boy Advance emulator used as the core emulation engine in this app. The source code for mGBA is available at [https://mgba.io](https://mgba.io)";
@@ -166,13 +187,14 @@
 "legal.retropal.description" = "Retro Pal's complete source code is available at [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). The software is provided without any warranty.";
 "legal.compliance" = "Retro Pal is distributed under the GNU General Public License v3.0. It builds on mGBA (Mozilla Public License 2.0) and melonDS (GPL-3.0), used without modification. The complete corresponding source code is available at the repository linked above, and the software comes with no warranty.";
 
-"details.noSaves" = "No save states yet. Save during gameplay with the menu button.";
+"details.noSaves" = "No quick-saves yet. Make one during gameplay with the menu button.";
 "details.play" = "Play";
 "library.importing" = "Importing ROM...";
 "library.importError" = "Import Error";
 
 /* Overlay extras */
-"overlay.cheats" = "Cheat Codes";
+"overlay.cheats" = "Cheats";
+"overlay.shareClip" = "Clip";
 "overlay.sound" = "Sound";
 "overlay.sound.off" = "Sound Off";
 "overlay.overwrite.title" = "Overwrite Slot %@?";
@@ -197,7 +219,7 @@
 
 /* Emulator */
 "emulator.loading" = "Loading ROM...";
-"emulator.loadFailed" = "Failed to load ROM\n%@";
+"emulator.loadFailed" = "Couldn't load %@.\nThe game file looks damaged. Replace it from the game's details to fix it, keeping your saves.";
 
 /* Common */
 "common.cancel" = "Cancel";
@@ -231,46 +253,40 @@
 "layout.presets.footer" = "Rotate your device in the editor to customize landscape layout separately.";
 "layout.newPreset" = "New Preset";
 "layout.newPreset.title" = "New Preset";
-"layout.newPreset.message" = "Enter a name for this preset.";
 "layout.newPreset.namePlaceholder" = "Preset name";
 "layout.newPreset.create" = "Create";
 "layout.editor.screenPreview" = "Game Screen";
 "layout.editor.touchScreen" = "Touch Screen";
-"layout.editor.landscape" = "Editing: Landscape";
-"layout.editor.portrait" = "Editing: Portrait";
 "layout.editor.reset" = "Reset";
 "layout.editor.reset.title" = "Reset to Default";
-"layout.editor.reset.message" = "This will reset all button positions for the current orientation to their default locations.";
-"layout.editor.visibility" = "Visibility";
-"layout.editor.visibility.message" = "Tap a button to show or hide it.";
+"layout.editor.reset.message" = "This resets every control and screen in the current orientation to its default position, size, and opacity.";
 "layout.editor.show" = "Show";
 "layout.editor.hide" = "Hide";
-"layout.editor.menuCannotHide" = "The menu button cannot be hidden.";
+"layout.editor.hint" = "Tap a control or a screen to edit it. Drag to move, pinch to resize.";
+"layout.editor.cannotHide" = "Menu and Clip always stay visible, so you can pause and record at any time.";
+"layout.editor.size" = "Size";
+"layout.editor.opacity" = "Opacity";
 "layout.editor.topScreen" = "Top Screen";
 "layout.editor.bottomScreen" = "Bottom Screen";
-"layout.screenSize.small" = "Small";
-"layout.screenSize.medium" = "Medium";
-"layout.screenSize.large" = "Large";
 "layout.editor.done" = "Done";
 "layout.newPreset.systems" = "Systems";
-"layout.editor.buttons" = "Buttons";
 "prompt.controls.title" = "Find the perfect layout for your hands";
-"prompt.controls.subtitle" = "Customize button positions, size, and opacity. Create up to 3 presets for different games.";
-"layout.editor.screenSize" = "Screen Size";
+"prompt.controls.subtitle" = "Customize button positions, size, and opacity. Save your own layouts for different games.";
+"prompt.skins.title" = "Create the skin of your dreams";
+"prompt.skins.subtitle" = "Pick every color of the console, make it your own, and share your creations.";
 "layout.editor.landscapeShort" = "Landscape";
 "layout.editor.portraitShort" = "Portrait";
-"layout.editor.screenSizeLandscapeInfo" = "Screen sizing is only available in portrait mode. In landscape, both screens are displayed side by side at the same size.";
-/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
 "pro.legal.terms" = "Terms of Use";
 "pro.legal.privacy" = "Privacy Policy";
 
-/* Settings — iCloud sync section (Week 4) */
+/* Settings - iCloud sync section (Week 4) */
 "settings.sync.section" = "Synchronization";
 "settings.sync.state.resolving" = "Connecting…";
-"settings.sync.state.available" = "Synced";
+"settings.sync.state.available" = "On";
 "settings.sync.state.unavailable" = "Unavailable";
 
-/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
 "saveImport.title" = "Import Save";
 "saveImport.success.title" = "Save Imported";
 "saveImport.success.message" = "Launch %@ and resume from the game's own menu. This save does not appear in the app's save slots.";
@@ -313,3 +329,137 @@
 "saveImport.mismatch.title" = "Save from a different game?";
 "saveImport.mismatch.message" = "The file name doesn't match %@. Only import it if you're sure it belongs to this game.";
 "saveImport.mismatch.confirm" = "Import anyway";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "Replace game file";
+"replaceROM.success.title" = "Game File Replaced";
+"replaceROM.success.message" = "The game file was replaced. Your save states are kept.";
+"replaceROM.error.differentGame" = "This is a different game. Choose the same game's file so your saves stay valid.";
+"replaceROM.error.invalid" = "Couldn't read this file. Choose a valid copy of the same game.";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "iCloud sync";
+"settings.sync.state.disabled" = "Off";
+"settings.sync.footer" = "Your quick-saves sync to your private iCloud and across your devices. Turn this off to keep them on this iPhone only.";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "Auto lock";
+"overlay.buttonLock.caption" = "Long-press %@ to keep it held, tap to release.";
+"overlay.orientation" = "Orientation";
+"overlay.orientation.auto" = "Auto";
+"overlay.orientation.landscape" = "Landscape";
+"overlay.orientation.portrait" = "Portrait";
+
+/* Clip card alerts */
+"clip.notReady.title" = "Clip not ready yet";
+"clip.notReady.message" = "Play a few more seconds, then try again.";
+"clip.failed.title" = "Couldn't create the clip";
+"clip.failed.message" = "Please try again.";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "iCloud quick-saves unavailable";
+"details.iCloudUnavailable.body" = "Your quick-saves are safe in iCloud but can't be reached right now. Don't reset or start a new game. They'll come back when iCloud reconnects.";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "Dressed skins need the default control layout. This console uses a custom one, so only Invisible is available.";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "Create a skin";
+"skin.edit" = "Edit";
+"skin.delete" = "Delete";
+"skin.editor.title.create" = "New skin";
+"skin.editor.title.edit" = "Edit skin";
+"skin.editor.body" = "Body";
+"skin.editor.surround" = "Screen frame";
+"skin.editor.dpad" = "D-pad";
+"skin.editor.abButtons" = "A/B buttons";
+"skin.editor.abLetters" = "A/B letters";
+"skin.editor.smallButtons" = "Small buttons";
+"skin.editor.menuIcons" = "Menu icons";
+"skin.editor.labels" = "SELECT/START text";
+"skin.editor.stripe" = "Stripe";
+"skin.editor.printedText" = "Printed text";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "Give your skin a name";
+"skin.editor.create" = "Create";
+"skin.editor.save" = "Save";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "Share";
+"skin.import.success.title" = "Skin imported";
+"skin.import.success.message" = "“%1$@” was added to your %2$@ skins.";
+"skin.import.full.title" = "Library full";
+"skin.import.full.message" = "You already have 6 %@ skins. Delete one, then import again.";
+"skin.import.failed.title" = "Import failed";
+"skin.import.failed.message" = "This skin file is invalid or damaged.";
+"skin.import" = "Import skin";
+"skin.importInfo.title" = "Import a skin";
+"skin.importInfo.message" = "Retro Pal skins are “.retropalskin” files you can get from friends or online. Save one to your device, then choose it in Files.";
+"skin.import.duplicate.title" = "Already imported";
+"skin.import.duplicate.message" = "“%1$@” is already in your %2$@ skins.";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "Buttons";
+"skin.editor.letters" = "Letters";
+"skin.editor.ink" = "Ink";
+"skin.editor.menuButtons" = "Menu buttons";
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "Earn achievements in supported games. Free and optional, with your own RetroAchievements account.";
+"ra.connect" = "Connect your account";
+"ra.signOut" = "Sign out";
+"ra.pointsSuffix" = "pts";
+"ra.login.username" = "Username";
+"ra.login.password" = "Password";
+"ra.login.footer" = "Sign in with your RetroAchievements account. Your password is sent once to RetroAchievements to sign in and is never stored on this device.";
+"ra.login.signIn" = "Sign In";
+"ra.login.createAccount" = "Create a RetroAchievements account";
+"ra.error.login" = "Login failed. Check your username and password.";
+"ra.error.server" = "RetroAchievements request failed.";
+"ra.hud.unlocked" = "Achievement unlocked";
+"ra.dashboard.title" = "Achievements";
+"ra.dashboard.unlocked" = "Unlocked";
+"ra.dashboard.locked" = "Remaining";
+"ra.dashboard.empty" = "This game has no achievements, or none are loaded yet.";
+"ra.dashboard.summary" = "%lld of %lld unlocked";
+"ra.dashboard.rarity" = "%@ of players";
+"ra.dashboard.shareHint" = "Tap an unlocked achievement to share it.";
+"ra.dashboard.pendingSync" = "Some unlocks are waiting to sync. They will upload when you are back online.";
+"ra.card.unlocked" = "ACHIEVEMENT UNLOCKED";
+"details.achievements" = "View achievements";
+"ra.about.title" = "About RetroAchievements";
+"ra.about.what" = "RetroAchievements is a free community project that adds achievements to classic games. You earn them by reaching milestones as you play, and they sync to your RetroAchievements profile.";
+"ra.about.modes" = "You are earning in softcore, so you can use rewind, save states and slowdown and still keep every achievement. Hardcore is a pure, single-life challenge with those turned off. It arrives once Retro Pal has been on the App Store for six months, around December 2026.";
+"ra.details.invite.headline" = "Earn achievements in this game";
+"ra.details.invite.caption" = "This game has a RetroAchievements set: challenges to complete as you play, tracked with a free account.";
+"ra.details.unavailable" = "RetroAchievements is not available for this game.";
+"ra.library.invite.caption" = "Your games have RetroAchievements sets. Connect a free account to earn achievements as you play.";
+"ra.library.recent" = "Last unlocked";
+"ra.library.noUnlocks" = "Your latest achievements will appear here.";
+"ra.profile.games" = "Games with achievements";
+"ra.profile.openGame" = "Open the game page";
+"ra.profile.expandHint" = "Open to see its achievements";
+"ra.card.game" = "ACHIEVEMENTS";
+"ra.session.offline" = "Achievements paused while offline. They resume automatically.";
+"ra.session.resumed" = "Achievements active";
+"ra.card.completed" = "Completed";
+"ra.card.games" = "Games";
+"ra.share.progress" = "Share your progress";
+"ra.offline" = "No internet connection.";
+"ra.load.failed" = "Achievements couldn't load. Check your connection and try again.";
+"ra.retry" = "Try again";
+"ra.profile.unsupported" = "Not on RetroAchievements";
+"ra.profile.unsupported.footer" = "These games have no achievements on RetroAchievements. Sometimes only the English version of a game is covered.";
+"ra.layout.toggle" = "Change achievements layout";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "The selected file can't be accessed. Try importing it from the Files app.";
+"import.error.copyFailed" = "The game couldn't be copied into Retro Pal. Free up some storage and try again.";
+"import.error.invalidROM" = "This file isn't a game Retro Pal can read. Supported games: .gba, .gb, .gbc and .nds.";
+"import.error.zipNoROM" = "No game file was found in this ZIP. Retro Pal reads .gba, .gb, .gbc and .nds games; other consoles aren't supported.";
+"import.error.zipMultipleROMs" = "This ZIP contains several games. Extract it in the Files app, then import each game on its own.";
+"import.error.zipExtractionFailed" = "This ZIP couldn't be opened. Extract it in the Files app, then import the game file directly.";
+"import.error.alreadyImported" = "This game is already in your library.";
+"import.error.saveFailed" = "The game couldn't be added to your library. Please try again.";
+"import.error.differentGame" = "This file is a different game from the one you're replacing.";

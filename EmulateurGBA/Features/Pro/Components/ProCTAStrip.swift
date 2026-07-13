@@ -21,6 +21,10 @@ struct ProCTAStrip: View {
     let compact: Bool
     let onDismiss: () -> Void
 
+    // @MainActor so the `.shared` default argument (ProManager is @MainActor) is
+    // evaluated in a main-actor context. All call sites are SwiftUI bodies, which
+    // are already on the main actor. Without this it warns under Swift 6.
+    @MainActor
     init(proManager: ProManager = .shared,
          compact: Bool = false,
          onDismiss: @escaping () -> Void) {
@@ -53,9 +57,12 @@ struct ProCTAStrip: View {
                     Text(String(format: NSLocalizedString("pro.forever", comment: ""),
                                 product.displayPrice))
                         .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundStyle(ProPalette.ctaTextDark)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, compact ? 12 : 16)
+                        .padding(.vertical, compact ? 0 : 16)
+                        .frame(height: compact ? 46 : nil)
                         .background(ProPalette.ctaGradient)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .shadow(color: ProPalette.gold.opacity(0.3), radius: 12)
@@ -98,9 +105,10 @@ struct ProCTAStrip: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.white.opacity(0.5))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, compact ? 8 : 14)
+                    .padding(.vertical, compact ? 0 : 14)
+                    .frame(height: compact ? 46 : nil)
                     .background(Color.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -115,7 +123,7 @@ struct ProCTAStrip: View {
                 .foregroundStyle(.white.opacity(0.3))
             }
         }
-        .padding(.horizontal, compact ? 20 : 28)
+        .padding(.horizontal, compact ? 16 : 28)
     }
 
     // MARK: - Processing / Pending / Failed / Success

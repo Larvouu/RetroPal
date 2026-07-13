@@ -12,4 +12,7 @@
 #import "MGBABridge.h"
 #import "MelonDSBridge.h"
 
+// RetroAchievements (rc_client) ObjC++ wrapper, exposed to Swift.
+#import "../../Data/RetroAchievements/RAClient.h"
+
 #endif /* EmulateurGBA_Bridging_Header_h */

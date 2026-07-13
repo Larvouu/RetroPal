@@ -392,6 +392,40 @@ static int resolveNDSLanguageFromLocale(void) {
     // melonDS doesn't have a built-in speed multiplier API
 }
 
+// MARK: - Memory (RetroAchievements)
+
+- (NSInteger)readMemoryAtAddress:(uint32_t)address into:(uint8_t *)buffer length:(NSInteger)length {
+    // The RA layer has already translated the flat RA address to the real bus
+    // address (rc_console_memory_regions, NDS): main RAM at 0x02000000 (the
+    // DS's 4MB, mirrored via MainRAMMask) and the ARM9 DTCM at rcheevos'
+    // 0x0E000000 PSEUDO-address — the DTCM is CPU-relocatable, so RA pins it
+    // there and we serve the physical 16KB buffer directly. Plain array reads
+    // on the emulation thread (rc_client_do_frame runs between frames, the
+    // same thread as runFrame), read-only, no bus side effects.
+    if (!_nds || !_romLoaded || !buffer || length <= 0) return 0;
+
+    if (address >= 0x02000000u && address < 0x02400000u) {   // the RA region is the DS's 4MB
+        const melonDS::u8 *ram = _nds->MainRAM;
+        if (!ram) return 0;
+        for (NSInteger i = 0; i < length; i++) {
+            buffer[i] = ram[(address - 0x02000000u + (uint32_t)i) & _nds->MainRAMMask];
+        }
+        return length;
+    }
+
+    if (address >= 0x0E000000u && address < 0x0E000000u + melonDS::DTCMPhysicalSize) {
+        const melonDS::u8 *dtcm = _nds->ARM9.DTCM;
+        if (!dtcm) return 0;
+        uint32_t offset = address - 0x0E000000u;
+        NSInteger available = (NSInteger)(melonDS::DTCMPhysicalSize - offset);
+        NSInteger toRead = length < available ? length : available;
+        memcpy(buffer, dtcm + offset, (size_t)toRead);
+        return toRead;
+    }
+
+    return 0;
+}
+
 // MARK: - Audio
 
 - (unsigned int)audioSampleRate {

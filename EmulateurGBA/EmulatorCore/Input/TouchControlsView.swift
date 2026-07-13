@@ -49,6 +49,17 @@ class TouchControlsView: UIView {
     /// Buttons eligible for long-press lock. GBA: A, B. NDS subclass widens to A, B, X, Y.
     var lockableMask: UInt32 { GBAInput.a.rawValue | GBAInput.b.rawValue }
 
+    /// Whether the hold-to-lock gesture is active. Set PER-GAME by the emulator
+    /// VC (off by default) — it's an assist for hold-heavy games and noise in
+    /// most others. Turning it off clears any active lock so the player is never
+    /// left with a stuck button.
+    var buttonLockEnabled = false {
+        didSet {
+            guard oldValue != buttonLockEnabled, !buttonLockEnabled else { return }
+            clearAllLocks()
+        }
+    }
+
     /// True while a game controller is connected. When set, the on-screen game
     /// controls are hidden and touch input is ignored — but the Menu button
     /// stays visible and tappable, so the player can always reach the pause
@@ -101,12 +112,16 @@ class TouchControlsView: UIView {
     let btnR = ShoulderButton(label: "R")
     let btnStart = SmallButton(label: "START")
     let btnSelect = SmallButton(label: "SELECT")
-    let btnMenu = SmallButton(label: "⋯")
+    let btnMenu = SmallButton(systemImage: "gearshape.fill")
+    let btnClip = SmallButton(systemImage: "film.fill")
 
     // Map each button view to its bitmask
     private(set) var buttonMap: [(UIView, UInt32)] = []
 
     var onMenuTap: (() -> Void)?
+    /// Fired when the in-game clip button is tapped. An action trigger like the
+    /// Menu (not a game input); the pad's claimed finger is excluded the same way.
+    var onClipTap: (() -> Void)?
 
     /// Subclass sets this to enable a mic/blow button (NDS only)
     var micButton: UIView?
@@ -120,21 +135,28 @@ class TouchControlsView: UIView {
     // Track which touch is on the joystick for visual thumb feedback
     private var dpadTouch: UITouch?
 
-    /// Apply opacity and scale from user settings
-    func applySettings() {
+    /// Small translucent puck that follows the steering finger while the pad is
+    /// held, so the player can see the touch is still active even after the
+    /// finger has left the pad. Parented to the controls view's SUPERVIEW so the
+    /// controls' own clipping (NDS portrait) never cuts it off.
+    private lazy var fingerDot: UIView = {
+        let size: CGFloat = 18
+        let v = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+        v.backgroundColor = UIColor.white.withAlphaComponent(0.25)
+        v.layer.cornerRadius = size / 2
+        v.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        v.layer.borderWidth = 1.5
+        v.isUserInteractionEnabled = false
+        v.isHidden = true
+        return v
+    }()
+
+    /// The global (no-preset) control opacity and scale from Settings, with the
+    /// historical fallbacks (opacity 0.5, size 1.0) applied when unset.
+    static func globalOpacityScale() -> (opacity: CGFloat, scale: CGFloat) {
         let opacity = UserDefaults.standard.double(forKey: "controlOpacity")
         let scale = UserDefaults.standard.double(forKey: "controlScale")
-        let effectiveOpacity = opacity > 0 ? opacity : 0.5
-        let effectiveScale = scale > 0 ? scale : 1.0
-
-        let scaleTransform = CGAffineTransform(scaleX: effectiveScale, y: effectiveScale)
-        for v in [dpad, btnA, btnB, btnL, btnR, btnStart, btnSelect] as [UIView] {
-            v.alpha = CGFloat(effectiveOpacity) * 2.0
-            v.transform = scaleTransform
-            // Store base transform on ActionButtons so press animation compounds correctly
-            (v as? ActionButton)?.baseTransform = scaleTransform
-        }
-        btnMenu.alpha = max(0.5, CGFloat(effectiveOpacity) * 2.0)
+        return (opacity > 0 ? opacity : 0.5, scale > 0 ? scale : 1.0)
     }
 
     override init(frame: CGRect) {
@@ -171,17 +193,7 @@ class TouchControlsView: UIView {
         isMultipleTouchEnabled = true
         backgroundColor = .clear
 
-        // Observe the Settings → Controls "Hold to lock buttons" toggle. When
-        // the user turns it off mid-session we clear any active locks so they
-        // aren't left with a stuck pressed-state and no way to release it.
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(userDefaultsDidChange),
-            name: UserDefaults.didChangeNotification,
-            object: nil
-        )
-
-        for v in [dpad, btnA, btnB, btnL, btnR, btnStart, btnSelect, btnMenu] as [UIView] {
+        for v in [dpad, btnA, btnB, btnL, btnR, btnStart, btnSelect, btnMenu, btnClip] as [UIView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             v.isUserInteractionEnabled = false // We handle touches at this level
             addSubview(v)
@@ -196,6 +208,7 @@ class TouchControlsView: UIView {
         btnStart.accessibilityLabel = "Start button"
         btnSelect.accessibilityLabel = "Select button"
         btnMenu.accessibilityLabel = "Pause menu"
+        btnClip.accessibilityLabel = "Share clip"
 
         buttonMap = [
             (btnA, GBAInput.a.rawValue),
@@ -212,22 +225,90 @@ class TouchControlsView: UIView {
     /// Maps ControlElement to the corresponding button view. Subclasses override to add NDS buttons.
     func allButtonViews() -> [(ControlElement, UIView)] {
         [(.dpad, dpad), (.btnA, btnA), (.btnB, btnB), (.btnL, btnL),
-         (.btnR, btnR), (.btnStart, btnStart), (.btnSelect, btnSelect), (.btnMenu, btnMenu)]
+         (.btnR, btnR), (.btnStart, btnStart), (.btnSelect, btnSelect), (.btnMenu, btnMenu),
+         (.btnClip, btnClip)]
     }
 
-    /// Apply a custom layout from a preset. Positions are normalized 0–1 coordinates.
-    /// Opacity and scale come from the preset, not from global UserDefaults.
-    func applyCustomLayout(_ layout: OrientationLayout, isLandscape: Bool, isNDS: Bool,
-                           presetOpacity: CGFloat, presetScale: CGFloat) {
+    /// Frames of the currently-visible control buttons, in `target`'s coordinate space.
+    /// The console dress reads these to place decorations (and button wells) without
+    /// overlapping the controls. Call after layout so the frames are resolved.
+    func visibleButtonFrames(in target: UIView) -> [ControlElement: CGRect] {
+        var result: [ControlElement: CGRect] = [:]
+        for (element, v) in allButtonViews() where !v.isHidden {
+            result[element] = target.convert(v.bounds, from: v)
+        }
+        return result
+    }
+
+    /// Frames of ALL control buttons, including the ones hidden by controller mode (they are still
+    /// laid out at their normal positions). The console dress reads these so a decoration can anchor
+    /// to a hidden button (e.g. the GBA brand to the hidden Clip) when a controller is connected.
+    func allButtonFrames(in target: UIView) -> [ControlElement: CGRect] {
+        var result: [ControlElement: CGRect] = [:]
+        for (element, v) in allButtonViews() {
+            result[element] = target.convert(v.bounds, from: v)
+        }
+        return result
+    }
+
+    /// Toggle the GB/GBC console-dress look on the buttons (maroon A/B, grey pills, charcoal
+    /// cross). The host calls this for the GB/GBC built-in default layout — matching the
+    /// console skin's visibility — so any custom preset or other system keeps the default
+    /// translucent-white look. Re-applied each layout pass, so a D-pad swap stays in sync.
+    private(set) var dressed = false
+    /// The dressed palette variant in force (Nostalgia or the Retro Pal recolour). The NDS
+    /// override reads this to dress its extra buttons with the same variant.
+    private(set) var dressVariant: DressVariant = .nostalgia
+    func setDressed(_ on: Bool, isLandscape: Bool, system: PresetSystem,
+                    variant: DressVariant = .nostalgia) {
+        dressed = on
+        dressVariant = variant
+        // GB/GBC wear the DMG palette; GBA + NDS recolor the same shapes to their own palettes.
+        let kind: DressKind = (system == .gba) ? .gba : (system == .nds) ? .nds : .gbc
+        btnA.dressVariant = variant; btnA.dressKind = kind; btnA.dressed = on
+        btnB.dressVariant = variant; btnB.dressKind = kind; btnB.dressed = on
+        // L/R shoulders (GBA + NDS — GB/GBC has none; theirs stay hidden so this is a no-op there).
+        btnL.dressVariant = variant; btnL.dressKind = kind; btnL.dressed = on
+        btnR.dressVariant = variant; btnR.dressKind = kind; btnR.dressed = on
+        // SELECT/START: a diagonal pill in portrait, a horizontal top-stuck pill in landscape.
+        let pillStyle: SmallButton.DressStyle = isLandscape ? .pillTop : .pill
+        btnStart.dressVariant = variant; btnStart.dressKind = kind; btnStart.dressStyle = on ? pillStyle : .none
+        btnSelect.dressVariant = variant; btnSelect.dressKind = kind; btnSelect.dressStyle = on ? pillStyle : .none
+        // MENU + CLIP both wear the round-backed .circle dress in BOTH orientations, for BOTH
+        // consoles (GB/GBC mirrors the GBA "real button" render; Clip keeps its film icon).
+        btnClip.dressVariant = variant; btnClip.dressKind = kind
+        btnMenu.dressVariant = variant; btnMenu.dressKind = kind
+        btnClip.dressStyle = on ? .circle : .none
+        btnMenu.dressStyle = on ? .circle : .none
+        crossDPad?.dressVariant = variant; crossDPad?.dressKind = kind; crossDPad?.dressed = on
+        joystickDPad?.dressVariant = variant; joystickDPad?.dressKind = kind; joystickDPad?.dressed = on
+    }
+
+    /// Lay out every control from a resolved layout (normalized 0–1 positions),
+    /// device-scaling each button's size and applying the given opacity/scale.
+    /// This is the single apply path for BOTH the built-in default and custom
+    /// presets — the caller decides which `layout`/`opacity`/`scale` to pass.
+    func applyLayout(_ layout: OrientationLayout, isLandscape: Bool, isNDS: Bool,
+                     deviceScale: CGFloat, opacity: CGFloat, scale: CGFloat, useJoystick: Bool,
+                     wideSelectStart: Bool = false, wideShoulders: Bool = false,
+                     ndsBigSelectStart: Bool = false) {
+        // Resolve the directional control type (cross D-pad vs joystick) for this
+        // layout first, so the swapped-in view gets positioned in the pass below.
+        setUsesJoystick(useJoystick)
+
         NSLayoutConstraint.deactivate(constraints.filter { $0.firstItem is UIView })
         removeAllSubviewConstraints()
+
+        // NDS landscape lets the L/R bars extend up into the screen area; every
+        // other case keeps controls inside their own bounds.
+        clipsToBounds = isNDS && !isLandscape
 
         let containerW = bounds.width
         let containerH = bounds.height
         guard containerW > 0 && containerH > 0 else { return }
 
-        let scaleTransform = CGAffineTransform(scaleX: presetScale, y: presetScale)
-        let effectiveAlpha = presetOpacity * 2.0
+        let scaleTransform = CGAffineTransform(scaleX: scale, y: scale)
+        let effectiveAlpha = opacity * 2.0
 
         for (element, view) in allButtonViews() {
             guard let bl = layout.buttons[element.rawValue] else {
@@ -235,49 +316,183 @@ class TouchControlsView: UIView {
                 continue
             }
 
-            // Menu button can never be hidden. Other controls are also hidden
-            // while a controller is connected, so a re-layout keeps them hidden.
+            // Menu can never be hidden. Other controls are also hidden while a
+            // controller is connected, so a re-layout keeps them hidden.
             view.isHidden = (element != .btnMenu) && (bl.isHidden || controllerModeActive)
 
-            let size: CGSize
-            if isNDS {
-                size = isLandscape ? element.defaultNDSLandscapeSize : element.defaultNDSPortraitSize
-            } else {
-                size = isLandscape ? element.defaultLandscapeSize : element.defaultSize
+            let baseSize = EmulatorLayoutGeometry.buttonSize(
+                element, isNDS: isNDS, isLandscape: isLandscape, deviceScale: deviceScale)
+
+            // NDS landscape: keep the L/R bars in the gutter beside the screens and
+            // lift Mic clear of the bottom row (the iPhone-SE overlaps). No-op on
+            // devices that don't need it, like the 14 Pro.
+            let adj = EmulatorLayoutGeometry.ndsLandscapeAdjusted(
+                element: element, isNDS: isNDS, isLandscape: isLandscape,
+                center: CGPoint(x: containerW * bl.centerX, y: containerH * bl.centerY),
+                size: baseSize, container: bounds.size, layout: layout, deviceScale: deviceScale)
+
+            // GBA SELECT/START: 30% wider, extending OUTWARD (away from center) so the inner
+            // edge (Select's right, Start's left) stays put and they don't collide in portrait.
+            var finalSize = adj.size, finalCenter = adj.center
+            if wideSelectStart, element == .btnSelect || element == .btnStart {
+                let extra = adj.size.width * 0.3
+                finalSize.width += extra
+                finalCenter.x += (element == .btnSelect) ? -extra / 2 : extra / 2
+            }
+            // NDS portrait L/R: 40% wider, extending INWARD (toward center) so the exterior
+            // edge (L's left, R's right) stays put.
+            if wideShoulders, element == .btnL || element == .btnR {
+                let extra = adj.size.width * 0.4
+                finalSize.width += extra
+                finalCenter.x += (element == .btnL) ? extra / 2 : -extra / 2
+            }
+            // NDS default: SELECT/START mirror the GBA component SIZE; CLIP/MIC reflow so every
+            // gap in the bottom row stays the same. Portrait grows symmetric about centre;
+            // landscape grows the SELECT·CLIP·START bloc leftward (its right end stays put).
+            if ndsBigSelectStart {
+                let k = deviceScale
+                if element == .btnSelect || element == .btnStart {
+                    let ref = isLandscape ? ControlElement.btnSelect.defaultLandscapeSize
+                                          : ControlElement.btnSelect.defaultSize
+                    finalSize = CGSize(width: ref.width * k, height: ref.height * k)
+                }
+                if isLandscape {
+                    switch element {
+                    case .btnSelect: finalCenter.x -= 6 * k
+                    case .btnStart:  finalCenter.x -= 2 * k
+                    case .btnClip:   finalCenter.x -= 4 * k
+                    default: break
+                    }
+                } else {
+                    switch element {
+                    case .btnSelect: finalCenter.x -= 6 * k
+                    case .btnStart:  finalCenter.x += 6 * k
+                    case .btnClip:   finalCenter.x -= 12 * k
+                    case .btnMic:    finalCenter.x += 12 * k
+                    default: break
+                    }
+                }
             }
 
             NSLayoutConstraint.activate([
-                view.centerXAnchor.constraint(equalTo: leadingAnchor, constant: containerW * bl.centerX),
-                view.centerYAnchor.constraint(equalTo: topAnchor, constant: containerH * bl.centerY),
-                view.widthAnchor.constraint(equalToConstant: size.width),
-                view.heightAnchor.constraint(equalToConstant: size.height),
+                view.centerXAnchor.constraint(equalTo: leadingAnchor, constant: finalCenter.x),
+                view.centerYAnchor.constraint(equalTo: topAnchor, constant: finalCenter.y),
+                view.widthAnchor.constraint(equalToConstant: finalSize.width),
+                view.heightAnchor.constraint(equalToConstant: finalSize.height),
             ])
 
-            // Apply per-preset opacity and scale to ALL buttons (including NDS X/Y/Mic)
+            // Opacity + the user's size slider apply to ALL buttons (incl. NDS X/Y/Mic).
             view.transform = scaleTransform
-            (view as? ActionButton)?.baseTransform = scaleTransform
-            if element == .btnMenu {
-                view.alpha = max(0.5, effectiveAlpha)
-            } else {
-                view.alpha = effectiveAlpha
+            if let a = view as? ActionButton {
+                a.baseTransform = scaleTransform
+                if !a.isPressed { a.transform = a.restingTransform }   // GBA-dressed A/B rest at 98%
             }
+            (view as? SmallButton)?.baseTransform = scaleTransform
+            (view as? ShoulderButton)?.baseTransform = scaleTransform
+            view.alpha = (element == .btnMenu) ? max(0.5, effectiveAlpha) : effectiveAlpha
         }
     }
 
-    /// Apply per-preset opacity and scale to all buttons (including NDS X/Y/Mic).
-    /// Used when the preset has no custom button positions but changed opacity/scale.
-    func applyPresetOpacityScale(opacity: CGFloat, scale: CGFloat) {
-        let scaleTransform = CGAffineTransform(scaleX: scale, y: scale)
-        let effectiveAlpha = opacity * 2.0
+    /// Lay out every control from a fully-resolved preset scene: absolute
+    /// view-space centers with per-component size, scale, opacity, and
+    /// visibility, straight from PresetLayoutResolver (the same source the
+    /// editor renders from, so the two cannot drift). The controls view must be
+    /// pinned to the FULL game view for these coordinates to apply 1:1 — the
+    /// preset path does that; the built-in default keeps the legacy below-screen
+    /// container and goes through applyDefaultLayout instead.
+    func applyResolvedScene(buttons: [ControlElement: PresetLayoutResolver.ResolvedControl],
+                            useJoystick: Bool) {
+        setUsesJoystick(useJoystick)
+
+        NSLayoutConstraint.deactivate(constraints.filter { $0.firstItem is UIView })
+        removeAllSubviewConstraints()
+
+        // Full-view container: components can live anywhere in it, nothing to clip.
+        clipsToBounds = false
+
         for (element, view) in allButtonViews() {
-            view.transform = scaleTransform
-            (view as? ActionButton)?.baseTransform = scaleTransform
-            if element == .btnMenu {
-                view.alpha = max(0.5, effectiveAlpha)
-            } else {
-                view.alpha = effectiveAlpha
+            guard let rc = buttons[element] else {
+                view.isHidden = true
+                continue
             }
+
+            // Menu can never be hidden (and survives controller mode); other
+            // controls also hide while a controller is connected.
+            view.isHidden = (element != .btnMenu) && (rc.isHidden || controllerModeActive)
+
+            NSLayoutConstraint.activate([
+                view.centerXAnchor.constraint(equalTo: leadingAnchor, constant: rc.center.x),
+                view.centerYAnchor.constraint(equalTo: topAnchor, constant: rc.center.y),
+                view.widthAnchor.constraint(equalToConstant: rc.baseSize.width),
+                view.heightAnchor.constraint(equalToConstant: rc.baseSize.height),
+            ])
+
+            // Per-component scale as a transform (like the legacy global slider),
+            // so labels, borders, and corner radii scale with the shape.
+            let scaleTransform = CGAffineTransform(scaleX: rc.scale, y: rc.scale)
+            view.transform = scaleTransform
+            if let a = view as? ActionButton {
+                a.baseTransform = scaleTransform
+                if !a.isPressed { a.transform = a.restingTransform }
+            }
+            (view as? SmallButton)?.baseTransform = scaleTransform
+            (view as? ShoulderButton)?.baseTransform = scaleTransform
+            view.alpha = rc.opacity
         }
+    }
+
+    /// Apply the built-in default layout for the current orientation/system, using
+    /// the global (no-preset) opacity and scale. Reads the container from `bounds`,
+    /// so the caller must size the view first.
+    func applyDefaultLayout(isLandscape: Bool, system: PresetSystem, deviceScale: CGFloat,
+                            safeLeftInset: CGFloat = 0) {
+        let isNDS = (system == .nds)
+        var layout = ControlLayoutDefaults.defaultLayout(
+            system: system, isLandscape: isLandscape, containerSize: bounds.size,
+            scale: deviceScale, safeLeftInset: safeLeftInset)
+        let globals = Self.globalOpacityScale()
+        // The built-in default layout uses the global Settings choices.
+        let useJoystick = UserDefaults.standard.bool(forKey: "useJoystick")
+        // Clip-button visibility: global toggle, default ON. Custom presets are
+        // unaffected (each carries its own btnClip.isHidden, set in the editor).
+        let showClip = UserDefaults.standard.object(forKey: "showClipButton") as? Bool ?? true
+        if !showClip {
+            layout.buttons[ControlElement.btnClip.rawValue]?.isHidden = true
+        }
+        applyLayout(layout, isLandscape: isLandscape, isNDS: isNDS,
+                    deviceScale: deviceScale, opacity: globals.opacity, scale: globals.scale,
+                    useJoystick: useJoystick, wideSelectStart: system == .gba,
+                    wideShoulders: isNDS && !isLandscape, ndsBigSelectStart: isNDS)
+    }
+
+    /// Swap the directional control between the cross D-pad and the joystick to
+    /// match the resolved per-preset (or default) choice. Rebuilds the dpad view
+    /// only when the type actually changes; `applyLayout` then positions it. The
+    /// dpad is not in `buttonMap` (its input is routed via joystickDPad/crossDPad
+    /// + buttonsForPoint), so only the view + those refs need updating.
+    private func setUsesJoystick(_ useJoystick: Bool) {
+        let currentlyJoystick = joystickDPad != nil
+        guard useJoystick != currentlyJoystick else { return }
+
+        dpad.removeFromSuperview()
+        joystickDPad = nil
+        crossDPad = nil
+
+        let newDpad: UIView
+        if useJoystick {
+            let joy = DPadView()
+            joystickDPad = joy
+            newDpad = joy
+        } else {
+            let cross = CrossDPadView()
+            crossDPad = cross
+            newDpad = cross
+        }
+        newDpad.translatesAutoresizingMaskIntoConstraints = false
+        newDpad.isUserInteractionEnabled = false
+        newDpad.accessibilityLabel = "Directional pad"
+        addSubview(newDpad)
+        dpad = newDpad
     }
 
     /// Apply (or undo) controller mode: every game control is hidden while a
@@ -301,127 +516,7 @@ class TouchControlsView: UIView {
         }
     }
 
-    // MARK: - Layout
-
-    func applyPortraitLayout() {
-        NSLayoutConstraint.deactivate(constraints.filter { $0.firstItem is UIView })
-        removeAllSubviewConstraints()
-
-        // Ergonomic positions optimized for thumb arcs from bottom corners.
-        // Thumbs pivot ~40pt inward from edges, ~10pt up from bottom.
-        // Comfortable reach arc: 100-120pt radius.
-
-        NSLayoutConstraint.activate([
-            // Joystick: left thumb, raised for easier reach
-            dpad.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            dpad.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -140),
-            dpad.widthAnchor.constraint(equalToConstant: 165),
-            dpad.heightAnchor.constraint(equalToConstant: 165),
-
-            // A: primary action, raised to match joystick height
-            btnA.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -30),
-            btnA.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -170),
-            btnA.widthAnchor.constraint(equalToConstant: 72.6),
-            btnA.heightAnchor.constraint(equalToConstant: 72.6),
-
-            // B: secondary, below-left of A (GBA diamond layout)
-            btnB.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -100),
-            btnB.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -120),
-            btnB.widthAnchor.constraint(equalToConstant: 63.8),
-            btnB.heightAnchor.constraint(equalToConstant: 63.8),
-
-            // L shoulder: top-left, above joystick
-            btnL.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            btnL.topAnchor.constraint(equalTo: topAnchor, constant: 36),
-            btnL.widthAnchor.constraint(equalToConstant: 90),
-            btnL.heightAnchor.constraint(equalToConstant: 44),
-
-            // R shoulder: top-right, above A/B
-            btnR.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            btnR.topAnchor.constraint(equalTo: topAnchor, constant: 36),
-            btnR.widthAnchor.constraint(equalToConstant: 90),
-            btnR.heightAnchor.constraint(equalToConstant: 44),
-
-            // Start: right of center, lifted from palm zone (44pt min touch target)
-            btnStart.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 35),
-            btnStart.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -39),
-            btnStart.widthAnchor.constraint(equalToConstant: 64),
-            btnStart.heightAnchor.constraint(equalToConstant: 44),
-
-            // Select: left of center, mirrors Start
-            btnSelect.centerXAnchor.constraint(equalTo: centerXAnchor, constant: -35),
-            btnSelect.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -39),
-            btnSelect.widthAnchor.constraint(equalToConstant: 64),
-            btnSelect.heightAnchor.constraint(equalToConstant: 44),
-
-            // Menu: top-center, between L and R, far from gameplay buttons
-            btnMenu.centerXAnchor.constraint(equalTo: centerXAnchor),
-            btnMenu.topAnchor.constraint(equalTo: topAnchor, constant: 40),
-            btnMenu.widthAnchor.constraint(equalToConstant: 44),
-            btnMenu.heightAnchor.constraint(equalToConstant: 44),
-        ])
-        applySettings()
-    }
-
-    func applyLandscapeLayout() {
-        NSLayoutConstraint.deactivate(constraints.filter { $0.firstItem is UIView })
-        removeAllSubviewConstraints()
-
-        // Landscape: thumbs pivot from side edges at vertical midpoint.
-        // Left panel: joystick + L. Right panel: A/B + R.
-        // Start/Select pushed toward side panels, away from game screen.
-
-        NSLayoutConstraint.activate([
-            // Joystick: left side, moved inward for easier reach (may overlap game)
-            dpad.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 95),
-            dpad.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 39),
-            dpad.widthAnchor.constraint(equalToConstant: 143),
-            dpad.heightAnchor.constraint(equalToConstant: 143),
-
-            // A: right panel, mirroring joystick's 95pt margin from edge
-            btnA.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -95),
-            btnA.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 9),
-            btnA.widthAnchor.constraint(equalToConstant: 66),
-            btnA.heightAnchor.constraint(equalToConstant: 66),
-
-            // B: below-left of A, classic GBA diamond
-            btnB.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -163),
-            btnB.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 49),
-            btnB.widthAnchor.constraint(equalToConstant: 59.4),
-            btnB.heightAnchor.constraint(equalToConstant: 59.4),
-
-            // L: above joystick, wide for thumb reach
-            btnL.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 25),
-            btnL.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            btnL.widthAnchor.constraint(equalToConstant: 110),
-            btnL.heightAnchor.constraint(equalToConstant: 38),
-
-            // R: above A/B, mirrors L
-            btnR.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -25),
-            btnR.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            btnR.widthAnchor.constraint(equalToConstant: 110),
-            btnR.heightAnchor.constraint(equalToConstant: 38),
-
-            // Start: toward right panel, out of game area (44pt min touch target)
-            btnStart.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 70),
-            btnStart.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
-            btnStart.widthAnchor.constraint(equalToConstant: 56),
-            btnStart.heightAnchor.constraint(equalToConstant: 44),
-
-            // Select: toward left panel, mirrors Start
-            btnSelect.centerXAnchor.constraint(equalTo: centerXAnchor, constant: -70),
-            btnSelect.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
-            btnSelect.widthAnchor.constraint(equalToConstant: 56),
-            btnSelect.heightAnchor.constraint(equalToConstant: 44),
-
-            // Menu: top-center, above game, maximally out of the way
-            btnMenu.centerXAnchor.constraint(equalTo: centerXAnchor),
-            btnMenu.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            btnMenu.widthAnchor.constraint(equalToConstant: 44),
-            btnMenu.heightAnchor.constraint(equalToConstant: 44),
-        ])
-        applySettings()
-    }
+    // MARK: - Constraint cleanup
 
     func removeAllSubviewConstraints() {
         for constraint in constraints {
@@ -438,7 +533,46 @@ class TouchControlsView: UIView {
 
     // MARK: - Hit Testing (allow touches on subviews outside bounds, e.g. L/R in landscape)
 
+    /// Preset mode: the controls view spans the WHOLE game view and sits above
+    /// the screens, so it must claim ONLY the touches that land on a visible
+    /// control and let everything else fall through to the NDS stylus overlay /
+    /// screens below. Off (default layouts), the view claims its whole bounds
+    /// as it always did. A touch that begins on a control stays routed to this
+    /// view for its whole lifetime (UIKit semantics), so the sticky D-pad
+    /// steering finger still works when dragged across a screen — and a stylus
+    /// drag that begins on the touch screen never gets stolen by a button it
+    /// crosses.
+    var passThroughUnusedTouches = false
+
+    /// Whether a touch at `point` (this view's coords) lands on a visible
+    /// control, using the same forgiving hitboxes as the input layer
+    /// (touchHits' 20% expansion / inscribed circles, the D-pad's -20pt claim,
+    /// Menu/Clip's -10pt, Mic's 20%).
+    private func controlClaims(_ point: CGPoint) -> Bool {
+        if !dpad.isHidden, dpad.alpha > 0.01,
+           dpad.bounds.insetBy(dx: -20, dy: -20).contains(convert(point, to: dpad)) {
+            return true
+        }
+        for (view, _) in buttonMap where !view.isHidden && view.alpha > 0.01 {
+            if touchHits(convert(point, to: view), in: view) { return true }
+        }
+        for trigger in [btnMenu, btnClip] where !trigger.isHidden && trigger.alpha > 0.01 {
+            if trigger.bounds.insetBy(dx: -10, dy: -10).contains(convert(point, to: trigger)) {
+                return true
+            }
+        }
+        if let mic = micButton, !mic.isHidden, mic.alpha > 0.01 {
+            let local = convert(point, to: mic)
+            if mic.bounds.insetBy(dx: -mic.bounds.width * 0.2,
+                                  dy: -mic.bounds.height * 0.2).contains(local) {
+                return true
+            }
+        }
+        return false
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if passThroughUnusedTouches && !controlClaims(point) { return nil }
         // First try the default hit test (within bounds)
         if let hit = super.hitTest(point, with: event) { return hit }
         // Then check subviews that are outside bounds (L/R buttons in landscape NDS)
@@ -450,6 +584,7 @@ class TouchControlsView: UIView {
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if passThroughUnusedTouches { return controlClaims(point) }
         if super.point(inside: point, with: event) { return true }
         // Also accept points that land on out-of-bounds subviews
         for sub in subviews where !sub.isHidden && sub.alpha > 0.01 {
@@ -499,7 +634,7 @@ class TouchControlsView: UIView {
     private func startLockTrackersIfNeeded(_ touches: Set<UITouch>) {
         // Respect the Settings → Controls toggle. Default ON (current behavior);
         // OFF disables the gesture entirely, matching pre-feature behavior.
-        guard UserDefaults.standard.object(forKey: "buttonLockEnabled") as? Bool ?? true else { return }
+        guard buttonLockEnabled else { return }
         let mask = lockableMask
         guard mask != 0 else { return }
 
@@ -508,11 +643,7 @@ class TouchControlsView: UIView {
             // Find the lockable action button this touch began on (if any)
             for (view, buttonMask) in buttonMap where (buttonMask & mask) != 0 {
                 let local = convert(point, to: view)
-                let expanded = view.bounds.insetBy(
-                    dx: -view.bounds.width * 0.2,
-                    dy: -view.bounds.height * 0.2
-                )
-                guard expanded.contains(local) else { continue }
+                guard touchHits(local, in: view) else { continue }
 
                 let id = ObjectIdentifier(touch)
                 let isLocked = (lockedButtons & buttonMask) != 0
@@ -544,11 +675,7 @@ class TouchControlsView: UIView {
             guard let pending = pendingLocks[id] else { continue }
             let point = touch.location(in: self)
             let local = convert(point, to: pending.view)
-            let expanded = pending.view.bounds.insetBy(
-                dx: -pending.view.bounds.width * 0.2,
-                dy: -pending.view.bounds.height * 0.2
-            )
-            if !expanded.contains(local) {
+            if !touchHits(local, in: pending.view) {
                 fadeAndRemoveRing(pending.ringLayer)
                 pendingLocks.removeValue(forKey: id)
             }
@@ -696,13 +823,6 @@ class TouchControlsView: UIView {
         lockDisplayProxy = nil
     }
 
-    @objc private func userDefaultsDidChange() {
-        let enabled = UserDefaults.standard.object(forKey: "buttonLockEnabled") as? Bool ?? true
-        if !enabled && (lockedButtons != 0 || !pendingLocks.isEmpty || !unlockCandidates.isEmpty) {
-            clearAllLocks()
-        }
-    }
-
     private func clearAllLocks() {
         // Cancel in-flight ring animations and their trackers
         for (_, pending) in pendingLocks {
@@ -726,47 +846,67 @@ class TouchControlsView: UIView {
         NotificationCenter.default.removeObserver(self)
     }
 
+    /// Fire the light haptic if the user has haptics enabled. Used by the action triggers
+    /// (Menu/Clip), which aren't part of the game-input loop's new-press haptic.
+    private func fireHaptic() {
+        if UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true {
+            hapticLight.impactOccurred()
+        }
+    }
+
+    /// Whether a touch (in `view`'s coordinates) hits the button. Round (inscribed circle) for the
+    /// face buttons flagged `roundHitbox` — so the NDS diamond's circles don't overlap like the
+    /// square frames; a forgiving 20%-expanded rect for everything else.
+    private func touchHits(_ local: CGPoint, in view: UIView) -> Bool {
+        if let a = view as? ActionButton, a.roundHitbox {
+            let r = min(view.bounds.width, view.bounds.height) / 2
+            return hypot(local.x - view.bounds.midX, local.y - view.bounds.midY) <= r
+        }
+        return view.bounds.insetBy(dx: -view.bounds.width * 0.2, dy: -view.bounds.height * 0.2).contains(local)
+    }
+
     private func updateButtons(for event: UIEvent?) {
         var buttons: UInt32 = 0
 
         guard let allTouches = event?.allTouches else {
             applyButtons(0)
+            updateDpadTrackerDot(at: nil)
             return
         }
 
-        var foundDpadTouch = false
+        // Sticky directional input: once a finger is claimed by the pad (in
+        // touchesBegan) it keeps steering from its LIVE position relative to the
+        // pad center until released, even after leaving the pad — no bounds gate.
+        // Direction comes only from this claimed finger, which is then excluded
+        // from the button/menu/mic hit-tests below so a far drag can't trigger
+        // them. Dragging back inside the center deadzone reads as neutral.
+        var dpadPoint: CGPoint?
+        if let dt = dpadTouch,
+           dt.phase == .began || dt.phase == .moved || dt.phase == .stationary {
+            let point = dt.location(in: self)
+            dpadPoint = point
+            let localDpad = convert(point, to: dpad)
+            buttons |= dpadButtonsForPoint(localDpad)
+            let center = CGPoint(x: dpad.bounds.midX, y: dpad.bounds.midY)
+            dpadSetThumbDirection(dx: localDpad.x - center.x, dy: localDpad.y - center.y,
+                                  maxDistance: dpad.bounds.width / 2)
+        } else {
+            dpadResetThumb()
+        }
+        updateDpadTrackerDot(at: dpadPoint)
+
         for touch in allTouches {
             guard touch.phase == .began || touch.phase == .moved || touch.phase == .stationary else {
                 continue
             }
+            // The pad's claimed finger only steers; never let it press a button
+            // or the menu (it may have been dragged far across the screen).
+            if touch === dpadTouch { continue }
             let point = touch.location(in: self)
-
-            // Fixed joystick: check touch position relative to joystick center.
-            // Works for both taps (menus) and holds (movement).
-            let localDpad = convert(point, to: dpad)
-            let dpadHitArea = dpad.bounds.insetBy(dx: -20, dy: -20)
-            if dpadHitArea.contains(localDpad) {
-                let dpadButtons = dpadButtonsForPoint(localDpad)
-                buttons |= dpadButtons
-
-                // Update visual feedback if this is the tracked d-pad touch
-                if touch === dpadTouch {
-                    let center = CGPoint(x: dpad.bounds.midX, y: dpad.bounds.midY)
-                    let dx = localDpad.x - center.x
-                    let dy = localDpad.y - center.y
-                    dpadSetThumbDirection(dx: dx, dy: dy, maxDistance: dpad.bounds.width / 2)
-                    foundDpadTouch = true
-                }
-            }
 
             // Check action buttons
             for (view, mask) in buttonMap {
-                let local = convert(point, to: view)
-                let expanded = view.bounds.insetBy(
-                    dx: -view.bounds.width * 0.2,
-                    dy: -view.bounds.height * 0.2
-                )
-                if expanded.contains(local) {
+                if touchHits(convert(point, to: view), in: view) {
                     buttons |= mask
                 }
             }
@@ -775,25 +915,37 @@ class TouchControlsView: UIView {
             let menuLocal = convert(point, to: btnMenu)
             let menuExpanded = btnMenu.bounds.insetBy(dx: -10, dy: -10)
             if menuExpanded.contains(menuLocal) {
+                if touch.phase == .began { fireHaptic() }
+                btnMenu.flashPress()
                 onMenuTap?()
             }
-        }
 
-        // Reset d-pad visual when no touch is active
-        if !foundDpadTouch {
-            dpadResetThumb()
+            // Check clip button (action trigger like Menu, never a game input). The
+            // pad's claimed finger already `continue`d above, so sliding the D-pad
+            // finger here can't fire it. Skip when hidden (controller mode / preset).
+            if !btnClip.isHidden {
+                let clipLocal = convert(point, to: btnClip)
+                let clipExpanded = btnClip.bounds.insetBy(dx: -10, dy: -10)
+                if clipExpanded.contains(clipLocal) {
+                    if touch.phase == .began { fireHaptic() }
+                    btnClip.flashPress()
+                    onClipTap?()
+                }
+            }
         }
 
         // Check mic/blow button (NDS only)
         if let mic = micButton {
             var micTouched = false
-            for touch in allTouches where [.began, .moved, .stationary].contains(touch.phase) {
+            for touch in allTouches where touch !== dpadTouch
+                && [.began, .moved, .stationary].contains(touch.phase) {
                 let local = convert(touch.location(in: self), to: mic)
                 let expanded = mic.bounds.insetBy(dx: -mic.bounds.width * 0.2, dy: -mic.bounds.height * 0.2)
                 if expanded.contains(local) { micTouched = true; break }
             }
             if micTouched != micActive {
                 micActive = micTouched
+                if micTouched { fireHaptic() }   // press haptic, like the other controls
                 delegate?.touchControlsMicBlowStateChanged(active: micTouched)
                 (mic as? HighlightableButton)?.isPressed = micTouched
             }
@@ -851,12 +1003,67 @@ class TouchControlsView: UIView {
         crossDPad?.resetThumb()
         joystickDPad?.resetThumb()
     }
+
+    /// Show/move the finger-tracker puck at `pointInSelf` (this view's coords),
+    /// or hide it when nil. Parented to the superview, inserted just above the
+    /// controls, so it sits above the pad yet below the pause overlay and is
+    /// never clipped by the controls view's bounds.
+    private func updateDpadTrackerDot(at pointInSelf: CGPoint?) {
+        guard let point = pointInSelf, let parent = superview else {
+            fingerDot.isHidden = true
+            return
+        }
+        if fingerDot.superview !== parent {
+            parent.insertSubview(fingerDot, aboveSubview: self)
+        }
+        fingerDot.center = convert(point, to: parent)
+        fingerDot.isHidden = false
+    }
+
+    /// When the whole controls view is hidden (the pause overlay is shown), drop
+    /// any in-flight steering finger and hide the tracker puck so it can't linger
+    /// on screen behind the menu.
+    override var isHidden: Bool {
+        didSet {
+            guard isHidden, !oldValue else { return }
+            dpadTouch = nil
+            fingerDot.isHidden = true
+        }
+    }
 }
 
 // MARK: - Button protocol for visual feedback
 
 protocol HighlightableButton: UIView {
     var isPressed: Bool { get set }
+}
+
+// MARK: - Dress kind (which console palette the dressed buttons wear)
+
+/// The console whose palette the dressed buttons use. GB/GBC keeps the DMG look (maroon A/B,
+/// charcoal D-pad, grey pills); GBA recolors the SAME button shapes to its palette (light
+/// #C4BFCF buttons + D-pad). Only consulted while `dressed` is on — the undressed path is
+/// untouched. `gbaButton` shades are derived from #C4BFCF.
+enum DressKind {
+    case gbc, gba, nds
+
+    static let gbaButton        = UIColor(red: 0.769, green: 0.749, blue: 0.812, alpha: 1) // #C4BFCF
+    static let gbaButtonPressed = UIColor(red: 0.640, green: 0.620, blue: 0.680, alpha: 1)
+    static let gbaButtonEdge    = UIColor(red: 0.560, green: 0.540, blue: 0.600, alpha: 1)
+    static let gbaSurround      = UIColor(red: 0.055, green: 0.055, blue: 0.063, alpha: 1) // #0E0E10
+
+    // NDS palette: buttons #EBEBEB, ink #777777 (labels, icons, D-pad lines, under-discs).
+    static let ndsButton        = UIColor(red: 0.922, green: 0.922, blue: 0.922, alpha: 1) // #EBEBEB
+    static let ndsButtonPressed = UIColor(red: 0.820, green: 0.820, blue: 0.820, alpha: 1)
+    static let ndsButtonEdge    = UIColor(red: 0.760, green: 0.760, blue: 0.760, alpha: 1)
+    static let ndsInk           = UIColor(red: 0.467, green: 0.467, blue: 0.467, alpha: 1) // #777777
+
+    /// The "modern recolor" dresses (GBA, NDS) share button shapes + a light fill with a dark ink
+    /// accent; only the tokens differ. Not meaningful for `.gbc` (its views keep maroon/charcoal/grey).
+    var faceFill: UIColor    { self == .nds ? DressKind.ndsButton        : DressKind.gbaButton }
+    var facePressed: UIColor { self == .nds ? DressKind.ndsButtonPressed : DressKind.gbaButtonPressed }
+    var faceEdge: UIColor    { self == .nds ? DressKind.ndsButtonEdge    : DressKind.gbaButtonEdge }
+    var faceInk: UIColor     { self == .nds ? DressKind.ndsInk           : DressKind.gbaSurround }
 }
 
 // MARK: - CADisplayLink weak proxy (breaks the link → target → self → link retain cycle)
@@ -876,7 +1083,52 @@ final class DPadView: UIView {
     private let thumbLayer = CAShapeLayer()
     private let thumbRadius: CGFloat = 20
 
+    /// The thumb is 1.6x larger when dressed (the GB/GBC console look).
+    private var effectiveThumbRadius: CGFloat { dressed ? thumbRadius * 1.6 : thumbRadius }
+
     private var thumbOffset: CGPoint = .zero
+
+    // GB/GBC dressed palette: a dark recessed dish + a charcoal raised thumb (matches the
+    // dressed cross). Applied only when `dressed` is on.
+    private static let dpadFill = UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
+
+    /// When on, the joystick wears the GB/GBC console-dress look (dark dish + charcoal thumb)
+    /// instead of the default translucent white. Set by TouchControlsView for the GB/GBC
+    /// default layout; the undressed look is untouched (GBA/NDS/presets).
+    var dressed = false {
+        didSet { guard dressed != oldValue else { return }; applyResting() }
+    }
+
+    /// Which console palette to wear when dressed: GB/GBC charcoal thumb vs GBA light #C4BFCF.
+    var dressKind: DressKind = .gbc {
+        didSet { guard dressKind != oldValue else { return }; applyResting() }
+    }
+    /// Nostalgia vs the Retro Pal recolour (set by setDressed).
+    var dressVariant: DressVariant = .nostalgia {
+        didSet { guard dressVariant != oldValue else { return }; applyResting() }
+    }
+
+    private func applyResting() {
+        if dressed {
+            // No outer ring — the dress always draws a recessed well behind the joystick.
+            baseLayer.isHidden = true
+            let rp = dressVariant.dpadFace(dressKind)
+            if dressKind != .gbc {
+                thumbLayer.fillColor = (rp ?? dressKind.faceFill).cgColor
+                thumbLayer.strokeColor = (rp?.rpEdge ?? dressKind.faceEdge).cgColor
+            } else {
+                thumbLayer.fillColor = (rp ?? Self.dpadFill).cgColor
+                thumbLayer.strokeColor = UIColor.white.withAlphaComponent(0.25).cgColor
+            }
+        } else {
+            baseLayer.isHidden = false
+            baseLayer.fillColor = UIColor.white.withAlphaComponent(0.1).cgColor
+            baseLayer.strokeColor = UIColor.white.withAlphaComponent(0.3).cgColor
+            thumbLayer.fillColor = UIColor.white.withAlphaComponent(0.35).cgColor
+            thumbLayer.strokeColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        }
+        updateThumbPosition()   // the thumb radius depends on `dressed`
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -913,7 +1165,7 @@ final class DPadView: UIView {
     func setThumbDirection(dx: CGFloat, dy: CGFloat, maxDistance: CGFloat) {
         let dist = sqrt(dx * dx + dy * dy)
         let clampedDist = min(dist, maxDistance)
-        let radius = min(bounds.width, bounds.height) / 2 - thumbRadius
+        let radius = min(bounds.width, bounds.height) / 2 - effectiveThumbRadius
 
         if dist > 0 {
             let scale = min(clampedDist / maxDistance, 1.0) * radius
@@ -932,7 +1184,7 @@ final class DPadView: UIView {
     private func updateThumbPosition() {
         let center = CGPoint(x: bounds.midX + thumbOffset.x, y: bounds.midY + thumbOffset.y)
         thumbLayer.path = UIBezierPath(
-            arcCenter: center, radius: thumbRadius,
+            arcCenter: center, radius: effectiveThumbRadius,
             startAngle: 0, endAngle: .pi * 2, clockwise: true
         ).cgPath
     }
@@ -947,16 +1199,9 @@ final class DPadView: UIView {
 
         guard dist > deadzone else { return 0 }
 
-        var buttons: UInt32 = 0
-        let angle = atan2(dy, dx)
-
-        // 8-direction zones (each 45 degrees)
-        if angle > -.pi * 0.875 && angle < -.pi * 0.375 { buttons |= GBAInput.up.rawValue }
-        if angle > .pi * 0.375 && angle < .pi * 0.875 { buttons |= GBAInput.down.rawValue }
-        if angle > .pi * 0.625 || angle < -.pi * 0.625 { buttons |= GBAInput.left.rawValue }
-        if angle > -.pi * 0.375 && angle < .pi * 0.375 { buttons |= GBAInput.right.rawValue }
-
-        return buttons
+        // Shared 8-way mapping (was a duplicate of CrossDPadView's, with the same
+        // left-skew bug that collapsed right diagonals to pure right).
+        return DPadGeometry.buttons(forAngle: atan2(dy, dx))
     }
 
     func updateHighlight(buttons: UInt32) {
@@ -967,22 +1212,103 @@ final class DPadView: UIView {
 // MARK: - Action Button (A, B)
 
 final class ActionButton: UIView, HighlightableButton {
+    // GB/GBC dressed palette (maroon disc), applied only when `dressed` is on.
+    private static let maroon        = UIColor(red: 0.549, green: 0.1255, blue: 0.3294, alpha: 1) // #8C2054
+    private static let maroonPressed = UIColor(red: 0.43,  green: 0.095,  blue: 0.255,  alpha: 1)
+    private static let maroonEdge    = UIColor(red: 0.40,  green: 0.10,   blue: 0.245,  alpha: 1) // lighter rim (reads brighter)
+
+    /// When on, the button wears the GB/GBC console-dress look (maroon) instead of the
+    /// default translucent white. Set by TouchControlsView for the GB/GBC default layout.
+    var dressed = false {
+        didSet { guard dressed != oldValue else { return }; applyResting() }
+    }
+
+    /// When true, the touch hit-test uses the inscribed circle (not the square frame) so the NDS
+    /// diamond's round buttons don't overlap at the corners the way the square frames do.
+    var roundHitbox = false
+
+    /// Which console palette to use when dressed (GB/GBC maroon vs GBA #C4BFCF).
+    var dressKind: DressKind = .gbc { didSet { applyResting() } }
+    /// Nostalgia vs the Retro Pal recolour (set by setDressed).
+    var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
+    private var fillColor: UIColor {
+        if let c = dressVariant.abFace(dressKind) { return c }
+        return dressKind == .gbc ? Self.maroon : dressKind.faceFill
+    }
+    private var pressedColor: UIColor {
+        if let c = dressVariant.abFace(dressKind) { return c.rpPressed }
+        return dressKind == .gbc ? Self.maroonPressed : dressKind.facePressed
+    }
+    private var edgeColor: UIColor {
+        if let c = dressVariant.abFace(dressKind) { return c.rpEdge }
+        return dressKind == .gbc ? Self.maroonEdge : dressKind.faceEdge
+    }
+
     var isPressed = false {
         didSet {
             guard isPressed != oldValue else { return }
             UIView.animate(withDuration: 0.06, delay: 0, options: [.allowUserInteraction]) {
                 if self.isPressed {
-                    self.backgroundColor = UIColor.white.withAlphaComponent(0.55)
-                    self.layer.borderColor = UIColor.white.withAlphaComponent(0.8).cgColor
-                    self.transform = self.baseTransform.scaledBy(x: 0.88, y: 0.88)
+                    self.backgroundColor = self.dressed
+                        ? self.pressedColor : UIColor.white.withAlphaComponent(0.55)
+                    self.layer.borderColor = (self.dressed
+                        ? self.edgeColor : UIColor.white.withAlphaComponent(0.8)).cgColor
+                    // Dressed A/B shrink less (0.95); undressed keeps the original 0.88.
+                    let s: CGFloat = self.dressed ? 0.95 : 0.88
+                    self.transform = self.baseTransform.scaledBy(x: s, y: s)
                     self.layer.shadowOpacity = 0
                 } else {
-                    self.backgroundColor = UIColor.white.withAlphaComponent(0.2)
-                    self.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
-                    self.transform = self.baseTransform
+                    self.applyResting()
+                    self.transform = self.restingTransform
                     self.layer.shadowOpacity = 0.3
                 }
             }
+        }
+    }
+
+    /// GBA-dressed A/B rest a touch smaller (98%, centred); every other state rests at full size.
+    private var restingScale: CGFloat { (dressed && dressKind != .gbc) ? 0.98 : 1.0 }
+    var restingTransform: CGAffineTransform { baseTransform.scaledBy(x: restingScale, y: restingScale) }
+
+    /// Resting (un-pressed) fill + border for the current `dressed` mode.
+    private func applyResting() {
+        backgroundColor = dressed ? fillColor : UIColor.white.withAlphaComponent(0.2)
+        layer.borderColor = (dressed ? edgeColor : UIColor.white.withAlphaComponent(0.45)).cgColor
+        sheen.isHidden = true   // A/B keep ONE flat background behind the letter (no top sheen)
+        applyLabelStyle()
+        if !isPressed { transform = restingTransform }
+    }
+
+    /// The A/B letter. GBA dress = "creusé" (engraved): a darker glyph of the button's own family
+    /// with a light catch directly beneath, so it reads as incised into the plastic. Otherwise the
+    /// plain white label (GB/GBC keeps its DONE look; the undressed default is untouched).
+    private func applyLabelStyle() {
+        if dressed && dressKind != .gbc {
+            let shadow = NSShadow()
+            shadow.shadowColor = UIColor.white.withAlphaComponent(0.5)
+            shadow.shadowOffset = CGSize(width: 0, height: 1)
+            shadow.shadowBlurRadius = 0.5
+            // GBA engraves in its edge tone (custom: the letters slot); NDS in the #777777 ink
+            // (custom: the ink slot; Retro Pal: also #777777).
+            let labelInk: UIColor
+            if dressKind == .nds {
+                labelInk = dressVariant.ndsPalette?.letters
+                    ?? (dressVariant == .retroPal ? RetroPalPalette.ndsInk : DressKind.ndsInk)
+            } else {
+                labelInk = dressVariant.gbaPalette?.letters ?? DressKind.gbaButtonEdge
+            }
+            label.attributedText = NSAttributedString(string: titleText, attributes: [
+                .font: UIFont.systemFont(ofSize: 20, weight: .bold),
+                .foregroundColor: labelInk,   // darker than the disc → reads recessed
+                .shadow: shadow,
+            ])
+        } else {
+            // GB/GBC + undressed: a flat letter. Custom uses the A/B-letters slot; built-ins
+            // keep plain white.
+            label.attributedText = nil
+            label.text = titleText
+            label.textColor = (dressed ? dressVariant.gbcPalette?.abLetters : nil) ?? .white
+            label.font = .systemFont(ofSize: 20, weight: .bold)
         }
     }
 
@@ -1001,10 +1327,12 @@ final class ActionButton: UIView, HighlightableButton {
         }
     }
 
-    /// Stores the external transform (from applySettings) so press animation compounds with it.
+    /// Stores the external transform (from applyLayout) so press animation compounds with it.
     var baseTransform: CGAffineTransform = .identity
 
     private let label = UILabel()
+    private var titleText = ""               // the "A" / "B" letter, for restyling the label
+    private let sheen = CAGradientLayer()   // raised-plastic top highlight (dressed only), mirrors L/R
     private let lockGlyph: UIImageView = {
         let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)
         let img = UIImage(systemName: "lock.fill", withConfiguration: config)
@@ -1035,6 +1363,13 @@ final class ActionButton: UIView, HighlightableButton {
         layer.shadowRadius = 3
         layer.shadowOpacity = 0.3
 
+        sheen.colors = [UIColor.white.withAlphaComponent(0.35).cgColor, UIColor.clear.cgColor]
+        sheen.startPoint = CGPoint(x: 0.5, y: 0)
+        sheen.endPoint = CGPoint(x: 0.5, y: 1)
+        sheen.isHidden = true
+        layer.insertSublayer(sheen, at: 0)
+
+        titleText = text
         label.text = text
         label.textColor = .white
         label.font = .systemFont(ofSize: 20, weight: .bold)
@@ -1056,51 +1391,408 @@ final class ActionButton: UIView, HighlightableButton {
     override func layoutSubviews() {
         super.layoutSubviews()
         layer.cornerRadius = bounds.width / 2
+        // Sheen on the top half, clipped to the circle (shadow needs masksToBounds off).
+        sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
+        sheen.cornerRadius = bounds.width / 2
+        sheen.masksToBounds = true
     }
 }
 
 // MARK: - Shoulder Button (L, R)
 
 final class ShoulderButton: UIView, HighlightableButton {
+    /// NDS L/R corner radius as a fraction of the short side — a rounded square, not a pill.
+    /// The skin's L/R creusé seat mirrors this so the two stay concentric.
+    static let ndsCornerFactor: CGFloat = 0.3
+
+    private let label = UILabel()
+    private let sheen = CAGradientLayer()   // raised-plastic top highlight (dressed only)
+
+    /// When on, wears the GBA shoulder-trigger dress: a light (#C4BFCF) raised, rounded bar with
+    /// a top sheen and a dark moulded L/R label. GB/GBC has no L/R, so this only shows on GBA;
+    /// undressed (GBA presets) keeps the default translucent white.
+    var dressed = false {
+        didSet { guard dressed != oldValue else { return }; applyResting(); setNeedsLayout() }
+    }
+
+    /// Which palette the dressed L/R wear (GBA #C4BFCF vs NDS #B6B6B6). GB/GBC has no L/R.
+    var dressKind: DressKind = .gba {
+        didSet { guard dressKind != oldValue else { return }; applyResting() }
+    }
+    /// Nostalgia vs the Retro Pal recolour (NDS L/R only — GBA L/R is untouched).
+    var dressVariant: DressVariant = .nostalgia {
+        didSet { guard dressVariant != oldValue else { return }; applyResting() }
+    }
+    private var fill: UIColor {
+        if let c = dressVariant.shoulderFace(dressKind) { return c }
+        return dressKind.faceFill
+    }
+    private var pressedFill: UIColor {
+        if let c = dressVariant.shoulderFace(dressKind) { return c.rpPressed }
+        return dressKind.facePressed
+    }
+    private var edge: UIColor {
+        if let c = dressVariant.shoulderFace(dressKind) { return c.rpEdge }
+        return dressKind.faceEdge
+    }
+    /// L/R label: custom uses the letters slot (GBA + NDS); Retro Pal NDS recolours it to #777777.
+    private var labelInk: UIColor {
+        if let p = dressVariant.gbaPalette { return p.letters }
+        if let p = dressVariant.ndsPalette { return p.letters }
+        if dressVariant == .retroPal, dressKind == .nds { return RetroPalPalette.ndsInk }
+        return dressKind.faceInk
+    }
+
+    /// Stores the size-slider transform so the press shrink compounds with it (like ActionButton).
+    var baseTransform: CGAffineTransform = .identity
+
     var isPressed = false {
         didSet {
-            backgroundColor = isPressed
-                ? UIColor.white.withAlphaComponent(0.5)
-                : UIColor.white.withAlphaComponent(0.2)
+            guard isPressed != oldValue else { return }
+            if dressed {
+                backgroundColor = isPressed ? pressedFill : fill
+                // Dressed L/R shrink 5% on press, centred (same centre pressed vs not).
+                let s: CGFloat = isPressed ? 0.95 : 1.0
+                UIView.animate(withDuration: 0.06, delay: 0, options: [.allowUserInteraction]) {
+                    self.transform = self.baseTransform.scaledBy(x: s, y: s)
+                }
+            } else {
+                backgroundColor = isPressed ? UIColor.white.withAlphaComponent(0.5)
+                                            : UIColor.white.withAlphaComponent(0.2)
+            }
         }
     }
 
     init(label text: String) {
         super.init(frame: .zero)
-        backgroundColor = UIColor.white.withAlphaComponent(0.2)
         layer.cornerRadius = 8
         layer.borderWidth = 1
-        layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
 
-        let lbl = UILabel()
-        lbl.text = text
-        lbl.textColor = .white
-        lbl.font = .systemFont(ofSize: 14, weight: .semibold)
-        lbl.textAlignment = .center
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(lbl)
+        sheen.colors = [UIColor.white.withAlphaComponent(0.35).cgColor, UIColor.clear.cgColor]
+        sheen.startPoint = CGPoint(x: 0.5, y: 0)
+        sheen.endPoint = CGPoint(x: 0.5, y: 1)
+        sheen.isHidden = true
+        layer.insertSublayer(sheen, at: 0)
+
+        label.text = text
+        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
         NSLayoutConstraint.activate([
-            lbl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            lbl.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+        applyResting()
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    private func applyResting() {
+        if dressed {
+            backgroundColor = fill
+            layer.borderColor = edge.cgColor
+            label.textColor = labelInk                 // dark moulded "L"/"R"
+            sheen.isHidden = false
+            layer.shadowColor = UIColor.black.cgColor
+            layer.shadowOffset = CGSize(width: 0, height: 1.5)
+            layer.shadowRadius = 2
+            layer.shadowOpacity = 0.25
+        } else {
+            backgroundColor = UIColor.white.withAlphaComponent(0.2)
+            layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
+            label.textColor = .white
+            sheen.isHidden = true
+            layer.shadowOpacity = 0
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Dressed: a rounded "trigger" bar (rounder than the default rect) with the sheen on the
+        // top band. The drop shadow needs masksToBounds off, so the sheen clips itself instead.
+        // NDS: a rounded SQUARE (small corner) rather than the GBA pill. The skin's L/R seat
+        // matches this with ShoulderButton.ndsCornerFactor (keep in sync).
+        let radius = dressed
+            ? (dressKind == .nds ? min(bounds.width, bounds.height) * ShoulderButton.ndsCornerFactor
+                                 : min(bounds.height * 0.5, bounds.width * 0.5))
+            : 8
+        layer.cornerRadius = radius
+        sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
+        sheen.cornerRadius = radius
+        sheen.masksToBounds = true
+    }
 }
 
 // MARK: - Small Button (Start, Select, Menu)
 
 final class SmallButton: UIView, HighlightableButton {
-    var isPressed = false {
-        didSet {
-            backgroundColor = isPressed
-                ? UIColor.white.withAlphaComponent(0.45)
-                : UIColor.white.withAlphaComponent(0.15)
+    /// How the button is dressed for the GB/GBC console look.
+    ///  - none: default translucent white (GBA/NDS + custom presets).
+    ///  - pill: thin grey diagonal pill, bottom-left → top-right of the hitbox (SELECT/START, portrait).
+    ///  - pillTop: thin horizontal pill at the hitbox's upper third, menu-icon coloured (SELECT/START, landscape).
+    ///  - iconOnly: no chrome; the icon recoloured to the PHONES-icon body colour (#C0BDBC), sized
+    ///    to fill its round well, with the same two-sided emboss as the dress's PHONES icon
+    ///    (light up-left + dark down-right) (CLIP both orientations, MENU portrait).
+    ///  - circle: a true-circle grey background behind the icon (MENU landscape).
+    ///  - decal: the button draws nothing; the skin draws the decoration over it (NDS Mic).
+    enum DressStyle { case none, pill, pillTop, iconOnly, circle, decal }
+
+    // GB/GBC dressed palette.
+    private static let grey         = UIColor(red: 0.30, green: 0.30, blue: 0.31, alpha: 1)
+    private static let greyPressed  = UIColor(red: 0.22, green: 0.22, blue: 0.23, alpha: 1)
+    private static let greyEdge     = UIColor(red: 0.18, green: 0.18, blue: 0.19, alpha: 1)
+    private static let iconBody = UIColor(red: 0.753, green: 0.741, blue: 0.737, alpha: 1) // #C0BDBC (matches PHONES icon)
+    // The landscape MENU icon colour — the .pillTop pills match it (per request).
+    private static let menuIcon        = UIColor.white.withAlphaComponent(0.85)
+    private static let menuIconPressed = UIColor.white.withAlphaComponent(0.6)
+
+    /// Which console palette to use when dressed (GB/GBC grey/white vs GBA #C4BFCF).
+    var dressKind: DressKind = .gbc { didSet { applyResting() } }
+    /// Nostalgia vs the Retro Pal recolour (set by setDressed).
+    var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
+    /// GB/GBC SELECT/START/MENU/CLIP go near-black under Retro Pal and to the user's small-buttons
+    /// colour under custom; GBA/NDS pills are untouched (nil → keep their built-in fill).
+    // SELECT/START pill (.pill): every console's face goes to its small-button slot under custom
+    // (GBC → smallButtons; GBA/NDS → buttons), to the Retro Pal recolour, or the built-in default.
+    private var pillBase: UIColor {
+        if let c = dressVariant.smallButtonFace(dressKind) { return c }
+        return dressKind == .gbc ? Self.grey : dressKind.faceFill }
+    private var pillPressedC: UIColor {
+        if let c = dressVariant.smallButtonFace(dressKind) { return c.rpPressed }
+        return dressKind == .gbc ? Self.greyPressed : dressKind.facePressed }
+    private var pillEdgeC: UIColor {
+        if let c = dressVariant.smallButtonFace(dressKind) { return c.rpEdge }
+        return dressKind == .gbc ? Self.greyEdge : dressKind.faceEdge }
+    // Landscape SELECT/START (.pillTop): GB/GBC keeps white for the BUILT-INS (custom uses the slot);
+    // GBA/NDS follow their button face.
+    private var pillTopBase: UIColor {
+        if dressKind == .gbc { return dressVariant.gbcPalette?.smallButtons ?? Self.menuIcon }
+        return dressVariant.smallButtonFace(dressKind) ?? dressKind.faceFill }
+    private var pillTopPressedC: UIColor {
+        if dressKind == .gbc { return dressVariant.gbcPalette?.smallButtons.rpPressed ?? Self.menuIconPressed }
+        return dressVariant.smallButtonFace(dressKind)?.rpPressed ?? dressKind.facePressed }
+    // MENU/CLIP icon-only glyph (GBA portrait): the menu-icons slot under custom, else the face.
+    private var iconColorC: UIColor {
+        if let p = dressVariant.gbaPalette { return p.menuIcons }
+        if let p = dressVariant.ndsPalette { return p.icons }
+        return dressKind == .gbc ? Self.iconBody : dressKind.faceFill }
+    // The MENU/CLIP circle BACKGROUND: GBA gets its own slot; others follow the pill face (so the
+    // built-ins + GB/GBC + NDS are unchanged).
+    private var circleBgColor: UIColor { dressVariant.gbaPalette?.menuButtons ?? pillBase }
+    private var circlePressedColor: UIColor { dressVariant.gbaPalette.map { $0.menuButtons.rpPressed } ?? pillPressedC }
+    private var circleEdgeC: UIColor { dressVariant.gbaPalette != nil ? circleBgColor.rpEdge : pillEdgeC }
+    // The MENU/CLIP circle ICON: custom uses the menu-icons (GBC/GBA) / icons (NDS) slot.
+    private var circleIconC: UIColor {
+        if let p = dressVariant.gbcPalette { return p.menuIcons }
+        if let p = dressVariant.gbaPalette { return p.menuIcons }
+        if let p = dressVariant.ndsPalette { return p.icons }
+        if dressVariant == .retroPal, dressKind == .nds { return RetroPalPalette.ndsInk }
+        return dressKind == .gbc ? UIColor.white.withAlphaComponent(0.85) : dressKind.faceInk
+    }
+
+    var dressStyle: DressStyle = .none {
+        didSet { guard dressStyle != oldValue else { return }; applyResting() }
+    }
+
+    // Icon-variant pieces (nil on the label variant). `iconHighlight` (light, up-left) and
+    // `iconShadow` (dark, down-right) are the two-sided emboss copies behind the icon, shown
+    // only in `.iconOnly`; the icon grows (iconSmall -> iconBig) in `.iconOnly` to fill its
+    // round well. `circleBg` is the true-circle background for `.circle` (MENU landscape),
+    // inscribed in layoutSubviews.
+    private var iconView: UIImageView?
+    private var iconHighlight: UIImageView?
+    private var iconShadow: UIImageView?
+    private var textLabel: UILabel?            // label variant only (SELECT/START); hidden when dressed
+    private var iconSmall: [NSLayoutConstraint] = []
+    private var iconBig: [NSLayoutConstraint] = []
+    private let circleBg = CAShapeLayer()
+    private let pillBg = CAShapeLayer()        // diagonal capsule for .pill (SELECT/START)
+
+    /// Pill thickness as a fraction of the hitbox short side. Must match
+    /// `GameBoySkin.pillThicknessRatio` so the dress's recessed seat lines up.
+    private static let pillThicknessRatio: CGFloat = 0.24
+
+    /// GBA/NDS SELECT/START: the dress draws a creusé pill (brand ratio) + the label; the BUTTON is
+    /// just a tiny "clip-like" circle — at the RIGHT of the pill on GBA, mirrored to the LEFT on
+    /// NDS. Ratio must match the skins' `selectPillRatio`.
+    static let selectPillRatio: CGFloat = 3.4
+    private func selectCircleRect() -> CGRect {
+        let pillH = bounds.width / Self.selectPillRatio
+        let d = pillH * 0.7
+        let pad = pillH * 0.25
+        let x = (dressKind == .nds) ? bounds.minX + pad : bounds.maxX - pad - d
+        return CGRect(x: x, y: bounds.midY - d / 2, width: d, height: d)
+    }
+
+    /// Resting/pressed fill for the pill, by orientation: grey diagonal pill (portrait, .pill)
+    /// vs the menu-icon-coloured horizontal pill (landscape, .pillTop).
+    private func pillFill(pressed: Bool) -> CGColor {
+        if dressStyle == .pillTop {
+            return (pressed ? pillTopPressedC : pillTopBase).cgColor
+        }
+        return (pressed ? pillPressedC : pillBase).cgColor
+    }
+
+    /// The external transform (size slider) from applyLayout, so the press feedback compounds
+    /// with it — same pattern as ActionButton.baseTransform.
+    var baseTransform: CGAffineTransform = .identity
+
+    var isPressed = false { didSet { applyPressed() } }
+
+    /// A momentary press pulse for the action triggers (MENU/CLIP), which fire on tap and
+    /// never get a held `isPressed` from the game-input loop. Dressed buttons only, so the
+    /// undressed GBA/NDS/preset path is unchanged.
+    func flashPress() {
+        guard dressStyle != .none else { return }
+        isPressed = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+            guard let self, self.dressStyle != .none else { return }
+            self.isPressed = false
+        }
+    }
+
+    private func applyPressed() {
+        switch dressStyle {
+        case .none:
+            // Undressed (GBA/NDS/presets): unchanged — background only, no transform.
+            backgroundColor = isPressed ? UIColor.white.withAlphaComponent(0.45)
+                                        : UIColor.white.withAlphaComponent(0.15)
+            return
+        case .decal:
+            return   // skin-drawn decal; nothing on the button itself
+        case .pill, .pillTop:
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            pillBg.fillColor = pillFill(pressed: isPressed)
+            CATransaction.commit()
+            if dressKind != .gbc {
+                // GBA/NDS tiny "button": shrink around ITS OWN center (mirror A — no sink, same
+                // center), instead of the view-level shrink below.
+                let cc = CGPoint(x: selectCircleRect().midX, y: selectCircleRect().midY)
+                let s: CGFloat = isPressed ? 0.85 : 1.0
+                var t = CATransform3DMakeTranslation(cc.x, cc.y, 0)
+                t = CATransform3DScale(t, s, s, 1)
+                t = CATransform3DTranslate(t, -cc.x, -cc.y, 0)
+                CATransaction.begin(); CATransaction.setAnimationDuration(0.06)
+                pillBg.transform = t
+                CATransaction.commit()
+                return
+            }
+        case .circle:
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            circleBg.fillColor = (isPressed ? circlePressedColor : circleBgColor).cgColor
+            CATransaction.commit()
+        case .iconOnly:
+            iconView?.alpha = isPressed ? 0.6 : 1.0
+        }
+        // Slice 4: dressed buttons shrink into their well on press (visual only). Center-
+        // anchored, so the full and shrunk button share their center.
+        UIView.animate(withDuration: 0.06, delay: 0, options: [.allowUserInteraction]) {
+            self.transform = self.isPressed
+                ? self.baseTransform.scaledBy(x: 0.9, y: 0.9)
+                : self.baseTransform
+        }
+    }
+
+    /// Resting appearance for the current dress style.
+    private func applyResting() {
+        circleBg.isHidden = (dressStyle != .circle)
+        pillBg.isHidden = (dressStyle != .pill && dressStyle != .pillTop)
+        // Dressed (SELECT/START): the identifier is printed on the case (slice 3c), so the
+        // pill is bare. Its diagonal shape is built in layoutSubviews.
+        textLabel?.isHidden = (dressStyle != .none)
+        setNeedsLayout()
+        // Enlarge the icon only when it stands alone (icon-only), to fill its round well.
+        if iconView != nil {
+            let big = (dressStyle == .iconOnly)
+            NSLayoutConstraint.deactivate(big ? iconSmall : iconBig)
+            NSLayoutConstraint.activate(big ? iconBig : iconSmall)
+        }
+        switch dressStyle {
+        case .none:
+            backgroundColor = UIColor.white.withAlphaComponent(0.15)
+            layer.borderWidth = 1
+            layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
+            iconView?.tintColor = UIColor.white.withAlphaComponent(0.8)
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .pill:
+            // The visible pill is the shape layer, not the view background. GBA: a tiny clip-like
+            // circle (no edge). GB/GBC: the grey diagonal pill (edged).
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            pillBg.fillColor = pillFill(pressed: false)
+            pillBg.strokeColor = (dressKind != .gbc) ? UIColor.clear.cgColor : pillEdgeC.cgColor
+            pillBg.lineWidth = (dressKind != .gbc) ? 0 : 1
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .pillTop:
+            // Horizontal top-stuck pill, menu-icon coloured, no edge.
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            pillBg.fillColor = pillFill(pressed: false)
+            pillBg.strokeColor = UIColor.clear.cgColor
+            pillBg.lineWidth = 0
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .circle:
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            circleBg.fillColor = circleBgColor.cgColor
+            circleBg.strokeColor = circleEdgeC.cgColor
+            circleBg.lineWidth = 1
+            iconView?.tintColor = circleIconC
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .iconOnly:
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            iconView?.tintColor = iconColorC
+            iconHighlight?.isHidden = false
+            iconShadow?.isHidden = false
+        case .decal:
+            // Pure skin decal (NDS Mic): the button draws nothing; the skin draws slit + label.
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        switch dressStyle {
+        case .circle:
+            let d = min(bounds.width, bounds.height)
+            let rect = CGRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
+            circleBg.path = UIBezierPath(ovalIn: rect).cgPath
+        case .pill where dressKind != .gbc, .pillTop where dressKind != .gbc:
+            // GBA/NDS: the visible "button" is a tiny circle at the right of the pill (the dress
+            // draws the creusé pill bg + the label).
+            pillBg.path = UIBezierPath(ovalIn: selectCircleRect()).cgPath
+        case .pill:
+            // GB/GBC: a thin diagonal capsule from the hitbox bottom-left to its top-right, so
+            // the bare pill "draws the diagonal". The dress draws a matching seat + rotated label.
+            let dx = bounds.width, dy = -bounds.height
+            let len = max(1, hypot(dx, dy))
+            let t = min(bounds.width, bounds.height) * Self.pillThicknessRatio
+            let inset = t / 2
+            let q1 = CGPoint(x: bounds.minX + dx / len * inset, y: bounds.maxY + dy / len * inset)
+            let q2 = CGPoint(x: bounds.maxX - dx / len * inset, y: bounds.minY - dy / len * inset)
+            let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
+            pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
+                                    lineJoin: .round, miterLimit: 0)
+        case .pillTop:
+            // GB/GBC: a thin horizontal pill at the upper third of the hitbox.
+            let t = min(bounds.width, bounds.height) * Self.pillThicknessRatio
+            let y = bounds.minY + bounds.height / 3
+            let q1 = CGPoint(x: bounds.minX + t / 2, y: y)
+            let q2 = CGPoint(x: bounds.maxX - t / 2, y: y)
+            let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
+            pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
+                                    lineJoin: .round, miterLimit: 0)
+        case .none, .iconOnly, .decal:
+            layer.cornerRadius = 6
         }
     }
 
@@ -1111,6 +1803,9 @@ final class SmallButton: UIView, HighlightableButton {
         layer.borderWidth = 1
         layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
 
+        pillBg.isHidden = true
+        layer.insertSublayer(pillBg, at: 0)
+
         let lbl = UILabel()
         lbl.text = text
         lbl.textColor = UIColor.white.withAlphaComponent(0.8)
@@ -1118,10 +1813,75 @@ final class SmallButton: UIView, HighlightableButton {
         lbl.textAlignment = .center
         lbl.translatesAutoresizingMaskIntoConstraints = false
         addSubview(lbl)
+        textLabel = lbl
         NSLayoutConstraint.activate([
             lbl.centerXAnchor.constraint(equalTo: centerXAnchor),
             lbl.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+    }
+
+    /// Icon variant (Menu / Clip): same rounded-rect chrome as the labelled small buttons,
+    /// with an SF Symbol centered instead of text, plus the dressed-relief pieces.
+    init(systemImage name: String) {
+        super.init(frame: .zero)
+        backgroundColor = UIColor.white.withAlphaComponent(0.15)
+        layer.cornerRadius = 6
+        layer.borderWidth = 1
+        layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
+
+        circleBg.isHidden = true
+        layer.insertSublayer(circleBg, at: 0)
+
+        let img = UIImage(systemName: name)
+        // Two-sided emboss matching the dress's drawEmbossedImage (PHONES badge): a light copy
+        // up-left + a dark copy down-right behind the body-coloured icon, so it reads sculpted.
+        let hl = UIImageView(image: img)               // emboss highlight (light, offset up-left)
+        hl.tintColor = UIColor.white.withAlphaComponent(0.5)
+        hl.contentMode = .scaleAspectFit
+        hl.translatesAutoresizingMaskIntoConstraints = false
+        hl.isHidden = true
+        addSubview(hl)
+        let sh = UIImageView(image: img)               // emboss shadow (dark, offset down-right)
+        sh.tintColor = UIColor.black.withAlphaComponent(0.32)
+        sh.contentMode = .scaleAspectFit
+        sh.translatesAutoresizingMaskIntoConstraints = false
+        sh.isHidden = true
+        addSubview(sh)
+        let iv = UIImageView(image: img)
+        iv.tintColor = UIColor.white.withAlphaComponent(0.8)
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iv)
+        iconView = iv
+        iconHighlight = hl
+        iconShadow = sh
+        // Centers stay fixed; only the size toggles. Small = the original chrome look; big =
+        // icon-only, a square ~0.74 of the larger side so it fills the round well cleanly.
+        NSLayoutConstraint.activate([
+            iv.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iv.centerYAnchor.constraint(equalTo: centerYAnchor),
+            hl.centerXAnchor.constraint(equalTo: centerXAnchor, constant: -0.6),
+            hl.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -0.6),
+            sh.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 0.6),
+            sh.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 0.6),
+        ])
+        iconSmall = [
+            iv.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.5),
+            iv.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5),
+            hl.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.5),
+            hl.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5),
+            sh.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.5),
+            sh.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5),
+        ]
+        iconBig = [
+            iv.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+            iv.heightAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+            hl.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+            hl.heightAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+            sh.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+            sh.heightAnchor.constraint(equalTo: widthAnchor, multiplier: 0.74),
+        ]
+        NSLayoutConstraint.activate(iconSmall)
     }
 
     required init?(coder: NSCoder) { fatalError() }

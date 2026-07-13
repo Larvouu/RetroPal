@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct IdentifiableURL: Identifiable {
@@ -25,6 +26,10 @@ struct LaunchRequest: Identifiable {
     /// Threaded through to ScreenshotCardRenderer so the share card honors the
     /// renamed title instead of falling back to the on-disk filename.
     let gameTitle: String?
+    /// File size recorded at import. Lets the emulator pre-flight the on-disk
+    /// ROM (a missing/truncated file is the cause of the rare "won't load"
+    /// black screen) and show an actionable message instead of a dead end.
+    let expectedSize: Int64
 }
 
 struct LibraryView: View {
@@ -40,6 +45,20 @@ struct LibraryView: View {
     /// import is dispatched. Binding-driven so cold-launch URLs still
     /// arrive correctly — the .onChange below fires on first render.
     @Binding var pendingOpenURL: URL?
+    /// Whether the Library is the selected tab (passed by AppShellView). Gates
+    /// the screenshot-to-share detection so it never fires from the Settings tab.
+    var isActiveTab: Bool = true
+
+    /// Landscape on iPhone is the only place the games render as a 2-column grid
+    /// (there's horizontal room); portrait keeps the single-column List.
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var isLandscape: Bool { vSizeClass == .compact }
+
+    /// Two equal, flexible columns for the landscape game grid.
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
 
     @State private var showFilePicker = false
     @State private var launchRequest: LaunchRequest?
@@ -47,7 +66,32 @@ struct LibraryView: View {
     @State private var showImportError = false
     @State private var isImporting = false
     @State private var searchText = ""
-    @State private var sortOrder: SortOrder = .lastPlayed
+    /// Persisted across launches: the chosen sort survives an app kill (the
+    /// user gets the same library arrangement next open). RawRepresentable<String>
+    /// enums are AppStorage-backed natively on iOS 16+.
+    @AppStorage("library.sortOrder") private var sortOrder: SortOrder = .lastPlayed
+    /// Bottom-of-library stats block. Recomputed on appear, on save changes
+    /// (returning from a game), and on add/delete — PromptTracker lives in
+    /// UserDefaults, which SwiftUI can't observe, so we refresh explicitly.
+    @State private var stats: LibraryStats?
+    /// Presents the shareable retro-story card sheet (opened by tapping the
+    /// stats area — no explicit share button, just responding to curiosity).
+    @State private var showStoryShare = false
+    /// Once-per-session guard for the library screenshot-to-share prompt,
+    /// mirroring the in-game screenshot detection's session flag.
+    @State private var hasShownStatsScreenshotThisSession = false
+    /// RetroAchievements card below the stats. Observed so the card appears/
+    /// disappears with eligibility and login state without a manual refresh.
+    @ObservedObject private var ra = RetroAchievements.shared
+    @ObservedObject private var raIndex = RAGameIndex.shared
+    @State private var showRAProfile = false
+    @State private var showRAInfo = false
+    @State private var showRALogin = false
+    /// A recent unlock tapped in the RA card; drives its share-card sheet.
+    @State private var raShareUnlock: RAUnlockLogEntry?
+    /// Push depth of Game Details over the library list (a row's NavigationLink
+    /// bumps it on appear/disappear). Non-zero = the list is not the foreground.
+    @State private var detailViewCount = 0
     @State private var renamingGame: GameEntity?
     @State private var renameDraft = ""
     /// True while the "saves are imported per-game" redirect popup is shown.
@@ -80,15 +124,21 @@ struct LibraryView: View {
         case lastPlayed = "lastPlayed"
         case alphabetical = "alphabetical"
         case dateAdded = "dateAdded"
+        case byConsole = "byConsole"
 
         var displayName: String {
             switch self {
             case .lastPlayed: return NSLocalizedString("library.sort.lastPlayed", comment: "")
             case .alphabetical: return "A-Z"
             case .dateAdded: return NSLocalizedString("library.sort.dateAdded", comment: "")
+            case .byConsole: return NSLocalizedString("library.sort.byConsole", comment: "")
             }
         }
     }
+
+    /// Canonical console ordering, used only as a stable tiebreak when two
+    /// consoles have identical play time (e.g. none played yet).
+    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -99,14 +149,117 @@ struct LibraryView: View {
             sorted = games.sorted { ($0.title ?? "") < ($1.title ?? "") }
         case .dateAdded:
             sorted = games.sorted { ($0.importedAt ?? .distantPast) > ($1.importedAt ?? .distantPast) }
+        case .byConsole:
+            let rank = consoleDisplayRank
+            sorted = games.sorted { a, b in
+                let ra = rank[a.systemType ?? "gba"] ?? Int.max
+                let rb = rank[b.systemType ?? "gba"] ?? Int.max
+                if ra != rb { return ra < rb }
+                // Within one console, A-Z by title.
+                return (a.title ?? "") < (b.title ?? "")
+            }
         }
         if searchText.isEmpty { return sorted }
         return sorted.filter { ($0.title ?? "").localizedCaseInsensitiveContains(searchText) }
     }
 
+    /// Per-console ordering for the "Par console" sort: consoles the user has
+    /// played the MOST appear first (most total play time across that console's
+    /// games), so the heaviest-used system tops the library. Consoles with equal
+    /// (or zero) play time fall back to a stable canonical order. Returns a
+    /// rank index per systemType raw value (0 = shown first).
+    private var consoleDisplayRank: [String: Int] {
+        var secondsPerConsole: [String: TimeInterval] = [:]
+        for game in games {
+            let system = game.systemType ?? "gba"
+            let seconds = LibraryStats.romName(for: game.romFilePath)
+                .map { PromptTracker.shared.gamePlayTime(romName: $0) } ?? 0
+            secondsPerConsole[system, default: 0] += seconds
+        }
+        let ordered = secondsPerConsole.keys.sorted { a, b in
+            let sa = secondsPerConsole[a] ?? 0
+            let sb = secondsPerConsole[b] ?? 0
+            if sa != sb { return sa > sb }
+            let ia = Self.consoleFallbackOrder.firstIndex(of: a) ?? Int.max
+            let ib = Self.consoleFallbackOrder.firstIndex(of: b) ?? Int.max
+            return ia < ib
+        }
+        return Dictionary(uniqueKeysWithValues: ordered.enumerated().map { ($1, $0) })
+    }
+
+    /// The display list split into per-console blocks for the "Par console" sort
+    /// (each block separated by a small gap in both layouts, no section titles).
+    /// Every other sort returns a single block, so layouts stay unchanged.
+    /// Because `filteredGames` is already console-ranked then A-Z, a run-length
+    /// pass over consecutive same-console games yields the blocks.
+    private var gameGroups: [[GameEntity]] {
+        let list = filteredGames
+        guard sortOrder == .byConsole, !list.isEmpty else { return [list] }
+        var groups: [[GameEntity]] = []
+        var currentSystem: String?
+        for game in list {
+            let system = game.systemType ?? "gba"
+            if system == currentSystem {
+                groups[groups.count - 1].append(game)
+            } else {
+                groups.append([game])
+                currentSystem = system
+            }
+        }
+        return groups
+    }
+
     private var romsDir: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
             .appendingPathComponent("ROMs", isDirectory: true)
+    }
+
+    /// Recompute the bottom-of-library stats from the current games + PromptTracker.
+    private func refreshStats() {
+        let inputs = games.map {
+            LibraryStats.GameInput(title: $0.title ?? "",
+                                   romFilePath: $0.romFilePath,
+                                   systemType: $0.systemType)
+        }
+        stats = LibraryStats.compute(games: inputs)
+        // Keep the RA index in step with the library: resolves eligibility for
+        // new imports (credential-free), drops records of deleted games, and
+        // refreshes per-game progress (throttled).
+        ra.syncLibraryGames(games.compactMap { game in
+            guard let filename = game.romFilePath, let romHash = game.romHash else { return nil }
+            return .init(romHash: romHash, filename: filename,
+                         path: romsDir.appendingPathComponent(filename).path,
+                         title: game.title ?? "")
+        })
+        // Same rhythm for box art: silently resolve covers for games still
+        // pending, prune covers of deleted games. Terminal games are a
+        // file-existence check each; nothing here touches the network unless
+        // a game is still unresolved.
+        BoxArtManager.shared.sweep(games: games.compactMap { game in
+            guard let filename = game.romFilePath, let romHash = game.romHash else { return nil }
+            return .init(romHash: romHash, filename: filename,
+                         path: romsDir.appendingPathComponent(filename).path,
+                         title: game.title ?? "",
+                         system: game.systemType ?? "gba",
+                         coverState: game.coverType)
+        })
+    }
+
+    /// Screenshot-to-share for the library, mirroring the in-game screenshot
+    /// detection: present the stats share card once per session — but only when
+    /// the library list is the foreground (active tab, no game, no sheet up) and
+    /// the stats panel is actually visible (its appearance condition is met).
+    private func handleLibraryScreenshot() {
+        guard isActiveTab,
+              detailViewCount == 0,
+              launchRequest == nil,
+              !showStoryShare, !showFilePicker, !showSaveRedirect,
+              !showImportError, !showNavigateDestination, renamingGame == nil,
+              searchText.isEmpty,
+              let stats, stats.hasData,
+              !hasShownStatsScreenshotThisSession else { return }
+        hasShownStatsScreenshotThisSession = true
+        showStoryShare = true
     }
 
     var body: some View {
@@ -117,12 +270,28 @@ struct LibraryView: View {
             .navigationDestination(isPresented: $showNavigateDestination) {
                 navigationDestinationView
             }
+            .navigationDestination(isPresented: $showRAProfile) {
+                RetroAchievementsView()
+            }
             .onChange(of: pendingOpenURL) { url in
                 guard let url = url else { return }
                 pendingOpenURL = nil
                 handleOpenedURL(url)
             }
             .overlay { importingOverlay }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.userDidTakeScreenshotNotification)) { _ in
+                handleLibraryScreenshot()
+            }
+            .sheet(isPresented: $showRAInfo) { RAAboutSheet() }
+            .sheet(isPresented: $showRALogin) { RALoginView() }
+            .sheet(item: $raShareUnlock) { entry in
+                RAShareView(achievement: entry.asAchievementInfo(),
+                            gameName: entry.gameTitle,
+                            boxArtURL: entry.boxArtURL.flatMap(URL.init(string:)),
+                            romFilename: raIndex.filename(forGameID: entry.gameID),
+                            onClose: { raShareUnlock = nil })
+            }
     }
 
     /// Wraps `bodyCore` with the redirect popup shown when a `.sav`/`.srm`
@@ -144,16 +313,27 @@ struct LibraryView: View {
     private var bodyCore: some View {
         Group {
             if showEmptyState {
+                // Onboarding: no large title, no search bar — the whole
+                // pitch (headline, consoles, steps, CTA) fits without
+                // scrolling. The toolbar stays reachable.
                 emptyState
+                    .navigationTitle("")
+                    .navigationBarTitleDisplayMode(.inline)
             } else {
                 gameList
+                    .navigationTitle(NSLocalizedString("library.title", comment: ""))
+                    .searchable(text: $searchText, prompt: NSLocalizedString("library.search", comment: ""))
             }
         }
-        .navigationTitle(NSLocalizedString("library.title", comment: ""))
-        .searchable(text: $searchText, prompt: NSLocalizedString("library.search", comment: ""))
         .toolbar { libraryToolbar }
         .sheet(isPresented: $showFilePicker) {
             DocumentPickerView { url in
+                // Stage the skeleton row the instant a ROM is picked, so the
+                // wait is never blank. The 0.5s defer below only delays the work
+                // (it lets the picker finish dismissing before any error alert
+                // can present); the skeleton is already on screen by then.
+                let ext = url.pathExtension.lowercased()
+                if ext != "sav" && ext != "srm" && ext != "retropalskin" { isImporting = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     dispatchPickedFile(url: url)
                 }
@@ -222,7 +402,8 @@ struct LibraryView: View {
             romURL: request.url,
             session: EmulatorSession(bridge: bridge),
             loadSlot: request.loadSlot,
-            gameTitle: request.gameTitle
+            gameTitle: request.gameTitle,
+            expectedROMSize: request.expectedSize
         ) {
             // Re-stamp lastPlayedAt to "now" so the library row + cover image
             // invalidate. The auto-save preview was just written to disk by
@@ -242,19 +423,10 @@ struct LibraryView: View {
     @ViewBuilder
     private var importingOverlay: some View {
         if isImporting {
-            ZStack {
-                Color.black.opacity(0.4).ignoresSafeArea()
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(.white)
-                    Text(NSLocalizedString("library.importing", comment: "Importing ROM..."))
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                }
-                .padding(30)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            }
+            // Keep the interaction freeze (a transparent, hit-swallowing layer),
+            // but show no modal spinner: the skeleton row at the top of the
+            // library now communicates the wait instead.
+            Color.black.opacity(0.001).ignoresSafeArea()
         }
     }
 
@@ -287,6 +459,12 @@ struct LibraryView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 32)
+
+                // The four consoles, named — the same colored pixel-art strip
+                // as retropal.fr, so a newcomer sees at a glance what plays here.
+                ConsoleIconRow()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 2)
 
                 stepsCard
                     .padding(.horizontal, 24)
@@ -410,38 +588,176 @@ struct LibraryView: View {
     }
 
 
+    /// The games surface. Portrait keeps the single-column List; landscape (where
+    /// there's horizontal room) switches to a 2-column grid of cards. The shared
+    /// data hooks + the story-share sheet + the rename alert live on the wrapper
+    /// so both layouts get them without duplication.
     private var gameList: some View {
-        List {
-            ForEach(filteredGames, id: \.self) { game in
-                LibraryRow(
-                    game: game,
-                    onPlay: { url, slot in playGame(game, url: url, slot: slot) },
-                    onDelete: { deleteGame(game) },
-                    onRename: {
-                        renameDraft = game.title ?? ""
-                        renamingGame = game
-                    }
+        gameListContent
+            .onAppear { refreshStats() }
+            .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
+                refreshStats()
+            }
+            .onChange(of: games.count) { _ in refreshStats() }
+            .sheet(isPresented: $showStoryShare) {
+                if let stats {
+                    RetroStoryShareView(stats: stats) { showStoryShare = false }
+                }
+            }
+            .alert(
+                NSLocalizedString("details.rename.title", comment: ""),
+                isPresented: Binding(
+                    get: { renamingGame != nil },
+                    set: { if !$0 { renamingGame = nil } }
                 )
+            ) {
+                TextField("", text: $renameDraft)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(false)
+                Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {
+                    renamingGame = nil
+                }
+                Button(NSLocalizedString("common.save", comment: "")) {
+                    commitRename()
+                }
             }
-            .onDelete(perform: deleteGames)
+    }
+
+    @ViewBuilder
+    private var gameListContent: some View {
+        if isLandscape {
+            landscapeGameGrid
+        } else {
+            portraitGameList
         }
-        .alert(
-            NSLocalizedString("details.rename.title", comment: ""),
-            isPresented: Binding(
-                get: { renamingGame != nil },
-                set: { if !$0 { renamingGame = nil } }
-            )
-        ) {
-            TextField("", text: $renameDraft)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled(false)
-            Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {
-                renamingGame = nil
+    }
+
+    /// Portrait: the original single-column List (swipe-to-delete, grouped style).
+    private var portraitGameList: some View {
+        List {
+            // Games in their own section(s) so the group keeps its rounded corners
+            // (the stats block below must not join this section, or the last
+            // game row loses its rounded bottom). The "Par console" sort yields one
+            // section per console — grouped-List section spacing IS the small gap
+            // between blocks (no titles); every other sort is a single section.
+            ForEach(Array(gameGroups.enumerated()), id: \.offset) { groupIndex, group in
+                Section {
+                    // While importing, a skeleton row at the top of the first block
+                    // stands in for the game about to appear (the UI stays frozen
+                    // via importingOverlay).
+                    if isImporting && groupIndex == 0 {
+                        LibrarySkeletonRow()
+                    }
+                    ForEach(group, id: \.self) { game in
+                        LibraryRow(
+                            game: game,
+                            onPlay: { url, slot in playGame(game, url: url, slot: slot) },
+                            onDelete: { deleteGame(game) },
+                            onRename: {
+                                renameDraft = game.title ?? ""
+                                renamingGame = game
+                            },
+                            detailViewCount: $detailViewCount
+                        )
+                    }
+                    .onDelete { offsets in deleteGames(in: group, at: offsets) }
+                }
             }
-            Button(NSLocalizedString("common.save", comment: "")) {
-                commitRename()
+
+            // "Retro story" stats card, anchored at the bottom after the games
+            // (no positioning tricks — for a library worth showing stats, the
+            // games scroll, so it's naturally a discovery). Hidden while
+            // searching; appears once at least two games are played.
+            if searchText.isEmpty, let stats, stats.hasData {
+                Section {
+                    LibraryStatsCard(stats: stats)   // library face
+                        .contentShape(Rectangle())
+                        .onTapGesture { Haptics.tap(); showStoryShare = true }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 16, trailing: 16))
+                }
+            }
+
+            // RetroAchievements card below the stats: appears as soon as one
+            // imported game has an RA set (as an invite when not connected),
+            // and disappears with the last eligible game.
+            if searchText.isEmpty, ra.isEnabled, raIndex.hasEligibleGame {
+                Section {
+                    raLibraryCard
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 16, trailing: 16))
+                }
             }
         }
+    }
+
+    private var raLibraryCard: some View {
+        RALibraryCard(
+            onConnect: { showRALogin = true },
+            onInfo: { showRAInfo = true },
+            onOpenProfile: { showRAProfile = true },
+            onShareUnlock: { raShareUnlock = $0 })
+    }
+
+    /// Landscape: a 2-column grid of game cards (reusing LibraryRow in its card
+    /// variant). Delete/rename move to the per-card long-press menu (no swipe in
+    /// a grid). The stats card spans full width below the grid, as in portrait.
+    private var landscapeGameGrid: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                // One grid per console block under the "Par console" sort; the
+                // extra top padding on blocks after the first IS the small gap
+                // between consoles (no titles). Every other sort is one block, so
+                // the layout is unchanged.
+                ForEach(Array(gameGroups.enumerated()), id: \.offset) { groupIndex, group in
+                    LazyVGrid(columns: gridColumns, spacing: 12) {
+                        if isImporting && groupIndex == 0 {
+                            LibrarySkeletonRow()
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color(.secondarySystemGroupedBackground))
+                                )
+                        }
+                        ForEach(group, id: \.self) { game in
+                            LibraryRow(
+                                game: game,
+                                onPlay: { url, slot in playGame(game, url: url, slot: slot) },
+                                onDelete: { deleteGame(game) },
+                                onRename: {
+                                    renameDraft = game.title ?? ""
+                                    renamingGame = game
+                                },
+                                detailViewCount: $detailViewCount,
+                                cardStyle: true
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, groupIndex == 0 ? 12 : 24)
+                }
+
+                if searchText.isEmpty, let stats, stats.hasData {
+                    LibraryStatsCard(stats: stats)
+                        .contentShape(Rectangle())
+                        .onTapGesture { Haptics.tap(); showStoryShare = true }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
+                }
+
+                if searchText.isEmpty, ra.isEnabled, raIndex.hasEligibleGame {
+                    raLibraryCard
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                }
+            }
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 
     /// Commit the rename from the library context-menu alert. Trims, rejects
@@ -455,6 +771,10 @@ struct LibraryView: View {
         guard !trimmed.isEmpty, trimmed != game.title else { return }
         game.title = trimmed
         try? viewContext.save()
+        // A rename changes a title without changing games.count, so refresh the
+        // stats explicitly — otherwise a renamed game keeps its old name in the
+        // ranking (library footer + the shareable card use the same `stats`).
+        refreshStats()
     }
 
     // MARK: - Actions
@@ -468,6 +788,9 @@ struct LibraryView: View {
         let ext = url.pathExtension.lowercased()
         if ext == "sav" || ext == "srm" {
             showSaveRedirect = true
+        } else if ext == "retropalskin" {
+            // A custom skin picked from Files: import it (own validation + alerts), not a ROM.
+            SkinSharing.present(SkinSharing.importSkin(from: url))
         } else {
             importROM(url: url)
         }
@@ -479,9 +802,10 @@ struct LibraryView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let importer = ROMImporter(context: context)
             do {
-                let _ = try importer.importROM(from: url)
+                let _ = try importer.importROM(from: url, method: "picker")
                 DispatchQueue.main.async { isImporting = false }
             } catch let error as ROMImportError {
+                Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
                 DispatchQueue.main.async {
                     isImporting = false
                     if case .alreadyImported = error { return }
@@ -489,6 +813,7 @@ struct LibraryView: View {
                     showImportError = true
                 }
             } catch {
+                Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
                 DispatchQueue.main.async {
                     isImporting = false
                     importError = error.localizedDescription
@@ -513,7 +838,8 @@ struct LibraryView: View {
         launchRequest = LaunchRequest(
             url: url, loadSlot: slot,
             systemType: game.systemType ?? "gba",
-            gameTitle: game.title
+            gameTitle: game.title,
+            expectedSize: game.romSize
         )
     }
 
@@ -550,7 +876,7 @@ struct LibraryView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let importer = ROMImporter(context: bgContext)
             do {
-                let result = try importer.findOrImport(at: url)
+                let result = try importer.findOrImport(at: url, method: "url")
                 DispatchQueue.main.async {
                     isImporting = false
                     switch result {
@@ -564,12 +890,14 @@ struct LibraryView: View {
                     }
                 }
             } catch let error as ROMImportError {
+                Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "url"])
                 DispatchQueue.main.async {
                     isImporting = false
                     importError = error.errorDescription
                     showImportError = true
                 }
             } catch {
+                Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "url"])
                 DispatchQueue.main.async {
                     isImporting = false
                     importError = error.localizedDescription
@@ -592,13 +920,26 @@ struct LibraryView: View {
                 .appendingPathComponent(romName, isDirectory: true)
             try? FileManager.default.removeItem(at: savesDir)
         }
+        // The slot-0 auto-save lives in a separate local tree now
+        // (SaveStateManager.localAutoSaveDir), so remove it explicitly too —
+        // otherwise re-importing the same game would resurface a stale resume.
+        if let filename = game.romFilePath {
+            let canonicalRom = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
+            if !canonicalRom.isEmpty {
+                try? FileManager.default.removeItem(at: SaveStateManager.localAutoSaveDir(romName: canonicalRom))
+            }
+        }
         viewContext.delete(game)
         try? viewContext.save()
     }
 
-    private func deleteGames(at offsets: IndexSet) {
+    /// Swipe-to-delete handler. Offsets are relative to the section's own block,
+    /// so resolve them against that block, not the raw fetch list — otherwise a
+    /// non-default sort (or an active search, or a console block) would map the
+    /// swiped row to the wrong game.
+    private func deleteGames(in group: [GameEntity], at offsets: IndexSet) {
         for index in offsets {
-            deleteGame(games[index])
+            deleteGame(group[index])
         }
     }
 }
@@ -609,29 +950,129 @@ struct LibraryView: View {
 /// (rename, replay timestamp, etc.) re-renders the row immediately — the
 /// surrounding @FetchRequest only fires on collection changes, not on field
 /// edits to existing entities.
+/// The library "retro story" panel with a static 3D tilt (the shareable card
+/// keeps the continuous sway). Library palette (no purple, no logo/footer — just
+/// the stats face), sized to its content. Tapping it still opens the share sheet
+/// (the behavior lives in the Section, unchanged).
+private struct LibraryStatsCard: View {
+    let stats: LibraryStats
+
+    var body: some View {
+        // Flat, straight-on panel (the 3D tilt was removed 2026-07-06; any
+        // motion stays on the shareable card).
+        RetroStoryCardView(stats: stats)   // no branding: stats only, library colors
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 8)
+    }
+}
+
+/// Placeholder row shown at the top of the library while a ROM imports: the
+/// real row's shape (cover + title + last-played + play-time) with shimmering
+/// blocks instead of values, so the wait reads as content about to appear.
+private struct LibrarySkeletonRow: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            SkeletonBox(cornerRadius: 8)
+                .frame(width: 60, height: 40)
+            VStack(alignment: .leading, spacing: 6) {
+                SkeletonBox(cornerRadius: 4).frame(width: 130, height: 15)
+                SkeletonBox(cornerRadius: 4).frame(width: 90, height: 11)
+                SkeletonBox(cornerRadius: 4).frame(width: 60, height: 10)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .accessibilityLabel(NSLocalizedString("library.importing", comment: "Importing ROM..."))
+    }
+}
+
 private struct LibraryRow: View {
     @ObservedObject var game: GameEntity
     let onPlay: (URL, Int?) -> Void
     let onDelete: () -> Void
     let onRename: () -> Void
+    /// Push depth of Game Details, owned by LibraryView; bumped while this row's
+    /// detail view is on screen so the library screenshot prompt won't fire there.
+    @Binding var detailViewCount: Int
+    /// When true (landscape grid), the row draws itself as a self-contained card
+    /// (own background + padding, fills its cell). In the List (false) the List
+    /// supplies the row background/insets, so we add neither.
+    var cardStyle: Bool = false
+
+    /// Bumped on `.saveStatesDidChange` so the cover re-reads the freshly
+    /// written auto-save preview. lastPlayedAt alone refreshes the cover too
+    /// early — it is re-stamped at dismiss, before the async write lands.
+    @State private var saveTick = 0
+
+    /// Local cover file by priority: the user-picked custom cover beats the
+    /// downloaded one (exact or heuristic); anything else falls through to
+    /// raArtURL / screenshot.
+    private var coverFileURL: URL? {
+        guard let romHash = game.romHash else { return nil }
+        switch game.coverType {
+        case BoxArtManager.coverStateCustom:
+            return BoxArtManager.shared.customImageURL(forROMHash: romHash)
+        case BoxArtManager.coverStateBoxArt, BoxArtManager.coverStateBoxArtHeuristic:
+            return BoxArtManager.shared.imageURL(forROMHash: romHash)
+        default:
+            return nil
+        }
+    }
+
+    /// The RetroAchievements game image. It outranks a HEURISTIC cover
+    /// match (RA identifies the actual bytes by hash, so a base-named ROM
+    /// hack that fooled our serial/fuzzy match gets its own art) and covers
+    /// definitive no-matches. It never outranks a byte-exact CRC match (the
+    /// file IS the retail dump: the real native box wins) or a custom
+    /// cover. Only while RA is enabled and signed in (the URL arrives with
+    /// the first signed-in play), and never RA's generic controller
+    /// placeholder (games with no RA image, e.g. homebrew like Anguna:
+    /// the screenshot stays). Never consulted while a game is still
+    /// "placeholder", so it can't flicker against an incoming download.
+    /// No new observation needed: LibraryView already observes ra +
+    /// raIndex and rebuilds rows.
+    private var raArtURL: URL? {
+        guard game.coverType == BoxArtManager.coverStateNone
+                || game.coverType == BoxArtManager.coverStateBoxArtHeuristic,
+              RetroAchievements.shared.isEnabled,
+              RetroAchievements.shared.isLoggedIn,
+              let romHash = game.romHash,
+              let url = RAGameIndex.shared.record(forROMHash: romHash)?.boxArtURL,
+              !url.hasSuffix("/000001.png")
+        else { return nil }
+        return URL(string: url)
+    }
 
     var body: some View {
         NavigationLink {
             GameDetailsView(game: game, onPlay: onPlay, onDelete: onDelete)
+                .onAppear { detailViewCount += 1 }
+                .onDisappear { detailViewCount -= 1 }
         } label: {
             HStack(spacing: 12) {
-                // .id keyed on lastPlayedAt forces a fresh GameCoverView (and
-                // a fresh disk read of the auto-save preview) whenever the
-                // game has just been played — otherwise SwiftUI sees the same
-                // romFilePath input and skips re-evaluation.
-                GameCoverView(romFilePath: game.romFilePath)
-                    .id(game.lastPlayedAt ?? .distantPast)
-                    .frame(width: 60, height: 40)
+                // .id keyed on lastPlayedAt + saveTick forces a fresh
+                // GameCoverView (a fresh disk read of the auto-save preview)
+                // when the game is played AND when the auto-save write actually
+                // lands (.saveStatesDidChange bumps saveTick) — the write
+                // completes after lastPlayedAt is re-stamped at dismiss.
+                // coverType joins the key so the row re-reads the cover the
+                // moment BoxArtManager persists a downloaded one.
+                // fixedWidth: every cover spans the width a GBA screenshot
+                // occupies (GB/GBC/NDS and box art no longer shrink inside
+                // a 3:2 frame); the view derives its own height from the
+                // image's ratio, square-capped so rows don't stretch.
+                GameCoverView(romFilePath: game.romFilePath,
+                              boxArtURL: coverFileURL,
+                              remoteArtURL: raArtURL,
+                              fixedWidth: cardStyle ? 80 : 60)
+                    .id("\((game.lastPlayedAt ?? .distantPast).timeIntervalSinceReferenceDate)#\(saveTick)#\(game.coverType ?? "")")
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(game.title ?? "Unknown")
                             .font(.headline)
+                            // Explicit primary: a NavigationLink outside a List
+                            // (the landscape grid) otherwise tints its label blue.
+                            .foregroundColor(.primary)
                         if let sys = game.systemType {
                             Text(sys.uppercased())
                                 .font(.system(size: 9, weight: .bold))
@@ -654,8 +1095,22 @@ private struct LibraryRow: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                // Fill the cell so the grid card's whole width is tappable
+                // (harmless in the List, where the row is already full-width).
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, cardStyle ? 10 : 4)
+            .padding(.horizontal, cardStyle ? 12 : 0)
+            // In the grid, stretch to the row's height so two paired cards (one
+            // with more metadata than the other) stay equal height.
+            .frame(maxHeight: cardStyle ? .infinity : nil)
+            .background {
+                if cardStyle {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                }
+            }
+            .contentShape(Rectangle())
         }
         .contextMenu {
             Button {
@@ -669,15 +1124,16 @@ private struct LibraryRow: View {
                 Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
+            // The auto-save preview lands on disk after the cover already
+            // refreshed on lastPlayedAt (re-stamped at dismiss, before the async
+            // write completes). Bump the tick so the cover re-reads once it lands.
+            saveTick &+= 1
+        }
     }
 
     private func systemBadgeColor(_ systemType: String) -> Color {
-        switch systemType {
-        case "nds": return .blue
-        case "gbc": return .purple
-        case "gb": return .gray
-        default: return .green
-        }
+        SystemColor.color(systemType)
     }
 
     private var gamePlayTime: TimeInterval {
@@ -716,6 +1172,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         UTType(filenameExtension: "nds") ?? .data,
         UTType(filenameExtension: "sav") ?? .data,
         UTType(filenameExtension: "srm") ?? .data,
+        UTType(filenameExtension: "retropalskin") ?? .data,   // silently accepted; routed to skin import
         .zip,
     ]
     /// Battery saves only, used by the per-game "Import a save" button where
@@ -723,6 +1180,15 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     static let saveTypes: [UTType] = [
         UTType(filenameExtension: "sav") ?? .data,
         UTType(filenameExtension: "srm") ?? .data,
+    ]
+    /// ROM files only (no saves), used by the per-game "Replace game file"
+    /// recovery on the Game Details screen.
+    static let romTypes: [UTType] = [
+        UTType(filenameExtension: "gba") ?? .data,
+        UTType(filenameExtension: "gb") ?? .data,
+        UTType(filenameExtension: "gbc") ?? .data,
+        UTType(filenameExtension: "nds") ?? .data,
+        .zip,
     ]
 
     var contentTypes: [UTType] = DocumentPickerView.romAndSaveTypes

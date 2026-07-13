@@ -21,6 +21,24 @@ enum ProPromptContext: Equatable {
     case cheatCodesTapped                  // user tapped locked button — no time mention
     case tappedLockedFeature
     case customizeControls                 // user tapped customize controls (Pro feature)
+    case customSkins                       // user tapped Create skin / Edit, or imported one (creation is Pro)
+
+    /// Stable, anonymous identifier for analytics (drops associated values, esp. gameName).
+    var analyticsID: String {
+        switch self {
+        case .speedMoment: return "speedMoment"
+        case .speedTapped: return "speedTapped"
+        case .saveSlotFull: return "saveSlotFull"
+        case .saveSlotTapped: return "saveSlotTapped"
+        case .sessionMilestone: return "sessionMilestone"
+        case .rewindLimit: return "rewindLimit"
+        case .cheatCodes: return "cheatCodes"
+        case .cheatCodesTapped: return "cheatCodesTapped"
+        case .tappedLockedFeature: return "tappedLockedFeature"
+        case .customizeControls: return "customizeControls"
+        case .customSkins: return "customSkins"
+        }
+    }
 }
 
 final class PromptTracker {
@@ -152,49 +170,85 @@ final class PromptTracker {
     private let reviewPromptSecondsPrompt2: TimeInterval = 10800         // 3 hours cumulative
     private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600
     private let reviewPromptMinSessionsForFirst = 2                       // >= 3rd session
+    private let reviewPromptSecondsRAUnlock: TimeInterval = 900           // 15 min cumulative + a fresh RA unlock
+    private let reviewPromptRAUnlockWindow: TimeInterval = 30 * 60        // "fresh" = within the last 30 min
+
+    /// In-memory only, deliberately not persisted: a RetroAchievements unlock
+    /// opens a short celebration window for the review ask. An app relaunch
+    /// resets it, which is the conservative behavior we want.
+    private var lastAchievementUnlockDate: Date?
+
+    /// Call when a RetroAchievements achievement unlocks (any game).
+    func recordAchievementUnlocked() {
+        lastAchievementUnlockDate = Date()
+    }
 
     /// Check if the App Store review warm-up card should appear.
-    /// Prompt #1 fires via any of three paths:
-    ///   - Loyal returner: 3rd session or later AND ≥1h cumulative play
-    ///   - Deep first-timer: still in session 1 AND ≥2h in that session
-    ///   - Engaged first-timer: still in session 1 AND ≥15min AND has
+    /// Thin Bool wrapper over `reviewPromptArm(currentSessionSeconds:)`.
+    func shouldShowReviewPrompt(currentSessionSeconds: TimeInterval) -> Bool {
+        reviewPromptArm(currentSessionSeconds: currentSessionSeconds) != nil
+    }
+
+    /// Which arm (if any) allows the review warm-up card right now. The
+    /// returned identifier feeds the analytics `trigger` param so each arm's
+    /// volume and conversion can be read separately.
+    /// Prompt #1 fires via any of four paths:
+    ///   - "loyal_returner": 3rd session or later AND ≥1h cumulative play
+    ///   - "deep_first_timer": still in session 1 AND ≥2h in that session
+    ///   - "engaged_first_timer": still in session 1 AND ≥15min AND has
     ///     created at least one manual save state. The save state is a
     ///     deliberate engagement signal that the bare time bar lacks, so
     ///     it lets us prompt a clearly-invested newcomer far earlier than
     ///     the 2h deep-first-timer bar (which almost no one reaches in one
     ///     sitting) without prompting drive-by users.
-    /// Prompt #2 fires at ≥3h cumulative, 24h after prompt #1, only if
-    /// prompt #1 was dismissed (not rated). Rating is terminal.
-    func shouldShowReviewPrompt(currentSessionSeconds: TimeInterval) -> Bool {
+    ///   - "ra_unlock": a RetroAchievements unlock in the last 30 min AND
+    ///     ≥15 min cumulative play. The unlock is the highest-emotion moment
+    ///     the app has; the time bar keeps a 2-minute drive-by unlock from
+    ///     prompting. The card still only appears at the pause overlay, never
+    ///     over gameplay.
+    /// Prompt #2 ("second_prompt") fires at ≥3h cumulative, 24h after prompt
+    /// #1, only if prompt #1 was dismissed (not rated). Rating is terminal.
+    func reviewPromptArm(currentSessionSeconds: TimeInterval) -> String? {
         // Legacy users who already saw the single-shot prompt: no more prompts.
-        guard !defaults.bool(forKey: kReviewPromptShown) else { return false }
+        guard !defaults.bool(forKey: kReviewPromptShown) else { return nil }
 
         // Terminal: user already rated.
-        guard !defaults.bool(forKey: kReviewPromptRated) else { return false }
+        guard !defaults.bool(forKey: kReviewPromptRated) else { return nil }
 
         let dismissedCount = defaults.integer(forKey: kReviewPromptDismissedCount)
-        guard dismissedCount < 2 else { return false }
+        guard dismissedCount < 2 else { return nil }
 
         // 24h minimum between warm-up cards so a marathon session doesn't
         // trigger both prompts back-to-back.
         if let lastShown = defaults.object(forKey: kReviewPromptLastShownDate) as? Date,
            Date().timeIntervalSince(lastShown) < reviewPromptMinGapSeconds {
-            return false
+            return nil
         }
 
         let totalPlayed = totalPlaySeconds + currentSessionSeconds
 
         if dismissedCount == 0 {
-            let loyalReturner = sessionCount >= reviewPromptMinSessionsForFirst
-                             && totalPlayed >= reviewPromptSecondsPrompt1
-            let deepFirstTimer = sessionCount == 0
-                              && currentSessionSeconds >= reviewPromptSecondsFirstSessionDeep
-            let engagedFirstTimer = sessionCount == 0
-                                 && currentSessionSeconds >= reviewPromptSecondsEngagedFirstTimer
-                                 && hasCreatedSaveState
-            return loyalReturner || deepFirstTimer || engagedFirstTimer
+            if let unlockDate = lastAchievementUnlockDate,
+               Date().timeIntervalSince(unlockDate) <= reviewPromptRAUnlockWindow,
+               totalPlayed >= reviewPromptSecondsRAUnlock {
+                return "ra_unlock"
+            }
+            if sessionCount >= reviewPromptMinSessionsForFirst
+                && totalPlayed >= reviewPromptSecondsPrompt1 {
+                return "loyal_returner"
+            }
+            if sessionCount == 0
+                && currentSessionSeconds >= reviewPromptSecondsFirstSessionDeep {
+                return "deep_first_timer"
+            }
+            if sessionCount == 0
+                && currentSessionSeconds >= reviewPromptSecondsEngagedFirstTimer
+                && hasCreatedSaveState {
+                return "engaged_first_timer"
+            }
+            return nil
         } else {
-            return totalPlayed >= reviewPromptSecondsPrompt2
+            return totalPlayed >= reviewPromptSecondsPrompt2 ? "second_prompt" : nil
         }
     }
 

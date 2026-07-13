@@ -36,17 +36,6 @@ extern const NSInteger GBScreenHeight;
 
 @interface MGBABridge : NSObject <EmulatorBridge>
 
-// MARK: - Memory Access (GBA-specific)
-//
-// Direct reads of the emulated machine's address space via mGBA's bus.
-// Returns 0 when no core is loaded. Deliberately NOT part of the
-// EmulatorBridge protocol: this is GBA-only, and callers reach it through
-// `(bridge as? MGBABridge)` (same pattern as MelonDSBridge's mic methods).
-// Used by the in-game translation feature to read structured game state.
-- (uint8_t)readMemory8:(uint32_t)address;
-- (uint16_t)readMemory16:(uint32_t)address;
-- (uint32_t)readMemory32:(uint32_t)address;
-
 @end
 
 NS_ASSUME_NONNULL_END

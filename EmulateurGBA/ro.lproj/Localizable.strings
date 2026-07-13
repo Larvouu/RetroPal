@@ -7,7 +7,7 @@
 /* Library */
 "library.title" = "Bibliotecă";
 "library.empty.title" = "Bun venit pe Retro Pal";
-"library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire, niciodată.";
+"library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire personală.";
 "library.empty.button" = "Adaugă un joc";
 "library.empty.step1" = "Adu un joc (.gba, .gb, .gbc sau .nds) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
 "library.empty.step2" = "Atinge %@, apoi alege fișierul în aplicația Fișiere.";
@@ -18,28 +18,42 @@
 "library.sort.lastPlayed" = "Jucat recent";
 "library.sort.title" = "Titlu";
 "library.sort.dateAdded" = "Data adăugării";
+"library.sort.byConsole" = "După consolă";
 "library.played.ago" = "Jucat %@";
 "library.playTime" = "%@h %@m jucate";
 "library.playTime.minutes" = "%@m jucate";
+"library.stats.title" = "Statistici";
+"library.stats.topGames" = "Cele mai jucate";
+"library.stats.totalTime" = "Timp total";
+"library.stats.gamesPlayed" = "Jocuri jucate";
+"library.stats.sessions" = "Sesiuni";
+"library.stats.favoriteConsole" = "Consolă preferată";
+"library.stats.duration" = "%@h %@m";
+"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Continuă ultima sesiune";
-"details.newGame" = "Joc nou";
-"details.saveSlots" = "Sloturi de salvare";
+"details.newGame" = "Pornește de la ecranul de titlu";
+"details.saveSlots" = "Sloturi de salvare rapidă";
 "details.delete" = "Șterge jocul";
 "details.delete.confirm" = "Ștergi acest joc și toate datele salvate?";
 "details.rename" = "Redenumește";
 "details.rename.title" = "Redenumește jocul";
-"details.newGame.confirm.title" = "Începi un joc nou?";
+"details.cover.choose" = "Alege coperta";
+"details.cover.remove" = "Elimină coperta personalizată";
+"details.cover.error" = "Imaginea nu a putut fi salvată.";
+"details.newGame.confirm.title" = "Pornești de la ecranul de titlu?";
+"details.newGame.confirm.message" = "Nu vei relua ultima sesiune, dar salvarea internă a jocului și salvările rapide rămân intacte.";
+"details.launch.footer" = "Pentru a încărca salvarea internă a jocului (cea făcută din meniul jocului), deschide jocul și reia din meniul lui. Este diferită de sloturile de salvare rapidă de mai jos, pe care le creezi chiar tu.";
 
 /* In-Game Overlay */
 "overlay.paused" = "PAUZĂ";
 "overlay.resume" = "Continuă";
-"overlay.rewind" = "Derulează %@s";
-"overlay.screenshot" = "Partajează captură de ecran";
-"overlay.quit" = "Înapoi la bibliotecă";
+"overlay.rewind" = "%@s";
+"overlay.screenshot" = "Captură";
+"overlay.quit" = "Ieși din joc";
 "overlay.speed" = "VITEZĂ";
-"overlay.saveSlots" = "SLOTURI DE SALVARE";
+"overlay.saveSlots" = "SLOTURI DE SALVARE RAPIDĂ";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Gol";
 "overlay.save" = "Salvează";
@@ -48,14 +62,13 @@
 /* Settings */
 "settings.title" = "Setări";
 "settings.controls" = "Comenzi";
-"settings.opacity" = "Opacitatea butoanelor";
-"settings.size" = "Dimensiunea butoanelor";
-"settings.haptics" = "Feedback haptic";
-"settings.buttonLock" = "Blochează butoanele ținând apăsat";
-"settings.buttonLock.controllerNote" = "Nu este folosit când un controller este conectat.";
+"settings.haptics" = "Vibrații în joc";
 "settings.controller.footer" = "Controlere Bluetooth (Xbox, PlayStation, MFi) acceptate. Asociază-l în Setările iOS.";
+"settings.controls.controllerActive.footer" = "Un controler este conectat, așa că setările tactile de mai sus sunt dezactivate.";
+"settings.controls.dpad.footer" = "Opțiunile pentru cruce direcțională/joystick și butonul de clip se aplică aspectului implicit. Fiecare profil personalizat are propria alegere cruce/joystick, iar butonul său de clip rămâne mereu vizibil.";
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
+"settings.clipButton" = "Buton clip";
 "settings.nds.swapScreens" = "Inversează ecranele";
 "settings.nds.language" = "Limba jocului";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -90,12 +103,14 @@
 "pro.benefit.slots" = "5 sloturi de salvare (în loc de 2)";
 "pro.benefit.rewind" = "Derulare înapoi de 30 de secunde (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Coduri de trișare (GameShark / Action Replay)";
-"pro.benefit.controls" = "Comenzi personalizate (până la 3 presetări)";
+"pro.benefit.controls" = "Comenzi personalizate";
 "pro.benefit.speed.short" = "Toate vitezele";
 "pro.benefit.slots.short" = "5 sloturi de salvare";
 "pro.benefit.rewind.short" = "Derulare 30 s";
 "pro.benefit.cheats.short" = "Coduri de trișare";
 "pro.benefit.controls.short" = "Controale personalizate";
+"pro.benefit.skins" = "Creare de skinuri personalizate";
+"pro.benefit.skins.short" = "Skinuri personalizate";
 "pro.badge" = "Funcție Pro";
 "pro.seeAllBenefits" = "Vezi toate avantajele Pro";
 
@@ -115,8 +130,7 @@
 "pro.compare.row.controls" = "Comenzi personalizate";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
-"pro.compare.values.proControls" = "3 presetări";
-
+"pro.compare.row.skins" = "Creare skinuri";
 /* Prompts */
 "prompt.speed.title" = "Ai jucat %@ minute la 1,5x";
 "prompt.speed.subtitle" = "La 4x, aceeași sesiune trece într-o clipă. Deblochează toate vitezele, pentru totdeauna.";
@@ -131,11 +145,18 @@
 "prompt.generic.title" = "Retro Pal Pro";
 "prompt.generic.subtitle" = "Deblochează toate vitezele, 5 sloturi, derulare 30s (GBA/GB/GBC) și multe altele.";
 
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "Nostalgia";
+"card.style.classic" = "Clasic";
+
 /* Screenshot */
 "screenshot.share" = "Partajează";
 "screenshot.save" = "Salvează";
 "screenshot.dismiss" = "Închide";
-"screenshot.footer" = "Retro Pal pe App Store";
+"screenshot.footer" = "Creat cu Retro Pal";
+"screenshot.hint" = "Surprinde cel mai bun moment, oricând.";
+"clip.hint" = "Poți salva ultimele 6 secunde oricând.";
+"clip.loading" = "Surprindem momentul… o secundă.";
 "screenshot.newGame" = "Tocmai început";
 "screenshot.proMember" = "👑 Membru Pro";
 "screenshot.permissionDenied.title" = "Acces la fotografii necesar";
@@ -153,9 +174,9 @@
 "legal.importantNotice.title" = "Notificare importantă";
 "legal.aboutApp.title" = "Despre această aplicație";
 "legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color și Nintendo DS. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
-"legal.aboutApp.description2" = "Această aplicație nu se conectează la niciun server extern, nu oferă un catalog de jocuri și nu facilitează descărcarea de material protejat prin drepturi de autor.";
+"legal.aboutApp.description2" = "Această aplicație nu oferă un catalog de jocuri, nu distribuie conținut de jocuri și nu facilitează descărcarea de materiale protejate prin drepturi de autor.";
 "legal.privacy.title" = "Confidențialitate";
-"legal.privacy.description" = "Retro Pal stochează toate datele local pe dispozitivul tău. Nu sunt colectate sau transmise date personale, statistici de utilizare sau informații despre jocuri. Aplicația nu necesită conexiune la internet pentru a funcționa.";
+"legal.privacy.description" = "Jocurile și salvările tale rămân pe dispozitivul tău. Pentru a îmbunătăți aplicația, Retro Pal trimite doar statistici de utilizare anonime, fără date personale și fără identificatori publicitari.";
 "legal.licenses.title" = "Licențe open source";
 "legal.mgba.licenseLine" = "Licențiat sub Mozilla Public License 2.0 (MPL-2.0)";
 "legal.mgba.description" = "mGBA este un emulator Game Boy Advance folosit ca motor principal de emulare în această aplicație. Codul sursă al mGBA este disponibil la [https://mgba.io](https://mgba.io)";
@@ -166,7 +187,7 @@
 "legal.retropal.description" = "Codul sursă complet al Retro Pal este disponibil la [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Software-ul este furnizat fără nicio garanție.";
 "legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și melonDS (GPL-3.0), utilizate fără modificări. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
 
-"details.noSaves" = "Nicio salvare. Salvează în joc cu butonul de meniu.";
+"details.noSaves" = "Încă nicio salvare rapidă. Creează una în joc cu butonul de meniu.";
 "library.importing" = "Se importă ROM...";
 
 /* Game Details - New */
@@ -174,7 +195,8 @@
 "library.importError" = "Eroare la import";
 
 /* Overlay - New */
-"overlay.cheats" = "Coduri de trișare";
+"overlay.cheats" = "Coduri";
+"overlay.shareClip" = "Clip";
 "overlay.sound" = "Sunet";
 "overlay.sound.off" = "Sunet oprit";
 "overlay.overwrite.title" = "Suprascrii slotul %@?";
@@ -199,7 +221,7 @@
 
 /* Emulator */
 "emulator.loading" = "Se încarcă ROM...";
-"emulator.loadFailed" = "Nu s-a putut încărca ROM\n%@";
+"emulator.loadFailed" = "Nu s-a putut încărca %@.\nFișierul jocului pare deteriorat. Înlocuiește-l din detaliile jocului pentru a-l repara fără a pierde salvările.";
 
 /* Common */
 "common.cancel" = "Anulează";
@@ -233,46 +255,40 @@
 "layout.presets.footer" = "Rotește dispozitivul în editor pentru a personaliza aspectul peisaj separat.";
 "layout.newPreset" = "Presetare nouă";
 "layout.newPreset.title" = "Presetare nouă";
-"layout.newPreset.message" = "Introdu un nume pentru această presetare.";
 "layout.newPreset.namePlaceholder" = "Nume presetare";
 "layout.newPreset.create" = "Creează";
 "layout.editor.screenPreview" = "Ecran de joc";
 "layout.editor.touchScreen" = "Ecran tactil";
-"layout.editor.landscape" = "Editare: Peisaj";
-"layout.editor.portrait" = "Editare: Portret";
 "layout.editor.reset" = "Resetează";
 "layout.editor.reset.title" = "Resetează la implicit";
-"layout.editor.reset.message" = "Aceasta va reseta toate pozițiile butoanelor pentru orientarea curentă la locațiile lor implicite.";
-"layout.editor.visibility" = "Vizibilitate";
-"layout.editor.visibility.message" = "Apasă pe un buton pentru a-l arăta sau ascunde.";
+"layout.editor.reset.message" = "Toate butoanele și ecranele din orientarea curentă revin la poziția, dimensiunea și opacitatea implicite.";
 "layout.editor.show" = "Arată";
 "layout.editor.hide" = "Ascunde";
-"layout.editor.menuCannotHide" = "Butonul de meniu nu poate fi ascuns.";
+"layout.editor.hint" = "Atinge un buton sau un ecran pentru a-l edita. Trage pentru a muta, apropie degetele pentru a redimensiona.";
+"layout.editor.cannotHide" = "Butoanele de meniu și de clip rămân mereu vizibile, ca să poți pune pauză și înregistra oricând.";
+"layout.editor.size" = "Dimensiune";
+"layout.editor.opacity" = "Opacitate";
 "layout.editor.topScreen" = "Ecran superior";
 "layout.editor.bottomScreen" = "Ecran inferior";
-"layout.screenSize.small" = "Mic";
-"layout.screenSize.medium" = "Mediu";
-"layout.screenSize.large" = "Mare";
 "layout.editor.done" = "Gata";
 "layout.newPreset.systems" = "Sisteme";
-"layout.editor.buttons" = "Butoane";
 "prompt.controls.title" = "Găsește poziția perfectă pentru mâinile tale";
-"prompt.controls.subtitle" = "Personalizează poziția, dimensiunea și opacitatea butoanelor. Creează până la 3 presetări pentru jocuri diferite.";
-"layout.editor.screenSize" = "Dimensiune ecran";
+"prompt.controls.subtitle" = "Personalizează poziția, dimensiunea și opacitatea butoanelor. Creează propriile presetări pentru jocuri diferite.";
+"prompt.skins.title" = "Creează skinul visurilor tale";
+"prompt.skins.subtitle" = "Alege fiecare culoare a consolei, personalizeaz-o după gustul tău și împărtășește-ți creațiile.";
 "layout.editor.landscapeShort" = "Peisaj";
 "layout.editor.portraitShort" = "Portret";
-"layout.editor.screenSizeLandscapeInfo" = "Dimensiunea ecranului poate fi modificată doar în modul portret. În peisaj, ambele ecrane sunt afișate una lângă alta la aceeași dimensiune.";
-/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
 "pro.legal.terms" = "Termeni de utilizare";
 "pro.legal.privacy" = "Politică de confidențialitate";
 
-/* Settings — secțiunea de sincronizare iCloud (Săptămâna 4) */
+/* Settings - secțiunea de sincronizare iCloud (Săptămâna 4) */
 "settings.sync.section" = "Sincronizare";
 "settings.sync.state.resolving" = "Se conectează…";
-"settings.sync.state.available" = "Sincronizat";
+"settings.sync.state.available" = "Activat";
 "settings.sync.state.unavailable" = "Indisponibil";
 
-/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
 "saveImport.title" = "Importă salvarea";
 "saveImport.success.title" = "Salvare importată";
 "saveImport.success.message" = "Deschide %@ și reia din meniul jocului. Această salvare nu apare în sloturile de salvare ale aplicației.";
@@ -315,3 +331,138 @@
 "saveImport.mismatch.title" = "Salvare de la alt joc?";
 "saveImport.mismatch.message" = "Numele fișierului nu corespunde cu %@. Importă-o doar dacă ești sigur că aparține acestui joc.";
 "saveImport.mismatch.confirm" = "Importă oricum";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "Înlocuiește fișierul jocului";
+"replaceROM.success.title" = "Fișierul jocului a fost înlocuit";
+"replaceROM.success.message" = "Fișierul jocului a fost înlocuit. Salvările tale sunt păstrate.";
+"replaceROM.error.differentGame" = "Este alt joc. Alege fișierul aceluiași joc pentru ca salvările să rămână valide.";
+"replaceROM.error.invalid" = "Nu s-a putut citi acest fișier. Alege o copie validă a aceluiași joc.";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "Sincronizare iCloud";
+"settings.sync.state.disabled" = "Dezactivat";
+"settings.sync.footer" = "Salvările tale rapide se sincronizează în iCloud-ul tău privat și între dispozitivele tale. Dezactivează această opțiune pentru a le păstra doar pe acest iPhone.";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "Auto-blocare";
+"overlay.buttonLock.caption" = "Apasă lung %@ pentru a-l menține apăsat, atinge pentru a elibera.";
+"overlay.orientation" = "Orientare";
+"overlay.orientation.auto" = "Auto";
+"overlay.orientation.landscape" = "Peisaj";
+"overlay.orientation.portrait" = "Portret";
+
+/* Clip card alerts */
+"clip.notReady.title" = "Clipul nu este încă gata";
+"clip.notReady.message" = "Mai joacă câteva secunde, apoi încearcă din nou.";
+"clip.failed.title" = "Nu s-a putut crea clipul";
+"clip.failed.message" = "Încearcă din nou.";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "Salvări rapide iCloud indisponibile";
+"details.iCloudUnavailable.body" = "Salvările tale rapide sunt în siguranță în iCloud, dar nu pot fi accesate acum. Nu reseta și nu începe un joc nou. Vor reveni când iCloud se reconectează.";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "Skinurile cu carcasă necesită aranjamentul implicit al comenzilor. Această consolă folosește unul personalizat, așa că este disponibil doar Invisible.";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "Creează un skin";
+"skin.edit" = "Editează";
+"skin.delete" = "Șterge";
+"skin.editor.title.create" = "Skin nou";
+"skin.editor.title.edit" = "Editează skin";
+"skin.editor.body" = "Carcasă";
+"skin.editor.surround" = "Ramă";
+"skin.editor.dpad" = "Cruce";
+"skin.editor.abButtons" = "Butoane A/B";
+"skin.editor.abLetters" = "Litere A/B";
+"skin.editor.smallButtons" = "Butoane mici";
+"skin.editor.menuIcons" = "Pictograme meniu";
+"skin.editor.labels" = "Text SELECT/START";
+"skin.editor.stripe" = "Dungă";
+"skin.editor.printedText" = "Text imprimat";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "Dă un nume skinului";
+"skin.editor.create" = "Creează";
+"skin.editor.save" = "Salvează";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "Partajează";
+"skin.import.success.title" = "Skin importat";
+"skin.import.success.message" = "„%1$@” a fost adăugat la skinurile %2$@.";
+"skin.import.full.title" = "Bibliotecă plină";
+"skin.import.full.message" = "Ai deja 6 skinuri %@. Șterge unul, apoi importă din nou.";
+"skin.import.failed.title" = "Import eșuat";
+"skin.import.failed.message" = "Acest fișier skin este nevalid sau deteriorat.";
+"skin.import" = "Importă skin";
+"skin.importInfo.title" = "Importă un skin";
+"skin.importInfo.message" = "Skinurile Retro Pal sunt fișiere „.retropalskin” primite de la prieteni sau găsite online. Salvează unul pe dispozitiv, apoi alege-l în Fișiere.";
+"skin.import.duplicate.title" = "Deja importat";
+"skin.import.duplicate.message" = "„%1$@” este deja în skinurile %2$@.";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "Butoane";
+"skin.editor.letters" = "Litere";
+"skin.editor.ink" = "Cerneală";
+"skin.editor.menuButtons" = "Butoane meniu";
+
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "Obține realizări în jocurile compatibile. Gratuit și opțional, cu propriul tău cont RetroAchievements.";
+"ra.connect" = "Conectează contul";
+"ra.signOut" = "Deconectează-te";
+"ra.pointsSuffix" = "pct";
+"ra.login.username" = "Nume de utilizator";
+"ra.login.password" = "Parolă";
+"ra.login.footer" = "Conectează-te cu contul tău RetroAchievements. Parola este trimisă o singură dată către RetroAchievements pentru autentificare și nu este niciodată păstrată pe acest dispozitiv.";
+"ra.login.signIn" = "Conectează-te";
+"ra.login.createAccount" = "Creează un cont RetroAchievements";
+"ra.error.login" = "Conectare eșuată. Verifică numele de utilizator și parola.";
+"ra.error.server" = "Cererea către RetroAchievements a eșuat.";
+"ra.hud.unlocked" = "Realizare deblocată";
+"ra.dashboard.title" = "Realizări";
+"ra.dashboard.unlocked" = "Deblocate";
+"ra.dashboard.locked" = "Rămase";
+"ra.dashboard.empty" = "Acest joc nu are realizări sau nu au fost încărcate încă.";
+"ra.dashboard.summary" = "%lld din %lld deblocate";
+"ra.dashboard.rarity" = "%@ dintre jucători";
+"ra.dashboard.shareHint" = "Atinge o realizare deblocată pentru a o partaja.";
+"ra.dashboard.pendingSync" = "Unele realizări așteaptă sincronizarea. Vor fi încărcate când revii online.";
+"ra.card.unlocked" = "REALIZARE DEBLOCATĂ";
+"details.achievements" = "Vezi realizările";
+"ra.about.title" = "Despre RetroAchievements";
+"ra.about.what" = "RetroAchievements este un proiect comunitar gratuit care adaugă realizări jocurilor clasice. Le obții atingând momente importante în timp ce joci, iar ele se sincronizează cu profilul tău RetroAchievements.";
+"ra.about.modes" = "Joci în softcore: poți folosi derularea înapoi, salvările de stare și încetinirea și totuși păstrezi fiecare realizare. Hardcore este o provocare cu o singură viață, fără aceste opțiuni. Va apărea când Retro Pal va avea șase luni pe App Store, în jurul lunii decembrie 2026.";
+"ra.details.invite.headline" = "Obține realizări în acest joc";
+"ra.details.invite.caption" = "Acest joc are realizări RetroAchievements: provocări de îndeplinit în timp ce joci, urmărite cu un cont gratuit.";
+"ra.details.unavailable" = "RetroAchievements nu este disponibil pentru acest joc.";
+"ra.library.invite.caption" = "Jocurile tale au realizări RetroAchievements. Conectează un cont gratuit ca să le obții în timp ce joci.";
+"ra.library.recent" = "Ultimele deblocate";
+"ra.library.noUnlocks" = "Cele mai recente realizări ale tale vor apărea aici.";
+"ra.profile.games" = "Jocuri cu realizări";
+"ra.profile.openGame" = "Deschide pagina jocului";
+"ra.profile.expandHint" = "Deschide ca să vezi realizările";
+"ra.card.game" = "REALIZĂRI";
+"ra.session.offline" = "Realizări întrerupte offline. Se reiau automat.";
+"ra.session.resumed" = "Realizări active";
+"ra.card.completed" = "Finalizat";
+"ra.card.games" = "Jocuri";
+"ra.share.progress" = "Distribuie progresul tău";
+"ra.offline" = "Nu există conexiune la internet.";
+"ra.load.failed" = "Realizările nu au putut fi încărcate. Verifică conexiunea și încearcă din nou.";
+"ra.retry" = "Încearcă din nou";
+"ra.profile.unsupported" = "Indisponibile pe RetroAchievements";
+"ra.profile.unsupported.footer" = "Aceste jocuri nu au realizări pe RetroAchievements. Uneori doar versiunea în engleză a unui joc este acoperită.";
+"ra.layout.toggle" = "Schimbă afișarea realizărilor";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "Fișierul selectat nu poate fi accesat. Încearcă să îl imporți din aplicația Fișiere.";
+"import.error.copyFailed" = "Jocul nu a putut fi copiat în Retro Pal. Eliberează spațiu de stocare și încearcă din nou.";
+"import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc și .nds.";
+"import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc și .nds; alte console nu sunt acceptate.";
+"import.error.zipMultipleROMs" = "Acest ZIP conține mai multe jocuri. Dezarhivează-l în aplicația Fișiere, apoi importă fiecare joc separat.";
+"import.error.zipExtractionFailed" = "Acest ZIP nu a putut fi deschis. Dezarhivează-l în aplicația Fișiere, apoi importă direct fișierul jocului.";
+"import.error.alreadyImported" = "Acest joc este deja în biblioteca ta.";
+"import.error.saveFailed" = "Jocul nu a putut fi adăugat în bibliotecă. Încearcă din nou.";
+"import.error.differentGame" = "Acest fișier este un alt joc decât cel pe care îl înlocuiești.";

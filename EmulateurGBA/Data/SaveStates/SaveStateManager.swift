@@ -17,6 +17,7 @@
 //
 
 import UIKit
+import os
 
 struct SaveSlotInfo {
     let slotIndex: Int
@@ -34,26 +35,96 @@ final class SaveStateManager {
     static let autoSaveSlotIndex = 0
 
     private let romName: String
-    private let baseDir: URL
+    private let baseDir: URL        // manual slots 1-5 (iCloud-backed when synced)
+    private let autoSaveDir: URL    // slot 0 — ALWAYS local (see init)
 
-    init(romName: String) {
+    static let autoSaveLog = Logger(subsystem: "com.retropal", category: "autosave")
+
+    /// `baseDir` is injectable for tests. In the app, manual slots route to the
+    /// per-session iCloud-or-local decision (see `iCloudSaveSync`), while the
+    /// slot-0 auto-save ALWAYS lives in a dedicated LOCAL directory. The
+    /// auto-save is written under time pressure on app-kill; keeping it out of
+    /// the iCloud container removes the uncoordinated-write-vs-iCloud-reconcile
+    /// race that could rarely resurface an older state ("Reprendre" loading a
+    /// stale save). Manual saves still sync.
+    init(romName: String, baseDir: URL? = nil) {
         self.romName = romName
-        // The per-session routing decision: iCloud-backed when the
-        // container has been resolved by now, local otherwise. See
-        // `iCloudSaveSync` for the resolution + fallback logic. The
-        // directory is created inside saveStatesURL(forROM:) so we
-        // don't repeat the work here.
-        self.baseDir = iCloudSaveSync.shared.saveStatesURL(forROM: romName)
+        if let baseDir {
+            // Explicit/test injection keeps everything in one directory.
+            self.baseDir = baseDir
+            self.autoSaveDir = baseDir
+        } else {
+            self.baseDir = iCloudSaveSync.shared.saveStatesURL(forROM: romName)
+            self.autoSaveDir = SaveStateManager.localAutoSaveDir(romName: romName)
+            SaveStateManager.migrateAutoSaveIfNeeded(romName: romName,
+                                                     legacyDir: self.baseDir,
+                                                     autoSaveDir: self.autoSaveDir)
+        }
+    }
+
+    /// Dedicated LOCAL directory for the slot-0 auto-save, outside the
+    /// SaveStates tree so the iCloud sync toggle never relocates it.
+    static func localAutoSaveDir(romName: String) -> URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let url = docs.appendingPathComponent("AutoSaves", isDirectory: true)
+            .appendingPathComponent(romName, isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// Where a slot's files live: slot 0 -> local auto-save dir, manual -> baseDir.
+    private func dir(forSlot slot: Int) -> URL {
+        slot == SaveStateManager.autoSaveSlotIndex ? autoSaveDir : baseDir
+    }
+
+    private static let migrationLock = NSLock()
+    private static var autoSaveMigrated = Set<String>()
+
+    /// One-time copy of a pre-existing slot-0 auto-save from its legacy location
+    /// (the SaveStates tree, possibly iCloud) into the local auto-save dir, so
+    /// existing users keep their "Reprendre la session" after the switch to a
+    /// local auto-save. Copy (not move) on a background queue with a coordinated
+    /// read, so it never blocks the caller; the legacy file is left as a
+    /// harmless orphan.
+    static func migrateAutoSaveIfNeeded(romName: String, legacyDir: URL, autoSaveDir: URL) {
+        let dst = autoSaveDir.appendingPathComponent("slot0.state")
+        if FileManager.default.fileExists(atPath: dst.path) { return }   // already local
+        let legacy = legacyDir.appendingPathComponent("slot0.state")
+        guard legacy.path != dst.path else { return }                    // injected / local==local
+
+        migrationLock.lock()
+        let already = autoSaveMigrated.contains(romName)
+        if !already { autoSaveMigrated.insert(romName) }
+        migrationLock.unlock()
+        if already { return }
+
+        DispatchQueue.global(qos: .utility).async {
+            guard FileManager.default.fileExists(atPath: legacy.path) else { return }
+            var stateData: Data?
+            CoordinatedFileIO.read(at: legacy) { stateData = try? Data(contentsOf: $0) }
+            guard let stateData, !stateData.isEmpty else { return }
+            try? stateData.write(to: dst, options: .atomic)
+            let legacyPNG = legacyDir.appendingPathComponent("slot0.png")
+            if FileManager.default.fileExists(atPath: legacyPNG.path) {
+                var pngData: Data?
+                CoordinatedFileIO.read(at: legacyPNG) { pngData = try? Data(contentsOf: $0) }
+                if let pngData, !pngData.isEmpty {
+                    try? pngData.write(to: autoSaveDir.appendingPathComponent("slot0.png"), options: .atomic)
+                }
+            }
+            autoSaveLog.notice("Migrated slot-0 auto-save to local for \(romName, privacy: .public)")
+            DispatchQueue.main.async { NotificationCenter.default.post(name: .saveStatesDidChange, object: nil) }
+        }
     }
 
     // MARK: - File Paths
 
     func stateFileURL(slot: Int) -> URL {
-        baseDir.appendingPathComponent("slot\(slot).state")
+        dir(forSlot: slot).appendingPathComponent("slot\(slot).state")
     }
 
     func previewImageURL(slot: Int) -> URL {
-        baseDir.appendingPathComponent("slot\(slot).png")
+        dir(forSlot: slot).appendingPathComponent("slot\(slot).png")
     }
 
     // MARK: - Slot Info
@@ -107,11 +178,26 @@ final class SaveStateManager {
 
     // MARK: - Save Preview
 
-    func savePreviewImage(_ image: CGImage, slot: Int) {
+    /// Writes the slot's PNG preview, then announces `.saveStatesDidChange` so
+    /// the library cover + game-details preview re-read from disk. The async
+    /// write paths (quit, manual save) complete AFTER those views refreshed on
+    /// dismiss, so without this signal the new thumbnail wouldn't appear until
+    /// the view was recreated. `coordinated: false` does a direct atomic write,
+    /// used by the background-durability auto-save which must not stall on the
+    /// iCloud daemon (same approach as `flushBatterySave`).
+    func savePreviewImage(_ image: CGImage, slot: Int, coordinated: Bool = true) {
         let uiImage = UIImage(cgImage: image)
         guard let data = uiImage.pngData() else { return }
-        CoordinatedFileIO.write(at: previewImageURL(slot: slot)) { coordURL in
-            try? data.write(to: coordURL, options: .atomic)
+        let url = previewImageURL(slot: slot)
+        if coordinated {
+            CoordinatedFileIO.write(at: url) { coordURL in
+                try? data.write(to: coordURL, options: .atomic)
+            }
+        } else {
+            try? data.write(to: url, options: .atomic)
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .saveStatesDidChange, object: nil)
         }
     }
 

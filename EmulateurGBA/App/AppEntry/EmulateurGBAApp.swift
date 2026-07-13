@@ -9,6 +9,9 @@ import SwiftUI
 
 @main
 struct EmulateurGBAApp: App {
+    // Provides the window-level orientation hook (see AppDelegate) so the
+    // per-game orientation lock holds against physical rotation.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     let persistenceController = PersistenceController.shared
 
     init() {
@@ -17,6 +20,9 @@ struct EmulateurGBAApp: App {
         // runs on a background queue inside `iCloudSaveSync`; this
         // call is cheap (just the singleton's lazy init).
         _ = iCloudSaveSync.shared
+
+        // Anonymous analytics (opt-out, default ON). No-op if the user opted out.
+        Analytics.start()
     }
 
     var body: some Scene {

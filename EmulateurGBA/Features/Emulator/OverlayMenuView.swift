@@ -7,6 +7,15 @@
 //
 
 import UIKit
+import CoreImage
+
+/// Per-game screen-orientation preference, chosen in the pause menu.
+/// `landscape`/`portrait` pin that orientation (and override the iOS portrait
+/// lock, since the screen then supports only that orientation); `auto` rotates
+/// freely with the device.
+enum GameOrientationMode: String {
+    case auto, landscape, portrait
+}
 
 protocol OverlayMenuDelegate: AnyObject {
     func overlayDidTapResume()
@@ -17,8 +26,12 @@ protocol OverlayMenuDelegate: AnyObject {
     func overlayDidTapQuit()
     func overlayDidTapLockedFeature(context: ProPromptContext)
     func overlayDidTapShareScreenshot()
+    func overlayDidTapShareClip()
     func overlayDidTapCheats()
     func overlayDidToggleSound(enabled: Bool)
+    func overlayDidToggleButtonLock(enabled: Bool)
+    func overlayDidSelectOrientation(_ mode: GameOrientationMode)
+    func overlayDidTapSkin()
 }
 
 final class OverlayMenuView: UIView {
@@ -52,7 +65,7 @@ final class OverlayMenuView: UIView {
     private let contentStack: UIStackView = {
         let s = UIStackView()
         s.axis = .vertical
-        s.spacing = 16
+        s.spacing = 10
         s.alignment = .center
         s.translatesAutoresizingMaskIntoConstraints = false
         return s
@@ -75,13 +88,6 @@ final class OverlayMenuView: UIView {
 
     private var isSoundEnabled = true
 
-    /// Set to true when emulator speed > 2x, which forces audio off via
-    /// `session.skipAudio`. The user's mute preference (isSoundEnabled)
-    /// stays untouched — the button just reflects the effective silence.
-    var isAudioSuspendedBySpeed: Bool = false {
-        didSet { updateSoundButton() }
-    }
-
     private let resumeButton: UIButton = {
         let btn = UIButton(type: .system)
         var config = UIButton.Configuration.filled()
@@ -101,8 +107,46 @@ final class OverlayMenuView: UIView {
         title: NSLocalizedString("overlay.screenshot", comment: ""), icon: "camera.fill")
     private let cheatsButton = OverlayMenuView.makeButton(
         title: NSLocalizedString("overlay.cheats", comment: ""), icon: "command")
+    /// Share a short looping "gif-style" clip of the last few seconds.
+    /// `value:` gives a fallback until the `overlay.shareClip` key is added to
+    /// the 10 Localizable.strings (follow-up; "Clip" reads in most of them).
+    private let clipButton = OverlayMenuView.makeButton(
+        title: NSLocalizedString("overlay.shareClip", value: "Clip", comment: "Pause menu: share a short looping gameplay clip"),
+        icon: "film.fill")
     private let soundButton = OverlayMenuView.makeButton(
         title: NSLocalizedString("overlay.sound", comment: ""), icon: "speaker.wave.2.fill")
+    /// Per-game "keep a button held" toggle (off by default). Its icon is a row
+    /// of mini A/B (GBA/GB/GBC) or A/B/X/Y (NDS) buttons drawn to match the
+    /// in-game look: un-pressed when the toggle is off, pressed when on, so the
+    /// affected buttons and the on/off state are both legible at a glance.
+    private let buttonLockButton = OverlayMenuView.makeButton(
+        title: NSLocalizedString("overlay.buttonLock", comment: ""), icon: "pin.slash")
+    private var buttonLockEnabled = false
+    /// Opens the per-game Skin picker (Nostalgia / Invisible / Retro Pal). Sits in the
+    /// "occasionally-tapped options" row next to Sound + hold-to-lock. Label is fixed
+    /// English ("Skin") per the product decision.
+    private let skinButton = OverlayMenuView.makeButton(title: "Skin", icon: "paintpalette.fill")
+    /// Which face buttons the hold-to-lock gesture affects, mirrored into the
+    /// toggle icon and the caption. A/B for GBA/GB/GBC; the VC widens it to
+    /// A/B/X/Y for NDS via `setLockableButtons(forNDS:)` (matches `lockableMask`).
+    private var lockableLetters: [String] = ["A", "B"]
+    /// One-line explanation of the non-obvious hold-to-lock gesture, shown under
+    /// the toggle pair (the label alone can't convey what it does). Built as an
+    /// attributed string so the mini buttons can be inlined into the text.
+    private lazy var buttonLockCaption = makeCaptionLabel("")
+
+    /// Per-game screen orientation as a pill row (Auto / Landscape / Portrait),
+    /// styled identically to the Speed pills so the two selectors read alike.
+    private let orientationStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 8
+        s.distribution = .fillEqually
+        return s
+    }()
+    private var orientationButtons: [UIButton] = []
+    private var currentOrientationMode: GameOrientationMode = .auto
+    private lazy var orientationLabel = makeSectionLabel(NSLocalizedString("overlay.orientation", comment: ""))
     private let quitButton: UIButton = {
         let btn = UIButton(type: .system)
         var config = UIButton.Configuration.filled()
@@ -120,12 +164,24 @@ final class OverlayMenuView: UIView {
     private lazy var speedLabel = makeSectionLabel(NSLocalizedString("overlay.speed", comment: ""))
     private lazy var saveLoadLabel = makeSectionLabel(NSLocalizedString("overlay.saveSlots", comment: ""))
 
+    /// Section header (Speed / Orientation / Quick-save slots). Uppercased in
+    /// code so the casing stays uniform no matter how each locale's string is
+    /// authored (the originals were typed in caps, "Orientation" was not).
     private func makeSectionLabel(_ text: String) -> UILabel {
+        let l = makeCaptionLabel(text.localizedUppercase)
+        l.numberOfLines = 1
+        return l
+    }
+
+    /// Sentence-case helper text (the hold-to-lock caption). Same dim caption
+    /// style as a section header but never uppercased, and free to wrap.
+    private func makeCaptionLabel(_ text: String) -> UILabel {
         let l = UILabel()
         l.text = text
         l.textColor = UIColor.white.withAlphaComponent(0.5)
         l.font = .preferredFont(forTextStyle: .caption1)
         l.textAlignment = .center
+        l.numberOfLines = 0
         return l
     }
 
@@ -172,7 +228,7 @@ final class OverlayMenuView: UIView {
     private let leftColumn: UIStackView = {
         let s = UIStackView()
         s.axis = .vertical
-        s.spacing = 10
+        s.spacing = 8
         s.alignment = .center
         return s
     }()
@@ -235,6 +291,12 @@ final class OverlayMenuView: UIView {
             }
             btn.setTitle(title, for: .normal)
             btn.titleLabel?.font = .preferredFont(forTextStyle: .footnote)
+            // Portrait pills are only ~33pt wide, too narrow for "0.25x" at the
+            // footnote size, which truncated to "0...x". Scale the label down to
+            // fit rather than truncate (only the widest value needs it).
+            btn.titleLabel?.adjustsFontSizeToFitWidth = true
+            btn.titleLabel?.minimumScaleFactor = 0.6
+            btn.titleLabel?.lineBreakMode = .byClipping
             btn.layer.cornerRadius = 8
             btn.layer.borderWidth = 1.5
             btn.addTarget(self, action: #selector(speedTapped(_:)), for: .touchUpInside)
@@ -246,6 +308,23 @@ final class OverlayMenuView: UIView {
             // it reacts to Pro state changes at runtime.
         }
 
+        // Create orientation pills (same pill style as Speed)
+        let orientationKeys = ["overlay.orientation.auto", "overlay.orientation.landscape", "overlay.orientation.portrait"]
+        for (index, key) in orientationKeys.enumerated() {
+            let btn = UIButton(type: .system)
+            btn.setTitle(NSLocalizedString(key, comment: ""), for: .normal)
+            btn.titleLabel?.font = .preferredFont(forTextStyle: .footnote)
+            btn.titleLabel?.adjustsFontSizeToFitWidth = true
+            btn.titleLabel?.minimumScaleFactor = 0.7
+            btn.layer.cornerRadius = 8
+            btn.layer.borderWidth = 1.5
+            btn.tag = index
+            btn.addTarget(self, action: #selector(orientationTapped(_:)), for: .touchUpInside)
+            orientationButtons.append(btn)
+            orientationStack.addArrangedSubview(btn)
+            btn.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        }
+
         slotsWidthConstraint = slotsStack.widthAnchor.constraint(equalToConstant: 280)
         slotsWidthConstraint?.isActive = true
 
@@ -254,7 +333,10 @@ final class OverlayMenuView: UIView {
         rewindButton.addTarget(self, action: #selector(rewindTapped), for: .touchUpInside)
         screenshotButton.addTarget(self, action: #selector(screenshotTapped), for: .touchUpInside)
         cheatsButton.addTarget(self, action: #selector(cheatsTapped), for: .touchUpInside)
+        clipButton.addTarget(self, action: #selector(clipTapped), for: .touchUpInside)
         soundButton.addTarget(self, action: #selector(soundTapped), for: .touchUpInside)
+        buttonLockButton.addTarget(self, action: #selector(buttonLockTapped), for: .touchUpInside)
+        skinButton.addTarget(self, action: #selector(skinTapped), for: .touchUpInside)
         quitButton.addTarget(self, action: #selector(quitTapped), for: .touchUpInside)
         // The premium styling in refreshProState() draws a border and a
         // purple shadow directly on the button's layer, so the layer needs
@@ -262,8 +344,14 @@ final class OverlayMenuView: UIView {
         cheatsButton.layer.cornerRadius = 10
         cheatsButton.layer.masksToBounds = false
 
+        // Apply the initial selected/toggle styling so the pills and the
+        // hold-to-lock toggle look right before the first showOverlay().
+        updateOrientationHighlight()
+        updateButtonLockButton()
+
         // Initial layout
         buildPortraitLayout()
+        updateButtonLockCaption()
     }
 
     override func layoutSubviews() {
@@ -286,57 +374,89 @@ final class OverlayMenuView: UIView {
         landscapeContainer.isHidden = true
         contentStack.isHidden = false
 
-        // Remove all from both columns
+        // Detach everything, then rebuild the single vertical stack.
         leftColumn.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rightColumn.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        actionRow1.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        actionRow2.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        actionRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        togglesRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
+        // Header + primary actions (full-width, single line for label clarity).
         contentStack.addArrangedSubview(titleLabel)
+        contentStack.addArrangedSubview(resumeButton)
         contentStack.addArrangedSubview(quitButton)
-        addSpacer(height: 8, to: contentStack)
 
-        for btn in [resumeButton, rewindButton, screenshotButton, cheatsButton, soundButton] {
-            contentStack.addArrangedSubview(btn)
-        }
-        // Portrait buttons are full-width: restore the roomy single-line style
-        // (undoes the landscape compact style after a rotation back to portrait).
-        for btn in [resumeButton, rewindButton, screenshotButton, cheatsButton, soundButton, quitButton] {
-            setActionButtonCompact(btn, false)
-        }
-        addSpacer(height: 8, to: contentStack)
+        // Secondary actions in one compact row; Rewind collapses out for NDS.
+        actionRow.addArrangedSubview(rewindButton)
+        actionRow.addArrangedSubview(screenshotButton)
+        actionRow.addArrangedSubview(clipButton)
+        actionRow.addArrangedSubview(cheatsButton)
+        contentStack.addArrangedSubview(actionRow)
+        for btn in [quitButton, resumeButton] { setActionButtonCompact(btn, false) }
+        for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] { setActionButtonCompact(btn, true) }
 
+        addSpacer(height: 4, to: contentStack)
         contentStack.addArrangedSubview(speedLabel)
         contentStack.addArrangedSubview(speedStack)
-        addSpacer(height: 8, to: contentStack)
+        addSpacer(height: 4, to: contentStack)
+        contentStack.addArrangedSubview(orientationLabel)
+        contentStack.addArrangedSubview(orientationStack)
+        addSpacer(height: 4, to: contentStack)
+
+        // Per-game "occasionally-tapped options" row: Sound + hold-to-lock + Skin, side by
+        // side (fillEqually splits the fixed row width 3 ways now), with the lock's
+        // explanatory caption beneath.
+        togglesRow.addArrangedSubview(soundButton)
+        togglesRow.addArrangedSubview(buttonLockButton)
+        togglesRow.addArrangedSubview(skinButton)
+        for btn in [soundButton, buttonLockButton, skinButton] { setActionButtonCompact(btn, true) }
+        contentStack.addArrangedSubview(togglesRow)
+        contentStack.addArrangedSubview(buttonLockCaption)
+        addSpacer(height: 4, to: contentStack)
 
         contentStack.addArrangedSubview(saveLoadLabel)
         contentStack.addArrangedSubview(slotsStack)
 
-        // Button sizes for portrait
-        for btn in [quitButton, resumeButton, rewindButton, screenshotButton, cheatsButton, soundButton] {
-            layoutConstraints.append(btn.widthAnchor.constraint(equalToConstant: 240))
+        // Sizes: full-width primaries, fixed-width rows, taller compact action
+        // cells so the wrapped two-line labels are not clipped. 280pt matches
+        // the slots width (proven safe down to the 375pt-wide iPhone SE).
+        let w: CGFloat = 280
+        for btn in [quitButton, resumeButton] {
+            layoutConstraints.append(btn.widthAnchor.constraint(equalToConstant: w))
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 46))
         }
+        for stack in [actionRow, togglesRow, speedStack, orientationStack] {
+            layoutConstraints.append(stack.widthAnchor.constraint(equalToConstant: w))
+        }
+        for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] {
+            layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 62))
+        }
+        for btn in [soundButton, buttonLockButton, skinButton] {
+            layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 56))
+        }
+        layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: w))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 280
     }
 
-    // 2x2 grid rows for landscape action buttons
-    private let actionRow1: UIStackView = {
+    /// Secondary actions in one compact row (Rewind / Screenshot / Cheats).
+    /// Rewind is hidden for NDS, which collapses it in this fill-equally row.
+    private let actionRow: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
         s.spacing = 8
         s.distribution = .fillEqually
+        s.alignment = .fill
         return s
     }()
 
-    private let actionRow2: UIStackView = {
+    /// The two per-game toggles (Sound + hold-to-lock) side by side.
+    private let togglesRow: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
         s.spacing = 8
         s.distribution = .fillEqually
+        s.alignment = .fill
         return s
     }()
 
@@ -347,90 +467,99 @@ final class OverlayMenuView: UIView {
         contentStack.isHidden = true
         landscapeContainer.isHidden = false
 
-        // Remove all from portrait stack
+        // Detach everything from both layouts before rebuilding the columns.
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         leftColumn.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rightColumn.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        actionRow1.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        actionRow2.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        actionRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        togglesRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        // Left column: title, quit, [top full-width button], 2x2 action grid, speed.
-        // For GBA/GB/GBC, Resume gets the full-width slot (primary action).
-        // For NDS, Rewind sits in the slot but stays hidden, keeping Resume in the grid.
+        // Left column mirrors portrait: header, primary actions, then the
+        // per-game settings (Speed pills, Orientation pills, the toggles).
+        // Resume is always the full-width primary; the action row holds the
+        // secondary actions, with Rewind collapsing out for NDS.
         leftColumn.addArrangedSubview(titleLabel)
+        leftColumn.addArrangedSubview(resumeButton)
         leftColumn.addArrangedSubview(quitButton)
-        addSpacer(height: 6, to: leftColumn)
 
-        let topButton: UIButton = rewindHidden ? rewindButton : resumeButton
-        let gridLeadButton: UIButton = rewindHidden ? resumeButton : rewindButton
-        leftColumn.addArrangedSubview(topButton)
+        actionRow.addArrangedSubview(rewindButton)
+        actionRow.addArrangedSubview(screenshotButton)
+        actionRow.addArrangedSubview(clipButton)
+        actionRow.addArrangedSubview(cheatsButton)
+        leftColumn.addArrangedSubview(actionRow)
+        for b in [quitButton, resumeButton] { setActionButtonCompact(b, false) }
+        for b in [rewindButton, screenshotButton, clipButton, cheatsButton] { setActionButtonCompact(b, true) }
 
-        // 2x2 grid
-        actionRow1.addArrangedSubview(gridLeadButton)
-        actionRow1.addArrangedSubview(screenshotButton)
-        actionRow2.addArrangedSubview(cheatsButton)
-        actionRow2.addArrangedSubview(soundButton)
-        leftColumn.addArrangedSubview(actionRow1)
-        leftColumn.addArrangedSubview(actionRow2)
-
-        // The ~156pt grid buttons are too narrow for the longer localized labels
-        // ("Rembobiner 30s", "Partager une capture") at the portrait font, so make
-        // the grid buttons compact (smaller icon, tighter insets, two-line wrap) so
-        // the full label is visible. Full-width Resume/Quit keep the roomy style.
-        for b in [gridLeadButton, screenshotButton, cheatsButton, soundButton] {
-            setActionButtonCompact(b, true)
-        }
-        for b in [topButton, quitButton] {
-            setActionButtonCompact(b, false)
-        }
-
-        addSpacer(height: 6, to: leftColumn)
+        addSpacer(height: 4, to: leftColumn)
         leftColumn.addArrangedSubview(speedLabel)
         leftColumn.addArrangedSubview(speedStack)
+        addSpacer(height: 4, to: leftColumn)
+        leftColumn.addArrangedSubview(orientationLabel)
+        leftColumn.addArrangedSubview(orientationStack)
+        addSpacer(height: 4, to: leftColumn)
 
-        // Right column: save slots only
+        togglesRow.addArrangedSubview(soundButton)
+        togglesRow.addArrangedSubview(buttonLockButton)
+        togglesRow.addArrangedSubview(skinButton)
+        for b in [soundButton, buttonLockButton, skinButton] { setActionButtonCompact(b, true) }
+        leftColumn.addArrangedSubview(togglesRow)
+        leftColumn.addArrangedSubview(buttonLockCaption)
+
+        // Right column: save slots only, with room for all five.
         rightColumn.addArrangedSubview(saveLoadLabel)
         rightColumn.addArrangedSubview(slotsStack)
 
-        // Button sizes for landscape
-        let fullW: CGFloat = 200
-        let gridW: CGFloat = 320
+        // Sizes for landscape
+        let fullW: CGFloat = 320
         let btnH: CGFloat = 40
-        layoutConstraints.append(quitButton.widthAnchor.constraint(equalToConstant: fullW))
-        layoutConstraints.append(quitButton.heightAnchor.constraint(equalToConstant: btnH))
-        layoutConstraints.append(topButton.widthAnchor.constraint(equalToConstant: fullW))
-        layoutConstraints.append(topButton.heightAnchor.constraint(equalToConstant: btnH))
-        for row in [actionRow1, actionRow2] {
-            layoutConstraints.append(row.widthAnchor.constraint(equalToConstant: gridW))
-        }
-        for btn in [gridLeadButton, screenshotButton, cheatsButton, soundButton] {
+        for btn in [quitButton, resumeButton] {
+            layoutConstraints.append(btn.widthAnchor.constraint(equalToConstant: fullW))
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: btnH))
         }
+        for stack in [actionRow, togglesRow, speedStack, orientationStack] {
+            layoutConstraints.append(stack.widthAnchor.constraint(equalToConstant: fullW))
+        }
+        for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] {
+            layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 58))
+        }
+        for btn in [soundButton, buttonLockButton, skinButton] {
+            layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 52))
+        }
+        layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: fullW))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 320
     }
 
-    /// The landscape 2x2 grid buttons are only ~156pt wide, too narrow for the
-    /// longer localized labels at the portrait font. UIButton.Configuration
-    /// ignores titleLabel.adjustsFontSizeToFitWidth, so to show the full label we
-    /// shrink the icon, tighten the insets, and let the title wrap to two lines.
-    /// Passing `compact = false` restores the roomy single-line style (portrait
-    /// and the full-width Resume/Quit buttons), so a rotation back is clean.
+    /// Compact "tile" style for the narrow action/toggle cells: icon stacked
+    /// on top of a wrapping label, so the full localized label gets the whole
+    /// cell width (icon-beside-text left it too narrow and wrapped to 3-4 lines).
+    /// Passing `compact = false` restores the roomy single-line icon-beside
+    /// style (full-width Resume/Quit), so a rotation back is clean.
     private func setActionButtonCompact(_ btn: UIButton, _ compact: Bool) {
         guard var config = btn.configuration else { return }
         if compact {
-            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-            config.imagePadding = 5
-            config.contentInsets = NSDirectionalEdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8)
-            config.titleLineBreakMode = .byWordWrapping
+            // Icon ON TOP of the label (tile style). Labels are localized to a
+            // single word (see Localizable.strings) on ONE line, so four tiles
+            // fit one row on GBA; the auto-shrink below handles the few longer-
+            // word locales (e.g. "Screenshot", "Skärmbild") by scaling just them.
+            config.imagePlacement = .top
+            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+            config.imagePadding = 4
+            config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4)
+            config.titleLineBreakMode = .byTruncatingTail
             config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
                 var out = incoming
-                out.font = .systemFont(ofSize: 13, weight: .medium)
+                out.font = .systemFont(ofSize: 12, weight: .medium)
                 return out
             }
-            btn.titleLabel?.numberOfLines = 2
+            // One line so the auto-shrink from makeButton applies (UIKit only
+            // scales single-line labels); shrinks only labels that don't fit.
+            btn.titleLabel?.numberOfLines = 1
+            btn.titleLabel?.adjustsFontSizeToFitWidth = true
+            btn.titleLabel?.minimumScaleFactor = 0.6
             btn.titleLabel?.textAlignment = .center
         } else {
+            config.imagePlacement = .leading
             config.preferredSymbolConfigurationForImage = nil
             config.imagePadding = 8
             config.contentInsets = UIButton.Configuration.filled().contentInsets
@@ -462,34 +591,52 @@ final class OverlayMenuView: UIView {
         updateSoundButton()
     }
 
+    /// Reflect the per-game hold-to-lock preference (set by the VC when the menu opens).
+    func setButtonLockEnabled(_ enabled: Bool) {
+        buttonLockEnabled = enabled
+        updateButtonLockButton()
+    }
+
+    /// Tell the menu which face buttons hold-to-lock affects, so the toggle icon
+    /// and caption show the right set. A/B for GBA/GB/GBC; A/B/X/Y for NDS.
+    /// Mirrors `TouchControlsView.lockableMask` (widened in NDSTouchControlsView).
+    func setLockableButtons(forNDS isNDS: Bool) {
+        lockableLetters = isNDS ? ["A", "B", "X", "Y"] : ["A", "B"]
+        updateButtonLockButton()
+        updateButtonLockCaption()
+    }
+
     func refreshProState() {
         let isPro = UserDefaults.standard.bool(forKey: "isPro")
         updateSpeedHighlight()
         let rewindSeconds = isPro ? "30" : "5"
         rewindButton.configuration?.title = String(format: NSLocalizedString("overlay.rewind", comment: ""), rewindSeconds)
-        // Cheats button: gold→purple premium gradient when free, plain fill
-        // when Pro. No border, no chip — the background does the talking.
+        // Cheats: subtle gold→purple premium border + faint fill when free,
+        // plain fill when Pro. No lock icon — the gentle gold border tempts a
+        // player who sees this many times, where a lock would only frustrate.
         applyPremiumStyle(to: cheatsButton, active: !isPro)
         cheatsButton.accessibilityHint = isPro ? nil : NSLocalizedString("pro.badge", comment: "")
     }
 
-    /// Applies the premium visual signature (smooth gold→purple gradient
-    /// background + soft purple shadow, no border) to a Pro-gated UI
-    /// element. Kept light so the shift from regular to premium is a
-    /// gentle temptation rather than a loud paywall.
+    /// Applies the premium visual signature to a Pro-gated UI element: a faint
+    /// gold→purple fill, the gold→purple hairline gradient *border* shared with
+    /// the Settings Pro card and the Pro sheet, and a soft purple glow.
+    /// `particles` adds the slow luxury dust (on the roomy cheats tile + save
+    /// slots; off for the tiny, busy speed pills). Kept deliberately light so
+    /// the shift to premium is a gentle temptation rather than a loud paywall.
     ///
     /// Idempotent: repeated calls with the same `active` value leave the
     /// existing GradientBackgroundView (and its particle emitter state) in
     /// place. This matters because updateSpeedHighlight runs on every speed
     /// change — without this guard, every locked speed's emitter would
     /// reset on each tap, causing a visible particle-position jump.
-    private func applyPremiumStyle(to view: UIView, active: Bool) {
+    private func applyPremiumStyle(to view: UIView, active: Bool, particles: Bool = true) {
         let purple = UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 1.0)
 
         if let btn = view as? UIButton, var config = btn.configuration {
             let hasGradient = config.background.customView is GradientBackgroundView
             if active && !hasGradient {
-                let bg = GradientBackgroundView()
+                let bg = GradientBackgroundView(showsParticles: particles)
                 bg.layer.cornerRadius = btn.layer.cornerRadius
                 config.background.customView = bg
                 config.background.backgroundColor = .clear
@@ -502,7 +649,7 @@ final class OverlayMenuView: UIView {
         } else {
             let existing = view.subviews.compactMap { $0 as? GradientBackgroundView }.first
             if active && existing == nil {
-                let bg = GradientBackgroundView()
+                let bg = GradientBackgroundView(showsParticles: particles)
                 bg.layer.cornerRadius = view.layer.cornerRadius
                 bg.translatesAutoresizingMaskIntoConstraints = false
                 view.insertSubview(bg, at: 0)
@@ -520,8 +667,8 @@ final class OverlayMenuView: UIView {
         view.layer.borderWidth = 0
         if active {
             view.layer.shadowColor = purple.cgColor
-            view.layer.shadowOpacity = 0.4
-            view.layer.shadowRadius = 5
+            view.layer.shadowOpacity = 0.3
+            view.layer.shadowRadius = 6
             view.layer.shadowOffset = .zero
             view.layer.masksToBounds = false
         } else {
@@ -583,7 +730,9 @@ final class OverlayMenuView: UIView {
         // container itself (locked slot — the container IS the Pro invite).
         var trailing: UIView?
         if isLocked {
-            // Drop the white-8% fill so the gradient view shows as-designed.
+            // Drop the white-8% fill so the gradient view shows as-designed. No
+            // lock icon — the gentle gold border invites Pro, where a lock would
+            // make the slot read as disabled and frustrating.
             container.backgroundColor = .clear
             applyPremiumStyle(to: container, active: true)
             let tap = UITapGestureRecognizer(target: self, action: #selector(lockedSlotTapped))
@@ -681,6 +830,7 @@ final class OverlayMenuView: UIView {
     @objc private func resumeTapped() { delegate?.overlayDidTapResume() }
     @objc private func rewindTapped() { delegate?.overlayDidTapRewind() }
     @objc private func screenshotTapped() { delegate?.overlayDidTapShareScreenshot() }
+    @objc private func clipTapped() { delegate?.overlayDidTapShareClip() }
     @objc private func quitTapped() { delegate?.overlayDidTapQuit() }
     @objc private func lockedSlotTapped() {
         // Only claim "all slots are full" when the free slots are genuinely
@@ -695,6 +845,161 @@ final class OverlayMenuView: UIView {
         isSoundEnabled.toggle()
         updateSoundButton()
         delegate?.overlayDidToggleSound(enabled: isSoundEnabled)
+    }
+
+    @objc private func buttonLockTapped() {
+        buttonLockEnabled.toggle()
+        updateButtonLockButton()
+        delegate?.overlayDidToggleButtonLock(enabled: buttonLockEnabled)
+    }
+
+    @objc private func skinTapped() { delegate?.overlayDidTapSkin() }
+
+    /// Sets the Skin button's icon to the running game's console glyph (the same
+    /// console-<system> art used in the library stats). Rendered like the Retro Pal brand
+    /// component on the Nostalgia skins — a monochrome duotone that KEEPS the image's detail
+    /// but in a single hue, here the menu-icon colour (white) — instead of a flat silhouette.
+    func setSkinIcon(_ image: UIImage?) {
+        guard let image else { return }   // keep the SF fallback if no console art
+        let tinted = Self.monochrome(image, color: .white) ?? image
+        skinButton.configuration?.image = Self.resized(tinted, maxWidth: 30, maxHeight: 22)
+            .withRenderingMode(.alwaysOriginal)   // carry the duotone shading, don't re-tint
+    }
+
+    private static let ciContext = CIContext(options: nil)
+
+    /// Monochrome duotone of `image` in `color`, preserving luminance detail — the same
+    /// CIColorMonochrome treatment the console dresses use for the Retro Pal brand mark.
+    private static func monochrome(_ image: UIImage, color: UIColor) -> UIImage? {
+        guard let ci = CIImage(image: image) else { return nil }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        guard let f = CIFilter(name: "CIColorMonochrome", parameters: [
+            kCIInputImageKey: ci,
+            "inputColor": CIColor(red: r, green: g, blue: b),
+            "inputIntensity": 1.0,
+        ]), let out = f.outputImage,
+            let cg = ciContext.createCGImage(out, from: out.extent) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+
+    /// Aspect-fits `image` into a small icon box (raster console art has no point-size,
+    /// unlike an SF Symbol, so it must be resized before sitting in the compact tile).
+    private static func resized(_ image: UIImage, maxWidth: CGFloat, maxHeight: CGFloat) -> UIImage {
+        guard image.size.width > 0, image.size.height > 0 else { return image }
+        let s = min(maxWidth / image.size.width, maxHeight / image.size.height)
+        let target = CGSize(width: image.size.width * s, height: image.size.height * s)
+        return UIGraphicsImageRenderer(size: target).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target))
+        }
+    }
+
+    /// Icon = a row of mini face buttons drawn like the in-game controls,
+    /// pressed when the toggle is on. The brighter tile background reinforces the
+    /// on state, matching the Sound toggle's treatment.
+    private func updateButtonLockButton() {
+        // Match the mini buttons inlined in the caption below the row (diameter 16,
+        // spacing 3) so the in-button A/B(/X/Y) glyphs are not oversized — for every
+        // console (A/B for GBA/GB/GBC, A/B/X/Y for NDS).
+        let row = miniButtonRowImage(letters: lockableLetters, pressed: buttonLockEnabled,
+                                     diameter: 16, spacing: 3)
+        buttonLockButton.configuration?.image = row.withRenderingMode(.alwaysOriginal)
+        buttonLockButton.configuration?.baseBackgroundColor = buttonLockEnabled
+            ? UIColor.white.withAlphaComponent(0.28)
+            : UIColor.white.withAlphaComponent(0.15)
+    }
+
+    /// Rebuild the caption with the affected buttons inlined into the localized
+    /// sentence (the `%@` token marks where the mini-button row goes).
+    private func updateButtonLockCaption() {
+        let format = NSLocalizedString("overlay.buttonLock.caption", comment: "")
+        let font = UIFont.preferredFont(forTextStyle: .caption1)
+        let baseAttrs: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: UIColor.white.withAlphaComponent(0.5)
+        ]
+        let row = miniButtonRowImage(letters: lockableLetters, pressed: false, diameter: 16, spacing: 3)
+            .withRenderingMode(.alwaysOriginal)
+        let result = NSMutableAttributedString()
+        let parts = format.components(separatedBy: "%@")
+        for (index, part) in parts.enumerated() {
+            result.append(NSAttributedString(string: part, attributes: baseAttrs))
+            guard index < parts.count - 1 else { continue }
+            let attachment = NSTextAttachment()
+            attachment.image = row
+            attachment.bounds = CGRect(
+                x: 0, y: (font.capHeight - row.size.height) / 2,
+                width: row.size.width, height: row.size.height)
+            result.append(NSAttributedString(attachment: attachment))
+        }
+        buttonLockCaption.attributedText = result
+        // The inlined image reads poorly under VoiceOver; give it plain text.
+        buttonLockCaption.accessibilityLabel = format.replacingOccurrences(
+            of: "%@", with: lockableLetters.joined(separator: " "))
+    }
+
+    /// Draws a horizontal row of mini face buttons that match the in-game
+    /// ActionButton look (translucent white circle + bold white letter), used as
+    /// the hold-to-lock toggle icon and inlined into its caption. `pressed`
+    /// mirrors the in-game pressed treatment (brighter fill + border).
+    private func miniButtonRowImage(letters: [String], pressed: Bool,
+                                    diameter: CGFloat, spacing: CGFloat = 4) -> UIImage {
+        let lineWidth: CGFloat = diameter < 20 ? 1.0 : 1.5
+        let count = CGFloat(letters.count)
+        let size = CGSize(width: count * diameter + max(0, count - 1) * spacing, height: diameter)
+        let fill = UIColor.white.withAlphaComponent(pressed ? 0.55 : 0.2)
+        let stroke = UIColor.white.withAlphaComponent(pressed ? 0.8 : 0.45)
+        let font = UIFont.systemFont(ofSize: diameter * 0.52, weight: .bold)
+
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            for (i, letter) in letters.enumerated() {
+                let x = CGFloat(i) * (diameter + spacing)
+                let rect = CGRect(x: x + lineWidth / 2, y: lineWidth / 2,
+                                  width: diameter - lineWidth, height: diameter - lineWidth)
+                let circle = UIBezierPath(ovalIn: rect)
+                fill.setFill(); circle.fill()
+                stroke.setStroke(); circle.lineWidth = lineWidth; circle.stroke()
+
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: font, .foregroundColor: UIColor.white]
+                let glyph = letter as NSString
+                let textSize = glyph.size(withAttributes: attrs)
+                glyph.draw(in: CGRect(x: x + (diameter - textSize.width) / 2,
+                                      y: (diameter - textSize.height) / 2,
+                                      width: textSize.width, height: textSize.height),
+                           withAttributes: attrs)
+            }
+        }
+    }
+
+    /// Reflect the per-game orientation preference (set by the VC when the menu opens).
+    func setOrientationMode(_ mode: GameOrientationMode) {
+        currentOrientationMode = mode
+        updateOrientationHighlight()
+    }
+
+    @objc private func orientationTapped(_ sender: UIButton) {
+        currentOrientationMode = Self.mode(forSegment: sender.tag)
+        updateOrientationHighlight()
+        delegate?.overlayDidSelectOrientation(currentOrientationMode)
+    }
+
+    /// Highlight the selected orientation pill exactly like the selected Speed
+    /// pill (white fill + white border + white text; dim otherwise).
+    private func updateOrientationHighlight() {
+        let selected = Self.segmentIndex(for: currentOrientationMode)
+        for (index, btn) in orientationButtons.enumerated() {
+            let sel = index == selected
+            btn.backgroundColor = sel ? UIColor.white.withAlphaComponent(0.25) : .clear
+            btn.setTitleColor(sel ? .white : UIColor.white.withAlphaComponent(0.6), for: .normal)
+            btn.layer.borderColor = sel ? UIColor.white.cgColor : UIColor.white.withAlphaComponent(0.25).cgColor
+        }
+    }
+
+    private static func segmentIndex(for mode: GameOrientationMode) -> Int {
+        switch mode { case .auto: return 0; case .landscape: return 1; case .portrait: return 2 }
+    }
+    private static func mode(forSegment index: Int) -> GameOrientationMode {
+        switch index { case 1: return .landscape; case 2: return .portrait; default: return .auto }
     }
 
     @objc private func cheatsTapped() {
@@ -722,6 +1027,12 @@ final class OverlayMenuView: UIView {
         currentSpeed = speed
         updateSpeedHighlight()
         delegate?.overlayDidSelectSpeed(speed)
+        Analytics.signal("speed_changed", ["speed": String(speed)])
+        // Pro speeds are anything outside the free 1x / 1.5x set; reaching here
+        // with one means the user is Pro (the gate above returns otherwise).
+        if !Self.freeSpeeds.contains(speed) {
+            Analytics.signal("pro_feature_used", ["feature": "speed"])
+        }
     }
 
     @objc private func saveTapped(_ sender: UIButton) {
@@ -744,12 +1055,15 @@ final class OverlayMenuView: UIView {
             btn.layer.masksToBounds = false
 
             if locked {
-                // Same premium treatment as cheats / save slots: gold→purple
-                // gradient background + purple glow, no border. Text stays
-                // white to match the other speed buttons.
+                // Same Pro family as the cheats tile / locked slots: gold→purple
+                // hairline border + faint fill + soft glow. Text stays the same
+                // dimmed white as an unselected free pill so the whole row reads
+                // as one set. No particles (five pills with drifting dust would
+                // be noise) and no lock icon (it would frustrate the player who
+                // sees this often, where the gentle border tempts instead).
                 btn.backgroundColor = .clear
-                btn.setTitleColor(.white, for: .normal)
-                applyPremiumStyle(to: btn, active: true)
+                btn.setTitleColor(UIColor.white.withAlphaComponent(0.6), for: .normal)
+                applyPremiumStyle(to: btn, active: true, particles: false)
                 btn.accessibilityHint = NSLocalizedString("pro.badge", comment: "")
             } else {
                 applyPremiumStyle(to: btn, active: false)
@@ -763,16 +1077,19 @@ final class OverlayMenuView: UIView {
     }
 
     private func updateSoundButton() {
-        let effectiveOn = isSoundEnabled && !isAudioSuspendedBySpeed
-        let icon = effectiveOn ? "speaker.wave.2.fill" : "speaker.slash.fill"
-        let title = effectiveOn
-            ? NSLocalizedString("overlay.sound", comment: "")
-            : NSLocalizedString("overlay.sound.off", comment: "")
-        soundButton.configuration?.image = UIImage(systemName: icon)
-        soundButton.configuration?.title = title
-        soundButton.configuration?.baseBackgroundColor = effectiveOn
-            ? UIColor.white.withAlphaComponent(0.15)
-            : UIColor.systemRed.withAlphaComponent(0.3)
+        // Sound is controllable at every speed now (no speed-based suspension),
+        // so the button reflects only the user's mute state. The title stays
+        // "Son" so it fits the half-width toggle chip; the muted state is carried
+        // by the slashed icon + red tint, with the off label surfaced to VoiceOver.
+        let muted = !isSoundEnabled
+        soundButton.configuration?.image = UIImage(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+        soundButton.configuration?.title = NSLocalizedString("overlay.sound", comment: "")
+        soundButton.configuration?.baseBackgroundColor = muted
+            ? UIColor.systemRed.withAlphaComponent(0.3)
+            : UIColor.white.withAlphaComponent(0.15)
+        soundButton.accessibilityValue = muted
+            ? NSLocalizedString("overlay.sound.off", comment: "")
+            : nil
     }
 
     // MARK: - Helpers
@@ -804,51 +1121,91 @@ final class OverlayMenuView: UIView {
 
 }
 
-/// Subtle gold→purple gradient used as the premium background for Pro-gated
-/// UI in the pause overlay. The gradient is clipped to the view's rounded
-/// corners via a sublayer mask (rather than clipping the whole view) so the
-/// embedded ParticleEmitterView can emanate past the button bounds.
+/// The premium surface for Pro-gated UI in the pause overlay: a faint gold→
+/// purple fill plus the gold→purple hairline gradient *border* that is the
+/// shared signature of the Settings Pro card and the Pro sheet, so a locked
+/// pause feature reads as the same family. Both gradients are clipped to the
+/// view's rounded corners via sublayer masks (rather than clipping the whole
+/// view) so the optional ParticleEmitterView can emanate past the bounds.
 final class GradientBackgroundView: UIView {
     private let gradient = CAGradientLayer()
     private let gradientMask = CAShapeLayer()
-    private let particles = ParticleEmitterView()
+    private let border = CAGradientLayer()
+    private let borderMask = CAShapeLayer()
+    private var particles: ParticleEmitterView?
+    private let borderWidth: CGFloat = 1.2
+
+    /// `showsParticles` adds the slow luxury dust. On for the roomy cheats tile
+    /// and save slots; off for the tiny speed pills, where it would be noise.
+    init(showsParticles: Bool = true) {
+        super.init(frame: .zero)
+        setup(showsParticles: showsParticles)
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        setup()
+        setup(showsParticles: true)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
-    private func setup() {
+    private func setup(showsParticles: Bool) {
         isUserInteractionEnabled = false
         clipsToBounds = false
         layer.masksToBounds = false
 
+        // Faint warm tint — much gentler than a paywall fill.
         gradient.colors = [
-            UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.25).cgColor,
-            UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 0.22).cgColor
+            UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.12).cgColor,
+            UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 0.10).cgColor
         ]
         gradient.startPoint = CGPoint(x: 0, y: 0)
         gradient.endPoint = CGPoint(x: 1, y: 1)
         gradient.mask = gradientMask
         layer.addSublayer(gradient)
 
-        particles.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(particles)
-        NSLayoutConstraint.activate([
-            particles.topAnchor.constraint(equalTo: topAnchor),
-            particles.bottomAnchor.constraint(equalTo: bottomAnchor),
-            particles.leadingAnchor.constraint(equalTo: leadingAnchor),
-            particles.trailingAnchor.constraint(equalTo: trailingAnchor),
-        ])
+        // The signature gold→purple hairline border (matches the Pro card/sheet).
+        border.colors = [
+            UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.85).cgColor,
+            UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 0.85).cgColor
+        ]
+        border.startPoint = CGPoint(x: 0, y: 0)
+        border.endPoint = CGPoint(x: 1, y: 1)
+        borderMask.fillColor = UIColor.clear.cgColor
+        borderMask.strokeColor = UIColor.white.cgColor
+        borderMask.lineWidth = borderWidth
+        border.mask = borderMask
+        layer.addSublayer(border)
+
+        if showsParticles {
+            let p = ParticleEmitterView()
+            p.alpha = 0.45
+            p.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(p)
+            NSLayoutConstraint.activate([
+                p.topAnchor.constraint(equalTo: topAnchor),
+                p.bottomAnchor.constraint(equalTo: bottomAnchor),
+                p.leadingAnchor.constraint(equalTo: leadingAnchor),
+                p.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+            particles = p
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        let radius = layer.cornerRadius
         gradient.frame = bounds
         gradientMask.frame = bounds
-        gradientMask.path = UIBezierPath(roundedRect: bounds,
-                                         cornerRadius: layer.cornerRadius).cgPath
+        gradientMask.path = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+
+        // Inset the stroked path by half the line width so the border sits fully
+        // inside the bounds rather than being clipped in half at the edge.
+        border.frame = bounds
+        borderMask.frame = bounds
+        let inset = borderWidth / 2
+        borderMask.path = UIBezierPath(
+            roundedRect: bounds.insetBy(dx: inset, dy: inset),
+            cornerRadius: max(0, radius - inset)).cgPath
     }
 }

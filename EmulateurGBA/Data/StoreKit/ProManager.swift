@@ -21,6 +21,10 @@ final class ProManager: ObservableObject {
 
     @AppStorage("isPro") var isPro: Bool = false
 
+    /// The Pro-prompt trigger that opened the current sheet. Set by ProUpgradeView
+    /// on appear; read on purchase success for per-trigger conversion analytics.
+    var activeTrigger: ProPromptContext?
+
     /// Available products. Lifetime first, monthly second.
     @Published var lifetimeProduct: Product?
     @Published var monthlyProduct: Product?
@@ -122,6 +126,10 @@ final class ProManager: ObservableObject {
                 if let transaction = try? verification.payloadValue {
                     await transaction.finish()
                     isPro = true
+                    Analytics.signal("pro_purchased", [
+                        "trigger": activeTrigger?.analyticsID ?? "unknown",
+                        "productType": product.id == Self.lifetimeProductID ? "lifetime" : "monthly"
+                    ])
                     purchaseState = .success
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     purchaseState = .idle

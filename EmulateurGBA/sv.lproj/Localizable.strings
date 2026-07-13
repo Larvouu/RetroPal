@@ -7,7 +7,7 @@
 /* Library */
 "library.title" = "Bibliotek";
 "library.empty.title" = "Välkommen till Retro Pal";
-"library.empty.subtitle" = "Spela dina retrospel på iPhone. Inga annonser, ingen spårning, någonsin.";
+"library.empty.subtitle" = "Spela dina retrospel på iPhone. Inga annonser, ingen personlig spårning.";
 "library.empty.button" = "Lägg till ett spel";
 "library.empty.step1" = "Få in ett spel (.gba, .gb, .gbc eller .nds) på din iPhone via Safari, AirDrop eller iCloud Drive.";
 "library.empty.step2" = "Tryck på %@ och välj filen i Filer-appen.";
@@ -18,28 +18,42 @@
 "library.sort.lastPlayed" = "Senast spelat";
 "library.sort.title" = "Titel";
 "library.sort.dateAdded" = "Tillagt datum";
+"library.sort.byConsole" = "Efter konsol";
 "library.played.ago" = "Spelat %@";
 "library.playTime" = "%@t %@m spelat";
 "library.playTime.minutes" = "%@m spelat";
+"library.stats.title" = "Statistik";
+"library.stats.topGames" = "Mest spelade";
+"library.stats.totalTime" = "Total tid";
+"library.stats.gamesPlayed" = "Spelade spel";
+"library.stats.sessions" = "Sessioner";
+"library.stats.favoriteConsole" = "Favoritkonsol";
+"library.stats.duration" = "%@t %@m";
+"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Fortsätt senaste sessionen";
-"details.newGame" = "Nytt spel";
-"details.saveSlots" = "Sparplatser";
+"details.newGame" = "Starta från titelskärmen";
+"details.saveSlots" = "Snabbsparplatser";
 "details.delete" = "Radera spel";
 "details.delete.confirm" = "Radera det här spelet och alla spardata?";
 "details.rename" = "Byt namn";
 "details.rename.title" = "Byt namn på spel";
-"details.newGame.confirm.title" = "Starta ett nytt spel?";
+"details.cover.choose" = "Välj omslag";
+"details.cover.remove" = "Ta bort eget omslag";
+"details.cover.error" = "Bilden kunde inte sparas.";
+"details.newGame.confirm.title" = "Starta från titelskärmen?";
+"details.newGame.confirm.message" = "Du återupptar inte din senaste session, men spelets egen sparfil och dina snabbsparningar är säkra.";
+"details.launch.footer" = "För att läsa in spelets egen sparfil (den du gör i spelets egen sparmeny), starta spelet och fortsätt från dess meny. Den är skild från snabbsparplatserna nedan, som du skapar själv.";
 
 /* In-Game Overlay */
 "overlay.paused" = "PAUSAD";
 "overlay.resume" = "Fortsätt";
-"overlay.rewind" = "Spola tillbaka %@s";
-"overlay.screenshot" = "Dela skärmbild";
-"overlay.quit" = "Tillbaka till biblioteket";
+"overlay.rewind" = "%@s";
+"overlay.screenshot" = "Skärmbild";
+"overlay.quit" = "Avsluta spelet";
 "overlay.speed" = "HASTIGHET";
-"overlay.saveSlots" = "SPARPLATSER";
+"overlay.saveSlots" = "SNABBSPARPLATSER";
 "overlay.slot" = "Plats %@";
 "overlay.slot.empty" = "Tom";
 "overlay.save" = "Spara";
@@ -48,14 +62,13 @@
 /* Settings */
 "settings.title" = "Inställningar";
 "settings.controls" = "Kontroller";
-"settings.opacity" = "Knappgenomsynlighet";
-"settings.size" = "Knappstorlek";
-"settings.haptics" = "Haptisk feedback";
-"settings.buttonLock" = "Lås knappar genom att hålla";
-"settings.buttonLock.controllerNote" = "Används inte när en handkontroll är ansluten.";
+"settings.haptics" = "Haptik i spelet";
 "settings.controller.footer" = "Bluetooth-handkontroller (Xbox, PlayStation, MFi) stöds. Para ihop i iOS-inställningarna.";
+"settings.controls.controllerActive.footer" = "En handkontroll är ansluten, så touch-inställningarna ovan är avstängda.";
+"settings.controls.dpad.footer" = "Inställningarna för styrkors/joystick och klippknapp gäller standardlayouten. Varje egen profil har sitt eget val av styrkors/joystick, och dess klippknapp är alltid synlig.";
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
+"settings.clipButton" = "Klippknapp";
 "settings.nds.swapScreens" = "Byt skärmar";
 "settings.nds.language" = "Spelspråk";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -90,12 +103,14 @@
 "pro.benefit.slots" = "5 sparplatser (istället för 2)";
 "pro.benefit.rewind" = "30 sekunders tillbakaspolning (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Fuskkoder (GameShark / Action Replay)";
-"pro.benefit.controls" = "Anpassade kontrollayouter (upp till 3 förinställningar)";
+"pro.benefit.controls" = "Anpassade kontrollayouter";
 "pro.benefit.speed.short" = "Alla hastigheter";
 "pro.benefit.slots.short" = "5 sparplatser";
 "pro.benefit.rewind.short" = "30 s tillbakaspolning";
 "pro.benefit.cheats.short" = "Fuskkoder";
 "pro.benefit.controls.short" = "Anpassade kontroller";
+"pro.benefit.skins" = "Skapa egna skins till konsolen";
+"pro.benefit.skins.short" = "Egna skins";
 "pro.badge" = "Pro-funktion";
 "pro.seeAllBenefits" = "Se alla Pro-förmåner";
 
@@ -115,8 +130,7 @@
 "pro.compare.row.controls" = "Anpassade kontroller";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
-"pro.compare.values.proControls" = "3 förinställningar";
-
+"pro.compare.row.skins" = "Skapa skins";
 /* Prompts */
 "prompt.speed.title" = "Du har spelat %@ minuter på 1,5x";
 "prompt.speed.subtitle" = "På 4x flyger samma session förbi. Lås upp alla hastigheter, för alltid.";
@@ -131,11 +145,18 @@
 "prompt.generic.title" = "Retro Pal Pro";
 "prompt.generic.subtitle" = "Lås upp alla hastigheter, 5 sparplatser, 30s tillbakaspolning (GBA/GB/GBC) och mer.";
 
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "Nostalgia";
+"card.style.classic" = "Klassisk";
+
 /* Screenshot */
 "screenshot.share" = "Dela";
 "screenshot.save" = "Spara";
 "screenshot.dismiss" = "Stäng";
-"screenshot.footer" = "Retro Pal på App Store";
+"screenshot.footer" = "Skapad med Retro Pal";
+"screenshot.hint" = "Fånga ditt bästa ögonblick, när som helst.";
+"clip.hint" = "Du kan när som helst spara de senaste 6 sekunderna.";
+"clip.loading" = "Vi fångar ögonblicket… en sekund.";
 "screenshot.newGame" = "Precis börjat";
 "screenshot.proMember" = "👑 Pro-medlem";
 "screenshot.permissionDenied.title" = "Fotoåtkomst krävs";
@@ -153,9 +174,9 @@
 "legal.importantNotice.title" = "Viktigt meddelande";
 "legal.aboutApp.title" = "Om denna app";
 "legal.aboutApp.description1" = "Retro Pal är ett lokalt emulator-gränssnitt för Game Boy Advance-, Game Boy-, Game Boy Color- och Nintendo DS-spel. Appen laddar inte ner, distribuerar eller ger åtkomst till något spelinnehåll. Alla ROM-filer måste importeras av användaren från den egna enhetens lagring via Filer-appen.";
-"legal.aboutApp.description2" = "Denna app ansluter inte till några externa servrar, tillhandahåller ingen spelkatalog och underlättar inte nedladdning av upphovsrättsskyddat material.";
+"legal.aboutApp.description2" = "Den här appen tillhandahåller ingen spelkatalog, distribuerar inget spelinnehåll och underlättar inte nedladdning av upphovsrättsskyddat material.";
 "legal.privacy.title" = "Integritet";
-"legal.privacy.description" = "Retro Pal lagrar all data lokalt på din enhet. Inga personliga data, användningsstatistik eller spelinformation samlas in eller överförs. Appen kräver ingen internetanslutning för att fungera.";
+"legal.privacy.description" = "Dina spel och sparfiler stannar på din enhet. För att förbättra appen skickar Retro Pal endast anonym användningsstatistik, utan personuppgifter och utan annons-id:n.";
 "legal.licenses.title" = "Open source-licenser";
 "legal.mgba.licenseLine" = "Licensierad under Mozilla Public License 2.0 (MPL-2.0)";
 "legal.mgba.description" = "mGBA är en Game Boy Advance-emulator som används som den centrala emulatormotorn i denna app. Källkoden för mGBA finns tillgänglig på [https://mgba.io](https://mgba.io)";
@@ -166,7 +187,7 @@
 "legal.retropal.description" = "Den fullständiga källkoden för Retro Pal finns tillgänglig på [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Programvaran tillhandahålls utan någon garanti.";
 "legal.compliance" = "Retro Pal distribueras under GNU General Public License v3.0. Den bygger på mGBA (Mozilla Public License 2.0) och melonDS (GPL-3.0), som används utan ändringar. Den fullständiga motsvarande källkoden finns tillgänglig i förvaret som länkas ovan, och programvaran tillhandahålls utan någon garanti.";
 
-"details.noSaves" = "Inga sparade tillstånd. Spara under spelet med menyknappen.";
+"details.noSaves" = "Inga snabbsparningar än. Skapa en under spelet med menyknappen.";
 "library.importing" = "Importerar ROM...";
 
 /* Game Details - New */
@@ -174,7 +195,8 @@
 "library.importError" = "Importfel";
 
 /* Overlay - New */
-"overlay.cheats" = "Fuskkoder";
+"overlay.cheats" = "Fusk";
+"overlay.shareClip" = "Clip";
 "overlay.sound" = "Ljud";
 "overlay.sound.off" = "Ljud av";
 "overlay.overwrite.title" = "Skriv över plats %@?";
@@ -199,7 +221,7 @@
 
 /* Emulator */
 "emulator.loading" = "Laddar ROM...";
-"emulator.loadFailed" = "Kunde inte ladda ROM\n%@";
+"emulator.loadFailed" = "Kunde inte ladda %@.\nSpelfilen verkar skadad. Ersätt den via spelets detaljer för att reparera den utan att förlora dina sparfiler.";
 
 /* Common */
 "common.cancel" = "Avbryt";
@@ -233,46 +255,40 @@
 "layout.presets.footer" = "Rotera enheten i redigeraren för att anpassa liggande layout separat.";
 "layout.newPreset" = "Ny förinställning";
 "layout.newPreset.title" = "Ny förinställning";
-"layout.newPreset.message" = "Ange ett namn för denna förinställning.";
 "layout.newPreset.namePlaceholder" = "Förinställningsnamn";
 "layout.newPreset.create" = "Skapa";
 "layout.editor.screenPreview" = "Spelskärm";
 "layout.editor.touchScreen" = "Pekskärm";
-"layout.editor.landscape" = "Redigerar: Liggande";
-"layout.editor.portrait" = "Redigerar: Stående";
 "layout.editor.reset" = "Återställ";
 "layout.editor.reset.title" = "Återställ till standard";
-"layout.editor.reset.message" = "Detta återställer alla knapppositioner för den aktuella orienteringen till deras standardplaceringar.";
-"layout.editor.visibility" = "Synlighet";
-"layout.editor.visibility.message" = "Tryck på en knapp för att visa eller dölja den.";
+"layout.editor.reset.message" = "Detta återställer alla kontroller och skärmar i den aktuella orienteringen till standardposition, storlek och genomsynlighet.";
 "layout.editor.show" = "Visa";
 "layout.editor.hide" = "Dölj";
-"layout.editor.menuCannotHide" = "Menyknappen kan inte döljas.";
+"layout.editor.hint" = "Tryck på en kontroll eller en skärm för att redigera den. Dra för att flytta, nyp för att ändra storlek.";
+"layout.editor.cannotHide" = "Meny- och klippknappen är alltid synliga, så att du kan pausa och spela in när som helst.";
+"layout.editor.size" = "Storlek";
+"layout.editor.opacity" = "Genomsynlighet";
 "layout.editor.topScreen" = "Övre skärm";
 "layout.editor.bottomScreen" = "Nedre skärm";
-"layout.screenSize.small" = "Liten";
-"layout.screenSize.medium" = "Medel";
-"layout.screenSize.large" = "Stor";
 "layout.editor.done" = "Klar";
 "layout.newPreset.systems" = "System";
-"layout.editor.buttons" = "Knappar";
 "prompt.controls.title" = "Hitta den perfekta layouten för dina händer";
-"prompt.controls.subtitle" = "Anpassa knapposition, storlek och opacitet. Skapa upp till 3 förinställningar för olika spel.";
-"layout.editor.screenSize" = "Skärmstorlek";
+"prompt.controls.subtitle" = "Anpassa knapposition, storlek och opacitet. Skapa egna förinställningar för olika spel.";
+"prompt.skins.title" = "Skapa ditt drömskin";
+"prompt.skins.subtitle" = "Välj varje färg på konsolen, gör den till din egen och dela dina skapelser.";
 "layout.editor.landscapeShort" = "Liggande";
 "layout.editor.portraitShort" = "Stående";
-"layout.editor.screenSizeLandscapeInfo" = "Skärmstorleken kan bara ändras i stående läge. I liggande läge visas båda skärmarna sida vid sida i samma storlek.";
-/* Pro upgrade — legal footer (App Store Guideline 3.1.2(c)) */
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
 "pro.legal.terms" = "Användarvillkor";
 "pro.legal.privacy" = "Integritetspolicy";
 
-/* Settings — iCloud-synkroniseringssektion (Vecka 4) */
+/* Settings - iCloud-synkroniseringssektion (Vecka 4) */
 "settings.sync.section" = "Synkronisering";
 "settings.sync.state.resolving" = "Ansluter…";
-"settings.sync.state.available" = "Synkroniserad";
+"settings.sync.state.available" = "På";
 "settings.sync.state.unavailable" = "Inte tillgängligt";
 
-/* Save import — import a .sav / .srm exported from another emulator (Week 5) */
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
 "saveImport.title" = "Importera sparfil";
 "saveImport.success.title" = "Sparfil importerad";
 "saveImport.success.message" = "Starta %@ och fortsätt från spelets egen meny. Den här sparfilen visas inte i appens sparplatser.";
@@ -315,3 +331,138 @@
 "saveImport.mismatch.title" = "Sparfil från ett annat spel?";
 "saveImport.mismatch.message" = "Filnamnet matchar inte %@. Importera den bara om du är säker på att den hör till det här spelet.";
 "saveImport.mismatch.confirm" = "Importera ändå";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "Ersätt spelfilen";
+"replaceROM.success.title" = "Spelfilen ersatt";
+"replaceROM.success.message" = "Spelfilen har ersatts. Dina sparfiler behålls.";
+"replaceROM.error.differentGame" = "Det här är ett annat spel. Välj filen för samma spel så att dina sparfiler förblir giltiga.";
+"replaceROM.error.invalid" = "Kunde inte läsa den här filen. Välj en giltig kopia av samma spel.";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "iCloud-synkronisering";
+"settings.sync.state.disabled" = "Av";
+"settings.sync.footer" = "Dina snabbsparningar synkroniseras till ditt privata iCloud och mellan dina enheter. Stäng av detta för att behålla dem endast på den här iPhonen.";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "Auto-lås";
+"overlay.buttonLock.caption" = "Håll in %@ för att låsa knappen, tryck för att släppa.";
+"overlay.orientation" = "Orientering";
+"overlay.orientation.auto" = "Auto";
+"overlay.orientation.landscape" = "Liggande";
+"overlay.orientation.portrait" = "Stående";
+
+/* Clip card alerts */
+"clip.notReady.title" = "Klippet är inte klart än";
+"clip.notReady.message" = "Spela några sekunder till och försök igen.";
+"clip.failed.title" = "Det gick inte att skapa klippet";
+"clip.failed.message" = "Försök igen.";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "iCloud-snabbsparningar otillgängliga";
+"details.iCloudUnavailable.body" = "Dina snabbsparningar finns kvar i iCloud men går inte att nå just nu. Återställ inte och starta inte ett nytt spel. De kommer tillbaka när iCloud återansluter.";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "De klädda skinsen kräver standardlayouten för kontroller. Den här konsolen använder en egen layout, så endast Invisible är tillgängligt.";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "Skapa skin";
+"skin.edit" = "Redigera";
+"skin.delete" = "Radera";
+"skin.editor.title.create" = "Nytt skin";
+"skin.editor.title.edit" = "Redigera skin";
+"skin.editor.body" = "Hölje";
+"skin.editor.surround" = "Ram";
+"skin.editor.dpad" = "Styrkors";
+"skin.editor.abButtons" = "A/B-knappar";
+"skin.editor.abLetters" = "A/B-bokstäver";
+"skin.editor.smallButtons" = "Små knappar";
+"skin.editor.menuIcons" = "Menyikoner";
+"skin.editor.labels" = "SELECT/START-text";
+"skin.editor.stripe" = "Rand";
+"skin.editor.printedText" = "Tryckt text";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "Ge ditt skin ett namn";
+"skin.editor.create" = "Skapa";
+"skin.editor.save" = "Spara";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "Dela";
+"skin.import.success.title" = "Skin importerat";
+"skin.import.success.message" = "”%1$@” lades till i dina %2$@-skin.";
+"skin.import.full.title" = "Biblioteket är fullt";
+"skin.import.full.message" = "Du har redan 6 %@-skin. Radera ett och importera igen.";
+"skin.import.failed.title" = "Importen misslyckades";
+"skin.import.failed.message" = "Den här skinfilen är ogiltig eller skadad.";
+"skin.import" = "Importera skin";
+"skin.importInfo.title" = "Importera ett skin";
+"skin.importInfo.message" = "Retro Pal-skin är ”.retropalskin”-filer som du får av vänner eller online. Spara en på enheten och välj den i Filer.";
+"skin.import.duplicate.title" = "Redan importerat";
+"skin.import.duplicate.message" = "”%1$@” finns redan i dina %2$@-skin.";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "Knappar";
+"skin.editor.letters" = "Bokstäver";
+"skin.editor.ink" = "Bläck";
+"skin.editor.menuButtons" = "Menyknappar";
+
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "Lås upp prestationer i spel som stöds. Gratis och valfritt, med ditt eget RetroAchievements-konto.";
+"ra.connect" = "Anslut ditt konto";
+"ra.signOut" = "Logga ut";
+"ra.pointsSuffix" = "p";
+"ra.login.username" = "Användarnamn";
+"ra.login.password" = "Lösenord";
+"ra.login.footer" = "Logga in med ditt RetroAchievements-konto. Ditt lösenord skickas en gång till RetroAchievements för inloggning och sparas aldrig på den här enheten.";
+"ra.login.signIn" = "Logga in";
+"ra.login.createAccount" = "Skapa ett RetroAchievements-konto";
+"ra.error.login" = "Inloggningen misslyckades. Kontrollera användarnamn och lösenord.";
+"ra.error.server" = "RetroAchievements-begäran misslyckades.";
+"ra.hud.unlocked" = "Prestation upplåst";
+"ra.dashboard.title" = "Prestationer";
+"ra.dashboard.unlocked" = "Upplåsta";
+"ra.dashboard.locked" = "Återstående";
+"ra.dashboard.empty" = "Det här spelet har inga prestationer, eller så har inga laddats än.";
+"ra.dashboard.summary" = "%lld av %lld upplåsta";
+"ra.dashboard.rarity" = "%@ av spelarna";
+"ra.dashboard.shareHint" = "Tryck på en upplåst prestation för att dela den.";
+"ra.dashboard.pendingSync" = "Vissa prestationer väntar på synkronisering. De laddas upp när du är online igen.";
+"ra.card.unlocked" = "PRESTATION UPPLÅST";
+"details.achievements" = "Visa prestationer";
+"ra.about.title" = "Om RetroAchievements";
+"ra.about.what" = "RetroAchievements är ett gratis community-projekt som lägger till prestationer i klassiska spel. Du tjänar dem genom att nå milstolpar medan du spelar, och de synkroniseras med din RetroAchievements-profil.";
+"ra.about.modes" = "Du spelar i softcore: du kan använda tillbakaspolning, snabbsparningar och nedsaktning och ändå behålla varje prestation. Hardcore är en utmaning med ett enda liv, utan de funktionerna. Det kommer när Retro Pal har funnits sex månader i App Store, runt december 2026.";
+"ra.details.invite.headline" = "Lås upp prestationer i det här spelet";
+"ra.details.invite.caption" = "Det här spelet har RetroAchievements-prestationer: utmaningar att klara medan du spelar, sparade med ett gratis konto.";
+"ra.details.unavailable" = "RetroAchievements är inte tillgängligt för det här spelet.";
+"ra.library.invite.caption" = "Dina spel har RetroAchievements-prestationer. Anslut ett gratis konto för att låsa upp dem medan du spelar.";
+"ra.library.recent" = "Senast upplåsta";
+"ra.library.noUnlocks" = "Dina senaste prestationer visas här.";
+"ra.profile.games" = "Spel med prestationer";
+"ra.profile.openGame" = "Öppna spelsidan";
+"ra.profile.expandHint" = "Öppna för att se prestationerna";
+"ra.card.game" = "PRESTATIONER";
+"ra.session.offline" = "Prestationer pausade offline. De återupptas automatiskt.";
+"ra.session.resumed" = "Prestationer aktiva";
+"ra.card.completed" = "Slutförd";
+"ra.card.games" = "Spel";
+"ra.share.progress" = "Dela dina framsteg";
+"ra.offline" = "Ingen internetanslutning.";
+"ra.load.failed" = "Prestationerna kunde inte läsas in. Kontrollera din anslutning och försök igen.";
+"ra.retry" = "Försök igen";
+"ra.profile.unsupported" = "Inte på RetroAchievements";
+"ra.profile.unsupported.footer" = "De här spelen har inga prestationer på RetroAchievements. Ibland täcks bara den engelska versionen av ett spel.";
+"ra.layout.toggle" = "Byt vy för prestationer";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "Det går inte att komma åt den valda filen. Prova att importera den via appen Filer.";
+"import.error.copyFailed" = "Spelet kunde inte kopieras till Retro Pal. Frigör lagringsutrymme och försök igen.";
+"import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc och .nds.";
+"import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc och .nds; andra konsoler stöds inte.";
+"import.error.zipMultipleROMs" = "Den här ZIP-filen innehåller flera spel. Packa upp den i appen Filer och importera varje spel för sig.";
+"import.error.zipExtractionFailed" = "Den här ZIP-filen kunde inte öppnas. Packa upp den i appen Filer och importera spelfilen direkt.";
+"import.error.alreadyImported" = "Det här spelet finns redan i ditt bibliotek.";
+"import.error.saveFailed" = "Spelet kunde inte läggas till i biblioteket. Försök igen.";
+"import.error.differentGame" = "Den här filen är ett annat spel än det du ersätter.";

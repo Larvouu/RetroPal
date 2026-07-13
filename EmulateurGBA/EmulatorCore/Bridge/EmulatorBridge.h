@@ -60,6 +60,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)saveStateToPath:(NSString *)path;
 - (BOOL)loadStateFromPath:(NSString *)path;
 
+// MARK: - Memory (RetroAchievements)
+
+/// Read `length` bytes from the core's real address bus starting at `address`
+/// into `buffer`; returns the number of bytes actually read (0 = unreadable /
+/// unmapped address). `address` is a REAL console bus address, NOT a flat
+/// RetroAchievements address: GBA = 0x03000000 IWRAM / 0x02000000 EWRAM /
+/// 0x0E000000 SRAM; GB/GBC = 0x0000–0xFFFF. The RetroAchievements runtime
+/// translates RA flat addresses to these via `rc_console_memory_regions()`
+/// before calling, so the bridge stays core-generic and RA-agnostic. Read-only;
+/// no side effects on emulation. NDS returns 0 (RA support deferred).
+- (NSInteger)readMemoryAtAddress:(uint32_t)address into:(uint8_t *)buffer length:(NSInteger)length;
+
 // MARK: - Speed
 
 - (void)setSpeedMultiplier:(int)multiplier;

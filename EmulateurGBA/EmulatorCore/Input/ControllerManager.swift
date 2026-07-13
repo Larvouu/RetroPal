@@ -100,6 +100,7 @@ final class ControllerManager: ObservableObject {
         }
         controllerName = controller.vendorName
         isConnected = true
+        Analytics.signal("controller_connected")
     }
 
     @objc private func handleConnect(_ note: Notification) {

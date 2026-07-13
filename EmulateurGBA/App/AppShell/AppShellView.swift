@@ -18,7 +18,7 @@ struct AppShellView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LibraryView(pendingOpenURL: $pendingOpenURL)
+                LibraryView(pendingOpenURL: $pendingOpenURL, isActiveTab: selectedTab == .library)
             }
             .tabItem {
                 Label(NSLocalizedString("tab.library", comment: ""), systemImage: "books.vertical")
@@ -37,10 +37,18 @@ struct AppShellView: View {
             await ProManager.shared.setup()
         }
         .onOpenURL { url in
+            // A shared custom skin (.retropalskin) imports in place (no library routing).
+            if SkinSharing.isSkinFile(url) {
+                SkinSharing.handleIncoming(url)
+                return
+            }
             // Switch to the Library tab so LibraryView is the active responder
             // for the pending URL. The binding then fires onChange there.
             selectedTab = .library
             pendingOpenURL = url
+        }
+        .onChange(of: selectedTab) { _ in
+            Haptics.tap()
         }
     }
 }

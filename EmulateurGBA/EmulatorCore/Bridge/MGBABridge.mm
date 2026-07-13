@@ -349,6 +349,22 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
     // mGBA's fast-forward works by running multiple frames per display frame.
 }
 
+// MARK: - Memory (RetroAchievements)
+
+- (NSInteger)readMemoryAtAddress:(uint32_t)address into:(uint8_t *)buffer length:(NSInteger)length {
+    if (!_core || !_romLoaded || !buffer || length <= 0) return 0;
+    // mGBA's busRead8 reads the real system bus, so the GBA work-RAM and SRAM
+    // regions (0x02000000 / 0x03000000 / 0x0E000000) and the GB/GBC base
+    // address space (0x0000–0xFFFF) resolve directly to the live RAM the
+    // RetroAchievements triggers watch. The caller has already mapped the RA
+    // flat address to this real bus address, so we just walk bytes. A read is
+    // side-effect-free on the CPU state (no DMA/IO trigger for plain RAM/SRAM).
+    for (NSInteger i = 0; i < length; i++) {
+        buffer[i] = (uint8_t)(_core->busRead8(_core, address + (uint32_t)i) & 0xFF);
+    }
+    return length;
+}
+
 - (unsigned int)audioSampleRate {
     if (!_core) return 0;
     return _core->audioSampleRate(_core);
@@ -502,28 +518,6 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
         set->enabled = enabled;
         mCheatRefresh(device, set);
     }
-}
-
-// MARK: - Memory Access
-
-// mGBA exposes the emulated machine's address space through the core's
-// busRead* function pointers. For GBA these resolve EWRAM (0x02000000),
-// IWRAM (0x03000000), etc. Reads are guarded on a loaded core; callers
-// treat 0 as "no data" and range-validate the result.
-
-- (uint8_t)readMemory8:(uint32_t)address {
-    if (!_core) return 0;
-    return _core->busRead8(_core, address);
-}
-
-- (uint16_t)readMemory16:(uint32_t)address {
-    if (!_core) return 0;
-    return _core->busRead16(_core, address);
-}
-
-- (uint32_t)readMemory32:(uint32_t)address {
-    if (!_core) return 0;
-    return _core->busRead32(_core, address);
 }
 
 // MARK: - EmulatorBridge (NDS stubs)

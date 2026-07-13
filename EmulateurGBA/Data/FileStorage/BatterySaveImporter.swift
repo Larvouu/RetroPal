@@ -257,6 +257,7 @@ enum BatterySaveImporter {
         do {
             try data.write(to: dest, options: .atomic)
         } catch {
+            Analytics.signal("save_failure", ["kind": "battery_write"])
             throw BatterySaveImportError.writeFailed
         }
     }

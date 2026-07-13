@@ -1,0 +1,465 @@
+/* Japanese */
+
+/* Tabs */
+"tab.library" = "ライブラリ";
+"tab.settings" = "設定";
+
+/* Library */
+"library.title" = "ライブラリ";
+"library.empty.title" = "Retro Pal へようこそ";
+"library.empty.subtitle" = "レトロゲームを iPhone で。広告なし、個人の追跡もありません。";
+"library.empty.button" = "ゲームを追加";
+"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
+"library.empty.step2" = "%@ をタップして、「ファイル」アプリでファイルを選びます。";
+"library.empty.step3" = "あとは遊ぶだけ。進行状況は自動で保存されます";
+"library.empty.romHint" = "ROM をお持ちでない場合も、無料で合法なゲームが多数あります。「GBA homebrew」で検索してみてください。";
+"library.empty.legal" = "合法的に所有しているファイルのみ読み込んでください。";
+"library.search" = "ゲームを検索";
+"library.sort.lastPlayed" = "最近遊んだ順";
+"library.sort.title" = "タイトル順";
+"library.sort.dateAdded" = "追加日順";
+"library.sort.byConsole" = "機種別";
+"library.played.ago" = "%@にプレイ";
+"library.playTime" = "プレイ時間 %@時間%@分";
+"library.playTime.minutes" = "プレイ時間 %@分";
+"library.stats.title" = "統計";
+"library.stats.topGames" = "よく遊ぶゲーム";
+"library.stats.totalTime" = "合計時間";
+"library.stats.gamesPlayed" = "遊んだゲーム";
+"library.stats.sessions" = "プレイ回数";
+"library.stats.favoriteConsole" = "よく遊ぶ機種";
+"library.stats.duration" = "%@時間%@分";
+"library.stats.durationMin" = "%@分";
+
+/* Game Details */
+"details.continue" = "前回の続きから";
+"details.newGame" = "タイトル画面から始める";
+"details.saveSlots" = "クイックセーブスロット";
+"details.delete" = "ゲームを削除";
+"details.delete.confirm" = "このゲームとセーブデータをすべて削除しますか？";
+"details.rename" = "名前を変更";
+"details.rename.title" = "ゲーム名を変更";
+"details.cover.choose" = "カバー画像を選択";
+"details.cover.remove" = "カスタムカバーを削除";
+"details.cover.error" = "画像を保存できませんでした。";
+"details.newGame.confirm.title" = "タイトル画面から始めますか？";
+"details.newGame.confirm.message" = "前回の続きからは再開されませんが、ゲーム内セーブとクイックセーブはそのまま残ります。";
+"details.launch.footer" = "ゲーム内セーブ(ゲーム自体のセーブメニューで作ったもの)を読み込むには、ゲームを起動してゲーム内のメニューから再開してください。下のクイックセーブスロットとは別のものです。";
+
+/* Overlay Menu */
+"overlay.paused" = "一時停止中";
+"overlay.resume" = "再開";
+"overlay.rewind" = "%@秒";
+"overlay.screenshot" = "スクリーンショット";
+"overlay.quit" = "ゲームを終了";
+"overlay.speed" = "速度";
+"overlay.saveSlots" = "クイックセーブスロット";
+"overlay.slot" = "スロット%@";
+"overlay.slot.empty" = "空き";
+"overlay.save" = "セーブ";
+"overlay.load" = "ロード";
+
+/* Settings */
+"settings.title" = "設定";
+"settings.controls" = "操作";
+"settings.haptics" = "ゲーム中の触覚フィードバック";
+"settings.controller.footer" = "Bluetooth コントローラー(Xbox、PlayStation、MFi)に対応しています。iOS の設定でペアリングしてください。";
+"settings.controls.controllerActive.footer" = "コントローラー接続中のため、上のタッチ操作の設定は無効になっています。";
+"settings.controls.dpad.footer" = "十字キー/ジョイスティックとクリップボタンの設定は、デフォルトレイアウトに適用されます。カスタムプリセットにはそれぞれ独自の十字キー/ジョイスティック設定があり、クリップボタンは常に表示されます。";
+"settings.dpad" = "十字キー";
+"settings.joystick" = "ジョイスティック";
+"settings.clipButton" = "クリップボタン";
+"settings.nds.swapScreens" = "画面を入れ替える";
+"settings.nds.language" = "ゲームの言語";
+"settings.nds.language.auto" = "自動(%@)";
+"settings.nds.language.footer" = "「自動」は iPhone の言語に合わせます。DS が対応していない場合は英語になります。言語は新しくゲームを始めるときに適用されます。多くのゲームは言語をセーブファイルに保存するため、あとから変更されません。切り替わるのは ROM 自体が対応している場合のみで、1つの言語しか収録されていない ROM も多くあります。";
+"settings.nds.clock.manual" = "日付と時刻を手動で設定";
+"settings.nds.clock.pickerLabel" = "日付と時刻";
+"settings.general" = "一般";
+"settings.legal" = "法的情報・ライセンス";
+"settings.about" = "このアプリについて";
+"settings.app" = "Retro Pal";
+"settings.version" = "バージョン";
+"settings.core" = "エミュレータコア";
+"settings.disclaimer" = "Retro Pal はローカルで動作するエミュレータです。ゲームは含まれていません。合法的に所有しているファイルのみ読み込んでください。";
+"settings.restore" = "購入を復元";
+
+/* Pro */
+"pro.title" = "Retro Pal Pro";
+"pro.purchased" = "購入済み";
+"pro.forever" = "%@ 買い切り";
+"pro.monthly" = "または月額 %@";
+"pro.notNow" = "あとで";
+"pro.restore" = "購入を復元";
+"pro.unavailable" = "Pro を取得できません。通信環境をご確認ください。";
+"pro.retry" = "再試行";
+"pro.purchasing" = "購入処理中…";
+"pro.waiting" = "承認待ち";
+"pro.waitingDetail" = "承認され次第、Pro は自動で有効になります。";
+"pro.failed" = "購入に失敗しました。もう一度お試しになりますか？";
+"pro.tryAgain" = "もう一度試す";
+"pro.welcome" = "Pro へようこそ！";
+"pro.benefit.speed" = "全速度対応：0.25倍〜4倍";
+"pro.benefit.slots" = "セーブスロット5個(通常は2個)";
+"pro.benefit.rewind" = "30秒の巻き戻し(GBA/GB/GBC)";
+"pro.benefit.cheats" = "チートコード(GameShark / Action Replay)";
+"pro.benefit.controls" = "操作レイアウトのカスタマイズ";
+"pro.benefit.speed.short" = "全速度対応";
+"pro.benefit.slots.short" = "セーブスロット5個";
+"pro.benefit.rewind.short" = "30秒巻き戻し";
+"pro.benefit.cheats.short" = "チートコード";
+"pro.benefit.controls.short" = "操作カスタマイズ";
+"pro.benefit.skins" = "オリジナルの本体スキンを作成";
+"pro.benefit.skins.short" = "カスタムスキン";
+"pro.badge" = "Pro 機能";
+"pro.seeAllBenefits" = "Pro の全機能を見る";
+
+"pro.compare.header.free" = "無料";
+"pro.compare.header.pro" = "Pro";
+"pro.compare.sectionDivider" = "Pro で追加";
+"pro.compare.row.noAds" = "広告なし、ずっと";
+"pro.compare.row.allSystems" = "全機種対応";
+"pro.compare.row.autoSave" = "オートセーブ";
+"pro.compare.row.screenshots" = "スクリーンショット共有";
+"pro.compare.row.iCloud" = "iCloud 同期";
+"pro.compare.row.controllers" = "Bluetooth コントローラー";
+"pro.compare.row.slots" = "セーブスロット";
+"pro.compare.row.speeds" = "速度の範囲";
+"pro.compare.row.rewind" = "巻き戻し(GBA/GB/GBC)";
+"pro.compare.row.cheats" = "チートコード";
+"pro.compare.row.controls" = "操作カスタマイズ";
+"pro.compare.values.freeSpeeds" = "1倍、1.5倍";
+"pro.compare.values.proSpeeds" = "0.25倍〜4倍";
+"pro.compare.row.skins" = "スキン作成";
+/* Pro Prompts */
+"prompt.speed.title" = "1.5倍速で%@分プレイしました";
+"prompt.speed.subtitle" = "4倍速なら同じ時間があっという間。全速度を一度の購入でずっと使えます。";
+"prompt.slots.title" = "セーブスロットがすべて埋まっています";
+"prompt.slots.subtitle" = "スロットを5個に増やせば、上書きに悩む必要はもうありません。一度の購入で、ずっと。";
+"prompt.milestone.title" = "レトロゲームを%@分プレイしました";
+"prompt.milestone.subtitle" = "すっかり夢中ですね。すべての機能を解放しましょう。";
+"prompt.rewind.title" = "もっと前に戻りたいときは？";
+"prompt.rewind.subtitle" = "Pro なら GBA/GB/GBC で30秒の巻き戻しが使えます。ボス戦でもう負けません。";
+"prompt.cheats.title" = "%@のプレイ時間が4時間に到達。制限なしで遊んでみませんか？";
+"prompt.cheats.subtitle" = "チートコード、最大速度などを解放。一度の購入で、一生ものです。";
+"prompt.generic.title" = "Retro Pal Pro";
+"prompt.generic.subtitle" = "全速度、セーブスロット5個、30秒巻き戻し(GBA/GB/GBC)などを解放できます。";
+
+/* Share card style picker (1.0.1) */
+"card.style.nostalgia" = "ノスタルジー";
+"card.style.classic" = "クラシック";
+
+/* Screenshot */
+"screenshot.share" = "共有";
+"screenshot.save" = "保存";
+"screenshot.dismiss" = "閉じる";
+"screenshot.footer" = "Made with Retro Pal";
+"screenshot.hint" = "ベストな瞬間を、いつでも残せます。";
+"clip.hint" = "直前の6秒間をいつでも保存できます。";
+"clip.loading" = "瞬間をキャプチャ中… 少々お待ちください。";
+"screenshot.newGame" = "始めたばかり";
+"screenshot.proMember" = "👑 Pro メンバー";
+"screenshot.permissionDenied.title" = "写真へのアクセスが必要です";
+"screenshot.permissionDenied.message" = "設定で Retro Pal に写真ライブラリへの保存を許可してください。";
+"screenshot.permissionDenied.settings" = "設定を開く";
+"screenshot.permissionDenied.cancel" = "キャンセル";
+"screenshot.saveError.title" = "保存に失敗しました";
+"screenshot.saveError.message" = "スクリーンショットを保存できませんでした。";
+
+/* Legal */
+"legal.title" = "法的情報";
+"legal.disclaimer" = "このアプリにゲームは含まれていません。ROM ファイルはご自身で用意してください。合法的に所有しているファイルのみ読み込めます。";
+"legal.mgba" = "mGBA ライセンス";
+"legal.melonds" = "melonDS ライセンス";
+"legal.importantNotice.title" = "重要なお知らせ";
+"legal.aboutApp.title" = "このアプリについて";
+"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS 用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
+"legal.aboutApp.description2" = "このアプリはゲームカタログを提供せず、ゲームコンテンツを配布せず、著作権で保護された素材のダウンロードを助長することもありません。";
+"legal.privacy.title" = "プライバシー";
+"legal.privacy.description" = "ゲームとセーブデータは端末内に保存されます。アプリの改善のため、Retro Pal は匿名の利用統計のみを送信します。個人データや広告識別子は送信しません。";
+"legal.licenses.title" = "オープンソースライセンス";
+"legal.mgba.licenseLine" = "Mozilla Public License 2.0(MPL-2.0)に基づいてライセンスされています";
+"legal.mgba.description" = "mGBA は、このアプリのコアエミュレーションエンジンとして使用しているゲームボーイアドバンスエミュレータです。ソースコードは [https://mgba.io](https://mgba.io) で公開されています";
+"legal.melonds.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
+"legal.melonds.description" = "melonDS は、このアプリで DS ゲームのエミュレーションエンジンとして使用しているニンテンドーDS エミュレータです。ソースコードは [https://melonds.kuribo64.net](https://melonds.kuribo64.net) で公開されています";
+"legal.retropal" = "Retro Pal ライセンス";
+"legal.retropal.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
+"legal.retropal.description" = "Retro Pal の完全なソースコードは [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal) で公開されています。本ソフトウェアは無保証で提供されます。";
+"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)と melonDS(GPL-3.0)を無改変で使用しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
+
+"details.noSaves" = "クイックセーブはまだありません。プレイ中にメニューボタンから作成できます。";
+"details.play" = "プレイ";
+"library.importing" = "ROM を読み込み中…";
+"library.importError" = "読み込みエラー";
+
+/* Overlay extras */
+"overlay.cheats" = "チート";
+"overlay.shareClip" = "クリップ";
+"overlay.sound" = "サウンド";
+"overlay.sound.off" = "サウンドオフ";
+"overlay.overwrite.title" = "スロット%@を上書きしますか？";
+"overlay.overwrite.message" = "既存のクイックセーブが置き換えられます。";
+"overlay.overwrite" = "上書き";
+"overlay.load.confirm.title" = "スロット%@をロードしますか？";
+"overlay.load.confirm.message" = "最後のセーブ以降の進行状況は失われます。";
+
+/* Cheats */
+"cheats.hint.gba" = "GameShark、CodeBreaker、Action Replay 形式";
+"cheats.hint.nds" = "Action Replay DS 形式(XXXXXXXX YYYYYYYY)";
+"cheats.namePlaceholder" = "名前(任意)";
+"cheats.add" = "コードを追加";
+"cheats.invalid.gba" = "認識できないコードです。GameShark、CodeBreaker、Action Replay 形式で入力してください。";
+"cheats.invalid.nds" = "認識できないコードです。Action Replay DS 形式で入力してください：XXXXXXXX YYYYYYYY(1行につき1ペア)。";
+"cheats.empty" = "有効なチートはありません";
+"cheats.findHint" = "コードはインターネットで見つかります。ゲーム名とチートコードで検索してみてください。";
+"cheats.clearAll" = "すべて削除";
+"cheats.done" = "完了";
+"cheats.permanenceWarning" = "一部のチートは、一度読み込むと効果が元に戻せません。チート適用前のセーブを復元すれば取り消せますが、それ以降の進行状況は失われます。";
+"cheats.hackDisclaimer" = "チートは元のゲームのメモリアドレスを使用します。改造版のゲームでもほとんどは互換性がありますが、予期しない動作をすることがあります。";
+
+/* Emulator */
+"emulator.loading" = "ROM を読み込み中…";
+"emulator.loadFailed" = "%@ を読み込めませんでした。\nゲームファイルが破損しているようです。ゲームの詳細画面からファイルを差し替えれば、セーブデータを保持したまま修復できます。";
+
+/* Common */
+"common.cancel" = "キャンセル";
+"common.ok" = "OK";
+"common.save" = "保存";
+
+/* Pro Prompt - cheat tap (no time mention) */
+"prompt.cheatsTapped.title" = "制限なしで遊んでみませんか？";
+"prompt.cheatsTapped.subtitle" = "チートコード、最大速度などを解放。一度の購入で、一生ものです。";
+"prompt.speedTapped.title" = "ゲームをもっと速く進めよう";
+"prompt.speedTapped.subtitle" = "4倍速なら同じ時間があっという間。難所には0.25倍と0.5倍。全速度を一度の購入でずっと使えます。";
+"prompt.slotsTapped.title" = "もうセーブスロットに困りません";
+"prompt.slotsTapped.subtitle" = "スロットを5個に増やせば、セーブの置き場に困りません。一度の購入で、ずっと。";
+"settings.appLabel" = "アプリ";
+
+"review.headline" = "楽しんでいただけていますか？";
+"review.body" = "レビューは小さなアプリが App Store で生き残るための支えです。ひとことでも大きな助けになります。";
+"review.cta" = "星5つで評価する";
+"review.later" = "あとで";
+"cheats.type" = "コードの種類";
+"cheats.restore" = "チート適用前のセーブを復元";
+"cheats.restore.confirm.title" = "チート適用前のセーブを復元しますか？";
+"cheats.restore.confirm.message" = "チートコードを追加する前の状態に戻します。それ以降の進行状況は失われます。主にチートが不具合を起こした場合にご利用ください。";
+"cheats.restore.confirm.action" = "復元";
+
+/* Control Layout */
+"settings.customizeControls" = "操作をカスタマイズ";
+"layout.activeLayout" = "使用中のレイアウト";
+"layout.default" = "デフォルト";
+"layout.presets" = "プリセット";
+"layout.presets.footer" = "エディタで端末を回転させると、横向きのレイアウトを別に設定できます。";
+"layout.newPreset" = "新規プリセット";
+"layout.newPreset.title" = "新規プリセット";
+"layout.newPreset.namePlaceholder" = "プリセット名";
+"layout.newPreset.create" = "作成";
+"layout.editor.screenPreview" = "ゲーム画面";
+"layout.editor.touchScreen" = "タッチスクリーン";
+"layout.editor.reset" = "リセット";
+"layout.editor.reset.title" = "デフォルトに戻す";
+"layout.editor.reset.message" = "現在の向きのすべてのボタンと画面を、デフォルトの位置・サイズ・不透明度に戻します。";
+"layout.editor.show" = "表示";
+"layout.editor.hide" = "非表示";
+"layout.editor.hint" = "ボタンや画面をタップして編集。ドラッグで移動、ピンチでサイズ変更できます。";
+"layout.editor.cannotHide" = "メニューとクリップは常に表示されます。いつでも一時停止と録画ができるようにするためです。";
+"layout.editor.size" = "サイズ";
+"layout.editor.opacity" = "不透明度";
+"layout.editor.topScreen" = "上画面";
+"layout.editor.bottomScreen" = "下画面";
+"layout.editor.done" = "完了";
+"layout.newPreset.systems" = "機種";
+"prompt.controls.title" = "自分の手にぴったりのレイアウトを";
+"prompt.controls.subtitle" = "ボタンの位置、サイズ、不透明度を自由に調整。ゲームごとにレイアウトを保存できます。";
+"prompt.skins.title" = "理想のスキンを作ろう";
+"prompt.skins.subtitle" = "本体の色をすべて自分好みに。作ったスキンは共有もできます。";
+"layout.editor.landscapeShort" = "横向き";
+"layout.editor.portraitShort" = "縦向き";
+/* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
+"pro.legal.terms" = "利用規約";
+"pro.legal.privacy" = "プライバシーポリシー";
+
+/* Settings - iCloud sync section (Week 4) */
+"settings.sync.section" = "同期";
+"settings.sync.state.resolving" = "接続中…";
+"settings.sync.state.available" = "オン";
+"settings.sync.state.unavailable" = "利用できません";
+
+/* Save import - import a .sav / .srm exported from another emulator (Week 5) */
+"saveImport.title" = "セーブを読み込む";
+"saveImport.success.title" = "セーブを読み込みました";
+"saveImport.success.message" = "%@ を起動して、ゲーム内のメニューから再開してください。このセーブはアプリのセーブスロットには表示されません。";
+"saveImport.overwrite.title" = "既存のセーブ";
+"saveImport.overwrite.message" = "%@ にはすでにセーブがあります。置き換えた場合、元のセーブはバックアップとして保管されます。";
+"saveImport.overwrite.confirm" = "置き換える";
+"saveImport.error.invalidFormat" = "認識できるセーブファイルではありません。他のエミュレータから書き出した .sav または .srm ファイルを読み込んでください。";
+"saveImport.error.wrongSystem" = "このセーブはこのゲームと互換性がありません。";
+"saveImport.error.duplicateExists" = "このゲームにはすでにセーブがあります。";
+"saveImport.error.fileAccessDenied" = "選択したファイルを読み取れませんでした。";
+"saveImport.error.writeFailed" = "セーブを書き込めませんでした。";
+"saveImport.redirect.message" = "他のエミュレータからセーブを読み込むには、ゲームの詳細画面を開いて「セーブを読み込む」をタップしてください。ゲームがまだライブラリにない場合は、先に ROM を読み込んでください。";
+
+/* Guides section + how-to sheets (Week 5) */
+"guide.importRom.title" = "ゲームを追加";
+"guide.importRom.intro" = "Retro Pal にゲームは含まれていません。ROM ファイルは、合法的に所有しているもの(お持ちのカートリッジや、無料で合法な自作ゲームなど)をご自身で用意してください。";
+"guide.importRom.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds)を iPhone に取り込みます：Safari でダウンロード、パソコンから AirDrop、または iCloud Drive から。";
+"guide.importRom.step2" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPhone 内、iCloud Drive のいずれか)。";
+"guide.importRom.step3" = "Retro Pal でライブラリ上部の + ボタンをタップします。";
+"guide.importRom.step4" = "ファイルを選択すると、すぐにライブラリに追加され、プレイできます。";
+"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、およびゲーム1本入りの .zip。.7z や複数ゲーム入りのアーカイブには対応していません。先に1つのファイルに展開してください。合法的に所有しているファイルのみ読み込めます。";
+"settings.guides.section" = "ガイド";
+"settings.controller.row" = "コントローラー";
+"common.done" = "完了";
+"guide.saveImport.intro" = "他のエミュレータ(Manic、Delta、OpenEmu、RetroArch)から進行状況を引き継げます。";
+"guide.saveImport.step1" = "他のエミュレータからセーブ(.sav または .srm ファイル)を書き出し、「ファイル」アプリに保存します。";
+"guide.saveImport.step2" = "Retro Pal で、まだライブラリにない場合はゲームの ROM を読み込みます。";
+"guide.saveImport.step3" = "ゲームの詳細画面を開いて「セーブを読み込む」をタップします。";
+"guide.saveImport.step4" = "ファイルを選択し、ゲームを起動して、ゲーム内のメニューから再開します。";
+"guide.saveImport.footer" = "これはゲーム内セーブで、アプリのクイックセーブスロットとは別のものです。";
+"guide.controller.title" = "コントローラーを接続";
+"guide.controller.step1" = "コントローラーをペアリングモードにします。";
+"guide.controller.step2" = "iOS の設定から Bluetooth を開き、コントローラーを iPhone に接続します。";
+"guide.controller.step3" = "Retro Pal に戻ります。コントローラーは自動的に認識され、画面上の操作ボタンが消えます。";
+"guide.controller.footer" = "MFi、Xbox、PlayStation、8BitDo など、ほとんどの Bluetooth コントローラーに対応しています。";
+"guide.controller.status.connected" = "接続中のコントローラー：%@";
+"guide.controller.status.disconnected" = "コントローラー未接続";
+"guide.controller.genericName" = "コントローラー";
+"guide.controller.status.none" = "コントローラーなし";
+"saveImport.mismatch.title" = "別のゲームのセーブでは？";
+"saveImport.mismatch.message" = "ファイル名が %@ と一致しません。このゲームのセーブだと確信できる場合のみ読み込んでください。";
+"saveImport.mismatch.confirm" = "それでも読み込む";
+
+/* Replace game file (save-preserving ROM recovery) */
+"details.replaceROM" = "ゲームファイルを差し替える";
+"replaceROM.success.title" = "ゲームファイルを差し替えました";
+"replaceROM.success.message" = "ゲームファイルを差し替えました。クイックセーブはそのまま残っています。";
+"replaceROM.error.differentGame" = "これは別のゲームです。セーブデータを有効に保つため、同じゲームのファイルを選んでください。";
+"replaceROM.error.invalid" = "このファイルを読み取れませんでした。同じゲームの正常なコピーを選んでください。";
+
+/* Settings - iCloud sync opt-out */
+"settings.sync.toggle" = "iCloud 同期";
+"settings.sync.state.disabled" = "オフ";
+"settings.sync.footer" = "クイックセーブはあなたのプライベートな iCloud に同期され、他のデバイスでも使えます。オフにすると、この iPhone にのみ保存されます。";
+
+/* Pause menu - per-game hold-to-lock toggle */
+"overlay.buttonLock" = "自動ホールド";
+"overlay.buttonLock.caption" = "%@ を長押しで押しっぱなしに、タップで解除。";
+"overlay.orientation" = "画面の向き";
+"overlay.orientation.auto" = "自動";
+"overlay.orientation.landscape" = "横向き";
+"overlay.orientation.portrait" = "縦向き";
+
+/* Clip card alerts */
+"clip.notReady.title" = "クリップの準備がまだできていません";
+"clip.notReady.message" = "もう数秒プレイしてから、もう一度お試しください。";
+"clip.failed.title" = "クリップを作成できませんでした";
+"clip.failed.message" = "もう一度お試しください。";
+
+/* iCloud-unavailable warning on the save-slots screen (1.0.1) */
+"details.iCloudUnavailable.title" = "iCloud のクイックセーブに接続できません";
+"details.iCloudUnavailable.body" = "クイックセーブは iCloud に安全に保管されていますが、現在アクセスできません。リセットや新規ゲームの開始はしないでください。iCloud に再接続されれば戻ってきます。";
+
+/* Skin picker: shown when a custom control layout locks the console to Invisible (1.0.1) */
+"skin.presetLock.caption" = "本体デザインのスキンにはデフォルトの操作レイアウトが必要です。この機種ではカスタムレイアウトを使用しているため、「非表示」のみ選択できます。";
+
+/* Custom skins editor + picker (1.0.1) */
+"skin.create" = "スキンを作成";
+"skin.edit" = "編集";
+"skin.delete" = "削除";
+"skin.editor.title.create" = "新規スキン";
+"skin.editor.title.edit" = "スキンを編集";
+"skin.editor.body" = "本体";
+"skin.editor.surround" = "画面フレーム";
+"skin.editor.dpad" = "十字キー";
+"skin.editor.abButtons" = "A/B ボタン";
+"skin.editor.abLetters" = "A/B の文字";
+"skin.editor.smallButtons" = "小ボタン";
+"skin.editor.menuIcons" = "メニューアイコン";
+"skin.editor.labels" = "SELECT/START の文字";
+"skin.editor.stripe" = "ストライプ";
+"skin.editor.printedText" = "印字テキスト";
+"skin.editor.led" = "LED";
+"skin.editor.namePlaceholder" = "スキンに名前を付ける";
+"skin.editor.create" = "作成";
+"skin.editor.save" = "保存";
+
+/* Custom skin sharing (1.0.1) */
+"skin.share" = "共有";
+"skin.import.success.title" = "スキンを読み込みました";
+"skin.import.success.message" = "「%1$@」を %2$@ のスキンに追加しました。";
+"skin.import.full.title" = "ライブラリがいっぱいです";
+"skin.import.full.message" = "%@ のスキンはすでに6個あります。1つ削除してから、もう一度読み込んでください。";
+"skin.import.failed.title" = "読み込みに失敗しました";
+"skin.import.failed.message" = "このスキンファイルは無効か破損しています。";
+"skin.import" = "スキンを読み込む";
+"skin.importInfo.title" = "スキンを読み込む";
+"skin.importInfo.message" = "Retro Pal のスキンは「.retropalskin」ファイルで、友だちやインターネットから入手できます。端末に保存して、「ファイル」から選択してください。";
+"skin.import.duplicate.title" = "読み込み済み";
+"skin.import.duplicate.message" = "「%1$@」はすでに %2$@ のスキンにあります。";
+
+/* Custom skin slots - GBA/NDS (1.0.1) */
+"skin.editor.buttons" = "ボタン";
+"skin.editor.letters" = "文字";
+"skin.editor.ink" = "インク";
+"skin.editor.menuButtons" = "メニューボタン";
+
+/* RetroAchievements */
+"ra.settings.title" = "RetroAchievements";
+"ra.settings.footer" = "対応ゲームで実績を獲得できます。無料かつ任意の機能で、ご自身の RetroAchievements アカウントを使用します。";
+"ra.connect" = "アカウントを連携";
+"ra.signOut" = "サインアウト";
+"ra.pointsSuffix" = "pt";
+"ra.login.username" = "ユーザー名";
+"ra.login.password" = "パスワード";
+"ra.login.footer" = "RetroAchievements アカウントでサインインします。パスワードはサインインのために RetroAchievements へ一度だけ送信され、この端末には保存されません。";
+"ra.login.signIn" = "サインイン";
+"ra.login.createAccount" = "RetroAchievements アカウントを作成";
+"ra.error.login" = "サインインに失敗しました。ユーザー名とパスワードをご確認ください。";
+"ra.error.server" = "RetroAchievements へのリクエストに失敗しました。";
+"ra.hud.unlocked" = "実績を解除しました";
+"ra.dashboard.title" = "実績";
+"ra.dashboard.unlocked" = "解除済み";
+"ra.dashboard.locked" = "未解除";
+"ra.dashboard.empty" = "このゲームには実績がないか、まだ読み込まれていません。";
+"ra.dashboard.summary" = "%lld / %lld 解除";
+"ra.dashboard.rarity" = "達成率 %@";
+"ra.dashboard.shareHint" = "解除済みの実績をタップすると共有できます。";
+"ra.dashboard.pendingSync" = "一部の実績が同期待ちです。オンラインに戻り次第、自動で送信されます。";
+"ra.card.unlocked" = "実績解除";
+"details.achievements" = "実績を見る";
+"ra.about.title" = "RetroAchievements について";
+"ra.about.what" = "RetroAchievements は、クラシックゲームに実績を追加する無料のコミュニティプロジェクトです。プレイ中に条件を達成すると実績を獲得でき、RetroAchievements のプロフィールに同期されます。";
+"ra.about.modes" = "現在はソフトコアモードのため、巻き戻し、クイックセーブ、スローモーションを使っても実績はすべて有効です。ハードコアはそれらを無効にした、一発勝負の真剣モードです。Retro Pal の App Store 公開から6か月後、2026年12月頃に登場予定です。";
+"ra.details.invite.headline" = "このゲームで実績を獲得しよう";
+"ra.details.invite.caption" = "このゲームには RetroAchievements の実績セットがあります。無料アカウントを連携すれば、プレイしながら挑戦できます。";
+"ra.details.unavailable" = "このゲームでは RetroAchievements を利用できません。";
+"ra.library.invite.caption" = "お持ちのゲームに RetroAchievements の実績セットがあります。無料アカウントを連携して、プレイしながら実績を獲得しましょう。";
+"ra.library.recent" = "最近の解除";
+"ra.library.noUnlocks" = "最近解除した実績がここに表示されます。";
+"ra.profile.games" = "実績のあるゲーム";
+"ra.profile.openGame" = "ゲームページを開く";
+"ra.profile.expandHint" = "開くと実績が表示されます";
+"ra.card.game" = "実績";
+"ra.session.offline" = "実績はオフラインのため一時停止中。自動的に再開されます。";
+"ra.session.resumed" = "実績が有効になりました";
+"ra.card.completed" = "完了";
+"ra.card.games" = "ゲーム";
+"ra.share.progress" = "進捗を共有";
+"ra.offline" = "インターネットに接続されていません。";
+"ra.load.failed" = "実績を読み込めませんでした。通信環境を確認して、もう一度お試しください。";
+"ra.retry" = "もう一度試す";
+"ra.profile.unsupported" = "RetroAchievements 非対応";
+"ra.profile.unsupported.footer" = "これらのゲームには RetroAchievements の実績がありません。ゲームによっては英語版のみ対応している場合があります。";
+"ra.layout.toggle" = "実績の表示方法を切り替える";
+
+// ROM import errors (shown in the import alert)
+"import.error.fileAccessDenied" = "選択したファイルにアクセスできません。「ファイル」アプリから読み込んでみてください。";
+"import.error.copyFailed" = "ゲームをRetro Palにコピーできませんでした。ストレージの空き容量を確保して、もう一度お試しください。";
+"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds のゲームです。";
+"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds のゲームで、他の機種には対応していません。";
+"import.error.zipMultipleROMs" = "このZIPには複数のゲームが入っています。「ファイル」アプリで解凍して、ゲームを1本ずつ読み込んでください。";
+"import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
+"import.error.alreadyImported" = "このゲームはすでにライブラリにあります。";
+"import.error.saveFailed" = "ゲームをライブラリに追加できませんでした。もう一度お試しください。";
+"import.error.differentGame" = "このファイルは、置き換えようとしているものとは別のゲームです。";
