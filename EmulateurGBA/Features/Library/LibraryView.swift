@@ -98,6 +98,28 @@ struct LibraryView: View {
     /// Triggered when a `.sav`/`.srm` is picked from the library `+` — the
     /// actual import lives on the per-game screen.
     @State private var showSaveRedirect = false
+    /// Follow-ups of a multi-file picker batch, presented strictly one at a
+    /// time once the ROM imports finish: failure summary (if any) → zip
+    /// pickers → save redirect (if a `.sav`/`.srm` was in the batch) → skin
+    /// imports. See advanceBatchFollowUps().
+    @State private var pendingSaveRedirectAfterBatch = false
+    @State private var pendingSkinImports: [URL] = []
+    /// Multi-ROM zips awaiting the user's picks (ROMImporter threw
+    /// .zipNeedsSelection), presented one sheet at a time by
+    /// advanceBatchFollowUps. presentedZipRequest mirrors the active sheet
+    /// item so onDismiss (which fires after the item is already nil) still
+    /// knows which request to import or clean up; confirmedZipEntryNames is
+    /// set by the sheet's Add button just before dismissing (nil on Cancel
+    /// and on swipe-down, both of which discard the staged zip).
+    @State private var zipSelectionQueue: [ZipSelectionRequest] = []
+    @State private var activeZipSelection: ZipSelectionRequest?
+    @State private var presentedZipRequest: ZipSelectionRequest?
+    @State private var confirmedZipEntryNames: [String]?
+    /// Once-per-update What's New sheet (first launch after an update).
+    /// The once-per-process flag keeps onAppear re-entries (tab switches,
+    /// nav pops) from re-running the check.
+    @State private var showWhatsNew = false
+    @State private var didCheckWhatsNew = false
     /// The GameEntity currently behind the fullScreenCover. Captured at launch
     /// so we can bump lastPlayedAt again when the user exits — that re-stamp
     /// is what invalidates the cover image's .id() so it reloads the fresh
@@ -255,6 +277,7 @@ struct LibraryView: View {
               launchRequest == nil,
               !showStoryShare, !showFilePicker, !showSaveRedirect,
               !showImportError, !showNavigateDestination, renamingGame == nil,
+              activeZipSelection == nil, !showWhatsNew,
               searchText.isEmpty,
               let stats, stats.hasData,
               !hasShownStatsScreenshotThisSession else { return }
@@ -285,6 +308,8 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showRAInfo) { RAAboutSheet() }
             .sheet(isPresented: $showRALogin) { RALoginView() }
+            .sheet(isPresented: $showWhatsNew) { WhatsNewSheet() }
+            .onAppear(perform: checkWhatsNewPresentation)
             .sheet(item: $raShareUnlock) { entry in
                 RAShareView(achievement: entry.asAchievementInfo(),
                             gameName: entry.gameTitle,
@@ -304,7 +329,10 @@ struct LibraryView: View {
                 NSLocalizedString("saveImport.title", comment: ""),
                 isPresented: $showSaveRedirect
             ) {
-                Button(NSLocalizedString("common.ok", comment: "")) { showSaveRedirect = false }
+                Button(NSLocalizedString("common.ok", comment: "")) {
+                    showSaveRedirect = false
+                    advanceBatchFollowUps()
+                }
             } message: {
                 Text(NSLocalizedString("saveImport.redirect.message", comment: ""))
             }
@@ -327,23 +355,33 @@ struct LibraryView: View {
         }
         .toolbar { libraryToolbar }
         .sheet(isPresented: $showFilePicker) {
-            DocumentPickerView { url in
+            DocumentPickerView(allowsMultipleSelection: true) { urls in
                 // Stage the skeleton row the instant a ROM is picked, so the
                 // wait is never blank. The 0.5s defer below only delays the work
                 // (it lets the picker finish dismissing before any error alert
                 // can present); the skeleton is already on screen by then.
-                let ext = url.pathExtension.lowercased()
-                if ext != "sav" && ext != "srm" && ext != "retropalskin" { isImporting = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    dispatchPickedFile(url: url)
+                let nonROM: Set<String> = ["sav", "srm", "retropalskin"]
+                if urls.contains(where: { !nonROM.contains($0.pathExtension.lowercased()) }) {
+                    isImporting = true
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    processPickedBatch(urls: urls)
+                }
+            }
+        }
+        .sheet(item: $activeZipSelection, onDismiss: zipSheetDidDismiss) { request in
+            ZipROMPickerSheet(entryNames: request.entryNames) { names in
+                confirmedZipEntryNames = names
+                activeZipSelection = nil
+            } onCancel: {
+                activeZipSelection = nil
             }
         }
         .fullScreenCover(item: $launchRequest, onDismiss: coverDidDismiss) { request in
             emulatorScreen(for: request)
         }
         .alert(NSLocalizedString("library.importError", comment: ""), isPresented: $showImportError) {
-            Button(NSLocalizedString("common.ok", comment: "")) {}
+            Button(NSLocalizedString("common.ok", comment: "")) { advanceBatchFollowUps() }
         } message: {
             Text(importError ?? "")
         }
@@ -779,46 +817,158 @@ struct LibraryView: View {
 
     // MARK: - Actions
 
-    /// Routes a freshly-picked file by extension. `.sav`/`.srm` show the
-    /// per-game redirect popup (battery saves are imported from a game's
-    /// detail screen, where the target is unambiguous); everything else
-    /// (`.gba`, `.gb`, `.gbc`, `.nds`, `.zip`) falls through to the ROM
-    /// importer.
-    private func dispatchPickedFile(url: URL) {
-        let ext = url.pathExtension.lowercased()
-        if ext == "sav" || ext == "srm" {
-            showSaveRedirect = true
-        } else if ext == "retropalskin" {
-            // A custom skin picked from Files: import it (own validation + alerts), not a ROM.
-            SkinSharing.present(SkinSharing.importSkin(from: url))
-        } else {
-            importROM(url: url)
+    /// First launch after an update: present the What's New sheet, once.
+    /// Runs once per process; the gate (WhatsNew.shouldPresentAtLaunch)
+    /// stamps fresh installs silently. Suppressed while anything else owns
+    /// the screen — an un-stamped suppression simply retries next launch.
+    private func checkWhatsNewPresentation() {
+        guard !didCheckWhatsNew else { return }
+        didCheckWhatsNew = true
+        guard isActiveTab, launchRequest == nil, pendingOpenURL == nil,
+              WhatsNew.shouldPresentAtLaunch(libraryIsEmpty: games.isEmpty),
+              !showEmptyState else { return }
+        // Let the tab bar and navigation settle before presenting.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            // Re-check: a Files-opened URL may have started an import or a
+            // launch during the delay.
+            guard launchRequest == nil, !isImporting, activeZipSelection == nil,
+                  !showImportError else { return }
+            WhatsNew.markSeen()
+            showWhatsNew = true
         }
     }
 
-    private func importROM(url: URL) {
+    /// Routes a freshly-picked batch by extension. ROMs (`.gba`, `.gb`,
+    /// `.gbc`, `.nds`, `.zip`) import serially in the background; a
+    /// `.sav`/`.srm` queues the per-game redirect popup (battery saves are
+    /// imported from a game's detail screen, where the target is
+    /// unambiguous); `.retropalskin` files queue skin imports (own
+    /// validation + alerts). Follow-ups present one at a time after the
+    /// imports finish, via advanceBatchFollowUps().
+    private func processPickedBatch(urls: [URL]) {
+        var roms: [URL] = []
+        for url in urls {
+            switch url.pathExtension.lowercased() {
+            case "sav", "srm": pendingSaveRedirectAfterBatch = true
+            case "retropalskin": pendingSkinImports.append(url)
+            default: roms.append(url)
+            }
+        }
+        guard !roms.isEmpty else {
+            advanceBatchFollowUps()
+            return
+        }
+        importROMs(urls: roms)
+    }
+
+    /// Serial batch import on one background context. Failures are collected
+    /// and surfaced in ONE summary alert at the end, never one alert per
+    /// file; already-imported files are silently skipped (their game is
+    /// already in the library, same as the pre-batch picker behavior).
+    private func importROMs(urls: [URL]) {
         isImporting = true
         let context = PersistenceController.shared.container.newBackgroundContext()
         DispatchQueue.global(qos: .userInitiated).async {
             let importer = ROMImporter(context: context)
-            do {
-                let _ = try importer.importROM(from: url, method: "picker")
-                DispatchQueue.main.async { isImporting = false }
-            } catch let error as ROMImportError {
-                Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
-                DispatchQueue.main.async {
-                    isImporting = false
-                    if case .alreadyImported = error { return }
-                    importError = error.errorDescription
-                    showImportError = true
+            var failures: [(filename: String, reason: String)] = []
+            var selectionRequests: [ZipSelectionRequest] = []
+            for url in urls {
+                do {
+                    let _ = try importer.importROM(from: url, method: "picker")
+                } catch let error as ROMImportError {
+                    // A zip with several games isn't a failure: queue its
+                    // selection sheet (no error signal, no summary line).
+                    if case .zipNeedsSelection(let tempZipURL, let entryNames) = error {
+                        selectionRequests.append(ZipSelectionRequest(tempZipURL: tempZipURL, entryNames: entryNames))
+                        continue
+                    }
+                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
+                    if case .alreadyImported = error { continue }
+                    failures.append((url.lastPathComponent, error.errorDescription ?? ""))
+                } catch {
+                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
+                    failures.append((url.lastPathComponent, error.localizedDescription))
                 }
-            } catch {
-                Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
-                DispatchQueue.main.async {
-                    isImporting = false
-                    importError = error.localizedDescription
-                    showImportError = true
+            }
+            DispatchQueue.main.async {
+                isImporting = false
+                zipSelectionQueue.append(contentsOf: selectionRequests)
+                if failures.isEmpty {
+                    advanceBatchFollowUps()
+                } else {
+                    importError = Self.batchErrorMessage(failures: failures, pickedCount: urls.count)
+                    showImportError = true   // its OK button advances the follow-up chain
                 }
+            }
+        }
+    }
+
+    /// onDismiss of the zip picker sheet. Runs the confirmed import, or (on
+    /// Cancel / swipe-down) drops the staged temp zip; either way the
+    /// follow-up chain continues.
+    private func zipSheetDidDismiss() {
+        guard let request = presentedZipRequest else { return }
+        presentedZipRequest = nil
+        guard let names = confirmedZipEntryNames else {
+            ROMImporter.discardZIPSelection(tempZipURL: request.tempZipURL)
+            advanceBatchFollowUps()
+            return
+        }
+        confirmedZipEntryNames = nil
+        importZipSelection(names: names, from: request)
+    }
+
+    /// Background import of the entries picked in the zip sheet; failures
+    /// surface via the same one-summary-alert path as the file batch.
+    private func importZipSelection(names: [String], from request: ZipSelectionRequest) {
+        isImporting = true
+        let context = PersistenceController.shared.container.newBackgroundContext()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let importer = ROMImporter(context: context)
+            let failures = importer.importZIPSelection(entryNames: names, fromTempZip: request.tempZipURL)
+            for failure in failures {
+                Analytics.signal("rom_import", ["result": "error", "errorType": failure.analyticsID, "method": "zip"])
+            }
+            DispatchQueue.main.async {
+                isImporting = false
+                if failures.isEmpty {
+                    advanceBatchFollowUps()
+                } else {
+                    importError = Self.batchErrorMessage(
+                        failures: failures.map { (filename: $0.displayName, reason: $0.reason) },
+                        pickedCount: names.count)
+                    showImportError = true   // OK advances the follow-up chain
+                }
+            }
+        }
+    }
+
+    /// One file picked and it failed → the plain reason, exactly the
+    /// pre-batch alert. Several files picked → an intro line plus one
+    /// bulleted "filename: reason" line per failed file.
+    private static func batchErrorMessage(failures: [(filename: String, reason: String)], pickedCount: Int) -> String {
+        if pickedCount == 1, let only = failures.first { return only.reason }
+        let lines = failures.map {
+            String(format: NSLocalizedString("import.error.batchLine", comment: ""), $0.filename, $0.reason)
+        }
+        return NSLocalizedString("import.error.batchIntro", comment: "") + "\n" + lines.joined(separator: "\n")
+    }
+
+    /// Presents the next queued batch follow-up, one at a time. The delay
+    /// lets the previous alert finish dismissing first — presenting a new
+    /// alert while another is mid-dismissal gets silently dropped.
+    private func advanceBatchFollowUps() {
+        if !zipSelectionQueue.isEmpty {
+            let request = zipSelectionQueue.removeFirst()
+            presentedZipRequest = request
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { activeZipSelection = request }
+        } else if pendingSaveRedirectAfterBatch {
+            pendingSaveRedirectAfterBatch = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showSaveRedirect = true }
+        } else if !pendingSkinImports.isEmpty {
+            let url = pendingSkinImports.removeFirst()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                SkinSharing.present(SkinSharing.importSkin(from: url)) { advanceBatchFollowUps() }
             }
         }
     }
@@ -890,6 +1040,16 @@ struct LibraryView: View {
                     }
                 }
             } catch let error as ROMImportError {
+                // A zip with several games: same selection sheet as the
+                // picker flow (not an error, no signal).
+                if case .zipNeedsSelection(let tempZipURL, let entryNames) = error {
+                    DispatchQueue.main.async {
+                        isImporting = false
+                        zipSelectionQueue.append(ZipSelectionRequest(tempZipURL: tempZipURL, entryNames: entryNames))
+                        advanceBatchFollowUps()
+                    }
+                    return
+                }
                 Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "url"])
                 DispatchQueue.main.async {
                     isImporting = false
@@ -1004,42 +1164,23 @@ private struct LibraryRow: View {
     @State private var saveTick = 0
 
     /// Local cover file by priority: the user-picked custom cover beats the
-    /// downloaded one (exact or heuristic); anything else falls through to
-    /// raArtURL / screenshot.
+    /// adopted RA image (which BoxArtManager only grants over a heuristic
+    /// match or a no-match — never over a byte-exact CRC match), which
+    /// beats the downloaded one; anything else falls through to the
+    /// screenshot. Every branch is a file on disk: no network at display
+    /// time, so the cover is stable across launches and offline.
     private var coverFileURL: URL? {
         guard let romHash = game.romHash else { return nil }
         switch game.coverType {
         case BoxArtManager.coverStateCustom:
             return BoxArtManager.shared.customImageURL(forROMHash: romHash)
+        case BoxArtManager.coverStateRA:
+            return BoxArtManager.shared.raImageURL(forROMHash: romHash)
         case BoxArtManager.coverStateBoxArt, BoxArtManager.coverStateBoxArtHeuristic:
             return BoxArtManager.shared.imageURL(forROMHash: romHash)
         default:
             return nil
         }
-    }
-
-    /// The RetroAchievements game image. It outranks a HEURISTIC cover
-    /// match (RA identifies the actual bytes by hash, so a base-named ROM
-    /// hack that fooled our serial/fuzzy match gets its own art) and covers
-    /// definitive no-matches. It never outranks a byte-exact CRC match (the
-    /// file IS the retail dump: the real native box wins) or a custom
-    /// cover. Only while RA is enabled and signed in (the URL arrives with
-    /// the first signed-in play), and never RA's generic controller
-    /// placeholder (games with no RA image, e.g. homebrew like Anguna:
-    /// the screenshot stays). Never consulted while a game is still
-    /// "placeholder", so it can't flicker against an incoming download.
-    /// No new observation needed: LibraryView already observes ra +
-    /// raIndex and rebuilds rows.
-    private var raArtURL: URL? {
-        guard game.coverType == BoxArtManager.coverStateNone
-                || game.coverType == BoxArtManager.coverStateBoxArtHeuristic,
-              RetroAchievements.shared.isEnabled,
-              RetroAchievements.shared.isLoggedIn,
-              let romHash = game.romHash,
-              let url = RAGameIndex.shared.record(forROMHash: romHash)?.boxArtURL,
-              !url.hasSuffix("/000001.png")
-        else { return nil }
-        return URL(string: url)
     }
 
     var body: some View {
@@ -1062,7 +1203,6 @@ private struct LibraryRow: View {
                 // image's ratio, square-capped so rows don't stretch.
                 GameCoverView(romFilePath: game.romFilePath,
                               boxArtURL: coverFileURL,
-                              remoteArtURL: raArtURL,
                               fixedWidth: cardStyle ? 80 : 60)
                     .id("\((game.lastPlayedAt ?? .distantPast).timeIntervalSinceReferenceDate)#\(saveTick)#\(game.coverType ?? "")")
 
@@ -1192,12 +1332,16 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     ]
 
     var contentTypes: [UTType] = DocumentPickerView.romAndSaveTypes
-    let onPick: (URL) -> Void
+    /// Multi-select is only for the library `+` (importing a collection in one
+    /// trip). The per-game pickers (save import, replace-ROM recovery) stay
+    /// single-select: their target is one specific game.
+    var allowsMultipleSelection = false
+    let onPick: ([URL]) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes)
         picker.delegate = context.coordinator
-        picker.allowsMultipleSelection = false
+        picker.allowsMultipleSelection = allowsMultipleSelection
         return picker
     }
 
@@ -1206,12 +1350,12 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
 
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onPick: (URL) -> Void
-        init(onPick: @escaping (URL) -> Void) { self.onPick = onPick }
+        let onPick: ([URL]) -> Void
+        init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            guard let url = urls.first else { return }
-            onPick(url)
+            guard !urls.isEmpty else { return }
+            onPick(urls)
         }
     }
 }

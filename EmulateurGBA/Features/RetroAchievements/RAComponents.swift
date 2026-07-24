@@ -9,6 +9,28 @@
 
 import SwiftUI
 
+extension Color {
+    /// The RA gold used across the achievement surfaces (points chip,
+    /// measured-progress bars).
+    static let raGold = Color(red: 0.98, green: 0.80, blue: 0.36)
+}
+
+/// Thin gold progress bar for a measured achievement. `fraction` is 0...1.
+struct RAMeasuredBar: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.15))
+                Capsule().fill(Color.raGold)
+                    .frame(width: max(0, min(1, fraction)) * geo.size.width)
+            }
+        }
+        .accessibilityHidden(true)   // the x/y text (or label) carries the value
+    }
+}
+
 /// Section header with the official RA logo in front of the section title.
 /// Optional (i) trailing button for surfaces that host the explainer sheet.
 struct RASectionHeader: View {
@@ -62,16 +84,26 @@ struct RAAchievementRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let progress = ach.measuredProgress, !ach.unlocked {
-                    Text(progress)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tint)
-                }
-                if ach.rarity > 0 {
-                    Label(Self.rarityLabel(ach.rarity), systemImage: "person.2.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .labelStyle(.titleAndIcon)
+                // Rarity and (for locked measured achievements) the live
+                // progress share one line: "x/y" + a gold bar to the right
+                // of the players label.
+                if ach.rarity > 0 || (ach.measuredProgress != nil && !ach.unlocked) {
+                    HStack(spacing: 8) {
+                        if ach.rarity > 0 {
+                            Label(Self.rarityLabel(ach.rarity), systemImage: "person.2.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .labelStyle(.titleAndIcon)
+                        }
+                        if let progress = ach.measuredProgress, !ach.unlocked {
+                            Text(progress)
+                                .font(.caption2.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(Color.raGold)
+                            RAMeasuredBar(fraction: ach.measuredPercent / 100)
+                                .frame(width: 56, height: 4)
+                        }
+                    }
                 }
             }
             Spacer(minLength: 4)
@@ -126,6 +158,14 @@ struct RABadgeWall: View {
                         Color.gray.opacity(0.15)
                     }
                     .frame(width: 40, height: 40)
+                    // Started, still-locked measured achievement: its live
+                    // progress as a gold bar across the badge foot.
+                    .overlay(alignment: .bottom) {
+                        if !ach.unlocked, ach.measuredProgress != nil, ach.measuredPercent > 0 {
+                            RAMeasuredBar(fraction: ach.measuredPercent / 100)
+                                .frame(height: 3.5)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(ach.title))
@@ -228,15 +268,30 @@ struct RALayoutRadio: View {
 struct RABadgeDetailSheet: View {
     let ach: RAAchievementInfo
 
-    private static let gold = Color(red: 0.98, green: 0.80, blue: 0.36)
+    /// Loaded explicitly rather than with AsyncImage: dismissing the sheet
+    /// cancels AsyncImage's in-flight request, and a rapid re-present (tap
+    /// another badge while the first sheet is still animating away) lands
+    /// that cancellation in the failure phase — which the placeholder
+    /// closure renders as the fallback trophy FOREVER, AsyncImage never
+    /// retries.
+    ///
+    /// CAUTION on that same rapid re-present: .sheet(item:) UPDATES the
+    /// presented view in place (same structural identity), it does not
+    /// recreate it — so this @State survives across achievements. The task
+    /// below must therefore RESET it when the badge URL changes; an early
+    /// "already loaded" return here once kept achievement A's badge on
+    /// achievement B's sheet.
+    @State private var badgeImage: UIImage?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                AsyncImage(url: ach.badgeURL.flatMap(URL.init(string:))) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    ZStack {
+                ZStack {
+                    if let badgeImage {
+                        Image(uiImage: badgeImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
                         Color.gray.opacity(0.15)
                         Image(systemName: "trophy")
                             .font(.title2)
@@ -246,6 +301,27 @@ struct RABadgeDetailSheet: View {
                 .frame(width: 96, height: 96)
                 .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
                 .padding(.top, 28)
+                .animation(.easeIn(duration: 0.15), value: badgeImage)
+                .task(id: ach.badgeURL) {
+                    // Runs on first appearance AND whenever the badge URL
+                    // changes (the reused-sheet case above); the previous
+                    // run is auto-cancelled. Reset first: stale state from
+                    // another achievement must never survive the id change.
+                    badgeImage = nil
+                    guard let url = ach.badgeURL.flatMap(URL.init(string:)) else { return }
+                    var image = await UIImage.loaded(from: url)
+                    // One delayed retry: the common failure here is racing our
+                    // own just-cancelled request from the previous presentation.
+                    if image == nil {
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        image = await UIImage.loaded(from: url)
+                    }
+                    // Never let a cancelled (superseded) run write its result
+                    // over the run that replaced it.
+                    guard !Task.isCancelled, let image else { return }
+                    badgeImage = image
+                }
 
                 VStack(spacing: 8) {
                     Text(ach.title)
@@ -259,10 +335,16 @@ struct RABadgeDetailSheet: View {
                 }
                 .padding(.horizontal, 24)
 
+                // Same treatment as the list rows: gold x/y + gold bar, no
+                // chip background.
                 if let progress = ach.measuredProgress {
-                    chip {
-                        Label(progress, systemImage: "chart.bar.fill")
-                            .foregroundStyle(.tint)
+                    HStack(spacing: 8) {
+                        Text(progress)
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.raGold)
+                        RAMeasuredBar(fraction: ach.measuredPercent / 100)
+                            .frame(width: 72, height: 5)
                     }
                 }
 
@@ -270,7 +352,7 @@ struct RABadgeDetailSheet: View {
                     chip {
                         Label("\(ach.points) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))",
                               systemImage: "star.fill")
-                            .foregroundStyle(Self.gold)
+                            .foregroundStyle(Color.raGold)
                     }
                     if ach.rarity > 0 {
                         chip {

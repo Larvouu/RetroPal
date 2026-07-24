@@ -27,7 +27,11 @@ enum ROMImportError: LocalizedError {
     case copyFailed
     case invalidROM
     case zipNoGBA
-    case zipMultipleGBA
+    /// Control flow, not a failure: the zip holds several ROMs, so the user
+    /// picks which games to import (ZipROMPickerSheet). Carries the temp
+    /// copy of the archive that importZIP staged — kept alive on purpose;
+    /// `importZIPSelection` (or `discardZIPSelection` on cancel) deletes it.
+    case zipNeedsSelection(tempZipURL: URL, entryNames: [String])
     case zipExtractionFailed
     case alreadyImported
     case saveFailed
@@ -42,7 +46,7 @@ enum ROMImportError: LocalizedError {
         case .copyFailed: return NSLocalizedString("import.error.copyFailed", comment: "")
         case .invalidROM: return NSLocalizedString("import.error.invalidROM", comment: "")
         case .zipNoGBA: return NSLocalizedString("import.error.zipNoROM", comment: "")
-        case .zipMultipleGBA: return NSLocalizedString("import.error.zipMultipleROMs", comment: "")
+        case .zipNeedsSelection: return nil   // never shown; handled by the picker flow
         case .zipExtractionFailed: return NSLocalizedString("import.error.zipExtractionFailed", comment: "")
         case .alreadyImported: return NSLocalizedString("import.error.alreadyImported", comment: "")
         case .saveFailed: return NSLocalizedString("import.error.saveFailed", comment: "")
@@ -57,13 +61,21 @@ enum ROMImportError: LocalizedError {
         case .copyFailed: return "copyFailed"
         case .invalidROM: return "invalidROM"
         case .zipNoGBA: return "zipNoGBA"
-        case .zipMultipleGBA: return "zipMultipleGBA"
+        case .zipNeedsSelection: return "zipNeedsSelection"   // never signaled; picker flow
         case .zipExtractionFailed: return "zipExtractionFailed"
         case .alreadyImported: return "alreadyImported"
         case .saveFailed: return "saveFailed"
         case .differentGame: return "differentGame"
         }
     }
+}
+
+/// One failed entry of a multi-ROM zip selection import, for the summary
+/// alert (displayName + reason) and the error signals (analyticsID).
+struct ZipEntryFailure {
+    let displayName: String
+    let reason: String
+    let analyticsID: String
 }
 
 final class ROMImporter {
@@ -214,13 +226,30 @@ final class ROMImporter {
             try? FileManager.default.removeItem(at: tempZip)
             try FileManager.default.copyItem(at: sourceURL, to: tempZip)
             cleanup.append(tempZip)
+
+            let entryNames: [String]
             do {
-                let extracted = try ZIPExtractor.extractROM(from: tempZip)
-                cleanup.append(extracted.deletingLastPathComponent())
-                romFileURL = extracted
+                entryNames = try ZIPExtractor.romEntryNames(in: tempZip)
             } catch {
                 throw ROMImportError.zipExtractionFailed
             }
+            guard !entryNames.isEmpty else { throw ROMImportError.zipNoGBA }
+
+            // The target game is known here, so a multi-ROM zip needs no
+            // picker: auto-select the entry whose hash matches the game
+            // being repaired. No match at all = every entry is some other
+            // game, the same situation .differentGame already describes.
+            var matched: URL?
+            for name in entryNames {
+                guard let extracted = try? ZIPExtractor.extractROM(named: name, from: tempZip) else { continue }
+                cleanup.append(extracted.deletingLastPathComponent())
+                if GBAROMParser.parse(fileURL: extracted)?.sha256 == storedHash {
+                    matched = extracted
+                    break
+                }
+            }
+            guard let matched else { throw ROMImportError.differentGame }
+            romFileURL = matched
         } else {
             romFileURL = sourceURL
         }
@@ -268,34 +297,113 @@ final class ROMImporter {
         let tempZip = FileManager.default.temporaryDirectory.appendingPathComponent(sourceURL.lastPathComponent)
         try? FileManager.default.removeItem(at: tempZip)
         try FileManager.default.copyItem(at: sourceURL, to: tempZip)
-        defer { try? FileManager.default.removeItem(at: tempZip) }
 
-        // Extract the single ROM file (.gba, .gb, or .gbc)
+        let entryNames: [String]
+        do {
+            entryNames = try ZIPExtractor.romEntryNames(in: tempZip)
+        } catch {
+            try? FileManager.default.removeItem(at: tempZip)
+            throw ROMImportError.zipExtractionFailed
+        }
+
+        guard !entryNames.isEmpty else {
+            try? FileManager.default.removeItem(at: tempZip)
+            throw ROMImportError.zipNoGBA
+        }
+
+        // Several ROMs: hand the temp copy to the caller so the user can
+        // pick which games to add. The temp copy deliberately survives this
+        // throw; importZIPSelection / discardZIPSelection deletes it.
+        guard entryNames.count == 1 else {
+            cleanupInboxFile(sourceURL)
+            throw ROMImportError.zipNeedsSelection(tempZipURL: tempZip, entryNames: entryNames)
+        }
+
+        defer { try? FileManager.default.removeItem(at: tempZip) }
+        let id = try importEntry(named: entryNames[0], fromZip: tempZip)
+        cleanupInboxFile(sourceURL)
+        return id
+    }
+
+    /// Import the user's picks from a multi-ROM zip (the ZipROMPickerSheet
+    /// outcome). `tempZip` is the temp copy importZIP staged before throwing
+    /// `zipNeedsSelection`; it's deleted here when done. Already-imported
+    /// picks skip silently (batch semantics, the game is in the library);
+    /// other failures come back for the caller's summary alert + error
+    /// signals. Success signals fire per entry inside createGameEntry.
+    func importZIPSelection(entryNames: [String], fromTempZip tempZip: URL) -> [ZipEntryFailure] {
+        defer { try? FileManager.default.removeItem(at: tempZip) }
+        var failures: [ZipEntryFailure] = []
+        for name in entryNames {
+            let displayName = URL(fileURLWithPath: name).lastPathComponent
+            do {
+                _ = try importEntry(named: name, fromZip: tempZip, uniquifyFilename: true)
+            } catch let error as ROMImportError {
+                if case .alreadyImported = error { continue }
+                failures.append(ZipEntryFailure(displayName: displayName,
+                                                reason: error.errorDescription ?? "",
+                                                analyticsID: error.analyticsID))
+            } catch {
+                failures.append(ZipEntryFailure(displayName: displayName,
+                                                reason: error.localizedDescription,
+                                                analyticsID: "unknown"))
+            }
+        }
+        return failures
+    }
+
+    /// Cancel path of the zip picker: drop the temp copy importZIP staged.
+    static func discardZIPSelection(tempZipURL: URL) {
+        try? FileManager.default.removeItem(at: tempZipURL)
+    }
+
+    /// Extract one entry of the archive, validate it, copy it into ROMs/ and
+    /// create its library entry. Shared by the single-ROM zip path and the
+    /// multi-ROM selection import.
+    ///
+    /// `uniquifyFilename` is on for the selection path only: a multi-ROM zip
+    /// can hold same-named entries in different folders, and overwriting
+    /// would leave an earlier entry's library row pointing at another game's
+    /// bytes. The single path keeps its historical overwrite behavior.
+    private func importEntry(named name: String, fromZip tempZip: URL, uniquifyFilename: Bool = false) throws -> NSManagedObjectID {
         let extractedURL: URL
         do {
-            extractedURL = try ZIPExtractor.extractROM(from: tempZip)
-        } catch let error as ZIPExtractorError {
-            switch error {
-            case .noROMFound: throw ROMImportError.zipNoGBA
-            case .multipleROMsFound: throw ROMImportError.zipMultipleGBA
-            default: throw ROMImportError.zipExtractionFailed
-            }
+            extractedURL = try ZIPExtractor.extractROM(named: name, from: tempZip)
+        } catch {
+            throw ROMImportError.zipExtractionFailed
         }
         defer { try? FileManager.default.removeItem(at: extractedURL.deletingLastPathComponent()) }
 
-        // Validate (supports GBA, GB, GBC)
+        // Validate (GBA, GB, GBC, NDS)
         guard GBAROMParser.isValidROMFile(url: extractedURL) else {
             throw ROMImportError.invalidROM
         }
 
         // Copy to ROMs directory
-        let filename = extractedURL.lastPathComponent
-        let destURL = romsDir.appendingPathComponent(filename)
-        try? FileManager.default.removeItem(at: destURL)
+        var destURL = romsDir.appendingPathComponent(extractedURL.lastPathComponent)
+        if uniquifyFilename {
+            destURL = Self.uniqueDestination(for: destURL)
+        } else {
+            try? FileManager.default.removeItem(at: destURL)
+        }
         try FileManager.default.copyItem(at: extractedURL, to: destURL)
         try verifyCopyComplete(source: extractedURL, dest: destURL)
 
-        return try createGameEntry(romURL: destURL, originalFilename: filename, method: "zip")
+        return try createGameEntry(romURL: destURL, originalFilename: destURL.lastPathComponent, method: "zip")
+    }
+
+    /// First free "name.ext", "name 2.ext", ... inside ROMs/. Never touches
+    /// an existing file: it may be another game's live ROM.
+    private static func uniqueDestination(for url: URL) -> URL {
+        guard FileManager.default.fileExists(atPath: url.path) else { return url }
+        let dir = url.deletingLastPathComponent()
+        let base = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension
+        for n in 2...999 {
+            let candidate = dir.appendingPathComponent("\(base) \(n)").appendingPathExtension(ext)
+            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return dir.appendingPathComponent("\(base) \(UUID().uuidString)").appendingPathExtension(ext)
     }
 
     /// Throws (and removes the partial dest) if the copied file's size doesn't

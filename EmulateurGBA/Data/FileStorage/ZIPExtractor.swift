@@ -3,8 +3,8 @@
 //  EmulateurGBA
 //
 //  Minimal ZIP extraction using Foundation's built-in support.
-//  Finds and extracts a single game file (.gba, .gb, .gbc or .nds) from a
-//  ZIP archive.
+//  Lists the game files (.gba, .gb, .gbc, .nds) inside a ZIP archive and
+//  extracts them one entry at a time.
 //
 
 import Foundation
@@ -13,34 +13,29 @@ import Compression
 enum ZIPExtractorError: Error {
     case cannotReadZIP
     case noROMFound
-    case multipleROMsFound
     case extractionFailed
 }
 
 enum ZIPExtractor {
     private static let romExtensions: Set<String> = ["gba", "gb", "gbc", "nds"]
 
-    /// Extracts a single ROM file (.gba, .gb, .gbc, .nds) from a ZIP archive.
-    /// Returns the URL of the extracted file in a temp directory.
-    static func extractROM(from zipURL: URL) throws -> URL {
-        let data = try Data(contentsOf: zipURL)
+    /// Full entry names (including any folder prefix) of the ROM files
+    /// (.gba, .gb, .gbc, .nds) inside the archive, in archive order.
+    /// Duplicate names are dropped: extraction is by name, so a malformed
+    /// archive with two identical entry names could only ever yield the
+    /// first one anyway.
+    static func romEntryNames(in zipURL: URL) throws -> [String] {
+        var seen = Set<String>()
+        return romEntries(in: try loadData(zipURL)).map(\.name).filter { seen.insert($0).inserted }
+    }
 
-        // Try Central Directory first (handles data descriptors), fall back to local headers
-        var entries = (try? findEntriesFromCentralDirectory(in: data)) ?? []
-        if entries.isEmpty {
-            entries = findEntriesFromLocalHeaders(in: data)
+    /// Extracts one ROM entry (by its full entry name, as returned by
+    /// `romEntryNames`) into a fresh temp directory and returns the file URL.
+    static func extractROM(named name: String, from zipURL: URL) throws -> URL {
+        let data = try loadData(zipURL)
+        guard let entry = romEntries(in: data).first(where: { $0.name == name }) else {
+            throw ZIPExtractorError.noROMFound
         }
-
-        let romEntries = entries.filter { entry in
-            // Check extension from both URL parsing and raw string suffix
-            let name = entry.name.lowercased()
-            return romExtensions.contains(where: { name.hasSuffix(".\($0)") })
-        }
-
-        guard !romEntries.isEmpty else { throw ZIPExtractorError.noROMFound }
-        guard romEntries.count == 1 else { throw ZIPExtractorError.multipleROMsFound }
-
-        let entry = romEntries[0]
 
         // Extract the file data
         let fileData = try extractEntry(entry, from: data)
@@ -55,6 +50,30 @@ enum ZIPExtractor {
         try fileData.write(to: destURL)
 
         return destURL
+    }
+
+    /// Mapped, not loaded: collection zips can run to hundreds of MB, and
+    /// per-entry extraction re-opens the archive once per game.
+    private static func loadData(_ zipURL: URL) throws -> Data {
+        do {
+            return try Data(contentsOf: zipURL, options: .mappedIfSafe)
+        } catch {
+            throw ZIPExtractorError.cannotReadZIP
+        }
+    }
+
+    /// ROM entries of the archive, in archive order. Tries the Central
+    /// Directory first (handles data descriptors), falls back to local headers.
+    private static func romEntries(in data: Data) -> [ZIPEntry] {
+        var entries = (try? findEntriesFromCentralDirectory(in: data)) ?? []
+        if entries.isEmpty {
+            entries = findEntriesFromLocalHeaders(in: data)
+        }
+        return entries.filter { entry in
+            // Check extension from both URL parsing and raw string suffix
+            let name = entry.name.lowercased()
+            return romExtensions.contains(where: { name.hasSuffix(".\($0)") })
+        }
     }
 
     // MARK: - ZIP Parsing (minimal, handles store + deflate)

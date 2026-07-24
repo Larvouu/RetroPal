@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versión";
 "settings.core" = "Núcleo de emulación";
+"settings.rateApp" = "Calificar Retro Pal";
 "settings.disclaimer" = "Retro Pal es un emulador que funciona solo de forma local. No incluye ningún juego. Importa solo archivos que poseas legalmente.";
 "settings.restore" = "Restaurar compras";
 
@@ -458,8 +459,28 @@
 "import.error.copyFailed" = "El juego no se pudo copiar en Retro Pal. Libera espacio de almacenamiento e inténtalo de nuevo.";
 "import.error.invalidROM" = "Este archivo no es un juego que Retro Pal pueda leer. Juegos compatibles: .gba, .gb, .gbc y .nds.";
 "import.error.zipNoROM" = "No se encontró ningún juego en este ZIP. Retro Pal lee juegos .gba, .gb, .gbc y .nds; otras consolas no son compatibles.";
-"import.error.zipMultipleROMs" = "Este ZIP contiene varios juegos. Descomprímelo en la app Archivos e importa cada juego por separado.";
 "import.error.zipExtractionFailed" = "Este ZIP no se pudo abrir. Descomprímelo en la app Archivos e importa el archivo del juego directamente.";
 "import.error.alreadyImported" = "Este juego ya está en tu biblioteca.";
 "import.error.saveFailed" = "El juego no se pudo agregar a tu biblioteca. Inténtalo de nuevo.";
 "import.error.differentGame" = "Este archivo es un juego distinto del que estás reemplazando.";
+"import.error.batchIntro" = "Estos archivos no se pudieron importar:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Juegos en este ZIP";
+"zipPicker.caption" = "Elige los juegos que quieres agregar a tu biblioteca.";
+"zipPicker.add" = "Agregar (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Novedades";
+"whatsnew.version" = "Versión %@";
+"whatsnew.s1.title" = "Importación más rápida";
+"whatsnew.s1.b1" = "Importa varios juegos a la vez desde Archivos.";
+"whatsnew.s1.b2" = "Un ZIP con varios juegos ahora te deja elegir cuáles agregar.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Los logros bloqueados ahora muestran tu progreso mientras juegas.";
+"whatsnew.s2.b2" = "Los avisos del emulador ya no aparecen como logros desbloqueados.";
+"whatsnew.s3.title" = "Biblioteca";
+"whatsnew.s3.b1" = "Las carátulas se muestran ahora sin parpadear, incluso sin conexión.";
+"whatsnew.footer" = "Puedes volver a leer estas novedades cuando quieras en Configuración.";
+"whatsnew.dismiss" = "¡Entendido!";

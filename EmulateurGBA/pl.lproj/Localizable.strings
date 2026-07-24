@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Wersja";
 "settings.core" = "Rdzeń emulatora";
+"settings.rateApp" = "Oceń Retro Pal";
 "settings.disclaimer" = "Retro Pal to emulator działający lokalnie. Nie zawiera żadnych gier. Importuj wyłącznie pliki, które posiadasz legalnie.";
 "settings.restore" = "Przywróć zakupy";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Nie udało się skopiować gry do Retro Pal. Zwolnij miejsce w pamięci i spróbuj ponownie.";
 "import.error.invalidROM" = "Ten plik nie jest grą, którą Retro Pal może odczytać. Obsługiwane gry: .gba, .gb, .gbc i .nds.";
 "import.error.zipNoROM" = "W tym pliku ZIP nie znaleziono żadnej gry. Retro Pal odczytuje gry .gba, .gb, .gbc i .nds; inne konsole nie są obsługiwane.";
-"import.error.zipMultipleROMs" = "Ten ZIP zawiera kilka gier. Rozpakuj go w aplikacji Pliki i zaimportuj każdą grę osobno.";
 "import.error.zipExtractionFailed" = "Nie udało się otworzyć tego pliku ZIP. Rozpakuj go w aplikacji Pliki i zaimportuj plik gry bezpośrednio.";
 "import.error.alreadyImported" = "Ta gra jest już w Twojej bibliotece.";
 "import.error.saveFailed" = "Nie udało się dodać gry do biblioteki. Spróbuj ponownie.";
 "import.error.differentGame" = "Ten plik to inna gra niż ta, którą zastępujesz.";
+"import.error.batchIntro" = "Nie udało się zaimportować tych plików:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Gry w tym pliku ZIP";
+"zipPicker.caption" = "Wybierz gry, które chcesz dodać do biblioteki.";
+"zipPicker.add" = "Dodaj (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Nowości";
+"whatsnew.version" = "Wersja %@";
+"whatsnew.s1.title" = "Szybszy import";
+"whatsnew.s1.b1" = "Importuj wiele gier naraz z aplikacji Pliki.";
+"whatsnew.s1.b2" = "ZIP z wieloma grami pozwala teraz wybrać, które z nich dodać.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Zablokowane osiągnięcia pokazują teraz postęp w trakcie gry.";
+"whatsnew.s2.b2" = "Komunikaty emulatora nie pojawiają się już jako odblokowane osiągnięcia.";
+"whatsnew.s3.title" = "Biblioteka";
+"whatsnew.s3.b1" = "Okładki wyświetlają się teraz bez migotania, także offline.";
+"whatsnew.footer" = "Te nowości znajdziesz w każdej chwili w Ustawieniach.";
+"whatsnew.dismiss" = "Rozumiem!";

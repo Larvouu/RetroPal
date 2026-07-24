@@ -164,11 +164,10 @@ final class PromptTracker {
     private let kReviewPromptLastShownDate = "reviewPromptLastShownDate"
     private let kSaveStateCreated = "pt_saveStateCreated"
 
-    private let reviewPromptSecondsPrompt1: TimeInterval = 3600         // 1 hour cumulative (loyal-returner arm)
-    private let reviewPromptSecondsFirstSessionDeep: TimeInterval = 7200 // 2 hours in session 1 (deep-first-timer arm)
+    private let reviewPromptSecondsPrompt1: TimeInterval = 3600         // 1 hour cumulative (loyal-returner trigger)
+    private let reviewPromptSecondsFirstSessionDeep: TimeInterval = 7200 // 2 hours in session 1 (deep-first-timer trigger)
     private let reviewPromptSecondsEngagedFirstTimer: TimeInterval = 900 // 15 min in session 1 + a manual save state
-    private let reviewPromptSecondsPrompt2: TimeInterval = 10800         // 3 hours cumulative
-    private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600
+    private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600      // shared gap: card AND direct asks
     private let reviewPromptMinSessionsForFirst = 2                       // >= 3rd session
     private let reviewPromptSecondsRAUnlock: TimeInterval = 900           // 15 min cumulative + a fresh RA unlock
     private let reviewPromptRAUnlockWindow: TimeInterval = 30 * 60        // "fresh" = within the last 30 min
@@ -183,79 +182,101 @@ final class PromptTracker {
         lastAchievementUnlockDate = Date()
     }
 
-    /// Check if the App Store review warm-up card should appear.
-    /// Thin Bool wrapper over `reviewPromptArm(currentSessionSeconds:)`.
-    func shouldShowReviewPrompt(currentSessionSeconds: TimeInterval) -> Bool {
-        reviewPromptArm(currentSessionSeconds: currentSessionSeconds) != nil
+    /// The review ask runs on TWO paths since 1.2.3 (measured: the warm-up
+    /// card converted only ~10% of loyal_returner presentations, and its
+    /// terminal caps silenced the very users Apple would still let us ask):
+    ///
+    ///  - CARD path (`reviewPromptArm`): the visible warm-up card, kept ONLY
+    ///    for "ra_unlock" where the celebration context earns a visible
+    ///    moment. Polite gating unchanged: rating is terminal, two
+    ///    dismissals are terminal, legacy single-shot viewers stay excluded.
+    ///
+    ///  - DIRECT path (`directReviewRequestTrigger`): a bare
+    ///    SKStoreReviewController request fired on the quit-to-library path.
+    ///    Deliberately NO terminal states and no dismissal counting: the
+    ///    request is silent once Apple's per-user display quota (~3/365d) is
+    ///    spent or the user disabled in-app rating asks system-wide, so
+    ///    over-asking is invisible. Apple is the limiter, we just never
+    ///    waste one of the ~3 yearly display slots. The only local throttle
+    ///    is the shared 24h gap below.
+    ///
+    /// Both paths share `kReviewPromptLastShownDate`, so any ask (card or
+    /// direct) suppresses every other ask for 24h.
+
+    /// Which arm (if any) allows the review warm-up CARD right now (the
+    /// only caller is the pause overlay's check).
+    ///   - "ra_unlock": a RetroAchievements unlock in the last 30 min AND
+    ///     ≥15 min cumulative play. The unlock is the highest-emotion moment
+    ///     the app has; the time bar keeps a 2-minute drive-by unlock from
+    ///     prompting. The card only appears at the pause overlay, never
+    ///     over gameplay.
+    func reviewPromptArm(currentSessionSeconds: TimeInterval) -> String? {
+        // Legacy users who already saw the single-shot prompt: no more cards.
+        guard !defaults.bool(forKey: kReviewPromptShown) else { return nil }
+
+        // Terminal: user already rated via the card.
+        guard !defaults.bool(forKey: kReviewPromptRated) else { return nil }
+
+        // Terminal: two dismissed cards.
+        guard defaults.integer(forKey: kReviewPromptDismissedCount) < 2 else { return nil }
+
+        guard reviewAskGapElapsed else { return nil }
+
+        let totalPlayed = totalPlaySeconds + currentSessionSeconds
+        if let unlockDate = lastAchievementUnlockDate,
+           Date().timeIntervalSince(unlockDate) <= reviewPromptRAUnlockWindow,
+           totalPlayed >= reviewPromptSecondsRAUnlock {
+            return "ra_unlock"
+        }
+        return nil
     }
 
-    /// Which arm (if any) allows the review warm-up card right now. The
-    /// returned identifier feeds the analytics `trigger` param so each arm's
-    /// volume and conversion can be read separately.
-    /// Prompt #1 fires via any of four paths:
+    /// Which trigger (if any) allows a DIRECT system review request on the
+    /// quit path right now. The returned identifier feeds the analytics
+    /// `trigger` param; for these values `review_prompt_shown` means
+    /// "requested" — whether Apple actually displays the dialog is invisible
+    /// to the app (see `Store/analytics-plan.md`).
     ///   - "loyal_returner": 3rd session or later AND ≥1h cumulative play
     ///   - "deep_first_timer": still in session 1 AND ≥2h in that session
     ///   - "engaged_first_timer": still in session 1 AND ≥15min AND has
     ///     created at least one manual save state. The save state is a
     ///     deliberate engagement signal that the bare time bar lacks, so
-    ///     it lets us prompt a clearly-invested newcomer far earlier than
-    ///     the 2h deep-first-timer bar (which almost no one reaches in one
-    ///     sitting) without prompting drive-by users.
-    ///   - "ra_unlock": a RetroAchievements unlock in the last 30 min AND
-    ///     ≥15 min cumulative play. The unlock is the highest-emotion moment
-    ///     the app has; the time bar keeps a 2-minute drive-by unlock from
-    ///     prompting. The card still only appears at the pause overlay, never
-    ///     over gameplay.
-    /// Prompt #2 ("second_prompt") fires at ≥3h cumulative, 24h after prompt
-    /// #1, only if prompt #1 was dismissed (not rated). Rating is terminal.
-    func reviewPromptArm(currentSessionSeconds: TimeInterval) -> String? {
-        // Legacy users who already saw the single-shot prompt: no more prompts.
-        guard !defaults.bool(forKey: kReviewPromptShown) else { return nil }
-
-        // Terminal: user already rated.
-        guard !defaults.bool(forKey: kReviewPromptRated) else { return nil }
-
-        let dismissedCount = defaults.integer(forKey: kReviewPromptDismissedCount)
-        guard dismissedCount < 2 else { return nil }
-
-        // 24h minimum between warm-up cards so a marathon session doesn't
-        // trigger both prompts back-to-back.
-        if let lastShown = defaults.object(forKey: kReviewPromptLastShownDate) as? Date,
-           Date().timeIntervalSince(lastShown) < reviewPromptMinGapSeconds {
-            return nil
-        }
+    ///     it qualifies a clearly-invested newcomer far earlier than the 2h
+    ///     deep-first-timer bar without asking drive-by users.
+    /// Call `recordDirectReviewRequested()` when the request is fired.
+    func directReviewRequestTrigger(currentSessionSeconds: TimeInterval) -> String? {
+        guard reviewAskGapElapsed else { return nil }
 
         let totalPlayed = totalPlaySeconds + currentSessionSeconds
-
-        if dismissedCount == 0 {
-            if let unlockDate = lastAchievementUnlockDate,
-               Date().timeIntervalSince(unlockDate) <= reviewPromptRAUnlockWindow,
-               totalPlayed >= reviewPromptSecondsRAUnlock {
-                return "ra_unlock"
-            }
-            if sessionCount >= reviewPromptMinSessionsForFirst
-                && totalPlayed >= reviewPromptSecondsPrompt1 {
-                return "loyal_returner"
-            }
-            if sessionCount == 0
-                && currentSessionSeconds >= reviewPromptSecondsFirstSessionDeep {
-                return "deep_first_timer"
-            }
-            if sessionCount == 0
-                && currentSessionSeconds >= reviewPromptSecondsEngagedFirstTimer
-                && hasCreatedSaveState {
-                return "engaged_first_timer"
-            }
-            return nil
-        } else {
-            return totalPlayed >= reviewPromptSecondsPrompt2 ? "second_prompt" : nil
+        if sessionCount >= reviewPromptMinSessionsForFirst
+            && totalPlayed >= reviewPromptSecondsPrompt1 {
+            return "loyal_returner"
         }
+        if sessionCount == 0
+            && currentSessionSeconds >= reviewPromptSecondsFirstSessionDeep {
+            return "deep_first_timer"
+        }
+        if sessionCount == 0
+            && currentSessionSeconds >= reviewPromptSecondsEngagedFirstTimer
+            && hasCreatedSaveState {
+            return "engaged_first_timer"
+        }
+        return nil
+    }
+
+    /// 24h minimum between review asks of ANY kind (card or direct), so a
+    /// marathon day never produces back-to-back asks.
+    private var reviewAskGapElapsed: Bool {
+        guard let lastShown = defaults.object(forKey: kReviewPromptLastShownDate) as? Date else {
+            return true
+        }
+        return Date().timeIntervalSince(lastShown) >= reviewPromptMinGapSeconds
     }
 
     /// Call when the card is presented. Records the date and pessimistically
     /// increments the dismissed count so swipe-down / force-close still count.
     /// If the user taps Rate, call `recordReviewPromptRated()` afterwards —
-    /// the rated flag short-circuits `shouldShowReviewPrompt` so the stale
+    /// the rated flag short-circuits `reviewPromptArm` so the stale
     /// dismissed count doesn't matter.
     func recordReviewPromptPresented() {
         defaults.set(Date(), forKey: kReviewPromptLastShownDate)
@@ -263,7 +284,17 @@ final class PromptTracker {
         defaults.set(count, forKey: kReviewPromptDismissedCount)
     }
 
-    /// Call when the user taps "Rate 5 stars". Terminal — no more prompts.
+    /// Call when a direct system review request fires on the quit path.
+    /// Only stamps the shared ask date (24h gap): the direct path has no
+    /// dismissal counting and no terminal states by design — Apple's own
+    /// display quota is the limiter.
+    func recordDirectReviewRequested() {
+        defaults.set(Date(), forKey: kReviewPromptLastShownDate)
+    }
+
+    /// Call when the user taps "Rate 5 stars" on the card. Terminal for the
+    /// CARD only — direct quit-path requests deliberately keep firing (they
+    /// are silent no-ops once Apple's quota is spent).
     func recordReviewPromptRated() {
         defaults.set(true, forKey: kReviewPromptRated)
     }

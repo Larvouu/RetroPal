@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versione";
 "settings.core" = "Core dell'emulatore";
+"settings.rateApp" = "Valuta Retro Pal";
 "settings.disclaimer" = "Retro Pal è un emulatore locale. Non include giochi. Importa solo file di cui possiedi legalmente i diritti.";
 "settings.restore" = "Ripristina acquisti";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Il gioco non è stato copiato in Retro Pal. Libera spazio di archiviazione e riprova.";
 "import.error.invalidROM" = "Questo file non è un gioco leggibile da Retro Pal. Giochi supportati: .gba, .gb, .gbc e .nds.";
 "import.error.zipNoROM" = "Nessun file di gioco trovato in questo ZIP. Retro Pal legge giochi .gba, .gb, .gbc e .nds; le altre console non sono supportate.";
-"import.error.zipMultipleROMs" = "Questo ZIP contiene più giochi. Estrailo nell'app File, poi importa ogni gioco separatamente.";
 "import.error.zipExtractionFailed" = "Impossibile aprire questo ZIP. Estrailo nell'app File, poi importa direttamente il file di gioco.";
 "import.error.alreadyImported" = "Questo gioco è già nella tua libreria.";
 "import.error.saveFailed" = "Il gioco non è stato aggiunto alla libreria. Riprova.";
 "import.error.differentGame" = "Questo file è un gioco diverso da quello che stai sostituendo.";
+"import.error.batchIntro" = "Non è stato possibile importare questi file:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Giochi in questo ZIP";
+"zipPicker.caption" = "Scegli i giochi da aggiungere alla tua libreria.";
+"zipPicker.add" = "Aggiungi (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Novità";
+"whatsnew.version" = "Versione %@";
+"whatsnew.s1.title" = "Importazione più rapida";
+"whatsnew.s1.b1" = "Importa più giochi in una volta da File.";
+"whatsnew.s1.b2" = "Uno ZIP con più giochi ora ti lascia scegliere quali aggiungere.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Gli obiettivi bloccati ora mostrano i tuoi progressi mentre giochi.";
+"whatsnew.s2.b2" = "Gli avvisi dell'emulatore non compaiono più come obiettivi sbloccati.";
+"whatsnew.s3.title" = "Libreria";
+"whatsnew.s3.b1" = "Le copertine ora appaiono senza lampeggiare, anche offline.";
+"whatsnew.footer" = "Puoi rileggere queste novità in qualsiasi momento nelle Impostazioni.";
+"whatsnew.dismiss" = "Capito!";

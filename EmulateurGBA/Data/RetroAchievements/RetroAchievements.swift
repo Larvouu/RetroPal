@@ -88,7 +88,52 @@ final class RetroAchievements: NSObject, ObservableObject {
     @Published private(set) var isOnline = true
 
     /// The loaded game's achievements for the dashboard (empty if none).
-    func achievements() -> [RAAchievementInfo] { client.currentGameAchievements() }
+    ///
+    /// Display loads (Game Details page, library profile) have no memory
+    /// bridge, so rc_client reports no measured progress there — and the
+    /// server has no per-user measured-progress endpoint either. Overlay the
+    /// last live-session snapshot (RAGameRecord.measured) onto still-locked
+    /// achievements so the x/y bars survive outside gameplay. Live values,
+    /// when present, always win.
+    func achievements() -> [RAAchievementInfo] {
+        let list = client.currentGameAchievements()
+        guard let filename = currentROMFilename,
+              let romHash = RAGameIndex.shared.romHash(forFilename: filename) else { return list }
+        let stored = RAGameIndex.shared.measuredProgress(forROMHash: romHash)
+        guard !stored.isEmpty else { return list }
+        for ach in list {
+            guard !ach.unlocked, ach.measuredProgress == nil,
+                  let entry = stored[ach.achievementID] else { continue }
+            ach.measuredProgress = entry.progress
+            ach.measuredPercent = entry.percent
+        }
+        return list
+    }
+
+    /// Persist the live runtime's measured values (see achievements() above
+    /// for why). Runs on unlocks, on progress-indicator events (both on the
+    /// emulation thread — the list read is rc_client-mutex-safe, the romHash
+    /// was resolved at session start, the store hops to main) and at
+    /// endSession; replaces the game's whole snapshot each time so unlocked
+    /// achievements drop out on their own. Only ever from a LIVE session —
+    /// a display load has no values and would wipe the stored ones.
+    private func snapshotMeasuredProgress() {
+        guard activeSession != nil, let romHash = activeSessionROMHash else { return }
+        let list = client.currentGameAchievements()
+        guard !list.isEmpty else { return }   // load failed/not landed: keep the stored snapshot
+        let entries = list.compactMap { ach -> RAMeasuredEntry? in
+            guard !ach.unlocked, let progress = ach.measuredProgress, ach.measuredPercent > 0 else { return nil }
+            return RAMeasuredEntry(achievementID: ach.achievementID,
+                                   progress: progress,
+                                   percent: ach.measuredPercent)
+        }
+        let unlockedIDs = Set(list.filter(\.unlocked).map(\.achievementID))
+        publishOnMain {
+            RAGameIndex.shared.mergeMeasuredProgress(romHash: romHash,
+                                                     entries: entries,
+                                                     unlockedIDs: unlockedIDs)
+        }
+    }
 
     /// Box-art URL for the loaded game (for the share card), from rc_client.
     func currentGameBoxArtURL() -> URL? { client.currentGameBoxArtURL().flatMap(URL.init(string:)) }
@@ -109,6 +154,11 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// rc_client load mid-session (a failed load used to stay dead until the
     /// game was relaunched).
     private var activeSessionROMPath: String?
+    /// The live session's romHash, resolved ONCE on the main thread at session
+    /// start. The measured-progress snapshot runs on the emulation thread
+    /// (unlock / progress events) and must not read RAGameIndex's mutable
+    /// lookup tables from there.
+    private var activeSessionROMHash: String?
     /// The live session attempted a load that failed (or could not start,
     /// login pending) — the successful retry then shows the "resumed" notice.
     private var liveSessionLoadFailed = false
@@ -415,6 +465,7 @@ final class RetroAchievements: NSObject, ObservableObject {
         activeSession = session
         activeSessionROMPath = romPath
         currentROMFilename = (romPath as NSString).lastPathComponent
+        activeSessionROMHash = RAGameIndex.shared.romHash(forFilename: (romPath as NSString).lastPathComponent)
         client.setMemoryReader { [weak session] address, buffer, length in
             guard let session else { return 0 }
             return session.readMemory(at: address, into: buffer, length: length)
@@ -470,9 +521,13 @@ final class RetroAchievements: NSObject, ObservableObject {
     }
 
     func endSession() {
+        // Capture the live measured values BEFORE the unload wipes the
+        // runtime (no-op unless a live session is active).
+        snapshotMeasuredProgress()
         activeSession?.onFrameAdvance = nil
         activeSession = nil
         activeSessionROMPath = nil
+        activeSessionROMHash = nil
         liveSessionLoadFailed = false
         currentROMFilename = nil
         client.setMemoryReader(nil)
@@ -591,6 +646,9 @@ extension RetroAchievements: RAClientDelegate {
         }
         // Anonymous adoption signal: no title, no game, no identity — just a count.
         Analytics.signal("ra_unlock")
+        // The unlocked achievement drops out of the measured snapshot (and a
+        // multi-step one may have companions that moved).
+        snapshotMeasuredProgress()
         // Reflect the new softcore score.
         refreshUser()
     }
@@ -662,6 +720,13 @@ extension RetroAchievements: RAClientDelegate {
 
     func raClientDidHideProgressIndicator(_ client: RAClient) {
         publishOnMain { self.progressIndicator = nil }
+        // Snapshot HERE, not on the update events: updates can burst every
+        // frame while the indicator is visible (each snapshot walks the full
+        // achievement list on the emulation thread), whereas hide fires once
+        // per display cycle, after the value settles. A force-kill inside the
+        // ~2s visibility window loses nothing durable: endSession covers the
+        // normal quit, and RAM-derived values re-evaluate next session.
+        snapshotMeasuredProgress()
     }
 
     func raClientDidChangeUser(_ client: RAClient) {

@@ -106,6 +106,7 @@ static void RALogMessage(const char *message, const rc_client_t *client);
             // 101000001 == rc_client's private RC_CLIENT_ACHIEVEMENT_WARNING_ID.
             if (ach->id >= 101000001) continue;
             RAAchievementInfo *info = [RAAchievementInfo new];
+            info.achievementID = ach->id;
             info.title = ach->title ? @(ach->title) : @"";
             info.detail = ach->description ? @(ach->description) : @"";
             info.points = (NSInteger)ach->points;
@@ -117,6 +118,7 @@ static void RALogMessage(const char *message, const rc_client_t *client);
             info.unlocked = (ach->unlocked != RC_CLIENT_ACHIEVEMENT_UNLOCKED_NONE);
             info.measuredProgress = (ach->measured_progress[0] != '\0')
                 ? @(ach->measured_progress) : nil;
+            info.measuredPercent = (double)ach->measured_percent;
             info.rarity = ach->rarity;  // % of players who earned it (softcore)
             char url[256] = {0};
             int state = info.unlocked ? RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED
@@ -552,6 +554,14 @@ static void RALogMessage(const char *message, const rc_client_t *client);
         case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED: {
             const rc_client_achievement_t *ach = event->achievement;
             if (!ach) break;
+            // Server-synthesized warning "achievements" ("Warning: Unknown
+            // Emulator", "Unsupported Game Version") raise TRIGGERED like real
+            // ones. Keep them out of the whole unlock pipeline (HUD banner,
+            // tap-to-share, unlock log, ra_unlock signal, review-prompt
+            // window) — mirrors the list filter in currentGameAchievements;
+            // rc_client itself excludes id >= 101000001 from summaries and
+            // never submits them (RC_CLIENT_ACHIEVEMENT_WARNING_ID).
+            if (ach->id >= 101000001) break;
             NSString *title = ach->title ? @(ach->title) : @"";
             NSString *desc = ach->description ? @(ach->description) : @"";
             NSString *badge = (ach->badge_url && ach->badge_url[0]) ? @(ach->badge_url) : nil;

@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versiune";
 "settings.core" = "Nucleul emulatorului";
+"settings.rateApp" = "Evaluează Retro Pal";
 "settings.disclaimer" = "Retro Pal este un emulator local. Nu include niciun joc. Importă doar fișiere pe care le deții legal.";
 "settings.restore" = "Restaurează achizițiile";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Jocul nu a putut fi copiat în Retro Pal. Eliberează spațiu de stocare și încearcă din nou.";
 "import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc și .nds.";
 "import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc și .nds; alte console nu sunt acceptate.";
-"import.error.zipMultipleROMs" = "Acest ZIP conține mai multe jocuri. Dezarhivează-l în aplicația Fișiere, apoi importă fiecare joc separat.";
 "import.error.zipExtractionFailed" = "Acest ZIP nu a putut fi deschis. Dezarhivează-l în aplicația Fișiere, apoi importă direct fișierul jocului.";
 "import.error.alreadyImported" = "Acest joc este deja în biblioteca ta.";
 "import.error.saveFailed" = "Jocul nu a putut fi adăugat în bibliotecă. Încearcă din nou.";
 "import.error.differentGame" = "Acest fișier este un alt joc decât cel pe care îl înlocuiești.";
+"import.error.batchIntro" = "Aceste fișiere nu au putut fi importate:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Jocuri în acest ZIP";
+"zipPicker.caption" = "Alege jocurile pe care vrei să le adaugi în bibliotecă.";
+"zipPicker.add" = "Adaugă (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Noutăți";
+"whatsnew.version" = "Versiunea %@";
+"whatsnew.s1.title" = "Import mai rapid";
+"whatsnew.s1.b1" = "Importă mai multe jocuri deodată din Fișiere.";
+"whatsnew.s1.b2" = "Un ZIP cu mai multe jocuri îți permite acum să alegi ce adaugi.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Realizările blocate afișează acum progresul în timp ce joci.";
+"whatsnew.s2.b2" = "Notificările emulatorului nu mai apar ca realizări deblocate.";
+"whatsnew.s3.title" = "Bibliotecă";
+"whatsnew.s3.b1" = "Copertele apar acum fără clipire, chiar și offline.";
+"whatsnew.footer" = "Poți reciti aceste noutăți oricând în Setări.";
+"whatsnew.dismiss" = "Am înțeles!";

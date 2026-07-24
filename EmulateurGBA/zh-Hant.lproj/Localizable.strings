@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "版本";
 "settings.core" = "模擬器核心";
+"settings.rateApp" = "為 Retro Pal 評分";
 "settings.disclaimer" = "Retro Pal 是純本機運作的模擬器，不內含任何遊戲。請只匯入你合法持有的檔案。";
 "settings.restore" = "回復購買項目";
 
@@ -458,8 +459,28 @@
 "import.error.copyFailed" = "無法將遊戲複製到 Retro Pal。請先釋出一些儲存空間，再試一次。";
 "import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc 和 .nds。";
 "import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc 和 .nds 遊戲，不支援其他主機。";
-"import.error.zipMultipleROMs" = "這個 ZIP 內含多個遊戲。請先在「檔案」App 解壓縮，再逐一匯入每個遊戲。";
 "import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
 "import.error.alreadyImported" = "這個遊戲已經在你的遊戲庫裡了。";
 "import.error.saveFailed" = "無法將遊戲加入遊戲庫。請再試一次。";
 "import.error.differentGame" = "這個檔案是另一款遊戲，不是你要取代的那一款。";
+"import.error.batchIntro" = "以下檔案無法匯入：";
+"import.error.batchLine" = "• %1$@：%2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "ZIP 內的遊戲";
+"zipPicker.caption" = "選擇要加入遊戲庫的遊戲。";
+"zipPicker.add" = "加入 (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "新功能";
+"whatsnew.version" = "版本 %@";
+"whatsnew.s1.title" = "更快的匯入";
+"whatsnew.s1.b1" = "可以從「檔案」一次匯入多個遊戲。";
+"whatsnew.s1.b2" = "內含多個遊戲的 ZIP 現在可以選擇要加入哪些遊戲。";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "未解鎖的成就現在會在遊玩時顯示進度。";
+"whatsnew.s2.b2" = "模擬器提示不再顯示為成就解鎖。";
+"whatsnew.s3.title" = "遊戲庫";
+"whatsnew.s3.b1" = "封面顯示不再閃爍，離線時也能顯示。";
+"whatsnew.footer" = "你可以隨時在設定中重新查看這些內容。";
+"whatsnew.dismiss" = "知道了！";

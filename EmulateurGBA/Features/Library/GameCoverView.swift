@@ -12,17 +12,11 @@ import SwiftUI
 
 struct GameCoverView: View {
     let romFilePath: String?
-    /// Cover image on disk (user-picked or downloaded — the caller resolves
-    /// the priority), shown instead of the save-state preview when the file
-    /// exists (a missing file falls back to the screenshot silently).
+    /// Cover image on disk (user-picked, adopted RA image, or downloaded —
+    /// the caller resolves the priority), shown instead of the save-state
+    /// preview when the file exists (a missing file falls back to the
+    /// screenshot silently).
     var boxArtURL: URL? = nil
-    /// Remote cover (the RetroAchievements game image, square): when given,
-    /// it OUTRANKS the local file — the caller only passes it when RA's
-    /// byte-level identification beats our heuristic match (base-named ROM
-    /// hacks) or when there is no local cover at all. Loaded async; the
-    /// local cover (else the screenshot) shows while loading and stays on
-    /// failure.
-    var remoteArtURL: URL? = nil
     /// Library-only harmonized sizing: the view sizes ITSELF to this fixed
     /// width (the width a GBA screenshot occupies in the row) and lets the
     /// height follow the image's own aspect ratio, capped at a square —
@@ -33,30 +27,9 @@ struct GameCoverView: View {
     /// (Game Details keeps its height-based header layout).
     var fixedWidth: CGFloat? = nil
 
+    // The on-disk cover (user-picked, RA, or downloaded), else the
+    // screenshot chain. Always a local file: no async phase, no flash.
     var body: some View {
-        if let remoteArtURL {
-            AsyncImage(url: remoteArtURL) { phase in
-                if let image = phase.image {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    localArtContent
-                }
-            }
-            // RA game images are square; frame(nil, nil) is a no-op.
-            .frame(width: fixedWidth, height: fixedWidth)
-            .accessibilityLabel("Game box art")
-        } else {
-            localArtContent
-        }
-    }
-
-    /// The on-disk cover (user-picked or downloaded), else the screenshot
-    /// chain. Also what shows under a still-loading or failed remote image.
-    @ViewBuilder
-    private var localArtContent: some View {
         if let boxArtURL, let boxArt = UIImage(contentsOfFile: boxArtURL.path) {
             // No .interpolation(.none) here: covers are photographic
             // artwork, not pixel art like the screenshots below.
@@ -72,8 +45,7 @@ struct GameCoverView: View {
     }
 
     /// The pre-box-art behavior: latest save-state preview, else the
-    /// controller placeholder. Also what shows under a still-loading or
-    /// failed remote image.
+    /// controller placeholder.
     @ViewBuilder
     private var fallbackContent: some View {
         if let image = loadLatestPreview() {

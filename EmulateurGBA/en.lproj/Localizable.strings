@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Emulator Core";
+"settings.rateApp" = "Rate Retro Pal";
 "settings.disclaimer" = "Retro Pal is a local-only emulator. No games are included. Import only files you legally own.";
 "settings.restore" = "Restore Purchases";
 
@@ -458,8 +459,28 @@
 "import.error.copyFailed" = "The game couldn't be copied into Retro Pal. Free up some storage and try again.";
 "import.error.invalidROM" = "This file isn't a game Retro Pal can read. Supported games: .gba, .gb, .gbc and .nds.";
 "import.error.zipNoROM" = "No game file was found in this ZIP. Retro Pal reads .gba, .gb, .gbc and .nds games; other consoles aren't supported.";
-"import.error.zipMultipleROMs" = "This ZIP contains several games. Extract it in the Files app, then import each game on its own.";
 "import.error.zipExtractionFailed" = "This ZIP couldn't be opened. Extract it in the Files app, then import the game file directly.";
 "import.error.alreadyImported" = "This game is already in your library.";
 "import.error.saveFailed" = "The game couldn't be added to your library. Please try again.";
 "import.error.differentGame" = "This file is a different game from the one you're replacing.";
+"import.error.batchIntro" = "These files couldn't be imported:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Games in this ZIP";
+"zipPicker.caption" = "Choose which games to add to your library.";
+"zipPicker.add" = "Add (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "What's New";
+"whatsnew.version" = "Version %@";
+"whatsnew.s1.title" = "Faster imports";
+"whatsnew.s1.b1" = "Import several games at once from the Files picker.";
+"whatsnew.s1.b2" = "A ZIP containing several games now lets you choose which ones to add.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Locked achievements now show your progress as you play.";
+"whatsnew.s2.b2" = "Emulator notices no longer show up as achievement unlocks.";
+"whatsnew.s3.title" = "Library";
+"whatsnew.s3.b1" = "Game covers now show without flashing, even offline.";
+"whatsnew.footer" = "You can reread these notes anytime in Settings.";
+"whatsnew.dismiss" = "Got it!";

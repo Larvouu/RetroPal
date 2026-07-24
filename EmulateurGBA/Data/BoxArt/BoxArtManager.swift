@@ -12,9 +12,12 @@
 //  written but never read until now):
 //    "placeholder"      -> not yet resolved (default; retried until terminal)
 //    "boxart"           -> cover on disk, matched byte-exact by CRC32
-//    "boxart_heuristic" -> cover on disk, matched by serial/fuzzy — the RA
-//                          game image outranks it in the library display
-//    "none"             -> definitive no-match; screenshot (or RA image)
+//    "boxart_heuristic" -> cover on disk, matched by serial/fuzzy
+//    "ra"               -> the RetroAchievements game image, downloaded to
+//                          disk once; it replaces a heuristic match or a
+//                          no-match because RA identified the ACTUAL bytes
+//                          (a base-named ROM hack gets its own art)
+//    "none"             -> definitive no-match; screenshot stays
 //    "custom"           -> user-picked cover; beats everything, never reset
 //  A transport failure (offline, timeout, 5xx) leaves "placeholder" so the
 //  game is retried on a later sweep; only a definitive answer (a downloaded
@@ -52,8 +55,14 @@ final class BoxArtManager {
     /// Cover matched by serial or fuzzy title: right for legit renamed or
     /// trimmed dumps, but a base-named ROM hack can land here wearing its
     /// base game's box. The RA game image (which identifies the ACTUAL
-    /// bytes via hash) outranks this one in the library when available.
+    /// bytes via hash) replaces this one when it becomes available.
     static let coverStateBoxArtHeuristic = "boxart_heuristic"
+    /// The RetroAchievements game image, adopted as the persistent cover
+    /// over a heuristic match or a no-match (RA identified the actual
+    /// bytes, so it wins on hacks). On disk like any other cover: no
+    /// network on display, stable offline, kept after an RA sign-out.
+    /// Never adopted over a byte-exact CRC match or a custom cover.
+    static let coverStateRA = "ra"
     static let coverStateNone = "none"
     /// A cover the user picked themselves. Beats every automatic source,
     /// is never touched by sweeps or resolution-version resets, and is the
@@ -80,6 +89,10 @@ final class BoxArtManager {
     /// failing game can't loop within one session. Main-thread only.
     private var inFlight = Set<String>()
     private var attemptedThisLaunch = Set<String>()
+    /// Same once-per-launch semantics for RA cover adoption (its trigger,
+    /// a terminal heuristic/none verdict plus an RA record, stays true
+    /// forever, so without this an offline launch would retry every sweep).
+    private var raAttemptedThisLaunch = Set<String>()
 
     /// Bump when the matching logic changes in a way that can OVERTURN old
     /// verdicts; the next sweep then resets every terminal state and
@@ -114,6 +127,12 @@ final class BoxArtManager {
         directory.appendingPathComponent(romHash + "-custom").appendingPathExtension("jpg")
     }
 
+    /// Where an adopted RA cover lives (separate file: the automatic
+    /// <hash>.png it outranked, e.g. a heuristic match, may coexist).
+    func raImageURL(forROMHash romHash: String) -> URL {
+        directory.appendingPathComponent(romHash + "-ra").appendingPathExtension("png")
+    }
+
     // MARK: - Custom covers (main thread; called from Game Details)
 
     /// Persists a user-picked cover and flips the game to "custom".
@@ -143,11 +162,13 @@ final class BoxArtManager {
         guard let romHash = game.value(forKey: "romHash") as? String else { return }
         try? FileManager.default.removeItem(at: customImageURL(forROMHash: romHash))
         try? FileManager.default.removeItem(at: imageURL(forROMHash: romHash))
+        try? FileManager.default.removeItem(at: raImageURL(forROMHash: romHash))
         game.setValue(Self.coverStatePlaceholder, forKey: "coverType")
         try? game.managedObjectContext?.save()
         // Let the next sweep re-resolve right away (this launch may already
         // have attempted the game before the custom cover was set).
         attemptedThisLaunch.remove(romHash)
+        raAttemptedThisLaunch.remove(romHash)
     }
 
     /// Longest side capped (covers never need more); keeps small images as-is.
@@ -173,10 +194,14 @@ final class BoxArtManager {
             let files = (try? FileManager.default.contentsOfDirectory(at: directory,
                                                                       includingPropertiesForKeys: nil)) ?? []
             for file in files {
-                // Downloaded covers are <hash>.png, user-picked ones are
-                // <hash>-custom.jpg; both leave with their game.
+                // Downloaded covers are <hash>.png, adopted RA covers are
+                // <hash>-ra.png, user-picked ones are <hash>-custom.jpg;
+                // all leave with their game.
                 let stem = file.deletingPathExtension().lastPathComponent
-                let romHash = stem.hasSuffix("-custom") ? String(stem.dropLast("-custom".count)) : stem
+                var romHash = stem
+                for suffix in ["-custom", "-ra"] where stem.hasSuffix(suffix) {
+                    romHash = String(stem.dropLast(suffix.count))
+                }
                 if !keep.contains(romHash) {
                     try? FileManager.default.removeItem(at: file)
                 }
@@ -186,6 +211,7 @@ final class BoxArtManager {
         for game in games {
             guard game.coverState != Self.coverStateNone,
                   game.coverState != Self.coverStateCustom,
+                  game.coverState != Self.coverStateRA,
                   !FileManager.default.fileExists(atPath: imageURL(forROMHash: game.romHash).path),
                   !inFlight.contains(game.romHash),
                   !attemptedThisLaunch.contains(game.romHash)
@@ -194,6 +220,33 @@ final class BoxArtManager {
             // through here and simply re-resolves.
             inFlight.insert(game.romHash)
             workQueue.async { [weak self] in self?.resolve(game) }
+        }
+
+        // RA cover adoption: a terminal heuristic match or no-match upgrades
+        // to the RA game image once RA has identified the game's bytes (the
+        // record arrives with the first signed-in play, so this typically
+        // fires on the next library refresh). The image is downloaded ONCE
+        // to disk and the game flips to "ra": the row then renders a local
+        // file — no per-launch network, no flash against the old cover, and
+        // it still shows offline. An "ra" game whose file is gone (restore
+        // to a new device) re-downloads the same way. A byte-exact CRC match
+        // or a custom cover is never overridden.
+        for game in games {
+            let overridable = game.coverState == Self.coverStateNone
+                || game.coverState == Self.coverStateBoxArtHeuristic
+            let fileMissing = !FileManager.default.fileExists(
+                atPath: raImageURL(forROMHash: game.romHash).path)
+            guard overridable || (game.coverState == Self.coverStateRA && fileMissing),
+                  !inFlight.contains(game.romHash),
+                  !raAttemptedThisLaunch.contains(game.romHash),
+                  let art = RAGameIndex.shared.record(forROMHash: game.romHash)?.boxArtURL,
+                  // Never RA's generic controller placeholder (games with no
+                  // RA image, e.g. homebrew): the current cover stays.
+                  !art.hasSuffix("/000001.png"),
+                  let url = URL(string: art)
+            else { continue }
+            inFlight.insert(game.romHash)
+            workQueue.async { [weak self] in self?.adoptRAArt(game, from: url) }
         }
     }
 
@@ -209,9 +262,12 @@ final class BoxArtManager {
         let context = PersistenceController.shared.container.viewContext
         let request = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
         // User-picked covers are the user's decision, not a verdict of ours:
-        // a matching-logic bump must never touch them.
-        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@",
-                                        Self.coverStatePlaceholder, Self.coverStateCustom)
+        // a matching-logic bump must never touch them. Adopted RA covers come
+        // from RA's byte-hash identification, not our matching rules, so a
+        // matching-logic bump can't overturn them either.
+        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@ AND coverType != %@",
+                                        Self.coverStatePlaceholder, Self.coverStateCustom,
+                                        Self.coverStateRA)
         if let stale = try? context.fetch(request), !stale.isEmpty {
             for entity in stale {
                 entity.setValue(Self.coverStatePlaceholder, forKey: "coverType")
@@ -356,7 +412,10 @@ final class BoxArtManager {
     }
 
     private func fetch(stem: String, systemDirectory: String) -> FetchResult {
-        let url = Self.thumbnailURL(stem: stem, systemDirectory: systemDirectory)
+        fetch(url: Self.thumbnailURL(stem: stem, systemDirectory: systemDirectory))
+    }
+
+    private func fetch(url: URL) -> FetchResult {
         var result: FetchResult = .transportFailure
         let semaphore = DispatchSemaphore(value: 0)
         session.dataTask(with: url) { data, response, _ in
@@ -388,10 +447,14 @@ final class BoxArtManager {
             let request = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
             request.predicate = NSPredicate(format: "romHash == %@", game.romHash)
             request.fetchLimit = 1
-            guard let entity = (try? context.fetch(request))?.first,
-                  // The user may have set a custom cover while this resolve
-                  // was in flight; their choice is never overwritten.
-                  (entity.value(forKey: "coverType") as? String) != Self.coverStateCustom
+            guard let entity = (try? context.fetch(request))?.first else { return }
+            let current = entity.value(forKey: "coverType") as? String
+            // The user may have set a custom cover while this resolve was in
+            // flight; their choice is never overwritten. An adopted RA cover
+            // yields only to a byte-exact CRC match (defensive: inFlight
+            // serializes resolve and adoption per game, so they can't race).
+            guard current != Self.coverStateCustom,
+                  current != Self.coverStateRA || state == Self.coverStateBoxArt
             else { return }
             entity.setValue(state, forKey: "coverType")
             try? context.save()
@@ -406,6 +469,45 @@ final class BoxArtManager {
             } else if state == Self.coverStateNone {
                 Analytics.signal("boxart_match", ["result": "no_match",
                                                   "system": game.system])
+            }
+        }
+    }
+
+    // MARK: - RA cover adoption (work queue, one game at a time)
+
+    /// Downloads the RA game image to disk (skipped if a previous attempt
+    /// already wrote it) and flips the game to "ra" on the main thread.
+    /// Mirrors resolve()'s retry semantics: one attempt per launch, and a
+    /// failed download just leaves the current cover; the next launch's
+    /// sweep tries again (the trigger, a terminal heuristic/none verdict
+    /// plus an RA record, stays true until adoption succeeds).
+    private func adoptRAArt(_ game: GameInput, from url: URL) {
+        let target = raImageURL(forROMHash: game.romHash)
+        var adopted = FileManager.default.fileExists(atPath: target.path)
+        if !adopted, case .image(let data) = fetch(url: url) {
+            do {
+                try data.write(to: target, options: .atomic)
+                adopted = true
+            } catch {}
+        }
+        DispatchQueue.main.async {
+            self.inFlight.remove(game.romHash)
+            self.raAttemptedThisLaunch.insert(game.romHash)
+            guard adopted else { return }
+
+            let context = PersistenceController.shared.container.viewContext
+            let request = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
+            request.predicate = NSPredicate(format: "romHash == %@", game.romHash)
+            request.fetchLimit = 1
+            guard let entity = (try? context.fetch(request))?.first else { return }
+            // Only the states this adoption was allowed to beat; anything
+            // set meanwhile (a custom cover, a CRC re-resolve) wins.
+            switch entity.value(forKey: "coverType") as? String {
+            case Self.coverStateNone, Self.coverStateBoxArtHeuristic:
+                entity.setValue(Self.coverStateRA, forKey: "coverType")
+                try? context.save()
+            default:
+                break
             }
         }
     }

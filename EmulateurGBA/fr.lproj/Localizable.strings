@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Moteur d'émulation";
+"settings.rateApp" = "Noter Retro Pal";
 "settings.disclaimer" = "Retro Pal est un émulateur local. Aucun jeu n'est inclus. N'importez que des fichiers que vous possédez légalement.";
 "settings.restore" = "Restaurer les achats";
 
@@ -460,8 +461,28 @@
 "import.error.copyFailed" = "Le jeu n'a pas pu être copié dans Retro Pal. Libérez de l'espace de stockage et réessayez.";
 "import.error.invalidROM" = "Ce fichier n'est pas un jeu lisible par Retro Pal. Jeux pris en charge : .gba, .gb, .gbc et .nds.";
 "import.error.zipNoROM" = "Aucun fichier de jeu trouvé dans ce ZIP. Retro Pal lit les jeux .gba, .gb, .gbc et .nds ; les autres consoles ne sont pas prises en charge.";
-"import.error.zipMultipleROMs" = "Ce ZIP contient plusieurs jeux. Décompressez-le dans l'app Fichiers, puis importez chaque jeu séparément.";
 "import.error.zipExtractionFailed" = "Ce ZIP n'a pas pu être ouvert. Décompressez-le dans l'app Fichiers, puis importez directement le fichier de jeu.";
 "import.error.alreadyImported" = "Ce jeu est déjà dans votre bibliothèque.";
 "import.error.saveFailed" = "Le jeu n'a pas pu être ajouté à votre bibliothèque. Réessayez.";
 "import.error.differentGame" = "Ce fichier correspond à un autre jeu que celui que vous remplacez.";
+"import.error.batchIntro" = "Ces fichiers n'ont pas pu être importés :";
+"import.error.batchLine" = "• %1$@ : %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Jeux dans ce ZIP";
+"zipPicker.caption" = "Choisissez les jeux à ajouter à votre bibliothèque.";
+"zipPicker.add" = "Ajouter (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Nouveautés";
+"whatsnew.version" = "Version %@";
+"whatsnew.s1.title" = "Import plus rapide";
+"whatsnew.s1.b1" = "Importez plusieurs jeux à la fois depuis Fichiers.";
+"whatsnew.s1.b2" = "Un ZIP contenant plusieurs jeux vous laisse désormais choisir lesquels ajouter.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Les succès verrouillés affichent désormais votre progression pendant que vous jouez.";
+"whatsnew.s2.b2" = "Les messages de l'émulateur n'apparaissent plus comme des succès débloqués.";
+"whatsnew.s3.title" = "Bibliothèque";
+"whatsnew.s3.b1" = "Les jaquettes s'affichent désormais sans clignoter, même hors connexion.";
+"whatsnew.footer" = "Retrouvez ces nouveautés à tout moment dans les Réglages.";
+"whatsnew.dismiss" = "Compris !";

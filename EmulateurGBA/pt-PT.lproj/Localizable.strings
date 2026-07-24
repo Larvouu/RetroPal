@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versão";
 "settings.core" = "Núcleo do emulador";
+"settings.rateApp" = "Avaliar o Retro Pal";
 "settings.disclaimer" = "Retro Pal é um emulador local. Não inclui jogos. Importa apenas ficheiros que possuas legalmente.";
 "settings.restore" = "Restaurar compras";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Não foi possível copiar o jogo para o Retro Pal. Liberta espaço de armazenamento e tenta novamente.";
 "import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc e .nds.";
 "import.error.zipNoROM" = "Não foi encontrado nenhum jogo neste ZIP. O Retro Pal lê jogos .gba, .gb, .gbc e .nds; outras consolas não são suportadas.";
-"import.error.zipMultipleROMs" = "Este ZIP contém vários jogos. Extrai-o na app Ficheiros e importa cada jogo separadamente.";
 "import.error.zipExtractionFailed" = "Não foi possível abrir este ZIP. Extrai-o na app Ficheiros e importa diretamente o ficheiro do jogo.";
 "import.error.alreadyImported" = "Este jogo já está na tua biblioteca.";
 "import.error.saveFailed" = "Não foi possível adicionar o jogo à biblioteca. Tenta novamente.";
 "import.error.differentGame" = "Este ficheiro é um jogo diferente daquele que estás a substituir.";
+"import.error.batchIntro" = "Não foi possível importar estes ficheiros:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Jogos neste ZIP";
+"zipPicker.caption" = "Escolhe os jogos a adicionar à tua biblioteca.";
+"zipPicker.add" = "Adicionar (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Novidades";
+"whatsnew.version" = "Versão %@";
+"whatsnew.s1.title" = "Importação mais rápida";
+"whatsnew.s1.b1" = "Importa vários jogos de uma vez a partir de Ficheiros.";
+"whatsnew.s1.b2" = "Um ZIP com vários jogos agora deixa-te escolher quais adicionar.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "As conquistas bloqueadas mostram agora o teu progresso enquanto jogas.";
+"whatsnew.s2.b2" = "Os avisos do emulador já não aparecem como conquistas desbloqueadas.";
+"whatsnew.s3.title" = "Biblioteca";
+"whatsnew.s3.b1" = "As capas aparecem agora sem piscar, mesmo offline.";
+"whatsnew.footer" = "Podes reler estas novidades em qualquer altura nas Definições.";
+"whatsnew.dismiss" = "Entendido!";

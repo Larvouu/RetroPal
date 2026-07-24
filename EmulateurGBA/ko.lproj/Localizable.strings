@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "버전";
 "settings.core" = "에뮬레이터 코어";
+"settings.rateApp" = "Retro Pal 평가하기";
 "settings.disclaimer" = "Retro Pal은 로컬 전용 에뮬레이터입니다. 게임은 포함되어 있지 않습니다. 합법적으로 소유한 파일만 가져오세요.";
 "settings.restore" = "구입 항목 복원";
 
@@ -458,8 +459,28 @@
 "import.error.copyFailed" = "게임을 Retro Pal에 복사하지 못했습니다. 저장 공간을 확보한 뒤 다시 시도해 주세요.";
 "import.error.invalidROM" = "이 파일은 Retro Pal에서 읽을 수 있는 게임이 아닙니다. 지원되는 게임: .gba, .gb, .gbc, .nds.";
 "import.error.zipNoROM" = "이 ZIP에서 게임 파일을 찾지 못했습니다. Retro Pal은 .gba, .gb, .gbc, .nds 게임만 읽을 수 있으며, 다른 콘솔은 지원하지 않습니다.";
-"import.error.zipMultipleROMs" = "이 ZIP에는 여러 게임이 들어 있습니다. '파일' 앱에서 압축을 푼 뒤 게임을 하나씩 가져와 주세요.";
 "import.error.zipExtractionFailed" = "이 ZIP을 열지 못했습니다. '파일' 앱에서 압축을 푼 뒤 게임 파일을 직접 가져와 주세요.";
 "import.error.alreadyImported" = "이 게임은 이미 라이브러리에 있습니다.";
 "import.error.saveFailed" = "게임을 라이브러리에 추가하지 못했습니다. 다시 시도해 주세요.";
 "import.error.differentGame" = "이 파일은 교체하려는 게임과 다른 게임입니다.";
+"import.error.batchIntro" = "다음 파일을 가져오지 못했습니다:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "ZIP 안의 게임";
+"zipPicker.caption" = "라이브러리에 추가할 게임을 선택하세요.";
+"zipPicker.add" = "추가 (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "새로운 기능";
+"whatsnew.version" = "버전 %@";
+"whatsnew.s1.title" = "더 빨라진 가져오기";
+"whatsnew.s1.b1" = "파일 앱에서 여러 게임을 한 번에 가져올 수 있습니다.";
+"whatsnew.s1.b2" = "여러 게임이 든 ZIP은 이제 추가할 게임을 선택할 수 있습니다.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "잠긴 도전 과제의 진행 상황이 플레이 중에 표시됩니다.";
+"whatsnew.s2.b2" = "에뮬레이터 알림이 더 이상 도전 과제 달성으로 표시되지 않습니다.";
+"whatsnew.s3.title" = "라이브러리";
+"whatsnew.s3.b1" = "커버가 깜박임 없이 표시되며, 오프라인에서도 보입니다.";
+"whatsnew.footer" = "이 내용은 설정에서 언제든지 다시 볼 수 있습니다.";
+"whatsnew.dismiss" = "알겠어요!";

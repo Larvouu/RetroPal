@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var proGlowShift = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showRALogin = false
+    @State private var showWhatsNew = false
     @State private var showRomGuide = false
     @State private var showSaveGuide = false
     @State private var showControllerGuide = false
@@ -297,6 +298,13 @@ struct SettingsView: View {
             }
 
             Section(NSLocalizedString("settings.about", comment: "")) {
+                // Permanent home of the release notes: the launch sheet shows
+                // once per update, this row keeps it reachable anytime.
+                Button {
+                    showWhatsNew = true
+                } label: {
+                    Label(NSLocalizedString("whatsnew.title", comment: ""), systemImage: "sparkles")
+                }
                 HStack {
                     Text(NSLocalizedString("settings.appLabel", comment: ""))
                     Spacer()
@@ -327,12 +335,24 @@ struct SettingsView: View {
                     Text("mGBA / melonDS")
                         .foregroundStyle(.secondary)
                 }
+                // Straight to the App Store review composer. Unlike the
+                // in-app ask, this path has no Apple quota: it must always
+                // be available to a motivated user.
+                Button {
+                    UIApplication.shared.open(
+                        URL(string: "itms-apps://apps.apple.com/app/id6769407672?action=write-review")!)
+                } label: {
+                    Label(NSLocalizedString("settings.rateApp", comment: ""), systemImage: "star")
+                }
             }
 
             #if DEBUG
             Section("Debug") {
                 Button("Preview Review Card") {
                     showReviewPreview = true
+                }
+                Button("What's New: reset seen version (re-arms the launch sheet)") {
+                    WhatsNew.debugResetSeen()
                 }
                 Toggle("Force empty-state onboarding", isOn: $debugForceEmptyState)
                 Button(controllers.isConnected
@@ -400,6 +420,7 @@ struct SettingsView: View {
         // Presented at the List level (not inside the RA section) so a section
         // re-render can't dismiss it as it animates in.
         .sheet(isPresented: $showRALogin) { RALoginView() }
+        .sheet(isPresented: $showWhatsNew) { WhatsNewSheet() }
         #if DEBUG
         // Lets the "Simulate RA unlock" debug button preview the in-game HUD here.
         // RAUnlockHUD ignores the safe area itself and positions the card by the

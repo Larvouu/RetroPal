@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Emulatorkärna";
+"settings.rateApp" = "Betygsätt Retro Pal";
 "settings.disclaimer" = "Retro Pal är en lokal emulator. Inga spel ingår. Importera bara filer du lagligt äger.";
 "settings.restore" = "Återställ köp";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Spelet kunde inte kopieras till Retro Pal. Frigör lagringsutrymme och försök igen.";
 "import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc och .nds.";
 "import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc och .nds; andra konsoler stöds inte.";
-"import.error.zipMultipleROMs" = "Den här ZIP-filen innehåller flera spel. Packa upp den i appen Filer och importera varje spel för sig.";
 "import.error.zipExtractionFailed" = "Den här ZIP-filen kunde inte öppnas. Packa upp den i appen Filer och importera spelfilen direkt.";
 "import.error.alreadyImported" = "Det här spelet finns redan i ditt bibliotek.";
 "import.error.saveFailed" = "Spelet kunde inte läggas till i biblioteket. Försök igen.";
 "import.error.differentGame" = "Den här filen är ett annat spel än det du ersätter.";
+"import.error.batchIntro" = "De här filerna kunde inte importeras:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Spel i den här ZIP-filen";
+"zipPicker.caption" = "Välj vilka spel du vill lägga till i biblioteket.";
+"zipPicker.add" = "Lägg till (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Nyheter";
+"whatsnew.version" = "Version %@";
+"whatsnew.s1.title" = "Snabbare import";
+"whatsnew.s1.b1" = "Importera flera spel på en gång från Filer.";
+"whatsnew.s1.b2" = "En ZIP med flera spel låter dig nu välja vilka som ska läggas till.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Låsta prestationer visar nu dina framsteg medan du spelar.";
+"whatsnew.s2.b2" = "Emulatorns meddelanden visas inte längre som upplåsta prestationer.";
+"whatsnew.s3.title" = "Bibliotek";
+"whatsnew.s3.b1" = "Omslag visas nu utan att blinka, även offline.";
+"whatsnew.footer" = "Du kan läsa de här nyheterna när som helst i Inställningar.";
+"whatsnew.dismiss" = "Uppfattat!";

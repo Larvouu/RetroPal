@@ -1161,6 +1161,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     func overlayDidTapQuit() {
+        // Direct system review request (1.2.3): decided BEFORE persistPlayTime,
+        // whose recordSessionEnd bumps sessionCount and zeroes the live
+        // seconds — the trigger must see the session as it was played.
+        var liveSessionSeconds = accumulatedPlaySeconds
+        if session.isRunning {
+            liveSessionSeconds += Date().timeIntervalSince(lastResumeTime)
+        }
+        let directReviewTrigger = PromptTracker.shared
+            .directReviewRequestTrigger(currentSessionSeconds: liveSessionSeconds)
+
         persistPlayTime()
         // One bucketed signal per ended game session: how much people actually
         // play, per console (play depth vs conversion / churn).
@@ -1183,6 +1193,22 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // shutdown() is idempotent and the serial queue runs the save before it.
         let session = self.session
         onQuit?()
+        // Fire the direct review request once the library is back on screen,
+        // so the system dialog never lands over gameplay. `requestReview` is
+        // silent when Apple's per-user quota is spent, so this repeating ask
+        // costs nothing (see PromptTracker's two-path doc). The signal means
+        // "requested", not "displayed" — Apple never reports the display.
+        if let trigger = directReviewTrigger {
+            PromptTracker.shared.recordDirectReviewRequested()
+            Analytics.signal("review_prompt_shown", ["trigger": trigger])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if let scene = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first(where: { $0.activationState == .foregroundActive }) {
+                    SKStoreReviewController.requestReview(in: scene)
+                }
+            }
+        }
         clipRecorder.stop()
         saveIOQueue.async {
             _ = session.autoSave(coordinated: false)

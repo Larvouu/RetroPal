@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Emulator-Kern";
+"settings.rateApp" = "Retro Pal bewerten";
 "settings.disclaimer" = "Retro Pal ist ein lokaler Emulator. Es sind keine Spiele enthalten. Importiere nur Dateien, die du legal besitzt.";
 "settings.restore" = "Käufe wiederherstellen";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "Das Spiel konnte nicht in Retro Pal kopiert werden. Gib Speicherplatz frei und versuche es erneut.";
 "import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc und .nds.";
 "import.error.zipNoROM" = "In diesem ZIP wurde keine Spieldatei gefunden. Retro Pal liest Spiele in .gba, .gb, .gbc und .nds; andere Konsolen werden nicht unterstützt.";
-"import.error.zipMultipleROMs" = "Dieses ZIP enthält mehrere Spiele. Entpacke es in der Dateien-App und importiere dann jedes Spiel einzeln.";
 "import.error.zipExtractionFailed" = "Dieses ZIP konnte nicht geöffnet werden. Entpacke es in der Dateien-App und importiere die Spieldatei direkt.";
 "import.error.alreadyImported" = "Dieses Spiel ist bereits in deiner Bibliothek.";
 "import.error.saveFailed" = "Das Spiel konnte nicht zur Bibliothek hinzugefügt werden. Versuche es erneut.";
 "import.error.differentGame" = "Diese Datei ist ein anderes Spiel als das, das du ersetzt.";
+"import.error.batchIntro" = "Diese Dateien konnten nicht importiert werden:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Spiele in diesem ZIP";
+"zipPicker.caption" = "Wähle die Spiele aus, die du deiner Bibliothek hinzufügen möchtest.";
+"zipPicker.add" = "Hinzufügen (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Neuigkeiten";
+"whatsnew.version" = "Version %@";
+"whatsnew.s1.title" = "Schnellerer Import";
+"whatsnew.s1.b1" = "Importiere mehrere Spiele auf einmal aus der Dateien-App.";
+"whatsnew.s1.b2" = "Bei einem ZIP mit mehreren Spielen wählst du jetzt aus, welche hinzugefügt werden.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Gesperrte Erfolge zeigen jetzt deinen Fortschritt, während du spielst.";
+"whatsnew.s2.b2" = "Hinweise des Emulators erscheinen nicht mehr als freigeschaltete Erfolge.";
+"whatsnew.s3.title" = "Bibliothek";
+"whatsnew.s3.b1" = "Cover werden jetzt ohne Flackern angezeigt, auch offline.";
+"whatsnew.footer" = "Du findest diese Neuigkeiten jederzeit in den Einstellungen.";
+"whatsnew.dismiss" = "Alles klar!";

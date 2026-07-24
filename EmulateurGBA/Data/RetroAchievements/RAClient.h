@@ -44,6 +44,9 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 /// One achievement of the loaded game, for the in-app dashboard. Built from
 /// rc_client's achievement list (no Web API key needed).
 @interface RAAchievementInfo : NSObject
+/// RA's stable achievement id — the key for the locally persisted
+/// measured-progress snapshots (titles can be edited server-side).
+@property (nonatomic, assign) uint32_t achievementID;
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, copy) NSString *detail;        // description
 @property (nonatomic, copy, nullable) NSString *badgeURL;
@@ -51,6 +54,10 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 @property (nonatomic, assign) BOOL unlocked;
 /// Measured progress for partially-done achievements (e.g. "12/50"), else nil.
 @property (nonatomic, copy, nullable) NSString *measuredProgress;
+/// Fraction complete of a measured achievement, 0-100 (rc_client's
+/// measured_percent). 0 when the achievement isn't measured (or no progress);
+/// drives the gold progress bars in the row and badge-wall UIs.
+@property (nonatomic, assign) double measuredPercent;
 /// Percentage of players who have earned this achievement (softcore). 0 if unknown.
 @property (nonatomic, assign) double rarity;
 @end

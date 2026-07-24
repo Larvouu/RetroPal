@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versie";
 "settings.core" = "Emulatorkern";
+"settings.rateApp" = "Beoordeel Retro Pal";
 "settings.disclaimer" = "Retro Pal is een lokale emulator. Er zijn geen spellen inbegrepen. Importeer alleen bestanden die je rechtmatig bezit.";
 "settings.restore" = "Aankopen herstellen";
 
@@ -461,8 +462,28 @@
 "import.error.copyFailed" = "De game kon niet naar Retro Pal worden gekopieerd. Maak opslagruimte vrij en probeer het opnieuw.";
 "import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc en .nds.";
 "import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc- en .nds-games; andere consoles worden niet ondersteund.";
-"import.error.zipMultipleROMs" = "Deze ZIP bevat meerdere games. Pak hem uit in de Bestanden-app en importeer elke game apart.";
 "import.error.zipExtractionFailed" = "Deze ZIP kon niet worden geopend. Pak hem uit in de Bestanden-app en importeer het gamebestand direct.";
 "import.error.alreadyImported" = "Deze game staat al in je bibliotheek.";
 "import.error.saveFailed" = "De game kon niet aan je bibliotheek worden toegevoegd. Probeer het opnieuw.";
 "import.error.differentGame" = "Dit bestand is een andere game dan die je vervangt.";
+"import.error.batchIntro" = "Deze bestanden konden niet worden geïmporteerd:";
+"import.error.batchLine" = "• %1$@: %2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "Games in deze ZIP";
+"zipPicker.caption" = "Kies welke games je aan je bibliotheek wilt toevoegen.";
+"zipPicker.add" = "Toevoegen (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "Wat is er nieuw";
+"whatsnew.version" = "Versie %@";
+"whatsnew.s1.title" = "Sneller importeren";
+"whatsnew.s1.b1" = "Importeer meerdere games tegelijk vanuit Bestanden.";
+"whatsnew.s1.b2" = "Bij een ZIP met meerdere games kies je nu welke je wilt toevoegen.";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "Vergrendelde prestaties tonen nu je voortgang terwijl je speelt.";
+"whatsnew.s2.b2" = "Meldingen van de emulator verschijnen niet meer als ontgrendelde prestaties.";
+"whatsnew.s3.title" = "Bibliotheek";
+"whatsnew.s3.b1" = "Covers verschijnen nu zonder flikkeren, ook offline.";
+"whatsnew.footer" = "Je kunt dit later altijd teruglezen in Instellingen.";
+"whatsnew.dismiss" = "Begrepen!";

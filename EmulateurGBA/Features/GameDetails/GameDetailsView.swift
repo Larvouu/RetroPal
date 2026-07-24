@@ -83,12 +83,14 @@ struct GameDetailsView: View {
     var body: some View {
         coreBody
             .sheet(isPresented: $showSavePicker) {
-                DocumentPickerView(contentTypes: DocumentPickerView.saveTypes) { url in
+                DocumentPickerView(contentTypes: DocumentPickerView.saveTypes) { urls in
+                    guard let url = urls.first else { return }
                     handlePickedSave(url: url)
                 }
             }
             .sheet(isPresented: $showROMPicker) {
-                DocumentPickerView(contentTypes: DocumentPickerView.romTypes) { url in
+                DocumentPickerView(contentTypes: DocumentPickerView.romTypes) { urls in
+                    guard let url = urls.first else { return }
                     handleReplaceROM(url: url)
                 }
             }

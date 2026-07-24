@@ -37,6 +37,15 @@ struct RAGameRecord: Codable, Equatable {
     /// keeps decoding.
     var pointsEarned: Int? = nil
     var pointsTotal: Int? = nil
+    /// Last known measured progress of the still-locked measured achievements
+    /// (e.g. "44/399" at 11%), snapshotted from the LIVE runtime during play.
+    /// The server has no per-user measured-progress endpoint and a display
+    /// load has no memory to evaluate, so without this snapshot the x/y
+    /// bars could never show outside a live session. Merged per snapshot
+    /// (new values win, unlocked drop out, absent ones survive — see
+    /// mergeMeasuredProgress). Optional so pre-existing index JSON keeps
+    /// decoding.
+    var measured: [RAMeasuredEntry]? = nil
     var resolvedAt: Date
     var refreshedAt: Date?
 
@@ -51,6 +60,16 @@ struct RAGameRecord: Codable, Equatable {
     /// total then cover ALL subsets and must not be overwritten by the
     /// base-set-only all-user-progress refresh.
     var countsFromLoad: Bool { pointsTotal != nil }
+}
+
+/// One still-locked measured achievement's progress, snapshotted from the live
+/// runtime (see RAGameRecord.measured). Keyed by RA's stable achievement id.
+struct RAMeasuredEntry: Codable, Equatable {
+    let achievementID: UInt32
+    /// rc_client's display string, e.g. "44/399".
+    let progress: String
+    /// 0-100.
+    let percent: Double
 }
 
 /// One achievement earned in Retro Pal, logged locally as it unlocks. Feeds the
@@ -69,6 +88,18 @@ struct RAUnlockLogEntry: Codable, Equatable, Identifiable {
     let rarity: Double
     let badgeURL: String?
     let boxArtURL: String?
+
+    /// True for rc_client's server-synthesized warning entries ("Warning:
+    /// Unknown Emulator", "Unsupported Game Version") persisted before the
+    /// bridge filtered the unlock event (RAClient.mm now drops
+    /// id >= 101000001 at the source). The log never stored the achievement
+    /// ID, so legacy entries are matched by the fixed server titles plus
+    /// their 0 points.
+    var isSyntheticWarning: Bool {
+        guard points == 0 else { return false }
+        let lowered = title.lowercased()
+        return lowered == "unsupported game version" || lowered == "warning: unknown emulator"
+    }
 }
 
 /// One imported game as the library sees it: the user-facing title (edited or
@@ -280,6 +311,33 @@ final class RAGameIndex: ObservableObject {
         saveNow()
     }
 
+    /// Merge a live snapshot into a game's stored measured progress. MERGE,
+    /// not replace: hit-count-based measured achievements (e.g. "die 100
+    /// times") reset to zero on a fresh session unless a save state restores
+    /// them, so they vanish from the new snapshot — a replace would wipe the
+    /// real progress recorded earlier. New values win per achievement,
+    /// unlocked ones are removed, everything else survives.
+    func mergeMeasuredProgress(romHash: String, entries: [RAMeasuredEntry], unlockedIDs: Set<UInt32>) {
+        guard var record = records[romHash] else { return }
+        var byID = Dictionary((record.measured ?? []).map { ($0.achievementID, $0) },
+                              uniquingKeysWith: { first, _ in first })
+        for id in unlockedIDs { byID.removeValue(forKey: id) }
+        for entry in entries { byID[entry.achievementID] = entry }
+        // Deterministic order so the Equatable no-change guard is meaningful.
+        let merged = byID.values.sorted { $0.achievementID < $1.achievementID }
+        let newValue: [RAMeasuredEntry]? = merged.isEmpty ? nil : merged
+        guard record.measured != newValue else { return }
+        record.measured = newValue
+        records[romHash] = record
+        scheduleSave()
+    }
+
+    /// Last snapshotted measured progress for a game, keyed by achievement id.
+    func measuredProgress(forROMHash romHash: String) -> [UInt32: RAMeasuredEntry] {
+        guard let entries = records[romHash]?.measured else { return [:] }
+        return Dictionary(entries.map { ($0.achievementID, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     /// On sign-out: progress and the unlock log belong to the account; keep
     /// only the account-independent eligibility data.
     func clearUserProgress() {
@@ -292,6 +350,8 @@ final class RAGameIndex: ObservableObject {
             // are SET structure (account-independent, merged-set truth).
             record.pointsEarned = nil
             record.refreshedAt = nil
+            // Measured snapshots are user progress too.
+            record.measured = nil
             records[key] = record
         }
         recentUnlocks = []
@@ -311,7 +371,12 @@ final class RAGameIndex: ObservableObject {
         }
         if let data = try? Data(contentsOf: unlocksFile),
            let decoded = try? JSONDecoder().decode([RAUnlockLogEntry].self, from: data) {
-            recentUnlocks = decoded
+            // One-time cleanup: synthetic warning entries logged before the
+            // bridge filtered the unlock event. Persist the purge so it
+            // doesn't re-run forever.
+            let cleaned = decoded.filter { !$0.isSyntheticWarning }
+            recentUnlocks = cleaned
+            if cleaned.count != decoded.count { scheduleSave() }
         }
     }
 

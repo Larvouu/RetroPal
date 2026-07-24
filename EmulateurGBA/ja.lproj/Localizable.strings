@@ -81,6 +81,7 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "バージョン";
 "settings.core" = "エミュレータコア";
+"settings.rateApp" = "Retro Pal を評価する";
 "settings.disclaimer" = "Retro Pal はローカルで動作するエミュレータです。ゲームは含まれていません。合法的に所有しているファイルのみ読み込んでください。";
 "settings.restore" = "購入を復元";
 
@@ -458,8 +459,28 @@
 "import.error.copyFailed" = "ゲームをRetro Palにコピーできませんでした。ストレージの空き容量を確保して、もう一度お試しください。";
 "import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds のゲームです。";
 "import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds のゲームで、他の機種には対応していません。";
-"import.error.zipMultipleROMs" = "このZIPには複数のゲームが入っています。「ファイル」アプリで解凍して、ゲームを1本ずつ読み込んでください。";
 "import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
 "import.error.alreadyImported" = "このゲームはすでにライブラリにあります。";
 "import.error.saveFailed" = "ゲームをライブラリに追加できませんでした。もう一度お試しください。";
 "import.error.differentGame" = "このファイルは、置き換えようとしているものとは別のゲームです。";
+"import.error.batchIntro" = "次のファイルを読み込めませんでした：";
+"import.error.batchLine" = "・%1$@：%2$@";
+
+// Multi-ROM ZIP selection sheet
+"zipPicker.title" = "ZIP内のゲーム";
+"zipPicker.caption" = "ライブラリに追加するゲームを選んでください。";
+"zipPicker.add" = "追加 (%d)";
+
+// What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
+"whatsnew.title" = "新機能";
+"whatsnew.version" = "バージョン %@";
+"whatsnew.s1.title" = "読み込みがより快適に";
+"whatsnew.s1.b1" = "「ファイル」から複数のゲームを一度に読み込めるようになりました。";
+"whatsnew.s1.b2" = "複数のゲームが入ったZIPは、追加するゲームを選べるようになりました。";
+"whatsnew.s2.title" = "RetroAchievements";
+"whatsnew.s2.b1" = "ロック中の実績に、プレイ中の進捗が表示されるようになりました。";
+"whatsnew.s2.b2" = "エミュレータのお知らせが実績解除として表示されなくなりました。";
+"whatsnew.s3.title" = "ライブラリ";
+"whatsnew.s3.b1" = "カバー画像がちらつかずに表示されるようになりました。オフラインでも表示されます。";
+"whatsnew.footer" = "この内容は設定からいつでも確認できます。";
+"whatsnew.dismiss" = "了解！";

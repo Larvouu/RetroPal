@@ -5,6 +5,11 @@
 //  "The Thank-You Card" — a warm-up card shown before
 //  SKStoreReviewController to maximize positive ratings.
 //
+//  Since 1.2.3 the card serves ONLY the ra_unlock celebration moment; every
+//  other trigger asks directly via the silent system request on the quit
+//  path (measured: the card converted ~10% of loyal_returner shows, see
+//  PromptTracker's two-path doc).
+//
 //  Deliberately calm and static (no card frame / no 3D sway): a rating ask
 //  converts on sincerity and a frictionless tap, not spectacle — the
 //  showpiece-card treatment is reserved for the paywall. The 5 stars are
