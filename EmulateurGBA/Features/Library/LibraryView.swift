@@ -45,6 +45,9 @@ struct LibraryView: View {
     /// import is dispatched. Binding-driven so cold-launch URLs still
     /// arrive correctly — the .onChange below fires on first render.
     @Binding var pendingOpenURL: URL?
+    /// Game launch requested from a home-screen widget. Same binding-driven
+    /// shape as `pendingOpenURL` so a cold launch still lands.
+    @Binding var pendingPlayRequest: WidgetSharing.PlayRequest?
     /// Whether the Library is the selected tab (passed by AppShellView). Gates
     /// the screenshot-to-share detection so it never fires from the Settings tab.
     var isActiveTab: Bool = true
@@ -134,6 +137,9 @@ struct LibraryView: View {
     /// URL queued behind an in-progress game launchRequest. Picked up by
     /// coverDidDismiss once the fullScreenCover dismissal animation finishes.
     @State private var queuedURL: URL?
+    /// Widget launch held while a game is still running; fired from
+    /// coverDidDismiss, exactly like `queuedURL`.
+    @State private var queuedPlayRequest: WidgetSharing.PlayRequest?
     // Session is created per launch with the appropriate bridge for the system type
 
     #if DEBUG
@@ -300,6 +306,11 @@ struct LibraryView: View {
                 guard let url = url else { return }
                 pendingOpenURL = nil
                 handleOpenedURL(url)
+            }
+            .onChange(of: pendingPlayRequest) { request in
+                guard let request = request else { return }
+                pendingPlayRequest = nil
+                handlePlayRequest(request)
             }
             .overlay { importingOverlay }
             .onReceive(NotificationCenter.default.publisher(
@@ -985,6 +996,9 @@ struct LibraryView: View {
         game.lastPlayedAt = Date()
         try? viewContext.save()
         currentlyPlayingGame = game
+        // Hold widget publishing for the whole session: it must not spend I/O
+        // inside the emulator's blocking auto-save window on backgrounding.
+        WidgetSnapshotWriter.isGameLoaded = true
         launchRequest = LaunchRequest(
             url: url, loadSlot: slot,
             systemType: game.systemType ?? "gba",
@@ -1007,10 +1021,46 @@ struct LibraryView: View {
         }
     }
 
+    /// Entry point for a home-screen widget tap. Mirrors `handleOpenedURL`:
+    /// if a game is already running we dismiss it first and launch from
+    /// coverDidDismiss, so the running game takes its normal quit path
+    /// (auto-save included) instead of being swapped out underneath itself.
+    private func handlePlayRequest(_ request: WidgetSharing.PlayRequest) {
+        if launchRequest != nil {
+            queuedPlayRequest = request
+            launchRequest = nil
+        } else {
+            processPlayRequest(request)
+        }
+    }
+
+    /// Resolves the widget's ROM filename back to a library game and launches
+    /// it through the same path the Game Details slot cards use. A game that
+    /// has since been deleted resolves to nothing: the app simply opens on the
+    /// library, which is the honest outcome and matches the emulator's own
+    /// fail-soft behavior for missing files.
+    private func processPlayRequest(_ request: WidgetSharing.PlayRequest) {
+        guard let game = games.first(where: { $0.romFilePath == request.romFilePath }) else { return }
+        let url = romsDir.appendingPathComponent(request.romFilePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        playGame(game, url: url, slot: request.slot)
+    }
+
     /// fullScreenCover onDismiss callback. Fires after the cover's dismissal
     /// animation completes — exactly the moment it's safe to present another
     /// cover or kick off the queued URL import.
     private func coverDidDismiss() {
+        if let request = queuedPlayRequest {
+            queuedPlayRequest = nil
+            // Still playing, just a different game: publishing stays held.
+            processPlayRequest(request)
+            return
+        }
+        // The session is over, so publishing is safe again — and this is
+        // exactly when what the widget shows has just changed (lastPlayedAt,
+        // the auto-save, the screenshot used as cover).
+        WidgetSnapshotWriter.isGameLoaded = false
+        WidgetSnapshotWriter.refresh()
         if let url = queuedURL {
             queuedURL = nil
             processOpenedURL(url)
@@ -1071,21 +1121,19 @@ struct LibraryView: View {
         if let filename = game.romFilePath {
             let url = romsDir.appendingPathComponent(filename)
             try? FileManager.default.removeItem(at: url)
-        }
-        // Delete save states folder
-        let romName = (game.romFilePath ?? "").replacingOccurrences(of: ".gba", with: "")
-        if !romName.isEmpty {
-            let savesDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("SaveStates", isDirectory: true)
-                .appendingPathComponent(romName, isDirectory: true)
-            try? FileManager.default.removeItem(at: savesDir)
-        }
-        // The slot-0 auto-save lives in a separate local tree now
-        // (SaveStateManager.localAutoSaveDir), so remove it explicitly too —
-        // otherwise re-importing the same game would resurface a stale resume.
-        if let filename = game.romFilePath {
-            let canonicalRom = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
+
+            // Delete the local save-states folder and the separate slot-0
+            // auto-save tree (otherwise re-importing the same game would
+            // resurface a stale resume). Both are keyed on the ROM BASENAME
+            // (extension dropped) — the same derivation the loader and the
+            // save importer use, whatever the console. iCloud copies are
+            // deliberately left in place (sync never deletes; a re-import
+            // gets its progress back).
+            let canonicalRom = BatterySaveImporter.romBasename(forStoredFilename: filename)
             if !canonicalRom.isEmpty {
+                try? FileManager.default.removeItem(
+                    at: iCloudSaveSync.localSaveStatesRoot()
+                        .appendingPathComponent(canonicalRom, isDirectory: true))
                 try? FileManager.default.removeItem(at: SaveStateManager.localAutoSaveDir(romName: canonicalRom))
             }
         }
@@ -1170,17 +1218,7 @@ private struct LibraryRow: View {
     /// screenshot. Every branch is a file on disk: no network at display
     /// time, so the cover is stable across launches and offline.
     private var coverFileURL: URL? {
-        guard let romHash = game.romHash else { return nil }
-        switch game.coverType {
-        case BoxArtManager.coverStateCustom:
-            return BoxArtManager.shared.customImageURL(forROMHash: romHash)
-        case BoxArtManager.coverStateRA:
-            return BoxArtManager.shared.raImageURL(forROMHash: romHash)
-        case BoxArtManager.coverStateBoxArt, BoxArtManager.coverStateBoxArtHeuristic:
-            return BoxArtManager.shared.imageURL(forROMHash: romHash)
-        default:
-            return nil
-        }
+        BoxArtManager.shared.coverFileURL(forROMHash: game.romHash, coverType: game.coverType)
     }
 
     var body: some View {

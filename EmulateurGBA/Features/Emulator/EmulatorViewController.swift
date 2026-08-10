@@ -10,6 +10,7 @@ import UIKit
 import MetalKit
 import SwiftUI
 import StoreKit
+import CoreData
 import os
 
 final class EmulatorViewController: UIViewController, TouchControlsDelegate, OverlayMenuDelegate, NDSTouchOverlayDelegate {
@@ -213,6 +214,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         metalView.stopRendering()
         session.pause()
         NotificationCenter.default.removeObserver(self)
+        // Give the television back its idle screen. Like the orientation lock
+        // below, this fires on dismiss (quit) and not on app backgrounding, so
+        // a backgrounded game keeps its picture on the TV while paused.
+        ExternalDisplayManager.shared.setSource(nil)
+        // Never leave the library holding the screen awake.
+        UIApplication.shared.isIdleTimerDisabled = false
         // Release any per-game orientation lock so the library rotates freely
         // again. This fires on dismiss (quit), not on app backgrounding, so a
         // locked game keeps its lock across background/foreground.
@@ -228,6 +235,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             didApplyInitialOrientation = true
             applyOrientation(currentOrientationMode)
         }
+        // Hand the live game view to any connected television. Idempotent, and
+        // a no-op when nothing is plugged in or the user is not Pro.
+        ExternalDisplayManager.shared.setSource(metalView)
+        updateIdleTimer()
         // Initial status bar state (a locked rotation, if any, also fires
         // viewWillTransition which refreshes it).
         updateSystemChrome(isPortrait: expectedPortrait())
@@ -266,6 +277,32 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                        name: UIApplication.didBecomeActiveNotification, object: nil)
         nc.addObserver(self, selector: #selector(appDidEnterBackground),
                        name: UIApplication.didEnterBackgroundNotification, object: nil)
+        // A television appearing or disappearing mid-game changes whether the
+        // phone is still the input surface.
+        nc.addObserver(self, selector: #selector(externalDisplayDidChange),
+                       name: ExternalDisplayManager.didChangeNotification, object: nil)
+    }
+
+    @objc private func externalDisplayDidChange() { updateIdleTimer() }
+
+    /// iOS auto-lock does NOT reset on controller input, and a player on a
+    /// television never touches the screen at all. Without this the phone
+    /// locks after its normal timeout, which fires appWillResignActive, which
+    /// pauses the session: the game stops and the TV freezes mid-play.
+    ///
+    /// Deliberately conditional. Touch players reset the idle timer with every
+    /// tap, so holding the screen awake for them would only change battery
+    /// behaviour for no benefit.
+    ///
+    /// A hardware keyboard counts too (audit, 2026-07-27). It never sets
+    /// `isConnected` — by design, so the touch controls stay visible — but a
+    /// keyboard player touches the screen no more than a pad player does, and
+    /// would have hit exactly the same lock-out.
+    private func updateIdleTimer() {
+        let phoneIsNotTheInput = ControllerManager.shared.isConnected
+            || ControllerManager.shared.isKeyboardAttached
+            || ExternalDisplayManager.shared.isShowingGame
+        UIApplication.shared.isIdleTimerDisabled = session.isROMLoaded && phoneIsNotTheInput
     }
 
     @objc private func appWillResignActive() {
@@ -309,6 +346,13 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             _ = session.autoSave(coordinated: false)
             session.flushBatterySave()
             done.signal()
+            // The auto-save is on disk, so its screenshot is the newest thing
+            // the widget could show — and this is the last moment we are alive
+            // to publish it. Killing the app straight from a game never
+            // reaches coverDidDismiss, which is why a widget showing a
+            // save-state preview used to stay stale until the next launch.
+            // Safe here specifically because the blocking save is already done.
+            WidgetSnapshotWriter.refresh(force: true)
             // End the task on the main thread so begin/end and the expiration
             // handler all mutate bgTask on the same thread (no race).
             DispatchQueue.main.async {
@@ -851,6 +895,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                                             title: share.name, playTime: share.playTime, style: style,
                                             isPro: UserDefaults.standard.bool(forKey: "isPro"),
                                             system: system, skinVariant: skinContext.skin?.variant,
+                                            filter: skinContext.filter,
                                             completion: done)
         }
 
@@ -862,7 +907,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // is drawn as a live SwiftUI overlay, so the Standard/Pro style toggles
         // instantly. The chrome'd MP4 is baked only on Share/Save (exportFinalClip).
         GameplayClipRenderer.renderGameplayClip(frames: frames, fps: fps, speed: clipSpeed,
-                                                frameAspect: frameAspect) { [weak model] url in
+                                                frameAspect: frameAspect,
+                                                filter: skinContext.filter) { [weak model] url in
             guard let url = url else {
                 // Encode failed (rare): flag the model so ClipShareView shows the
                 // "couldn't create the clip" alert and closes the card on OK.
@@ -945,6 +991,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let cheatView = CheatManagerView(
             romName: romName,
             isNDS: session.hasTouchScreen,
+            systemKey: ROMSystemType.from(fileExtension: romURL.pathExtension)?.rawValue ?? "gba",
             onAddCheat: { [weak self] code in
                 self?.session.addCheat(code) ?? false
             },
@@ -1104,22 +1151,27 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         layoutGameView()
     }
 
-    /// The presented Skin picker sheet, so its portrait detent can grow when the custom library
+    /// The presented Appearance sheet, so its portrait detent can grow when the custom library
     /// gains its first row (or shrink when emptied). Weak — the sheet owns its own lifetime.
     private weak var skinSheetHost: UIViewController?
+    /// Every console gets the tabbed sheet: the Screen tab holds the filters
+    /// (all systems) and the DMG palettes (GB/GBC).
+    private var appearanceShowsTabs: Bool { true }
 
     /// Apply the right detents for the given size: full height in landscape (previews-left /
-    /// actions-right split), a content-fitted custom height in portrait (two card rows + the pinned
-    /// actions, capped). Shared by presentation, rotation, and library-change resizes — so the sheet
-    /// is never left displaying the previous orientation's detent.
+    /// actions-right split), ONE content-fitted custom height in portrait — the taller of the
+    /// two tabs, so switching Console/Screen never resizes the sheet. Shared by presentation,
+    /// rotation, and library-change resizes — so the sheet is never left displaying the
+    /// previous orientation's detent.
     private func applySkinSheetDetents(for size: CGSize, sheet: UISheetPresentationController) {
         if size.width > size.height {
             sheet.detents = [.large()]
         } else {
             let itemCount = 3 + CustomSkinStore.shared.skins(for: presetSystem).count
-            let h = SkinSheetMetrics.portraitSheetHeight(
+            let h = SkinSheetMetrics.appearancePortraitHeight(
                 containerWidth: size.width, screenHeight: size.height, itemCount: itemCount,
-                supportsCustom: presetSystem.supportsCustomSkins, locked: skinLockedToInvisible)
+                supportsCustom: presetSystem.supportsCustomSkins, locked: skinLockedToInvisible,
+                showTabs: appearanceShowsTabs)
             sheet.detents = [.custom { _ in h }]
         }
     }
@@ -1131,31 +1183,67 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         sheet.animateChanges { applySkinSheetDetents(for: size, sheet: sheet) }
     }
 
+    /// This game's stored DMG palette id (per-game, Classic Green by default).
+    private var storedPaletteID: String {
+        GBPalettes.storedID(forRomBasename: romURL.deletingPathExtension().lastPathComponent)
+    }
+
+    /// Palette pick from the Appearance sheet's Screen tab: persist + apply
+    /// live. The paused screen keeps its already-rendered frame; the new
+    /// colors show from the next emulated frame (resume). The preview cards
+    /// carry the recolored look meanwhile.
+    private func overlayDidSelectPalette(_ palette: GBPalette) {
+        let key = GBPalettes.storageKey(forRomBasename: romURL.deletingPathExtension().lastPathComponent)
+        UserDefaults.standard.set(palette.id, forKey: key)
+        session.applyGBPalette(palette)
+    }
+
+    /// Filter pick from the Appearance sheet's Screen tab (the UI only lets
+    /// Pro users in; `effective` re-checks anyway): persist + live update.
+    /// The Metal loop is paused under the sheet, so the change shows at
+    /// resume — the preview cards carry the filtered look meanwhile.
+    private func overlayDidSelectFilter(_ filter: VideoFilter) {
+        let romName = romURL.deletingPathExtension().lastPathComponent
+        UserDefaults.standard.set(filter.rawValue, forKey: VideoFilter.storageKey(forRomBasename: romName))
+        metalView.videoFilter = VideoFilter.effective(forRomBasename: romName)
+    }
+
+    /// Opens the Appearance sheet (pause menu ▸ Appearance): the skin picker,
+    /// tabbed with the Screen tab (palettes) on GB/GBC.
     func overlayDidTapSkin() {
         // The current game frame fills each preview's screen (like the screenshot card),
-        // so a skin is judged against the real game, not a placeholder.
+        // so a skin — or a palette — is judged against the real game, not a placeholder.
         let frame = session.createScreenshotImage().map { UIImage(cgImage: $0) }
-        let picker = SkinPickerView(
+        let sheet = AppearanceView(
             system: presetSystem,
-            current: currentSkinForPicker,
+            skinCurrent: currentSkinForPicker,
             lockedToInvisible: skinLockedToInvisible,
             gameImage: frame,
             realInsets: view.safeAreaInsets,
-            onSelect: { [weak self] selection in self?.overlayDidSelectSkin(selection) },
+            onSelectSkin: { [weak self] selection in self?.overlayDidSelectSkin(selection) },
             onLibraryChanged: { [weak self] in
                 guard let self else { return }
                 self.updateSkinSheetDetents(for: self.view.bounds.size)
-            })
+            },
+            showScreenTab: appearanceShowsTabs,
+            showPaletteSection: presetSystem == .gbc,
+            paletteApplicable: session.isDMGPaletteApplicable,
+            openPalette: GBPalettes.palette(id: storedPaletteID),
+            initialPaletteID: storedPaletteID,
+            onSelectPalette: { [weak self] palette in self?.overlayDidSelectPalette(palette) },
+            initialFilterID: VideoFilter.effective(
+                forRomBasename: romURL.deletingPathExtension().lastPathComponent).rawValue,
+            onSelectFilter: { [weak self] filter in self?.overlayDidSelectFilter(filter) })
 
-        let host = UIHostingController(rootView: picker)
+        let host = UIHostingController(rootView: sheet)
         host.modalPresentationStyle = .pageSheet
         // Same dark backing as the share-card sheets.
         host.view.backgroundColor = UIColor(red: 0.06, green: 0.04, blue: 0.08, alpha: 1)
         skinSheetHost = host
 
-        if let sheet = host.sheetPresentationController {
-            applySkinSheetDetents(for: view.bounds.size, sheet: sheet)
-            sheet.prefersGrabberVisible = true
+        if let presentation = host.sheetPresentationController {
+            applySkinSheetDetents(for: view.bounds.size, sheet: presentation)
+            presentation.prefersGrabberVisible = true
         }
         present(host, animated: true)
     }
@@ -1261,8 +1349,51 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// input, and hide the on-screen controls while a controller is connected.
     private func setupController() {
         let manager = ControllerManager.shared
+        // This console family's custom button mapping (Pro; nil = built-in).
+        manager.activeMapping = ControllerMappingStore.effective(for: presetSystem)
         manager.onButtonsChanged = { [weak self] mask in
             self?.session.setKeys(mask)
+        }
+        // The pad's spare menu-ish button (DS4/DualSense touchpad click, Xbox
+        // Share) opens the pause menu, like the on-screen Menu button.
+        manager.onMenuRequested = { [weak self] in
+            guard let self, self.overlay.isHidden, self.presentedViewController == nil,
+                  self.shareModel?.card == nil else { return }
+            self.showOverlay()
+        }
+        // The pad's east button (Circle / B) is "back": it closes whatever
+        // pause-y surface is up — a share card (screenshot/clip), a presented
+        // sheet (Appearance, back to the menu), or the pause menu (resume) —
+        // so the controller can always reach gameplay again. Alerts are never
+        // swallowed (they demand an explicit choice). The closing press must
+        // not leak into gameplay, so the input mask is dropped everywhere
+        // (the release event re-syncs it).
+        manager.onBackRequested = { [weak self] in
+            guard let self else { return }
+            if self.shareModel?.card != nil {
+                // SwiftUI sheet: nil-ing the item dismisses it; its onDismiss
+                // runs the unified resume.
+                self.shareModel?.card = nil
+                self.session.setKeys(0)
+                return
+            }
+            if let presented = self.presentedViewController {
+                guard !(presented is UIAlertController) else { return }
+                presented.dismiss(animated: true)
+                self.session.setKeys(0)
+                return
+            }
+            if !self.overlay.isHidden {
+                self.hideOverlay()
+                self.session.setKeys(0)
+            }
+        }
+        // Bound shortcut verbs (wave 2; unbound by default).
+        manager.onActionChanged = { [weak self] action, pressed in
+            self?.handleControllerAction(action, pressed: pressed)
+        }
+        manager.onKeyboardChanged = { [weak self] in
+            self?.updateIdleTimer()
         }
         manager.onConnectionChanged = { [weak self] connected in
             guard let self else { return }
@@ -1270,11 +1401,56 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // the controller starts from a clean slate.
             if connected { self.session.setKeys(0) }
             self.updateControlsVisibility()
+            self.updateIdleTimer()
             // Re-lay the game view: hiding the controls frees space the screen
             // reclaims (NDS portrait/landscape, GBA landscape).
             self.layoutGameView()
         }
         updateControlsVisibility()  // a controller may already be connected
+    }
+
+    /// Speed active before a hold-to-fast-forward began (nil = no hold), and
+    /// whether the hold muted the audio (so release restores it).
+    private var ffHoldPriorSpeed: Double?
+    private var ffHoldDidMute = false
+
+    /// A bound controller shortcut changed state. Fast forward applies while
+    /// HELD (3x, restoring the prior speed and any temporary mute on release —
+    /// target speed owes device tuning); the card verbs act on press with the
+    /// same guards as their on-screen buttons.
+    private func handleControllerAction(_ action: RemapAction, pressed: Bool) {
+        switch action {
+        case .fastForward:
+            if pressed {
+                guard overlay.isHidden, session.isRunning, ffHoldPriorSpeed == nil else { return }
+                ffHoldPriorSpeed = currentSpeed
+                metalView.speedMultiplier = 3.0
+                // Same courtesy as picking 3x/4x in the menu: don't blast
+                // sped-up audio — but here only for the hold's duration.
+                if !session.isAudioMuted {
+                    ffHoldDidMute = true
+                    setAudioMuted(true)
+                    overlay.setSoundEnabled(false)
+                }
+            } else {
+                guard let prior = ffHoldPriorSpeed else { return }
+                ffHoldPriorSpeed = nil
+                metalView.speedMultiplier = prior
+                if ffHoldDidMute {
+                    ffHoldDidMute = false
+                    setAudioMuted(false)
+                    overlay.setSoundEnabled(true)
+                }
+            }
+        case .screenshot:
+            guard pressed, overlay.isHidden, presentedViewController == nil,
+                  shareModel?.card == nil else { return }
+            presentScreenshotCard(autoDismiss: false)
+        case .clip:
+            guard pressed, overlay.isHidden, presentedViewController == nil,
+                  shareModel?.card == nil else { return }
+            presentClipCard(pauseAndResume: true)
+        }
     }
 
     /// Pause overlay open: hide the whole control layer. Controller connected:
@@ -1564,6 +1740,44 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         statusLabel.text = String(format: NSLocalizedString("emulator.loadFailed", comment: ""), romURL.lastPathComponent)
     }
 
+    /// Resolve this NDS game's slot-2 preference (`gbaSlot2_<rom>` = the GBA
+    /// game's stored ROM filename) and hand it to the session before boot.
+    /// Fail-soft everywhere: a missing file (GBA game deleted since) just
+    /// boots with an empty slot, exactly like removing the cart.
+    private func configureGBASlot2IfNeeded() {
+        guard romURL.pathExtension.lowercased() == "nds" else { return }
+        let ndsBasename = romURL.deletingPathExtension().lastPathComponent
+        guard let storedFilename = UserDefaults.standard.string(forKey: "gbaSlot2_\(ndsBasename)"),
+              !storedFilename.isEmpty else { return }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let gbaROM = docs.appendingPathComponent("ROMs", isDirectory: true)
+            .appendingPathComponent(storedFilename)
+        guard FileManager.default.fileExists(atPath: gbaROM.path) else { return }
+        let saveBasename = BatterySaveImporter.romBasename(forStoredFilename: storedFilename)
+        let savePath = BatterySaveImporter.savePath(forRomBasename: saveBasename)
+        session.configureGBASlot2(romPath: gbaROM.path,
+                                  savePath: savePath.path,
+                                  saveBasename: saveBasename)
+        // The NDS dress shows the inserted game's box art in a recessed square
+        // (portrait). Same cover chain as the library rows; no cover -> no
+        // square (nil), never an empty well.
+        consoleSkin.slot2Cover = slot2CoverImage(storedFilename: storedFilename)
+    }
+
+    /// The slot-2 GBA game's cover image for the dress, resolved through the
+    /// library's cover-priority chain (custom > adopted RA > downloaded).
+    /// nil when the game has no cover on disk.
+    private func slot2CoverImage(storedFilename: String) -> UIImage? {
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "romFilePath == %@", storedFilename)
+        request.fetchLimit = 1
+        guard let game = try? PersistenceController.shared.container.viewContext
+            .fetch(request).first else { return nil }
+        guard let url = BoxArtManager.shared.coverFileURL(
+            forROMHash: game.romHash, coverType: game.coverType) else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }
+
     private func loadAndStart() {
         statusLabel.text = NSLocalizedString("emulator.loading", comment: "")
 
@@ -1581,6 +1795,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             showLoadFailed()
             return
         }
+
+        // Slot-2 dual-slot: mount this NDS game's chosen GBA game before the
+        // core boots (carts are probed at boot, like on real hardware).
+        configureGBASlot2IfNeeded()
 
         let success = session.loadROM(at: romURL)
 
@@ -1614,6 +1832,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // won't fire again if the view's bounds haven't changed.
             layoutGameView()
             session.start()
+            // This game's stored DMG palette (Classic Green default). No-op
+            // for GBA/NDS; ignored by CGB-mode games (their own colors win).
+            session.applyGBPalette(GBPalettes.palette(id: storedPaletteID))
+            // This game's display filter (Pro; .none otherwise or unset).
+            metalView.videoFilter = VideoFilter.effective(
+                forRomBasename: romURL.deletingPathExtension().lastPathComponent)
             session.isAudioMuted = UserDefaults.standard.bool(forKey: "audioMuted")
             metalView.startRendering()
 

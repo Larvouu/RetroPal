@@ -1,0 +1,28 @@
+"widget.recent.name" = "Weiterspielen";
+"widget.recent.description" = "Deine zuletzt gespielten Spiele auf dem Home-Bildschirm. Tippe auf ein Cover, um da weiterzumachen, wo du aufgehört hast.";
+"widget.empty" = "Keine zuletzt gespielten Spiele";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Ein Spiel";
+"widget.oneGame.description" = "Wähle ein Spiel und den Spielstand, der geöffnet wird. Tippe zum Spielen.";
+"widget.fourGames.name" = "Vier Spiele";
+"widget.fourGames.description" = "Wähle bis zu vier Spiele und den Spielstand, den jedes öffnet.";
+"widget.param.game" = "Spiel";
+"widget.param.slot" = "Spielstand";
+"widget.param.game1" = "Spiel 1";
+"widget.param.slot1" = "Spielstand für Spiel 1";
+"widget.param.game2" = "Spiel 2";
+"widget.param.slot2" = "Spielstand für Spiel 2";
+"widget.param.game3" = "Spiel 3";
+"widget.param.slot3" = "Spielstand für Spiel 3";
+"widget.param.game4" = "Spiel 4";
+"widget.param.slot4" = "Spielstand für Spiel 4";
+"widget.slot.type" = "Spielstand";
+"widget.slot.resume" = "Fortsetzen";
+"widget.entity.game" = "Spiel";
+"widget.unconfigured" = "Berühren und halten, um ein Spiel zu wählen";
+"widget.slot.1" = "Speicherplatz 1";
+"widget.slot.2" = "Speicherplatz 2";
+"widget.slot.3" = "Speicherplatz 3";
+"widget.slot.4" = "Speicherplatz 4";
+"widget.slot.5" = "Speicherplatz 5";

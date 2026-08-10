@@ -49,6 +49,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 // MARK: - Video
 
+/// Override the Game Boy DMG palette with 12 0xRRGGBB colors (BG 4, OBJ0 4,
+/// OBJ1 4, each lightest→darkest). Applies live (next rendered frame) on a
+/// running DMG-mode game and persists across resets for the session. No-op on
+/// systems without a DMG palette (GBA, NDS) and ignored by CGB-mode games,
+/// which define their own colors.
+- (void)setGBPalette:(const uint32_t *)colors;
+
+/// Whether the running game actually renders through the DMG palette (GB
+/// platform, DMG model). CGB-mode games return NO: they carry their own
+/// colors and ignore the override. NO until a ROM is loaded.
+- (BOOL)isDMGPaletteApplicable;
+
 - (nullable const uint32_t *)frameBuffer;
 /// Create an image of the primary screen (top screen only for NDS). Used for thumbnails and save previews.
 - (nullable CGImageRef)createFrameImage CF_RETURNS_RETAINED;

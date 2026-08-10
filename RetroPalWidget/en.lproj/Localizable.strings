@@ -1,0 +1,31 @@
+/* Widget gallery: name of the recent-games widget */
+"widget.recent.name" = "Continue Playing";
+/* Widget gallery: what the widget does */
+"widget.recent.description" = "Your recent games on the Home Screen. Tap a cover to pick up where you left off.";
+/* Shown on the widget before any game has been played */
+"widget.empty" = "No recent games";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Pick a Game";
+"widget.oneGame.description" = "Choose one game and the save it opens. Tap to play.";
+"widget.fourGames.name" = "Pick Four Games";
+"widget.fourGames.description" = "Choose up to four games and the save each one opens.";
+"widget.param.game" = "Game";
+"widget.param.slot" = "Save";
+"widget.param.game1" = "Game 1";
+"widget.param.slot1" = "Save for game 1";
+"widget.param.game2" = "Game 2";
+"widget.param.slot2" = "Save for game 2";
+"widget.param.game3" = "Game 3";
+"widget.param.slot3" = "Save for game 3";
+"widget.param.game4" = "Game 4";
+"widget.param.slot4" = "Save for game 4";
+"widget.slot.type" = "Save";
+"widget.slot.resume" = "Resume";
+"widget.entity.game" = "Game";
+"widget.unconfigured" = "Touch and hold to choose a game";
+"widget.slot.1" = "Slot 1";
+"widget.slot.2" = "Slot 2";
+"widget.slot.3" = "Slot 3";
+"widget.slot.4" = "Slot 4";
+"widget.slot.5" = "Slot 5";

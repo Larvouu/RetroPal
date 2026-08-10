@@ -1,0 +1,28 @@
+"widget.recent.name" = "Continuar a jogar";
+"widget.recent.description" = "Os teus jogos recentes no ecrã principal. Toca numa capa para continuares onde ficaste.";
+"widget.empty" = "Sem jogos recentes";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Um jogo";
+"widget.oneGame.description" = "Escolhe um jogo e o progresso que abre. Toca para jogar.";
+"widget.fourGames.name" = "Quatro jogos";
+"widget.fourGames.description" = "Escolhe até quatro jogos e o progresso que cada um abre.";
+"widget.param.game" = "Jogo";
+"widget.param.slot" = "Progresso guardado";
+"widget.param.game1" = "Jogo 1";
+"widget.param.slot1" = "Progresso do jogo 1";
+"widget.param.game2" = "Jogo 2";
+"widget.param.slot2" = "Progresso do jogo 2";
+"widget.param.game3" = "Jogo 3";
+"widget.param.slot3" = "Progresso do jogo 3";
+"widget.param.game4" = "Jogo 4";
+"widget.param.slot4" = "Progresso do jogo 4";
+"widget.slot.type" = "Progresso guardado";
+"widget.slot.resume" = "Continuar";
+"widget.entity.game" = "Jogo";
+"widget.unconfigured" = "Mantém premido para escolher um jogo";
+"widget.slot.1" = "Posição 1";
+"widget.slot.2" = "Posição 2";
+"widget.slot.3" = "Posição 3";
+"widget.slot.4" = "Posição 4";
+"widget.slot.5" = "Posição 5";

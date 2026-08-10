@@ -63,6 +63,7 @@
 "settings.title" = "Setări";
 "settings.controls" = "Comenzi";
 "settings.haptics" = "Vibrații în joc";
+"settings.haptics.strength" = "Intensitate";
 "settings.controller.footer" = "Controlere Bluetooth (Xbox, PlayStation, MFi) acceptate. Asociază-l în Setările iOS.";
 "settings.controls.controllerActive.footer" = "Un controler este conectat, așa că setările tactile de mai sus sunt dezactivate.";
 "settings.controls.dpad.footer" = "Opțiunile pentru cruce direcțională/joystick și butonul de clip se aplică aspectului implicit. Fiecare profil personalizat are propria alegere cruce/joystick, iar butonul său de clip rămâne mereu vizibil.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "5 sloturi de salvare (în loc de 2)";
 "pro.benefit.rewind" = "Derulare înapoi de 30 de secunde (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Coduri de trișare (GameShark / Action Replay)";
-"pro.benefit.controls" = "Comenzi personalizate";
+"pro.benefit.controls" = "Controale personalizate (tactil și controller)";
 "pro.benefit.speed.short" = "Toate vitezele";
 "pro.benefit.slots.short" = "5 sloturi de salvare";
 "pro.benefit.rewind.short" = "Derulare 30 s";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "Controale personalizate";
 "pro.benefit.skins" = "Creare de skinuri personalizate";
 "pro.benefit.skins.short" = "Skinuri personalizate";
+"pro.benefit.filters" = "Filtre video CRT și LCD";
+"pro.benefit.externalDisplay" = "Joc pe televizor cu AirPlay";
+"pro.benefit.filters.short" = "Filtre video";
 "pro.badge" = "Funcție Pro";
 "pro.seeAllBenefits" = "Vezi toate avantajele Pro";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "Fără reclame";
 "pro.compare.row.allSystems" = "Toate consolele";
 "pro.compare.row.autoSave" = "Salvare auto";
-"pro.compare.row.screenshots" = "Partajare capturi";
 "pro.compare.row.iCloud" = "Sincronizare iCloud";
 "pro.compare.row.controllers" = "Controlere Bluetooth";
 "pro.compare.row.slots" = "Sloturi de salvare";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
 "pro.compare.row.skins" = "Creare skinuri";
+"pro.compare.row.filters" = "Filtre video";
+"pro.compare.row.externalDisplay" = "Televizor / AirPlay";
 /* Prompts */
 "prompt.speed.title" = "Ai jucat %@ minute la 1,5x";
 "prompt.speed.subtitle" = "La 4x, aceeași sesiune trece într-o clipă. Deblochează toate vitezele, pentru totdeauna.";
@@ -250,6 +255,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "Personalizează comenzile";
+"settings.remapController" = "Reasociază butoanele controllerului";
+"remap.press" = "Apasă un buton…";
+"remap.reset" = "Restabilește valorile implicite";
+"remap.footer" = "Atinge un buton, apoi apasă butonul controllerului pe care vrei să îl asociezi. Crucea direcțională și stickul controlează mereu crucea.";
+"remap.noController" = "Conectează un controller pentru a-i reasocia butoanele.";
+"remap.actions.header" = "Scurtături";
+"remap.action.fastForward" = "Derulare rapidă (ține apăsat)";
+"remap.action.screenshot" = "Captură de ecran";
+"remap.action.clip" = "Clip";
+"remap.clear" = "Șterge";
+"remap.actions.footer" = "Aceste scurtături nu au niciun buton implicit. Asociază unul pentru a le folosi. Derularea rapidă se aplică cât timp ții butonul apăsat. Glisează un rând pentru a-l șterge.";
 "layout.activeLayout" = "Aspect activ";
 "layout.default" = "Implicit";
 "layout.presets" = "Presetări";
@@ -274,9 +290,11 @@
 "layout.editor.done" = "Gata";
 "layout.newPreset.systems" = "Sisteme";
 "prompt.controls.title" = "Găsește poziția perfectă pentru mâinile tale";
-"prompt.controls.subtitle" = "Personalizează poziția, dimensiunea și opacitatea butoanelor. Creează propriile presetări pentru jocuri diferite.";
+"prompt.controls.subtitle" = "Personalizează poziția, mărimea și opacitatea butoanelor și reasociază butoanele controllerului. Salvează propriile aranjamente pentru jocuri diferite.";
 "prompt.skins.title" = "Creează skinul visurilor tale";
 "prompt.skins.subtitle" = "Alege fiecare culoare a consolei, personalizeaz-o după gustul tău și împărtășește-ți creațiile.";
+"prompt.filters.title" = "Redă ecranul original";
+"prompt.filters.subtitle" = "CRT, grilă LCD, matrice de puncte și altele, pentru fiecare joc. Capturile și clipurile păstrează exact același aspect.";
 "layout.editor.landscapeShort" = "Peisaj";
 "layout.editor.portraitShort" = "Portret";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -332,6 +350,17 @@
 "saveImport.mismatch.title" = "Salvare de la alt joc?";
 "saveImport.mismatch.message" = "Numele fișierului nu corespunde cu %@. Importă-o doar dacă ești sigur că aparține acestui joc.";
 "saveImport.mismatch.confirm" = "Importă oricum";
+"saveExport.title" = "Exportă salvarea";
+"saveExport.none.title" = "Nicio salvare de exportat";
+"saveExport.none.message" = "Acest joc nu are încă o salvare în joc. Salvează mai întâi din meniul jocului, apoi revino aici pentru a o exporta.";
+"saveExport.error.message" = "Salvarea nu a putut fi exportată.";
+
+/* Slot dublu NDS: joc GBA în slotul 2 (detalii joc, doar jocuri NDS) */
+"slot2.row" = "Joc GBA în slotul 2";
+"slot2.none" = "Niciunul";
+"slot2.caption" = "Jocul DS îl detectează la pornire, ca pe un DS original. Unele jocuri deblochează bonusuri sau transferuri din versiunea lor GBA.";
+"slot2.empty" = "Nu există încă jocuri GBA în bibliotecă.";
+"slot2.saveNote" = "Transferurile citesc salvarea din jocul GBA, nu salvările rapide. Salvează mai întâi din meniul jocului GBA.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "Înlocuiește fișierul jocului";
@@ -343,7 +372,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "Sincronizare iCloud";
 "settings.sync.state.disabled" = "Dezactivat";
-"settings.sync.footer" = "Salvările tale rapide se sincronizează în iCloud-ul tău privat și între dispozitivele tale. Dezactivează această opțiune pentru a le păstra doar pe acest iPhone.";
+"settings.sync.footer" = "Salvările tale rapide și salvările din joc se sincronizează în iCloud-ul tău privat și între dispozitivele tale. Dezactivează această opțiune pentru a le păstra doar pe acest iPhone.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-blocare";
@@ -367,6 +396,22 @@
 "skin.presetLock.caption" = "Skinurile cu carcasă necesită aranjamentul implicit al comenzilor. Această consolă folosește unul personalizat, așa că este disponibil doar Invisible.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "Aspect";
+"appearance.tab.console" = "Consolă";
+"appearance.tab.screen" = "Ecran";
+"palette.group.originals" = "Originale";
+"palette.group.console" = "Clasice de consolă";
+"palette.group.colors" = "Culori";
+"palette.cgb.caption" = "Acest joc își folosește propriile culori. Paletele se aplică doar jocurilor monocrome.";
+"filter.section" = "Filtre";
+"filter.name.none" = "Niciunul";
+"filter.name.scanlines" = "Scanlines";
+"filter.name.lcd-grid" = "Grilă LCD";
+"filter.name.dot-matrix" = "Matrice de puncte";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "Neted";
+"filter.name.sharp" = "Clar";
+"filter.apply" = "Aplică acest filtru";
 "skin.create" = "Creează un skin";
 "skin.edit" = "Editează";
 "skin.delete" = "Șterge";
@@ -477,13 +522,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "Noutăți";
 "whatsnew.version" = "Versiunea %@";
-"whatsnew.s1.title" = "Import mai rapid";
-"whatsnew.s1.b1" = "Importă mai multe jocuri deodată din Fișiere.";
-"whatsnew.s1.b2" = "Un ZIP cu mai multe jocuri îți permite acum să alegi ce adaugi.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "Realizările blocate afișează acum progresul în timp ce joci.";
-"whatsnew.s2.b2" = "Notificările emulatorului nu mai apar ca realizări deblocate.";
-"whatsnew.s3.title" = "Bibliotecă";
-"whatsnew.s3.b1" = "Copertele apar acum fără clipire, chiar și offline.";
 "whatsnew.footer" = "Poți reciti aceste noutăți oricând în Setări.";
 "whatsnew.dismiss" = "Am înțeles!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "Ecran extern";
+"settings.externalDisplay.row" = "Joacă pe televizor";
+"settings.externalDisplay.ndsLayout" = "Ecranele DS pe televizor";
+"settings.externalDisplay.sideBySide" = "Unul lângă altul";
+"settings.externalDisplay.stacked" = "Unul peste altul";
+"settings.externalDisplay.footer" = "Conectează un televizor prin AirPlay sau prin cablu, iar jocul umple ecranul în timp ce iPhone-ul păstrează comenzile. DS-ul afișează ambele ecrane; cel tactil rămâne pe telefon.";
+"prompt.externalDisplay.title" = "Joacă pe ecranul mare";
+"prompt.externalDisplay.subtitle" = "Trimite jocul pe televizor prin AirPlay sau prin cablu, pe tot ecranul, în timp ce iPhone-ul păstrează comenzile.";
+"pro.benefit.externalDisplay.short" = "Joacă pe televizor";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "Joacă pe televizor cu AirPlay";
+"guide.airplay.intro" = "Trimite jocul pe un televizor și păstrează iPhone-ul drept controler. Merge prin AirPlay sau cu un adaptor HDMI.";
+"guide.airplay.step1" = "Pune iPhone-ul și televizorul în aceeași rețea Wi-Fi. Cu un adaptor HDMI, conectează-l și treci la pasul 3.";
+"guide.airplay.step2" = "Deschide centrul de control, atinge Oglindire ecran și alege televizorul.";
+"guide.airplay.step3" = "Pornește un joc. Umple televizorul, iar iPhone-ul păstrează comenzile.";
+"guide.airplay.step4" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPhone.";
+"guide.airplay.step5" = "Conectează un controler și butoanele de pe ecran dispar. Pe telefon mai folosești doar ecranul tactil al DS-ului.";
+"guide.airplay.step6" = "Cum stau cele două ecrane DS pe televizor alegi din Setări, Ecran extern.";
+"guide.airplay.footer" = "Sunetul merge odată cu imaginea la televizor prin AirPlay. Cu un controler, meniul de pauză se deschide cu butonul de meniu al controlerului, deci nu trebuie să atingi deloc telefonul.";
+"guide.airplay.proNotice" = "Jocul pe televizor face parte din Retro Pal Pro.";
+"guide.airplay.proButton" = "Joacă pe televizorul meu";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "Adaugă un widget pe ecranul principal";
+"guide.widget.intro" = "Pune-ți jocurile pe ecranul principal sub formă de coperte. O atingere deschide jocul de unde ai rămas.";
+"guide.widget.step1" = "Ține apăsat pe un loc gol de pe ecranul principal până când pictogramele încep să tremure.";
+"guide.widget.step2" = "Atinge + din partea de sus și caută Retro Pal.";
+"guide.widget.step3" = "Alege un widget: „Continuă jocul” se umple singur cu ultimele tale jocuri, „Un joc” și „Patru jocuri” le alegi tu.";
+"guide.widget.step4" = "Așază-l și atinge OK.";
+"guide.widget.step5" = "Pentru cele două pe care le alegi tu: ține apăsat pe widget, atinge Editează widgetul, apoi alege jocul și salvarea pe care o deschide.";
+"guide.widget.footer" = "Copertele apar după ce ai jucat cel puțin o dată, iar widgetul se actualizează când ieși din Retro Pal. Alegerea propriilor jocuri cere iOS 17 sau mai nou; „Continuă jocul” merge pe orice iPhone compatibil.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "Acest cod conține caractere neașteptate. Codurile folosesc doar 0-9, A-F, spații și liniuțe.";
+"cheats.invalid.pairs" = "Codurile Action Replay DS vin în perechi: fiecare linie are nevoie de două blocuri de opt caractere, de exemplu 94000130 FCFF0000.";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "Vezi codurile";
+"cheats.browse.title" = "Coduri";
+"cheats.browse.searchPlaceholder" = "Caută un joc";
+"cheats.browse.results" = "Rezultate";
+"cheats.browse.none" = "Niciun cod cunoscut pentru acest joc.";
+"cheats.browse.unnamed" = "Cod fără nume";
+"cheats.browse.offline" = "Fără conexiune. Codurile se descarcă o dată pentru fiecare joc, apoi rămân pe dispozitiv.";
+"cheats.browse.failed" = "Codurile nu au putut fi încărcate. Încearcă din nou.";
+"cheats.browse.credit" = "Coduri din baza comunitară libretro (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "Coduri";
+"settings.cheatDB.download" = "Descarcă codurile jocurilor mele";
+"settings.cheatDB.progress" = "Se descarcă, %d din %d";
+"settings.cheatDB.stored" = "Salvate pe acest dispozitiv";
+"settings.cheatDB.clear" = "Șterge codurile descărcate";
+"settings.cheatDB.footer" = "Codurile se descarcă joc cu joc, apoi rămân salvate. Descărcarea lor pentru jocurile tale le face disponibile fără conexiune.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "Cum funcționează codurile";
+"guide.cheats.intro" = "Un cod este activ imediat ce îl adaugi. Dacă nu se întâmplă nimic în joc, aproape întotdeauna lipsește primul pas de mai jos.";
+"guide.cheats.step1" = "Atinge Vezi codurile și alege unul. Codul și numele se completează singure, apoi atinge Adaugă cod.";
+"guide.cheats.step2" = "Majoritatea jocurilor Game Boy Advance și DS au nevoie MAI ÎNTÂI de un Master Code, numit uneori Enable Code, adăugat și activat. Fără el, celelalte coduri nu fac nimic. Sunt marcate cu o cheie și apar în capul listei.";
+"guide.cheats.step3" = "Cercul verde de lângă un cod îl activează și îl dezactivează. Gri înseamnă oprit.";
+"guide.cheats.step4" = "Unele coduri au efect abia după ce ieși și revii într-o zonă, sau la următoarea schimbare de ecran.";
+"guide.cheats.step5" = "Codurile sunt scrise pentru o anumită versiune a jocului. Un cod din altă regiune sau revizie poate să nu facă nimic sau să se comporte ciudat.";
+"guide.cheats.footer" = "Progresul tău este salvat înainte de primul cod, deci te poți întoarce oricând cu Restaurează salvarea dinaintea codurilor.";
+"cheats.browse.masterHint" = "Codurile marcate cu o cheie trebuie activate pentru ca restul să funcționeze.";
+"cheats.browse.notFound" = "Acest joc nu a fost recunoscut după numele fișierului. Caută-l mai jos.";
+
+"guide.cheats.step6" = "Multe coduri se declanșează doar la apăsarea unui buton, iar numele codului spune care: de exemplu Press SELECT to Restore Time. Numele este păstrat când adaugi codul, așa că citește-l în lista ta.";
+
+"settings.cheatDB.upToDate" = "Toate jocurile tale sunt disponibile offline";
+"settings.cheatDB.noGames" = "Adaugă mai întâi un joc în bibliotecă.";
+
+"externalDisplay.idle.hint" = "Pornește un joc pe iPhone";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "Joacă pe televizor";
+"whatsnew.s1.b1" = "Trimite jocul pe un televizor prin AirPlay sau prin cablu, în timp ce iPhone-ul păstrează comenzile. Pro.";
+"whatsnew.s1.b2" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPhone.";
+"whatsnew.s2.title" = "Aspectul consolei originale";
+"whatsnew.s2.b1" = "Șase filtre video, de la CRT la grilă LCD, în direct și imprimate în capturile și clipurile tale. Pro.";
+"whatsnew.s2.b2" = "Douăzeci și patru de palete Game Boy, alese pentru fiecare joc, gratuit pentru toți.";
+"whatsnew.s3.title" = "Coduri fără să le scrii";
+"whatsnew.s3.b1" = "Răsfoiește baza comunității pentru jocul deschis și atinge un cod ca să îl adaugi. Pro.";
+"whatsnew.s3.b2" = "Codurile se formatează singure, iar un cod respins spune în sfârșit ce nu e în regulă.";
+"whatsnew.s4.title" = "Controlere și tastaturi";
+"whatsnew.s4.b1" = "Remapează fiecare buton, pe fiecare consolă, și pune derulare rapidă, captură sau clip pe unul liber. Pro.";
+"whatsnew.s4.b2" = "Tastaturile fizice funcționează acum, gratuit. Stick-ul și butoanele DS sunt corectate.";
+"whatsnew.s5.title" = "Jocurile tale pe ecranul principal";
+"whatsnew.s5.b1" = "Widgeturile îți arată jocurile sub formă de coperte. O atingere deschide jocul de unde ai rămas.";
+"whatsnew.s5.b2" = "Alege jocul și salvarea fiecărui widget, sau lasă-l să urmeze ultima ta partidă.";
+"whatsnew.s6.title" = "Salvări și Nintendo DS";
+"whatsnew.s6.b1" = "Exportă salvarea unui joc ca să o împarți sau să o păstrezi, iar salvările te urmează prin iCloud.";
+"whatsnew.s6.b2" = "Pune un joc Game Boy Advance în al doilea slot al DS-ului, ca pe consola originală.";

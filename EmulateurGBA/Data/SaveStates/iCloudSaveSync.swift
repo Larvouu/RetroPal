@@ -13,9 +13,15 @@
 //  is archived locally, never deleted; conflicts never pushed back up).
 //
 //  Reconcile runs whenever iCloud becomes reachable (container resolve + every
-//  NSMetadataQuery update) and after local writes (observing `.saveStatesDidChange`),
-//  so a device that was offline / had iCloud unavailable recovers automatically the
-//  moment it comes back.
+//  NSMetadataQuery update) and after local writes (observing `.saveStatesDidChange`
+//  and `.batterySavesDidChange`), so a device that was offline / had iCloud
+//  unavailable recovers automatically the moment it comes back.
+//
+//  BATTERY SAVES (1.2.4): every pass also mirrors `Documents/BatterySaves/*.sav`
+//  (the in-game progress) with the same engine and rules, EXCEPT the save of the
+//  live emulation session, which is skipped in both directions while the core
+//  holds the file open (see SaveSyncReconciler's header) and reconciles at quit
+//  (EmulatorSession.shutdown posts `.batterySavesDidChange`) or on the next pass.
 //
 //  Decisions carried from the 2026-05-15 eng review (still hold):
 //  - iCloud Documents, NOT Core Data sync (cheap, reliable for a few-MB binary).
@@ -67,6 +73,7 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
     private let lock = NSLock()
     private var _state: State = .resolving
     private var _iCloudRoot: URL?
+    private var _iCloudBatteryRoot: URL?
 
     private var metadataQuery: NSMetadataQuery?
     /// Debounce for the outward `.saveStatesDidChange` UI notification.
@@ -80,6 +87,12 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
         // Mirror to / from iCloud after any local write (manual save, etc.).
         NotificationCenter.default.addObserver(
             forName: .saveStatesDidChange, object: nil, queue: nil
+        ) { [weak self] _ in
+            self?.syncNow()
+        }
+        // Same for battery-save writes (session quit, per-game save import).
+        NotificationCenter.default.addObserver(
+            forName: .batterySavesDidChange, object: nil, queue: nil
         ) { [weak self] _ in
             self?.syncNow()
         }
@@ -154,23 +167,32 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
 
     /// One reconcile pass on the current queue. `force` bypasses the opt-out gate
     /// (used by sync-off so local is made complete before mirroring stops).
+    /// Covers both trees: save states, then battery saves (minus the live
+    /// session's file, which the core holds open).
     private func reconcileOnce(force: Bool) {
         if !force && !syncEnabled { return }
-        let cloud: URL? = {
+        let roots: (states: URL, battery: URL)? = {
             lock.lock(); defer { lock.unlock() }
-            return _state == .available ? _iCloudRoot : nil
+            guard _state == .available, let s = _iCloudRoot, let b = _iCloudBatteryRoot else { return nil }
+            return (s, b)
         }()
-        guard let cloud else { return }
+        guard let roots else { return }
 
-        var reconciler = SaveSyncReconciler(localRoot: Self.localSaveStatesRoot(), cloudRoot: cloud)
+        var reconciler = SaveSyncReconciler(localRoot: Self.localSaveStatesRoot(), cloudRoot: roots.states)
         reconciler.materialize = { Self.materializeUbiquitousItem($0) }
-        let result = reconciler.reconcile()
+        let stateResult = reconciler.reconcile()
 
-        if result.cloudHadFiles, !hasSeeniCloudSaves {
+        var battery = SaveSyncReconciler(localRoot: BatterySaveImporter.batterySavesRoot,
+                                         cloudRoot: roots.battery)
+        battery.materialize = { Self.materializeUbiquitousItem($0) }
+        let batteryResult = battery.reconcileBatterySaves(
+            skipping: BatterySaveImporter.activeSessionBasenames)
+
+        if stateResult.cloudHadFiles || batteryResult.cloudHadFiles, !hasSeeniCloudSaves {
             UserDefaults.standard.set(true, forKey: hasSeeniCloudSavesKey)
             DispatchQueue.main.async { [weak self] in self?.objectWillChange.send() }
         }
-        if result.localChanged {
+        if stateResult.localChanged || batteryResult.localChanged {
             postCoalescedNotification()   // a pull happened: refresh slot UI
         }
     }
@@ -217,14 +239,15 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
         }
 
         if let containerURL = resolved {
-            let cloudRoot = containerURL
-                .appendingPathComponent("Documents", isDirectory: true)
-                .appendingPathComponent("SaveStates", isDirectory: true)
+            let docs = containerURL.appendingPathComponent("Documents", isDirectory: true)
+            let cloudRoot = docs.appendingPathComponent("SaveStates", isDirectory: true)
+            let batteryRoot = docs.appendingPathComponent("BatterySaves", isDirectory: true)
             try? FileManager.default.createDirectory(at: cloudRoot, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(at: batteryRoot, withIntermediateDirectories: true)
             #if DEBUG
             print("[iCloudSaveSync] resolved: \(cloudRoot.path)")
             #endif
-            setState(.available, cloudRoot: cloudRoot)
+            setState(.available, cloudRoot: cloudRoot, batteryRoot: batteryRoot)
             if syncEnabled {
                 startMetadataQuery()
                 syncNow()
@@ -233,14 +256,15 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
             #if DEBUG
             print("[iCloudSaveSync] iCloud container did not resolve (timeout or unavailable); saves stay local")
             #endif
-            setState(.unavailable, cloudRoot: nil)
+            setState(.unavailable, cloudRoot: nil, batteryRoot: nil)
         }
     }
 
-    private func setState(_ newState: State, cloudRoot: URL?) {
+    private func setState(_ newState: State, cloudRoot: URL?, batteryRoot: URL?) {
         lock.lock()
         _state = newState
         _iCloudRoot = cloudRoot
+        _iCloudBatteryRoot = batteryRoot
         lock.unlock()
         DispatchQueue.main.async { [weak self] in
             self?.objectWillChange.send()
@@ -249,18 +273,20 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
 
     // MARK: - Live remote-update notifications
 
-    /// Watches the app's iCloud Documents scope for `*.state` / `*.png` changes and
-    /// triggers a reconcile (which pulls remote saves down and refreshes the UI).
-    /// Must run on the main thread (needs an active runloop). Idempotent.
+    /// Watches the app's iCloud Documents scope for `*.state` / `*.png` /
+    /// `*.sav` changes and triggers a reconcile (which pulls remote saves down
+    /// and refreshes the UI). Must run on the main thread (needs an active
+    /// runloop). Idempotent.
     private func startMetadataQuery() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self, self.metadataQuery == nil else { return }
             let query = NSMetadataQuery()
             query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
             query.predicate = NSPredicate(
-                format: "%K LIKE[c] %@ OR %K LIKE[c] %@",
+                format: "%K LIKE[c] %@ OR %K LIKE[c] %@ OR %K LIKE[c] %@",
                 NSMetadataItemFSNameKey, "*.state",
-                NSMetadataItemFSNameKey, "*.png"
+                NSMetadataItemFSNameKey, "*.png",
+                NSMetadataItemFSNameKey, "*.sav"
             )
             let nc = NotificationCenter.default
             nc.addObserver(forName: .NSMetadataQueryDidFinishGathering,
@@ -314,4 +340,11 @@ extension Notification.Name {
     /// re-read from disk. `iCloudSaveSync` also observes it to mirror local writes
     /// up to iCloud.
     static let saveStatesDidChange = Notification.Name("saveStatesDidChange")
+
+    /// Posted on the main queue when a battery save (`.sav`) lands on disk at a
+    /// moment it is safe to mirror: session shutdown (the core has released the
+    /// file) and per-game save import. `iCloudSaveSync` observes it to run a
+    /// reconcile pass. NOT posted for the continuous in-play writes — the live
+    /// session's file is excluded from sync anyway.
+    static let batterySavesDidChange = Notification.Name("batterySavesDidChange")
 }

@@ -1,0 +1,28 @@
+"widget.recent.name" = "繼續遊玩";
+"widget.recent.description" = "在主畫面顯示你最近玩過的遊戲。點一下封面即可接續遊玩。";
+"widget.empty" = "沒有最近遊玩的遊戲";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "單一遊戲";
+"widget.oneGame.description" = "選擇一款遊戲和要開啟的存檔。點一下即可遊玩。";
+"widget.fourGames.name" = "四款遊戲";
+"widget.fourGames.description" = "最多可選擇四款遊戲，以及每款要開啟的存檔。";
+"widget.param.game" = "遊戲";
+"widget.param.slot" = "存檔";
+"widget.param.game1" = "遊戲 1";
+"widget.param.slot1" = "遊戲 1 的存檔";
+"widget.param.game2" = "遊戲 2";
+"widget.param.slot2" = "遊戲 2 的存檔";
+"widget.param.game3" = "遊戲 3";
+"widget.param.slot3" = "遊戲 3 的存檔";
+"widget.param.game4" = "遊戲 4";
+"widget.param.slot4" = "遊戲 4 的存檔";
+"widget.slot.type" = "存檔";
+"widget.slot.resume" = "繼續遊玩";
+"widget.entity.game" = "遊戲";
+"widget.unconfigured" = "長按以選擇遊戲";
+"widget.slot.1" = "插槽 1";
+"widget.slot.2" = "插槽 2";
+"widget.slot.3" = "插槽 3";
+"widget.slot.4" = "插槽 4";
+"widget.slot.5" = "插槽 5";

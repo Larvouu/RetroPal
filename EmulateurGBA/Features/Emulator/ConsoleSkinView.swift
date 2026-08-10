@@ -48,6 +48,10 @@ final class ConsoleSkinView: UIView {
     var ndsScreens: [CGRect] = [] { didSet { if ndsScreens != oldValue { setNeedsDisplay() } } }
     /// NDS only: whether the Mic button is held (its dress label shrinks + recolours on press).
     var micPressed: Bool = false { didSet { if micPressed != oldValue { setNeedsDisplay() } } }
+    /// NDS only: the slot-2 GBA game's box art, shown in a small recessed square on the dress,
+    /// both orientations. nil = empty slot OR no cover — either way no square is drawn (an empty
+    /// well would read as a rendering bug). Set by the host at game load.
+    var slot2Cover: UIImage? = nil { didSet { if slot2Cover != oldValue { setNeedsDisplay() } } }
 
     /// Nostalgia vs the Retro Pal recolour (set by the host alongside the controls' variant).
     var variant: DressVariant = .nostalgia { didSet { if variant != oldValue { setNeedsDisplay() } } }
@@ -86,7 +90,8 @@ final class ConsoleSkinView: UIView {
         case .gba: return GameBoyAdvanceSkin(variant: variant, cardMode: cardMode,
                                              controllerConnected: controllerConnected, allButtons: allButtonFrames)
         case .nds: return NintendoDSSkin(screens: ndsScreens, micPressed: micPressed, variant: variant,
-                                         cardMode: cardMode, controllerConnected: controllerConnected)
+                                         cardMode: cardMode, controllerConnected: controllerConnected,
+                                         slot2Cover: slot2Cover)
         default:   return nil
         }
     }
@@ -1891,6 +1896,9 @@ struct NintendoDSSkin: ConsoleSkin {
     /// D-pad and so disappears) is drawn relative to MENU instead — below it in portrait, at 75%
     /// width level with it in landscape. Speakers / light are left as-is.
     var controllerConnected: Bool = false
+    /// The slot-2 GBA game's box art (dual-slot): drawn in a small recessed square on the body,
+    /// PORTRAIT ONLY for now. nil = no square at all.
+    var slot2Cover: UIImage? = nil
 
     // Palette: body #C4C4C4, buttons #B6B6B6, ink #777777. Retro Pal recolours only the body
     // (fond → #595A76); the ink/decals are untouched per the draft (the D-pad lines + A/B label,
@@ -1960,6 +1968,7 @@ struct NintendoDSSkin: ConsoleSkin {
         drawButtonWells(buttons: buttons, scale: scale)
         drawShoulderButtonSeats(buttons: buttons, scale: scale)
         drawSelectStart(buttons: buttons, scale: scale)
+        drawSlot2Well(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
         drawMic(buttons: buttons, scale: scale)
         drawSpeakers(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
         drawLight(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
@@ -2092,6 +2101,83 @@ struct NintendoDSSkin: ConsoleSkin {
             drawEmbossedLabel(text, at: CGPoint(x: labelLeft, y: pillRect.midY - sz.height / 2),
                               size: size, color: buttonLabelColor, kern: kern, scale: scale)
         }
+    }
+
+    /// Slot-2 dual-slot indicator: a small recessed square (the L/R-seat "incrusté" treatment —
+    /// same corner factor, body fill) holding the slot-2 GBA game's box art at 0.8 opacity.
+    /// Drawn only when there is art to show (an empty well would read as a defect). Body-fill +
+    /// derived ink → custom-skin colour edits repaint it like every other structure element.
+    ///
+    /// PORTRAIT: vertical centre = the D-pad's bottom edge, horizontal centre = the SELECT+START
+    /// block's centre, sized from the D-pad and shrinking to keep a gap above the SELECT/START row.
+    ///
+    /// LANDSCAPE (spec of 2026-07-27): same size rule, horizontally centred on MIC, and
+    /// vertically centred in the empty band between the screens' bottom edge and MIC's top edge.
+    /// Both landscape screens share a bottom edge, so screen swapping does not move it.
+    ///
+    /// Dress only: this draws, it never affects a hit box, so the controls layout engine and its
+    /// closed NDS-landscape thread are untouched.
+    private func drawSlot2Well(bounds: CGRect, buttons: [ControlElement: CGRect],
+                               isLandscape: Bool, scale: CGFloat) {
+        guard !cardMode, let cover = slot2Cover, let dpad = buttons[.dpad] else { return }
+
+        let cx: CGFloat
+        let cy: CGFloat
+        var side = min(dpad.width * 0.55, 64 * scale)
+        var rect: CGRect
+
+        if isLandscape {
+            guard let mic = buttons[.btnMic], screens.count == 2 else { return }
+            let screensBottom = max(screens[0].maxY, screens[1].maxY)
+            let bandTop = screensBottom + 8 * scale
+            let bandBottom = mic.minY - 8 * scale
+            guard bandBottom > bandTop else { return }
+            cx = mic.midX
+            cy = (bandTop + bandBottom) / 2
+            // Never taller than the band it sits in.
+            side = min(side, bandBottom - bandTop)
+            rect = CGRect(x: cx - side / 2, y: cy - side / 2, width: side, height: side)
+        } else {
+            guard let sel = buttons[.btnSelect], let start = buttons[.btnStart] else { return }
+            cx = sel.union(start).midX
+            cy = dpad.maxY
+            // Never collide with the SELECT/START row below: keep an 8pt gap.
+            let bottomLimit = min(sel.minY, start.minY) - 8 * scale
+            side = min(side, 2 * (bottomLimit - cy))
+            guard side > 24 * scale else { return }
+            // Product call after seeing both orientations: portrait reads
+            // small next to landscape. Grow it by half, anchored on the SAME
+            // bottom edge and the SAME horizontal centre, so it expands UP into
+            // the empty band rather than towards the SELECT/START row. The
+            // 8pt gap below is preserved by construction.
+            let bottom = cy + side / 2
+            side *= 1.5
+            rect = CGRect(x: cx - side / 2, y: bottom - side, width: side, height: side)
+        }
+
+        guard side > 24 * scale else { return }
+        // Keep it on the dress on narrow devices (the SE is always the tight one).
+        let inset = 4 * scale
+        if rect.maxX > bounds.maxX - inset { rect.origin.x = bounds.maxX - inset - side }
+        if rect.minX < bounds.minX + inset { rect.origin.x = bounds.minX + inset }
+        let corner = side * ShoulderButton.ndsCornerFactor
+        drawRecessedCapsule(rect, fill: bodyMid, scale: scale, corner: corner)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let art = rect.insetBy(dx: 3 * scale, dy: 3 * scale)
+        let clip = UIBezierPath(roundedRect: art, cornerRadius: max(2 * scale, corner - 3 * scale))
+        ctx.saveGState()
+        clip.addClip()
+        cover.draw(in: aspectFill(cover.size, in: art), blendMode: .normal, alpha: 0.8)
+        ctx.restoreGState()
+    }
+
+    /// Aspect-FILL counterpart of `aspectFit`: the image covers `rect` entirely (centred,
+    /// overflow clipped by the caller).
+    private func aspectFill(_ imageSize: CGSize, in rect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let s = max(rect.width / imageSize.width, rect.height / imageSize.height)
+        return CGRect(x: rect.midX - imageSize.width * s / 2, y: rect.midY - imageSize.height * s / 2,
+                      width: imageSize.width * s, height: imageSize.height * s)
     }
 
     /// MIC: a single vertical slit (recessed #777777 groove + a black cut-through hole, like a GBA

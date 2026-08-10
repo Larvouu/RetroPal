@@ -197,15 +197,38 @@ enum BatterySaveImporter {
 
     // MARK: - Importing
 
+    /// The flat directory holding every game's battery save (`<rom>.sav`).
+    /// Single source of truth for the loader, the importer/exporter and the
+    /// iCloud battery mirror. Idempotent.
+    static var batterySavesRoot: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let savesDir = docs.appendingPathComponent("BatterySaves", isDirectory: true)
+        try? FileManager.default.createDirectory(at: savesDir, withIntermediateDirectories: true)
+        return savesDir
+    }
+
     /// Where the bridge expects to load this game's battery save. Mirrors
     /// `EmulatorSession.loadROM` exactly — both system families read from
     /// a `.sav` path on disk regardless of the source file's extension.
     static func savePath(forRomBasename romName: String) -> URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let savesDir = docs.appendingPathComponent("BatterySaves", isDirectory: true)
-        try? FileManager.default.createDirectory(at: savesDir, withIntermediateDirectories: true)
-        return savesDir.appendingPathComponent("\(romName).sav")
+        batterySavesRoot.appendingPathComponent("\(romName).sav")
     }
+
+    // MARK: - Live-session guard (for the iCloud battery mirror)
+
+    /// Basenames of the ROMs whose battery saves are currently held OPEN by a
+    /// live emulation session (mGBA retains the file's VFile for the whole
+    /// session; melonDS rewrites the file as the game saves). Usually one
+    /// entry; two when an NDS session has a GBA game mounted in slot 2 (the
+    /// GBA cart's save RAM is live in the core, and Pal Park writes to it).
+    /// Set by `EmulatorSession` on load, cleared on shutdown; read by the
+    /// iCloud mirror so it never replaces or half-reads a live save file.
+    static var activeSessionBasenames: Set<String> {
+        get { activeLock.lock(); defer { activeLock.unlock() }; return _activeSessionBasenames }
+        set { activeLock.lock(); _activeSessionBasenames = newValue; activeLock.unlock() }
+    }
+    private static let activeLock = NSLock()
+    private static var _activeSessionBasenames: Set<String> = []
 
     /// The on-disk basename a ROM's battery save (and save-state folder) is
     /// keyed under, derived from the stored ROM filename by dropping the
@@ -259,6 +282,11 @@ enum BatterySaveImporter {
         } catch {
             Analytics.signal("save_failure", ["kind": "battery_write"])
             throw BatterySaveImportError.writeFailed
+        }
+        // Mirror the imported save up to iCloud promptly (no session holds it:
+        // the per-game import UI is only reachable outside gameplay).
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .batterySavesDidChange, object: nil)
         }
     }
 

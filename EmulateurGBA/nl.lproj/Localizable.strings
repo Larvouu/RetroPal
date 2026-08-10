@@ -63,6 +63,7 @@
 "settings.title" = "Instellingen";
 "settings.controls" = "Bediening";
 "settings.haptics" = "Haptiek in het spel";
+"settings.haptics.strength" = "Sterkte";
 "settings.controller.footer" = "Bluetooth-controllers (Xbox, PlayStation, MFi) worden ondersteund. Koppel er een in iOS-instellingen.";
 "settings.controls.controllerActive.footer" = "Er is een controller verbonden, dus de aanraakinstellingen hierboven zijn uitgeschakeld.";
 "settings.controls.dpad.footer" = "De keuzes voor D-pad/joystick en clipknop gelden voor de standaardindeling. Elk eigen profiel heeft zijn eigen D-pad/joystick-keuze, en de clipknop blijft er altijd zichtbaar.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "5 opslagslots (in plaats van 2)";
 "pro.benefit.rewind" = "30 seconden terugspoelen (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Cheatcodes (GameShark / Action Replay)";
-"pro.benefit.controls" = "Aangepaste bediening";
+"pro.benefit.controls" = "Eigen lay-outs en controllerknoppen";
 "pro.benefit.speed.short" = "Alle snelheden";
 "pro.benefit.slots.short" = "5 opslagslots";
 "pro.benefit.rewind.short" = "30 sec. terugspoelen";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "Eigen besturing";
 "pro.benefit.skins" = "Eigen console-skins maken";
 "pro.benefit.skins.short" = "Eigen skins";
+"pro.benefit.filters" = "CRT- en LCD-videofilters";
+"pro.benefit.externalDisplay" = "Spelen op tv via AirPlay";
+"pro.benefit.filters.short" = "Videofilters";
 "pro.badge" = "Pro-functie";
 "pro.seeAllBenefits" = "Bekijk alle Pro-voordelen";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "Geen reclame";
 "pro.compare.row.allSystems" = "Alle consoles";
 "pro.compare.row.autoSave" = "Automatisch opslaan";
-"pro.compare.row.screenshots" = "Screenshots delen";
 "pro.compare.row.iCloud" = "iCloud-synchronisatie";
 "pro.compare.row.controllers" = "Bluetooth-controllers";
 "pro.compare.row.slots" = "Opslagslots";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
 "pro.compare.row.skins" = "Skins maken";
+"pro.compare.row.filters" = "Videofilters";
+"pro.compare.row.externalDisplay" = "Tv / AirPlay";
 /* Prompts */
 "prompt.speed.title" = "Je hebt %@ minuten op 1,5x gespeeld";
 "prompt.speed.subtitle" = "Op 4x vliegt dezelfde sessie voorbij. Ontgrendel alle snelheden, voor altijd.";
@@ -250,6 +255,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "Bediening aanpassen";
+"settings.remapController" = "Controllerknoppen opnieuw toewijzen";
+"remap.press" = "Druk op een knop…";
+"remap.reset" = "Standaardwaarden herstellen";
+"remap.footer" = "Tik op een knop en druk daarna op de controllerknop die je wilt toewijzen. De D-pad en stick besturen altijd de D-pad.";
+"remap.noController" = "Verbind een controller om de knoppen toe te wijzen.";
+"remap.actions.header" = "Sneltoetsen";
+"remap.action.fastForward" = "Vooruitspoelen (vasthouden)";
+"remap.action.screenshot" = "Schermafbeelding";
+"remap.action.clip" = "Clip";
+"remap.clear" = "Wissen";
+"remap.actions.footer" = "Deze sneltoetsen hebben standaard geen knop. Wijs er een toe om ze te gebruiken. Vooruitspoelen geldt zolang je de knop vasthoudt. Veeg over een rij om die te wissen.";
 "layout.activeLayout" = "Actieve indeling";
 "layout.default" = "Standaard";
 "layout.presets" = "Voorinstellingen";
@@ -274,9 +290,11 @@
 "layout.editor.done" = "Gereed";
 "layout.newPreset.systems" = "Systemen";
 "prompt.controls.title" = "Vind de perfecte indeling voor je handen";
-"prompt.controls.subtitle" = "Pas knoppositie, grootte en transparantie aan. Maak je eigen voorinstellingen voor verschillende spellen.";
+"prompt.controls.subtitle" = "Pas de positie, grootte en doorzichtigheid van knoppen aan en wijs de knoppen van je controller opnieuw toe. Bewaar je eigen lay-outs voor verschillende spellen.";
 "prompt.skins.title" = "Maak de skin van je dromen";
 "prompt.skins.subtitle" = "Kies elke kleur van de console, maak hem helemaal van jou en deel je creaties.";
+"prompt.filters.title" = "Haal het originele scherm terug";
+"prompt.filters.subtitle" = "CRT, LCD-raster, dotmatrix en meer, per spel. Je screenshots en clips houden precies dezelfde look.";
 "layout.editor.landscapeShort" = "Liggend";
 "layout.editor.portraitShort" = "Staand";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -332,6 +350,17 @@
 "saveImport.mismatch.title" = "Save van een ander spel?";
 "saveImport.mismatch.message" = "De bestandsnaam komt niet overeen met %@. Importeer alleen als je zeker weet dat de save bij dit spel hoort.";
 "saveImport.mismatch.confirm" = "Toch importeren";
+"saveExport.title" = "Save exporteren";
+"saveExport.none.title" = "Geen save om te exporteren";
+"saveExport.none.message" = "Dit spel heeft nog geen save. Sla eerst op via het eigen menu van het spel en kom dan terug om die te exporteren.";
+"saveExport.error.message" = "De save kon niet worden geëxporteerd.";
+
+/* NDS dual-slot: GBA-spel in slot 2 (speldetails, alleen NDS-spellen) */
+"slot2.row" = "GBA-spel in slot 2";
+"slot2.none" = "Geen";
+"slot2.caption" = "Het DS-spel herkent het bij het starten, net als op een echte DS. Sommige spellen ontgrendelen bonussen of overdrachten uit hun GBA-versie.";
+"slot2.empty" = "Nog geen GBA-spellen in je bibliotheek.";
+"slot2.saveNote" = "Overdrachten lezen de save in het GBA-spel zelf, niet de snelle saves. Sla eerst op via het menu van het GBA-spel.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "Spelbestand vervangen";
@@ -343,7 +372,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "iCloud-synchronisatie";
 "settings.sync.state.disabled" = "Uit";
-"settings.sync.footer" = "Je snelle saves synchroniseren met je privé-iCloud en tussen je apparaten. Schakel dit uit om ze alleen op deze iPhone te bewaren.";
+"settings.sync.footer" = "Je snelle saves en je in-game saves synchroniseren met je privé-iCloud en tussen je apparaten. Schakel dit uit om ze alleen op deze iPhone te bewaren.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-lock";
@@ -367,6 +396,22 @@
 "skin.presetLock.caption" = "De aangeklede skins vereisen de standaard knoppenindeling. Deze console gebruikt een eigen indeling, dus alleen Invisible is beschikbaar.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "Weergave";
+"appearance.tab.console" = "Console";
+"appearance.tab.screen" = "Scherm";
+"palette.group.originals" = "Originelen";
+"palette.group.console" = "Consoleklassiekers";
+"palette.group.colors" = "Kleuren";
+"palette.cgb.caption" = "Dit spel gebruikt zijn eigen kleuren. Paletten gelden alleen voor monochrome spellen.";
+"filter.section" = "Filters";
+"filter.name.none" = "Geen";
+"filter.name.scanlines" = "Scanlines";
+"filter.name.lcd-grid" = "LCD-raster";
+"filter.name.dot-matrix" = "Dotmatrix";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "Vloeiend";
+"filter.name.sharp" = "Scherp";
+"filter.apply" = "Dit filter toepassen";
 "skin.create" = "Skin maken";
 "skin.edit" = "Bewerken";
 "skin.delete" = "Verwijderen";
@@ -477,13 +522,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "Wat is er nieuw";
 "whatsnew.version" = "Versie %@";
-"whatsnew.s1.title" = "Sneller importeren";
-"whatsnew.s1.b1" = "Importeer meerdere games tegelijk vanuit Bestanden.";
-"whatsnew.s1.b2" = "Bij een ZIP met meerdere games kies je nu welke je wilt toevoegen.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "Vergrendelde prestaties tonen nu je voortgang terwijl je speelt.";
-"whatsnew.s2.b2" = "Meldingen van de emulator verschijnen niet meer als ontgrendelde prestaties.";
-"whatsnew.s3.title" = "Bibliotheek";
-"whatsnew.s3.b1" = "Covers verschijnen nu zonder flikkeren, ook offline.";
 "whatsnew.footer" = "Je kunt dit later altijd teruglezen in Instellingen.";
 "whatsnew.dismiss" = "Begrepen!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "Extern scherm";
+"settings.externalDisplay.row" = "Op een tv spelen";
+"settings.externalDisplay.ndsLayout" = "DS-schermen op de tv";
+"settings.externalDisplay.sideBySide" = "Naast elkaar";
+"settings.externalDisplay.stacked" = "Boven elkaar";
+"settings.externalDisplay.footer" = "Verbind een tv via AirPlay of een kabel en de game vult het scherm terwijl je iPhone de bediening houdt. De DS toont beide schermen; het touchscreen blijft op de telefoon.";
+"prompt.externalDisplay.title" = "Speel op het grote scherm";
+"prompt.externalDisplay.subtitle" = "Stuur de game via AirPlay of een kabel schermvullend naar je tv, terwijl je iPhone de bediening houdt.";
+"pro.benefit.externalDisplay.short" = "Op een tv spelen";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "Op je tv spelen met AirPlay";
+"guide.airplay.intro" = "Stuur de game naar een tv en houd je iPhone als controller. Werkt via AirPlay of met een HDMI-adapter.";
+"guide.airplay.step1" = "Zet je iPhone en je tv op hetzelfde wifinetwerk. Met een HDMI-adapter sluit je die aan en ga je naar stap 3.";
+"guide.airplay.step2" = "Open het bedieningspaneel, tik op Schermspiegeling en kies je tv.";
+"guide.airplay.step3" = "Start een game. Die vult de tv, en je iPhone houdt de bediening.";
+"guide.airplay.step4" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPhone.";
+"guide.airplay.step5" = "Sluit een controller aan en de schermknoppen verdwijnen. Alleen het DS-touchscreen wordt nog op de telefoon gebruikt.";
+"guide.airplay.step6" = "Hoe de twee DS-schermen op de tv staan, kies je bij Instellingen, Extern scherm.";
+"guide.airplay.footer" = "Het geluid gaat met het beeld mee naar de tv via AirPlay. Met een controller open je het pauzemenu met de menuknop van de controller, dus je hoeft de telefoon nooit aan te raken.";
+"guide.airplay.proNotice" = "Op een tv spelen hoort bij Retro Pal Pro.";
+"guide.airplay.proButton" = "Op mijn tv spelen";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "Een widget aan het beginscherm toevoegen";
+"guide.widget.intro" = "Zet je games als hoes op het beginscherm. Eén tik opent een game precies waar je gebleven was.";
+"guide.widget.step1" = "Houd een lege plek op het beginscherm ingedrukt tot de symbolen bewegen.";
+"guide.widget.step2" = "Tik op de + bovenaan en zoek naar Retro Pal.";
+"guide.widget.step3" = "Kies een widget: ‘Verder spelen’ vult zichzelf met je laatste games, ‘Eén game’ en ‘Vier games’ kies je zelf.";
+"guide.widget.step4" = "Plaats hem en tik op Gereed.";
+"guide.widget.step5" = "Voor de twee die je zelf kiest: houd de widget ingedrukt, tik op Wijzig widget en kies de game en het opgeslagen spel dat wordt geopend.";
+"guide.widget.footer" = "Hoezen verschijnen zodra je een game minstens één keer hebt gespeeld, en de widget wordt bijgewerkt als je Retro Pal verlaat. Zelf games kiezen vereist iOS 17 of nieuwer; ‘Verder spelen’ werkt op elke ondersteunde iPhone.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "Deze code bevat onverwachte tekens. Cheatcodes gebruiken alleen 0-9, A-F, spaties en streepjes.";
+"cheats.invalid.pairs" = "Action Replay DS-codes gaan per paar: elke regel heeft twee blokken van acht tekens nodig, bijvoorbeeld 94000130 FCFF0000.";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "Cheatcodes bekijken";
+"cheats.browse.title" = "Cheatcodes";
+"cheats.browse.searchPlaceholder" = "Zoek een game";
+"cheats.browse.results" = "Resultaten";
+"cheats.browse.none" = "Geen codes bekend voor deze game.";
+"cheats.browse.unnamed" = "Naamloze code";
+"cheats.browse.offline" = "Geen verbinding. Codes worden één keer per game opgehaald en daarna op je apparaat bewaard.";
+"cheats.browse.failed" = "De codes konden niet worden geladen. Probeer het opnieuw.";
+"cheats.browse.credit" = "Codes uit de libretro-communitydatabase (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "Cheatcodes";
+"settings.cheatDB.download" = "Codes voor mijn games downloaden";
+"settings.cheatDB.progress" = "Bezig, %d van %d";
+"settings.cheatDB.stored" = "Op dit apparaat bewaard";
+"settings.cheatDB.clear" = "Gedownloade codes verwijderen";
+"settings.cheatDB.footer" = "Codes worden per game opgehaald en daarna bewaard. Download je ze voor je games, dan zijn ze ook zonder verbinding beschikbaar.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "Hoe cheatcodes werken";
+"guide.cheats.intro" = "Een code is actief zodra je hem toevoegt. Gebeurt er niets in de game, dan ontbreekt bijna altijd de eerste stap hieronder.";
+"guide.cheats.step1" = "Tik op Cheatcodes bekijken en kies er een. De code en de naam worden voor je ingevuld, tik daarna op Code toevoegen.";
+"guide.cheats.step2" = "De meeste Game Boy Advance- en DS-games hebben EERST een Master Code nodig, soms Enable Code genoemd, toegevoegd en aangezet. Zonder die code doen de andere niets. Ze zijn gemarkeerd met een sleutel en staan bovenaan.";
+"guide.cheats.step3" = "Het groene rondje naast een code zet hem aan en uit. Grijs betekent uit.";
+"guide.cheats.step4" = "Sommige codes werken pas als je een gebied verlaat en weer binnengaat, of bij de volgende schermwissel.";
+"guide.cheats.step5" = "Codes zijn geschreven voor één versie van een game. Een code uit een andere regio of revisie doet misschien niets, of gedraagt zich vreemd.";
+"guide.cheats.footer" = "Je voortgang wordt bewaard vóór de eerste code, dus je kunt altijd terug met Herstel opgeslagen spel van vóór de cheats.";
+"cheats.browse.masterHint" = "Codes met een sleutel moeten aanstaan voordat de rest werkt.";
+"cheats.browse.notFound" = "Deze game is niet herkend aan de bestandsnaam. Zoek hem hieronder op.";
+
+"guide.cheats.step6" = "Veel codes werken pas na een druk op een knop, en de naam van de code zegt welke: bijvoorbeeld Press SELECT to Restore Time. Die naam blijft bewaard als je de code toevoegt, dus lees hem terug in je lijst.";
+
+"settings.cheatDB.upToDate" = "Al je games zijn offline beschikbaar";
+"settings.cheatDB.noGames" = "Voeg eerst een game aan je bibliotheek toe.";
+
+"externalDisplay.idle.hint" = "Start een game op je iPhone";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "Speel op je tv";
+"whatsnew.s1.b1" = "Stuur de game via AirPlay of een kabel naar een tv, terwijl je iPhone de bediening houdt. Pro.";
+"whatsnew.s1.b2" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPhone.";
+"whatsnew.s2.title" = "De look van de originele hardware";
+"whatsnew.s2.b1" = "Zes videofilters, van CRT tot LCD-raster, live en vastgelegd in je opnamen en clips. Pro.";
+"whatsnew.s2.b2" = "Vierentwintig Game Boy-paletten, per game te kiezen, gratis voor iedereen.";
+"whatsnew.s3.title" = "Cheatcodes zonder te typen";
+"whatsnew.s3.b1" = "Blader door de communitydatabase van je huidige game en tik een code aan. Pro.";
+"whatsnew.s3.b2" = "Codes maken zichzelf netjes op, en een geweigerde code zegt eindelijk wat er mis is.";
+"whatsnew.s4.title" = "Controllers en toetsenborden";
+"whatsnew.s4.b1" = "Wijs elke knop opnieuw toe, per console, en zet vooruitspoelen, schermafbeelding of clip op een vrije knop. Pro.";
+"whatsnew.s4.b2" = "Fysieke toetsenborden werken nu, gratis. De stick en de DS-knoppen zijn hersteld.";
+"whatsnew.s5.title" = "Je games op het beginscherm";
+"whatsnew.s5.b1" = "Widgets tonen je games als hoes. Eén tik opent een game waar je gebleven was.";
+"whatsnew.s5.b2" = "Kies per widget de game en het opgeslagen spel, of laat hem je laatste partij volgen.";
+"whatsnew.s6.title" = "Opgeslagen spellen en Nintendo DS";
+"whatsnew.s6.b1" = "Exporteer een opgeslagen spel om te delen of te bewaren, en ze volgen je nu via iCloud.";
+"whatsnew.s6.b2" = "Stop een Game Boy Advance-game in het tweede DS-slot, net als op de echte console.";

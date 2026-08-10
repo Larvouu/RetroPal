@@ -248,7 +248,7 @@ struct ProUpgradeView: View {
     /// `fillHeight: true` stretches the card to its host's full height with the
     /// content centered — used so the comparison columns can be the same height.
     private func bundleCard(dense: Bool = false, fillHeight: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: dense ? 10 : 14) {
             Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
                 .font(.caption2.weight(.bold))
                 .tracking(1.2)
@@ -257,7 +257,7 @@ struct ProUpgradeView: View {
 
             benefitRows(allBenefits, compact: dense)
         }
-        .padding(.vertical, dense ? 16 : 22)
+        .padding(.vertical, dense ? 14 : 22)
         .padding(.horizontal, dense ? 16 : 22)
         .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .center)
         .background(proCardSurface)
@@ -272,7 +272,17 @@ struct ProUpgradeView: View {
     /// shrinks the icon and text so labels fit a narrow column in fewer lines.
     @ViewBuilder
     private func benefitRows(_ benefits: [Benefit], compact: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 9 : 12) {
+        // Compact metrics tightened 2026-07-25 (spacing 9→7, badge 26→24):
+        // the 7th benefit (video filters) has to fit the landscape card
+        // heights where 6 fitted before.
+        //
+        // 2026-07-27, on device: with the 8th benefit the landscape card
+        // scrolled instead of fitting. The cause was not spacing — `compact`
+        // was rendering `text`, the full label with its parentheticals, in the
+        // narrowest column in the app. `shortText` exists precisely for this
+        // ("Codes triche (GameShark / Action Replay)" becomes "Codes de
+        // triche"), so the wrapped lines were self-inflicted.
+        VStack(alignment: .leading, spacing: compact ? 7 : 12) {
             ForEach(benefits, id: \.text) { benefit in
                 HStack(spacing: compact ? 10 : 12) {
                     ZStack {
@@ -282,9 +292,9 @@ struct ProUpgradeView: View {
                             .font(.system(size: compact ? 12 : 15, weight: .medium))
                             .foregroundStyle(ProPalette.crownGradient)
                     }
-                    .frame(width: compact ? 26 : 34, height: compact ? 26 : 34)
+                    .frame(width: compact ? 24 : 34, height: compact ? 24 : 34)
 
-                    Text(benefit.text)
+                    Text(compact ? benefit.shortText : benefit.text)
                         .font(compact ? .footnote : .subheadline)
                         .foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
@@ -340,27 +350,36 @@ struct ProUpgradeView: View {
     /// right column shows the card and both texts without scrolling.
     private var landscapeContextualCard: some View {
         HStack(spacing: 0) {
-            // LEFT — everything else Pro unlocks, vertically centered.
-            VStack(alignment: .leading, spacing: 12) {
-                Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
-                    .font(.caption2.weight(.bold)).tracking(1.2)
-                    .foregroundStyle(.white.opacity(0.4))
-                    .frame(maxWidth: .infinity, alignment: .center)
-                benefitRows(otherBenefits)
+            // LEFT — everything else Pro unlocks. Compact rows (the 7th
+            // benefit, video filters, made this 6 rows — full-size rows
+            // outgrew the landscape height) inside a centering scroll: the
+            // list is centered when it fits and SCROLLS instead of clipping
+            // if it ever outgrows the height again (2026-07-25).
+            GeometryReader { geo in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
+                            .font(.caption2.weight(.bold)).tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.4))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        benefitRows(otherBenefits, compact: true)
 
-                Button {
-                    showComparison = true
-                } label: {
-                    Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.5))
-                        .underline()
+                        Button {
+                            showComparison = true
+                        } label: {
+                            Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.5))
+                                .underline()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 4)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 16)
+                    .frame(minHeight: geo.size.height)   // centers when it fits
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 4)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // RIGHT — the triggered Free→Pro hero + headline (no scroll), price below.
@@ -448,22 +467,34 @@ struct ProUpgradeView: View {
             let w = geo.size.width
             HStack(spacing: 0) {
                 // Columns 1 & 2 — the same height (fixedSize on the row hugs the
-                // taller card; both fill it), content centered inside each, and
-                // the whole pair floated to the vertical center of the sheet.
-                HStack(spacing: 0) {
-                    baselineColumnCard
-                        .padding(.leading, 14)
-                        .padding(.trailing, 6)
-                        .frame(width: w * 0.40)
+                // taller card; both fill it), the pair floated to the vertical
+                // center — inside a scroll since 2026-07-25: the bundle card
+                // grew to 7 rows (video filters) and a hugged pair taller than
+                // the sheet was CLIPPING top and bottom. Centered when it
+                // fits, scrolls instead of clipping when it doesn't.
+                ScrollView {
+                    HStack(spacing: 0) {
+                        // Widths follow the CONTENT, corrected 2026-07-27 on
+                        // device. The baseline card holds 5 rows of short
+                        // labels plus two fixed 44pt cells and has vertical
+                        // room to spare; the bundle holds 8 rows of prose and
+                        // is the one that overflows. It had the NARROWER
+                        // column, which forced the wrapping that made it tall.
+                        baselineColumnCard
+                            .padding(.leading, 14)
+                            .padding(.trailing, 6)
+                            .frame(width: w * 0.32)
 
-                    bundleCard(dense: true, fillHeight: true)
-                        .padding(.leading, 6)
-                        .padding(.trailing, 14)
-                        .frame(width: w * 0.32)
+                        bundleCard(dense: true, fillHeight: true)
+                            .padding(.leading, 6)
+                            .padding(.trailing, 14)
+                            .frame(width: w * 0.40)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 14)
+                    .frame(minHeight: geo.size.height)   // centers when it fits
                 }
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxHeight: .infinity, alignment: .center)
-                .padding(.vertical, 14)
+                .frame(width: w * 0.72)
 
                 // Column 3 — the purchase panel: centered identity + price CTA +
                 // legal links. A faint surface + leading hairline make it read as
@@ -500,9 +531,13 @@ struct ProUpgradeView: View {
 
     /// Column 1 of the landscape comparison: the always-included baseline in a
     /// neutral card, content vertically centered and filling the shared height.
+    /// Compact metrics (2026-07-25): both landscape cards must FIT the
+    /// smallest landscape sheet height with the 7-benefit bundle beside them —
+    /// same row padding the portrait table uses, tighter row gaps.
     private var baselineColumnCard: some View {
-        comparisonTable(rowPadding: 6, includePro: false, cellWidth: 44, hPadding: 10)
-            .padding(.vertical, 14)
+        comparisonTable(rowPadding: 3, includePro: false, cellWidth: 44,
+                        hPadding: 10, rowSpacing: 6)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .background(proCardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -595,6 +630,10 @@ struct ProUpgradeView: View {
             return NSLocalizedString("prompt.controls.title", comment: "")
         case .customSkins:
             return NSLocalizedString("prompt.skins.title", comment: "")
+        case .videoFilters:
+            return NSLocalizedString("prompt.filters.title", comment: "")
+        case .externalDisplay:
+            return NSLocalizedString("prompt.externalDisplay.title", comment: "")
         }
     }
 
@@ -622,6 +661,10 @@ struct ProUpgradeView: View {
             return NSLocalizedString("prompt.controls.subtitle", comment: "")
         case .customSkins:
             return NSLocalizedString("prompt.skins.subtitle", comment: "")
+        case .videoFilters:
+            return NSLocalizedString("prompt.filters.subtitle", comment: "")
+        case .externalDisplay:
+            return NSLocalizedString("prompt.externalDisplay.subtitle", comment: "")
         }
     }
 
@@ -658,6 +701,14 @@ struct ProUpgradeView: View {
             // sells creation only; settled after the Import→Create try).
             return ("paintbrush",
                     NSLocalizedString("pro.benefit.skins.short", comment: ""),
+                    nil, "✓")
+        case .videoFilters:
+            return ("tv",
+                    NSLocalizedString("pro.benefit.filters.short", comment: ""),
+                    nil, "✓")
+        case .externalDisplay:
+            return ("airplayvideo",
+                    NSLocalizedString("pro.benefit.externalDisplay.short", comment: ""),
                     nil, "✓")
         case .sessionMilestone, .tappedLockedFeature:
             return nil
@@ -699,6 +750,12 @@ struct ProUpgradeView: View {
             Benefit(icon: "paintbrush",
                     text: NSLocalizedString("pro.benefit.skins", comment: ""),
                     shortText: NSLocalizedString("pro.benefit.skins.short", comment: "")),
+            Benefit(icon: "tv",
+                    text: NSLocalizedString("pro.benefit.filters", comment: ""),
+                    shortText: NSLocalizedString("pro.benefit.filters.short", comment: "")),
+            Benefit(icon: "airplayvideo",
+                    text: NSLocalizedString("pro.benefit.externalDisplay", comment: ""),
+                    shortText: NSLocalizedString("pro.benefit.externalDisplay.short", comment: "")),
         ]
     }
 
@@ -710,6 +767,8 @@ struct ProUpgradeView: View {
         case .cheatCodes, .cheatCodesTapped:   return allBenefits[3]
         case .customizeControls:               return allBenefits[4]
         case .customSkins:                     return allBenefits[5]
+        case .videoFilters:                    return allBenefits[6]
+        case .externalDisplay:                 return allBenefits[7]
         case .sessionMilestone, .tappedLockedFeature:
             return nil
         }
@@ -738,7 +797,6 @@ struct ProUpgradeView: View {
             ComparisonRow(label: NSLocalizedString("pro.compare.row.autoSave",    comment: ""), free: .check, pro: .check),
             ComparisonRow(label: NSLocalizedString("pro.compare.row.iCloud",      comment: ""), free: .check, pro: .check),
             ComparisonRow(label: NSLocalizedString("pro.compare.row.controllers", comment: ""), free: .check, pro: .check),
-            ComparisonRow(label: NSLocalizedString("pro.compare.row.screenshots", comment: ""), free: .check, pro: .check),
         ]
     }
 
@@ -756,6 +814,10 @@ struct ProUpgradeView: View {
             ComparisonRow(label: NSLocalizedString("pro.compare.row.controls", comment: ""),
                           free: .none, pro: .check),
             ComparisonRow(label: NSLocalizedString("pro.compare.row.skins", comment: ""),
+                          free: .none, pro: .check),
+            ComparisonRow(label: NSLocalizedString("pro.compare.row.filters", comment: ""),
+                          free: .none, pro: .check),
+            ComparisonRow(label: NSLocalizedString("pro.compare.row.externalDisplay", comment: ""),
                           free: .none, pro: .check),
         ]
     }

@@ -63,6 +63,7 @@
 "settings.title" = "설정";
 "settings.controls" = "조작";
 "settings.haptics" = "게임 중 햅틱 피드백";
+"settings.haptics.strength" = "강도";
 "settings.controller.footer" = "Bluetooth 컨트롤러(Xbox, PlayStation, MFi)를 지원합니다. iOS 설정에서 페어링하세요.";
 "settings.controls.controllerActive.footer" = "컨트롤러가 연결되어 있어 위의 터치 조작 설정은 비활성화되었습니다.";
 "settings.controls.dpad.footer" = "십자 버튼/조이스틱과 클립 버튼 설정은 기본 레이아웃에 적용됩니다. 각 사용자 지정 프리셋에는 고유한 십자 버튼/조이스틱 설정이 있으며, 클립 버튼은 항상 표시됩니다.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "세이브 슬롯 5개(기본 2개)";
 "pro.benefit.rewind" = "30초 되감기(GBA/GB/GBC)";
 "pro.benefit.cheats" = "치트 코드(GameShark / Action Replay)";
-"pro.benefit.controls" = "조작 레이아웃 사용자 지정";
+"pro.benefit.controls" = "커스텀 배치와 컨트롤러 매핑";
 "pro.benefit.speed.short" = "모든 속도";
 "pro.benefit.slots.short" = "세이브 슬롯 5개";
 "pro.benefit.rewind.short" = "30초 되감기";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "조작 사용자 지정";
 "pro.benefit.skins" = "나만의 콘솔 스킨 만들기";
 "pro.benefit.skins.short" = "커스텀 스킨";
+"pro.benefit.filters" = "CRT·LCD 비디오 필터";
+"pro.benefit.externalDisplay" = "AirPlay로 TV에서 플레이";
+"pro.benefit.filters.short" = "비디오 필터";
 "pro.badge" = "Pro 기능";
 "pro.seeAllBenefits" = "Pro의 모든 기능 보기";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "광고 없음, 영원히";
 "pro.compare.row.allSystems" = "모든 기종";
 "pro.compare.row.autoSave" = "자동 저장";
-"pro.compare.row.screenshots" = "스크린샷 공유";
 "pro.compare.row.iCloud" = "iCloud 동기화";
 "pro.compare.row.controllers" = "Bluetooth 컨트롤러";
 "pro.compare.row.slots" = "세이브 슬롯";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1배, 1.5배";
 "pro.compare.values.proSpeeds" = "0.25배~4배";
 "pro.compare.row.skins" = "스킨 만들기";
+"pro.compare.row.filters" = "비디오 필터";
+"pro.compare.row.externalDisplay" = "TV / AirPlay";
 /* Pro Prompts */
 "prompt.speed.title" = "1.5배속으로 %@분 플레이했어요";
 "prompt.speed.subtitle" = "4배속이면 같은 플레이도 순식간에 끝나요. 모든 속도를 한 번의 구입으로 평생 이용하세요.";
@@ -248,6 +253,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "조작 사용자 지정";
+"settings.remapController" = "컨트롤러 버튼 매핑";
+"remap.press" = "버튼을 누르세요…";
+"remap.reset" = "기본값으로 재설정";
+"remap.footer" = "버튼을 탭한 다음 지정할 컨트롤러 버튼을 누르세요. 십자 버튼과 스틱은 항상 십자 버튼을 조작합니다.";
+"remap.noController" = "버튼을 매핑하려면 컨트롤러를 연결하세요.";
+"remap.actions.header" = "단축 버튼";
+"remap.action.fastForward" = "빨리 감기(길게 누르기)";
+"remap.action.screenshot" = "스크린샷";
+"remap.action.clip" = "클립";
+"remap.clear" = "해제";
+"remap.actions.footer" = "이 단축 버튼에는 기본적으로 지정된 버튼이 없습니다. 사용하려면 버튼을 지정하세요. 빨리 감기는 버튼을 누르고 있는 동안만 적용됩니다. 행을 스와이프하면 해제됩니다.";
 "layout.activeLayout" = "사용 중인 레이아웃";
 "layout.default" = "기본";
 "layout.presets" = "프리셋";
@@ -272,9 +288,11 @@
 "layout.editor.done" = "완료";
 "layout.newPreset.systems" = "기종";
 "prompt.controls.title" = "내 손에 딱 맞는 레이아웃을 찾아보세요";
-"prompt.controls.subtitle" = "버튼 위치, 크기, 불투명도를 자유롭게 조정하고, 게임마다 나만의 레이아웃을 저장하세요.";
+"prompt.controls.subtitle" = "버튼의 위치, 크기, 투명도를 커스터마이즈하고 컨트롤러 버튼도 다시 매핑하세요. 게임마다 나만의 레이아웃을 저장할 수 있습니다.";
 "prompt.skins.title" = "꿈에 그리던 스킨을 만들어 보세요";
 "prompt.skins.subtitle" = "콘솔의 모든 색을 취향대로 바꾸고, 만든 작품을 공유해 보세요.";
+"prompt.filters.title" = "그 시절 화면 그대로";
+"prompt.filters.subtitle" = "CRT, LCD 그리드, 도트 매트릭스 등을 게임마다 선택하세요. 스크린샷과 클립에도 똑같은 화면이 담깁니다.";
 "layout.editor.landscapeShort" = "가로";
 "layout.editor.portraitShort" = "세로";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -330,6 +348,17 @@
 "saveImport.mismatch.title" = "다른 게임의 세이브인가요?";
 "saveImport.mismatch.message" = "파일 이름이 %@와(과) 일치하지 않습니다. 이 게임의 세이브가 확실할 때만 가져오세요.";
 "saveImport.mismatch.confirm" = "그래도 가져오기";
+"saveExport.title" = "세이브 내보내기";
+"saveExport.none.title" = "내보낼 세이브가 없습니다";
+"saveExport.none.message" = "이 게임에는 아직 게임 내 세이브가 없습니다. 먼저 게임 자체 메뉴에서 저장한 다음 여기서 내보내세요.";
+"saveExport.error.message" = "세이브를 내보낼 수 없습니다.";
+
+/* NDS 듀얼 슬롯: 슬롯 2의 GBA 게임 (게임 상세, NDS 게임 전용) */
+"slot2.row" = "슬롯 2의 GBA 게임";
+"slot2.none" = "없음";
+"slot2.caption" = "실제 DS처럼 DS 게임이 시작될 때 인식됩니다. 일부 게임은 GBA 버전에서 보너스나 데이터 전송을 사용할 수 있습니다.";
+"slot2.empty" = "라이브러리에 아직 GBA 게임이 없습니다.";
+"slot2.saveNote" = "전송은 GBA 게임의 게임 내 세이브를 읽으며, 퀵 세이브는 인식되지 않습니다. 먼저 GBA 게임 안에서 저장하세요.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "게임 파일 교체";
@@ -341,7 +370,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "iCloud 동기화";
 "settings.sync.state.disabled" = "끔";
-"settings.sync.footer" = "퀵 세이브가 나의 iCloud에 동기화되어 다른 기기에서도 사용할 수 있습니다. 끄면 이 iPhone에만 저장됩니다.";
+"settings.sync.footer" = "퀵 세이브와 게임 내 세이브가 나의 iCloud에 동기화되어 다른 기기에서도 사용할 수 있습니다. 끄면 이 iPhone에만 저장됩니다.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "자동 홀드";
@@ -365,6 +394,22 @@
 "skin.presetLock.caption" = "콘솔 디자인 스킨은 기본 조작 레이아웃이 필요합니다. 이 기종은 사용자 지정 레이아웃을 사용 중이라 \"투명\"만 선택할 수 있습니다.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "외형";
+"appearance.tab.console" = "본체";
+"appearance.tab.screen" = "화면";
+"palette.group.originals" = "오리지널";
+"palette.group.console" = "본체 클래식";
+"palette.group.colors" = "컬러";
+"palette.cgb.caption" = "이 게임은 자체 색상을 사용합니다. 팔레트는 흑백 게임에만 적용됩니다.";
+"filter.section" = "필터";
+"filter.name.none" = "없음";
+"filter.name.scanlines" = "주사선";
+"filter.name.lcd-grid" = "LCD 그리드";
+"filter.name.dot-matrix" = "도트 매트릭스";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "부드럽게";
+"filter.name.sharp" = "선명하게";
+"filter.apply" = "이 필터 적용하기";
 "skin.create" = "스킨 만들기";
 "skin.edit" = "편집";
 "skin.delete" = "삭제";
@@ -474,13 +519,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "새로운 기능";
 "whatsnew.version" = "버전 %@";
-"whatsnew.s1.title" = "더 빨라진 가져오기";
-"whatsnew.s1.b1" = "파일 앱에서 여러 게임을 한 번에 가져올 수 있습니다.";
-"whatsnew.s1.b2" = "여러 게임이 든 ZIP은 이제 추가할 게임을 선택할 수 있습니다.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "잠긴 도전 과제의 진행 상황이 플레이 중에 표시됩니다.";
-"whatsnew.s2.b2" = "에뮬레이터 알림이 더 이상 도전 과제 달성으로 표시되지 않습니다.";
-"whatsnew.s3.title" = "라이브러리";
-"whatsnew.s3.b1" = "커버가 깜박임 없이 표시되며, 오프라인에서도 보입니다.";
 "whatsnew.footer" = "이 내용은 설정에서 언제든지 다시 볼 수 있습니다.";
 "whatsnew.dismiss" = "알겠어요!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "외부 디스플레이";
+"settings.externalDisplay.row" = "TV에서 플레이";
+"settings.externalDisplay.ndsLayout" = "TV의 DS 화면";
+"settings.externalDisplay.sideBySide" = "나란히";
+"settings.externalDisplay.stacked" = "위아래로";
+"settings.externalDisplay.footer" = "AirPlay나 케이블로 TV를 연결하면 게임이 화면을 가득 채우고 iPhone은 조작을 담당합니다. DS는 두 화면을 모두 표시하며, 터치 화면은 휴대폰에 남습니다.";
+"prompt.externalDisplay.title" = "큰 화면에서 플레이";
+"prompt.externalDisplay.subtitle" = "AirPlay나 케이블로 게임을 TV에 전체 화면으로 보내고, iPhone은 조작을 담당합니다.";
+"pro.benefit.externalDisplay.short" = "TV에서 플레이";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "AirPlay로 TV에서 플레이";
+"guide.airplay.intro" = "게임을 TV로 보내고 iPhone은 컨트롤러로 사용하세요. AirPlay나 HDMI 어댑터로 모두 가능합니다.";
+"guide.airplay.step1" = "iPhone과 TV를 같은 Wi-Fi에 연결하세요. HDMI 어댑터를 쓴다면 연결한 뒤 3단계로 넘어가세요.";
+"guide.airplay.step2" = "제어 센터를 열고 화면 미러링을 탭한 다음 TV를 선택하세요.";
+"guide.airplay.step3" = "게임을 실행하세요. TV를 가득 채우고, iPhone은 조작을 담당합니다.";
+"guide.airplay.step4" = "DS에서는 두 화면이 모두 TV에 표시되고 터치 화면은 iPhone에 남습니다.";
+"guide.airplay.step5" = "컨트롤러를 연결하면 화면의 버튼이 사라집니다. 휴대폰에서는 DS 터치 화면만 계속 사용합니다.";
+"guide.airplay.step6" = "TV에서 DS 두 화면의 배치는 설정의 외부 디스플레이에서 선택하세요.";
+"guide.airplay.footer" = "소리도 AirPlay로 영상과 함께 TV로 전달됩니다. 컨트롤러를 쓰면 컨트롤러의 메뉴 버튼으로 일시정지 메뉴를 열 수 있어 휴대폰을 만질 필요가 없습니다.";
+"guide.airplay.proNotice" = "TV에서 플레이하는 기능은 Retro Pal Pro에 포함됩니다.";
+"guide.airplay.proButton" = "내 TV에서 플레이";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "홈 화면에 위젯 추가하기";
+"guide.widget.intro" = "게임을 커버 이미지로 홈 화면에 놓을 수 있습니다. 한 번 탭하면 멈춘 곳부터 바로 시작됩니다.";
+"guide.widget.step1" = "홈 화면의 빈 곳을 길게 눌러 아이콘이 흔들릴 때까지 기다리세요.";
+"guide.widget.step2" = "화면 위쪽의 + 를 탭한 다음 Retro Pal 을 검색하세요.";
+"guide.widget.step3" = "위젯을 고르세요. ‘이어서 하기’는 최근 게임으로 알아서 채워지고, ‘게임 하나’와 ‘게임 네 개’는 직접 고를 수 있습니다.";
+"guide.widget.step4" = "배치한 뒤 완료를 탭하세요.";
+"guide.widget.step5" = "직접 고르는 두 가지는: 위젯을 길게 눌러 ‘위젯 편집’을 탭하고, 게임과 불러올 저장 데이터를 선택하세요.";
+"guide.widget.footer" = "커버는 해당 게임을 한 번이라도 플레이하면 나타나고, 위젯은 Retro Pal 을 나갈 때 갱신됩니다. 직접 게임을 고르려면 iOS 17 이상이 필요하며, ‘이어서 하기’는 지원되는 모든 iPhone 에서 작동합니다.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "이 코드에는 사용되지 않는 문자가 있습니다. 치트 코드는 0-9, A-F, 공백, 하이픈만 사용합니다.";
+"cheats.invalid.pairs" = "Action Replay DS 코드는 짝을 이룹니다. 각 줄에 여덟 자리 블록이 두 개 필요합니다. 예: 94000130 FCFF0000";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "치트 코드 찾아보기";
+"cheats.browse.title" = "치트 코드";
+"cheats.browse.searchPlaceholder" = "게임 검색";
+"cheats.browse.results" = "검색 결과";
+"cheats.browse.none" = "이 게임에 알려진 코드가 없습니다.";
+"cheats.browse.unnamed" = "이름 없는 코드";
+"cheats.browse.offline" = "연결이 없습니다. 코드는 게임당 한 번 받아온 뒤 기기에 저장됩니다.";
+"cheats.browse.failed" = "코드를 불러오지 못했습니다. 다시 시도해 보세요.";
+"cheats.browse.credit" = "libretro 커뮤니티 데이터베이스의 코드 (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "치트 코드";
+"settings.cheatDB.download" = "내 게임의 코드 받기";
+"settings.cheatDB.progress" = "받는 중, %d / %d";
+"settings.cheatDB.stored" = "이 기기에 저장됨";
+"settings.cheatDB.clear" = "받은 코드 삭제";
+"settings.cheatDB.footer" = "코드는 게임마다 하나씩 받아온 뒤 저장됩니다. 보유한 게임의 코드를 미리 받아 두면 연결 없이도 사용할 수 있습니다.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "치트 코드 사용법";
+"guide.cheats.intro" = "코드는 추가하는 즉시 적용됩니다. 게임에서 아무 일도 일어나지 않는다면 대부분 아래 첫 단계가 빠진 것입니다.";
+"guide.cheats.step1" = "치트 코드 찾아보기를 눌러 하나를 고르세요. 코드와 이름이 자동으로 채워지며, 그다음 코드 추가를 누르세요.";
+"guide.cheats.step2" = "대부분의 게임보이 어드밴스와 DS 게임은 먼저 마스터 코드(Enable Code라고도 함)를 추가하고 켜야 합니다. 이것이 없으면 다른 코드는 전혀 작동하지 않습니다. 열쇠 표시가 붙고 목록 맨 위에 나옵니다.";
+"guide.cheats.step3" = "코드 옆의 녹색 원으로 켜고 끕니다. 회색은 꺼짐입니다.";
+"guide.cheats.step4" = "일부 코드는 지역을 나갔다 다시 들어가거나 다음 화면 전환 후에야 적용됩니다.";
+"guide.cheats.step5" = "코드는 특정 버전에 맞춰 작성됩니다. 지역이나 리비전이 다른 코드는 작동하지 않거나 이상하게 동작할 수 있습니다.";
+"guide.cheats.footer" = "첫 코드를 추가하기 전에 진행 상황이 저장되므로 치트 이전 저장 복원으로 언제든 되돌릴 수 있습니다.";
+"cheats.browse.masterHint" = "열쇠 표시가 있는 코드를 켜야 나머지가 작동합니다.";
+"cheats.browse.notFound" = "파일 이름으로 이 게임을 인식하지 못했습니다. 아래에서 검색하세요.";
+
+"guide.cheats.step6" = "많은 코드는 버튼을 눌러야 발동하며, 어떤 버튼인지는 코드 이름에 적혀 있습니다. 예: Press SELECT to Restore Time. 코드를 추가하면 이름도 함께 저장되니 목록에서 확인하세요.";
+
+"settings.cheatDB.upToDate" = "모든 게임을 오프라인에서 사용할 수 있습니다";
+"settings.cheatDB.noGames" = "먼저 라이브러리에 게임을 추가하세요.";
+
+"externalDisplay.idle.hint" = "iPhone에서 게임을 실행하세요";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "TV에서 플레이";
+"whatsnew.s1.b1" = "AirPlay나 케이블로 게임을 TV에 보내고, iPhone은 조작을 담당합니다. Pro.";
+"whatsnew.s1.b2" = "DS에서는 두 화면이 모두 TV에 표시되고 터치 화면은 iPhone에 남습니다.";
+"whatsnew.s2.title" = "실제 기기 그대로의 느낌";
+"whatsnew.s2.b1" = "CRT부터 LCD 격자까지 여섯 가지 영상 필터. 플레이 중은 물론 스크린샷과 클립에도 그대로 담깁니다. Pro.";
+"whatsnew.s2.b2" = "게임보이 팔레트 스물네 가지. 게임마다 골라 쓸 수 있고 모두에게 무료입니다.";
+"whatsnew.s3.title" = "치트 코드, 직접 입력하지 않아도";
+"whatsnew.s3.b1" = "플레이 중인 게임의 커뮤니티 데이터베이스를 열어 코드를 탭하면 추가됩니다. Pro.";
+"whatsnew.s3.b2" = "코드는 스스로 정리되고, 거부된 코드는 무엇이 잘못됐는지 알려줍니다.";
+"whatsnew.s4.title" = "컨트롤러와 키보드";
+"whatsnew.s4.b1" = "콘솔별로 모든 버튼을 다시 지정하고, 빈 버튼에 빨리 감기, 스크린샷, 클립을 넣을 수 있습니다. Pro.";
+"whatsnew.s4.b2" = "물리 키보드를 지원합니다. 무료입니다. 스틱 방향과 DS 버튼도 수정했습니다.";
+"whatsnew.s5.title" = "홈 화면 위의 내 게임";
+"whatsnew.s5.b1" = "위젯이 게임을 커버 이미지로 보여줍니다. 한 번 탭하면 멈춘 곳부터 이어집니다.";
+"whatsnew.s5.b2" = "위젯마다 게임과 저장 데이터를 고르거나, 마지막에 플레이한 게임을 따르게 할 수 있습니다.";
+"whatsnew.s6.title" = "저장 데이터와 닌텐도 DS";
+"whatsnew.s6.b1" = "게임의 저장 데이터를 내보내 공유하거나 보관할 수 있고, 게임 내 저장은 iCloud로 이어집니다.";
+"whatsnew.s6.b2" = "DS의 두 번째 슬롯에 게임보이 어드밴스 게임을 넣을 수 있습니다. 실제 기기처럼.";

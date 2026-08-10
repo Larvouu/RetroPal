@@ -27,16 +27,26 @@ struct WhatsNewContent {
     let version: String
     let sections: [ContentSection]
 
-    /// The CURRENT release's notes (the open 1.2.3 train).
+    /// The CURRENT release's notes (the open 1.2.4 train).
+    ///
+    /// Ordered by what a player actually gains, not by what was hard to build:
+    /// the television first because it changes where you play, then how the
+    /// games look, then the friction we removed, then the smaller things.
     static let current = WhatsNewContent(
-        version: "1.2.3",
+        version: "1.2.4",
         sections: [
             ContentSection(titleKey: "whatsnew.s1.title",
                            bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2"]),
             ContentSection(titleKey: "whatsnew.s2.title",
                            bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2"]),
             ContentSection(titleKey: "whatsnew.s3.title",
-                           bulletKeys: ["whatsnew.s3.b1"]),
+                           bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2"]),
+            ContentSection(titleKey: "whatsnew.s4.title",
+                           bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2"]),
+            ContentSection(titleKey: "whatsnew.s5.title",
+                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2"]),
+            ContentSection(titleKey: "whatsnew.s6.title",
+                           bulletKeys: ["whatsnew.s6.b1", "whatsnew.s6.b2"]),
         ]
     )
 }

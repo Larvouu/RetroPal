@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import CoreData
 
 struct GameDetailsView: View {
     /// Observed so a rename updates the nav title and header text immediately
@@ -49,6 +50,12 @@ struct GameDetailsView: View {
     /// Drives the ROM-file picker for the save-preserving "Replace game file"
     /// recovery (fixes a corrupted/missing ROM without dropping save states).
     @State private var showROMPicker = false
+    /// NDS dual-slot: drives the slot-2 GBA game picker sheet.
+    @State private var showSlot2Picker = false
+    /// Stored ROM filename of this NDS game's slot-2 GBA pick (nil = empty
+    /// slot). Mirrors the `gbaSlot2_<rom>` default; kept in @State so the
+    /// row refreshes on selection (UserDefaults is not observable).
+    @State private var slot2Filename: String?
     /// Single-OK info alert covering both the success and error outcomes of
     /// a save import (one alert binding instead of two stacked on the view).
     @State private var saveInfo: SaveImportInfo?
@@ -59,6 +66,14 @@ struct GameDetailsView: View {
     /// Set when the picked save's filename doesn't match this game's ROM,
     /// suggesting it belongs to a different game. Drives a warning dialog.
     @State private var pendingMismatch: BatterySaveImporter.Pending?
+    /// Temp copy of this game's battery save awaiting the share sheet
+    /// (export). Item-driven so the sheet always has its URL.
+    @State private var exportedSave: ExportedSave?
+
+    private struct ExportedSave: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
 
     /// Title + message for the post-import info alert.
     private struct SaveImportInfo: Identifiable {
@@ -70,9 +85,13 @@ struct GameDetailsView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    /// Canonical basename, via the single source of truth. Deliberately NOT
+    /// re-derived here: hand-rolled stripping is what once left GB/GBC/NDS
+    /// save-state folders behind on delete (7181fc6), and export, import and
+    /// the save path must always agree.
     private var romName: String {
         guard let path = game.romFilePath else { return "" }
-        return URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        return BatterySaveImporter.romBasename(forStoredFilename: path)
     }
 
     private var romsDir: URL {
@@ -92,6 +111,13 @@ struct GameDetailsView: View {
                 DocumentPickerView(contentTypes: DocumentPickerView.romTypes) { urls in
                     guard let url = urls.first else { return }
                     handleReplaceROM(url: url)
+                }
+            }
+            .sheet(item: $exportedSave) { export in
+                // Untracked: the "share" signal's cardType mix belongs to the
+                // share cards, and the TD signal set is frozen.
+                ActivityShareSheet(activityItems: [export.url], tracked: false) {
+                    exportedSave = nil
                 }
             }
             .alert(
@@ -164,6 +190,7 @@ struct GameDetailsView: View {
                     List {
                         launchButtonsSection
                         saveStatesSection
+                        slot2Section
                         manageSection
                         achievementsSection
                     }
@@ -174,6 +201,7 @@ struct GameDetailsView: View {
                     gameHeaderSection
                     launchButtonsSection
                     saveStatesSection
+                    slot2Section
                     manageSection
                     achievementsSection
                 }
@@ -188,12 +216,23 @@ struct GameDetailsView: View {
         }
         .sheet(isPresented: $showRAInfo) { RAAboutSheet() }
         .sheet(isPresented: $showRALogin) { RALoginView() }
+        .sheet(isPresented: $showSlot2Picker) {
+            GBASlot2PickerSheet(currentFilename: slot2Filename) { picked in
+                if let picked {
+                    UserDefaults.standard.set(picked, forKey: slot2Key)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: slot2Key)
+                }
+                slot2Filename = picked
+            }
+        }
         .navigationTitle(game.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(verticalSizeClass == .compact ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(verticalSizeClass == .compact ? .visible : .automatic, for: .tabBar)
         .onAppear {
             refreshSlots()
+            slot2Filename = UserDefaults.standard.string(forKey: slot2Key)
             // Make sure this game's RA eligibility is known (resolves
             // credential-free; no-op once cached).
             if let filename = game.romFilePath, let romHash = game.romHash {
@@ -509,8 +548,84 @@ struct GameDetailsView: View {
         }
     }
 
-    /// Single management section. Import-save (the per-game battery-save
-    /// import) and rename are non-destructive and sit above the destructive
+    // MARK: - Slot 2 (NDS dual-slot)
+
+    /// UserDefaults key holding this NDS game's slot-2 GBA pick (the GBA
+    /// game's stored ROM filename). Read by EmulatorViewController at launch.
+    private var slot2Key: String { "gbaSlot2_\(romName)" }
+
+    /// Library entity of the current slot-2 pick, nil when the slot is empty
+    /// or the picked GBA game has since been deleted (shown as an empty slot,
+    /// same as the emulator's fail-soft behavior at boot).
+    private var slot2Game: GameEntity? {
+        guard let filename = slot2Filename else { return nil }
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "romFilePath == %@", filename)
+        request.fetchLimit = 1
+        return (try? viewContext.fetch(request))?.first
+    }
+
+    /// NDS games only: pick a GBA game from the library to sit in slot 2,
+    /// like on the original DS (Pal Park migration, cross-game bonuses).
+    ///
+    /// A filled slot answers on its OWN row rather than in the trailing
+    /// position: the label is long in most locales and library titles are
+    /// user-editable, so a trailing value truncates to a few characters.
+    /// The full-width row also carries the cover, so the cart looks the same
+    /// here, in the picker, and on the NDS dress.
+    @ViewBuilder
+    private var slot2Section: some View {
+        if game.systemType == "nds" {
+            let picked = slot2Game
+            Section {
+                Button {
+                    showSlot2Picker = true
+                } label: {
+                    HStack {
+                        Label(NSLocalizedString("slot2.row", comment: ""), systemImage: "rectangle.stack")
+                        Spacer()
+                        // An empty slot answers right here; a filled one is
+                        // answered by the row below.
+                        if picked == nil {
+                            Text(NSLocalizedString("slot2.none", comment: ""))
+                                .foregroundColor(.secondary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(Color.secondary.opacity(0.7))
+                    }
+                }
+                if let picked {
+                    Button {
+                        showSlot2Picker = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            GameCoverView(romFilePath: picked.romFilePath,
+                                          boxArtURL: BoxArtManager.shared.coverFileURL(
+                                            forROMHash: picked.romHash, coverType: picked.coverType),
+                                          fixedWidth: 44)
+                            Text(picked.title ?? (picked.romFilePath ?? ""))
+                                .lineLimit(2)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    // Plain so the title reads as content, like the picker's
+                    // own rows, and not as a tinted link.
+                    .buttonStyle(.plain)
+                }
+            } footer: {
+                VStack(alignment: .leading, spacing: 10) {
+                    InfoCallout(text: NSLocalizedString("slot2.saveNote", comment: ""))
+                    Text(NSLocalizedString("slot2.caption", comment: ""))
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    /// Single management section. Import/export-save (the per-game battery
+    /// save) and rename are non-destructive and sit above the destructive
     /// delete at the bottom.
     private var manageSection: some View {
         Section {
@@ -518,6 +633,11 @@ struct GameDetailsView: View {
                 showSavePicker = true
             } label: {
                 Label(NSLocalizedString("saveImport.title", comment: ""), systemImage: "square.and.arrow.down")
+            }
+            Button {
+                exportSave()
+            } label: {
+                Label(NSLocalizedString("saveExport.title", comment: ""), systemImage: "square.and.arrow.up")
             }
             Button {
                 showROMPicker = true
@@ -631,6 +751,37 @@ struct GameDetailsView: View {
             showImportError(error.errorDescription)
         } catch {
             showImportError(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Battery-save export (this game)
+
+    /// Share this game's in-game battery save. The file is copied to a temp
+    /// name other emulators expect for the system (.sav for GBA/GB/GBC, .srm
+    /// for NDS — the same routing our own importer uses, so a round-trip
+    /// export/import always works). No save yet -> explanatory alert.
+    private func exportSave() {
+        let source = BatterySaveImporter.savePath(forRomBasename: romName)
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            saveInfo = SaveImportInfo(
+                title: NSLocalizedString("saveExport.none.title", comment: ""),
+                message: NSLocalizedString("saveExport.none.message", comment: ""))
+            return
+        }
+        let ext = game.systemType == "nds" ? "srm" : "sav"
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SaveExport", isDirectory: true)
+        let dest = dir.appendingPathComponent("\(romName).\(ext)")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: dest)
+            try FileManager.default.copyItem(at: source, to: dest)
+            exportedSave = ExportedSave(url: dest)
+        } catch {
+            // A failed export MUST notify (never a silent failure).
+            saveInfo = SaveImportInfo(
+                title: NSLocalizedString("saveExport.title", comment: ""),
+                message: NSLocalizedString("saveExport.error.message", comment: ""))
         }
     }
 

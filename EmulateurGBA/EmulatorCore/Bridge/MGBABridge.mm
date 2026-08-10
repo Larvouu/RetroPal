@@ -295,6 +295,41 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
     return YES;
 }
 
+- (void)setGBPalette:(const uint32_t *)colors {
+    if (!_core) return;
+    if (_core->platform(_core) != mPLATFORM_GB) return;
+    char key[16];
+    for (int i = 0; i < 12; ++i) {
+        snprintf(key, sizeof(key), "gb.pal[%d]", i);
+        mCoreConfigSetUIntValue(&_core->config, key, colors[i] & 0xFFFFFF);
+    }
+    // Re-reads the 12 keys into dmgPalette and, on a DMG-model game, rewrites
+    // the live BGP/OBP0/OBP1 palette mapping in place — visible on the next
+    // rendered frame, no reset needed. Resets re-read the same config keys,
+    // so the choice survives them too.
+    _core->reloadConfigOption(_core, "gb.pal", &_core->config);
+}
+
+- (BOOL)isDMGPaletteApplicable {
+    if (!_core || !_romLoaded) return NO;
+    if (_core->platform(_core) != mPLATFORM_GB) return NO;
+    // Mirrors mGBA's own condition exactly (GBVideoWritePalette, video.c:797):
+    // only `model < GB_MODEL_SGB` routes BGP/OBP writes through dmgPalette, so
+    // only that model can be recoloured.
+    //
+    // The enum is NOT ordered by capability — DMG 0x00, SGB 0x20, MGB 0x40,
+    // CGB 0x80 — so this passes for DMG alone, not "DMG and MGB" as an earlier
+    // comment here claimed. That matches mGBA, whose palette write does nothing
+    // at all on MGB.
+    //
+    // Consequence worth knowing: autodetect (gb.c:923) picks SGB for any cart
+    // with sgb == 0x03 and oldLicensee == 0x33, which includes Pokemon Red and
+    // Blue. Those are monochrome on a plain Game Boy but render through SGB
+    // colours here, so palettes correctly report as inapplicable.
+    struct GB *gb = (struct GB *)_core->board;
+    return gb->model < GB_MODEL_SGB;
+}
+
 - (void)flushSaveData {
     if (!_core || !_romLoaded) return;
 

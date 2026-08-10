@@ -1,0 +1,28 @@
+"widget.recent.name" = "이어서 하기";
+"widget.recent.description" = "최근에 플레이한 게임을 홈 화면에 표시합니다. 커버를 탭하면 멈춘 곳부터 이어서 즐길 수 있습니다.";
+"widget.empty" = "최근 플레이한 게임 없음";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "게임 하나";
+"widget.oneGame.description" = "게임과 불러올 저장 데이터를 선택하세요. 탭하면 실행됩니다.";
+"widget.fourGames.name" = "게임 네 개";
+"widget.fourGames.description" = "최대 네 개의 게임과 각각 불러올 저장 데이터를 선택하세요.";
+"widget.param.game" = "게임";
+"widget.param.slot" = "저장 데이터";
+"widget.param.game1" = "게임 1";
+"widget.param.slot1" = "게임 1의 저장 데이터";
+"widget.param.game2" = "게임 2";
+"widget.param.slot2" = "게임 2의 저장 데이터";
+"widget.param.game3" = "게임 3";
+"widget.param.slot3" = "게임 3의 저장 데이터";
+"widget.param.game4" = "게임 4";
+"widget.param.slot4" = "게임 4의 저장 데이터";
+"widget.slot.type" = "저장 데이터";
+"widget.slot.resume" = "이어서 하기";
+"widget.entity.game" = "게임";
+"widget.unconfigured" = "길게 눌러 게임을 선택하세요";
+"widget.slot.1" = "슬롯 1";
+"widget.slot.2" = "슬롯 2";
+"widget.slot.3" = "슬롯 3";
+"widget.slot.4" = "슬롯 4";
+"widget.slot.5" = "슬롯 5";

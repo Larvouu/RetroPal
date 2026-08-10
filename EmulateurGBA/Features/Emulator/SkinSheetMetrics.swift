@@ -52,6 +52,48 @@ enum SkinSheetMetrics {
         return min(h, screenHeight * 0.95)
     }
 
+    // MARK: - Appearance sheet (tabbed: Console / Screen)
+
+    /// The segmented tab bar row (control + its vertical padding), added on top
+    /// of the per-tab content height when the sheet shows tabs (GB/GBC).
+    static let tabBarH: CGFloat = 52
+    /// Palette preview aspect: the GB screen (160×144), height/width.
+    static let paletteAspect: CGFloat = 144.0 / 160.0
+    static let paletteGroupHeaderH: CGFloat = 28
+
+    static func paletteCellHeight(containerWidth: CGFloat) -> CGFloat {
+        cardWidth(containerWidth: containerWidth) * paletteAspect + cardLabelGap + nameLabelH
+    }
+
+    /// Estimated Screen-tab portrait content height: section header + the big
+    /// filter showcase (GB aspect at full width, capped like the view caps it)
+    /// + two chip rows + the (worst-case, non-Pro) Apply invitation + OK.
+    /// The scroll absorbs any estimate error; palettes below simply scroll.
+    private static func screenTabContentEstimate(containerWidth: CGFloat,
+                                                 screenHeight: CGFloat) -> CGFloat {
+        let showcaseH = min((containerWidth - hPad * 2) * (144.0 / 160.0), 320)
+        let chipRowsH: CGFloat = 3 * 38 + 16     // 7 chips, ~3 rows at the wider minimum
+        return topPad + paletteGroupHeaderH + showcaseH + 12 + chipRowsH
+            + sectionGap + buttonH + bottomPad   // one pinned row (OK, or OK + Apply beside it)
+    }
+
+    /// The Appearance sheet's SINGLE portrait detent: the taller of the two
+    /// tabs' content heights (the height never changes on a tab switch —
+    /// settled UX, 2026-07-24), plus the tab bar, capped at 95% screen.
+    static func appearancePortraitHeight(containerWidth: CGFloat, screenHeight: CGFloat,
+                                         itemCount: Int, supportsCustom: Bool,
+                                         locked: Bool, showTabs: Bool) -> CGFloat {
+        var h = portraitSheetHeight(containerWidth: containerWidth, screenHeight: screenHeight,
+                                    itemCount: itemCount, supportsCustom: supportsCustom,
+                                    locked: locked)
+        if showTabs {
+            h = max(h, screenTabContentEstimate(containerWidth: containerWidth,
+                                                screenHeight: screenHeight))
+            h += tabBarH
+        }
+        return min(h, screenHeight * 0.95)
+    }
+
     /// The scrollable grid's max height inside the sheet of `sheetHeight`: whatever remains after the
     /// pinned actions (so the grid scrolls if the sheet was capped, while the actions stay visible).
     static func portraitGridBound(sheetHeight: CGFloat, supportsCustom: Bool, locked: Bool) -> CGFloat {

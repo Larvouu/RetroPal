@@ -32,53 +32,76 @@ struct HowToSheet<Header: View>: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header()
-
+        // Deliberately NOT a NavigationStack. The inline navigation title had
+        // to share the bar with a Done button, so longer guide titles
+        // truncated with an ellipsis in several languages. Presenting the
+        // title inside the scroll gives it the full width and the same weight
+        // the What's New sheet uses, and the dismiss moves to the bottom
+        // where it reads as "I have read this" rather than "close".
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title2.weight(.bold))
+                        .fixedSize(horizontal: false, vertical: true)
                     if let intro = intro {
                         Text(intro)
                             .font(.subheadline)
-                            .foregroundColor(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    VStack(alignment: .leading, spacing: 16) {
-                        ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                            stepRow(num: index + 1, text: step)
-                        }
-                    }
-
-                    if let footer = footer {
-                        Text(footer)
-                            .font(.caption)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 4)
                     }
+                }
+                .padding(.top, 28)
 
-                    Spacer(minLength: 0)
+                header()
+
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                        stepRow(num: index + 1, text: step)
+                    }
                 }
-                .padding(24)
-            }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(NSLocalizedString("common.done", comment: "")) { dismiss() }
+
+                if let footer = footer {
+                    Text(footer)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                // Same confirm as the What's New sheet: purple to blue, the
+                // app's standard "understood" button.
+                Button {
+                    dismiss()
+                } label: {
+                    Text(NSLocalizedString("whatsnew.dismiss", comment: ""))
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(LinearGradient(colors: [.purple, .blue],
+                                                   startPoint: .leading, endPoint: .trailing))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.top, 4)
             }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
+        // Opened fully: these are read-through guides, and a medium detent
+        // meant every one of them started half-hidden.
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
+    /// Numbered like a procedure, coloured like the What's New bullets: the
+    /// number carries the accent so the eye can count steps at a glance.
     private func stepRow(num: Int, text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(num)")
-                .font(.subheadline.bold())
-                .foregroundColor(.primary)
-                .frame(width: 28, height: 28)
-                .background(Color.primary.opacity(0.1))
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.accentColor)
+                .frame(width: 26, height: 26)
+                .background(Color.accentColor.opacity(0.15))
                 .clipShape(Circle())
 
             Text(text)
@@ -86,7 +109,7 @@ struct HowToSheet<Header: View>: View {
                 .foregroundColor(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 3)
+                .padding(.top, 2)
         }
     }
 }

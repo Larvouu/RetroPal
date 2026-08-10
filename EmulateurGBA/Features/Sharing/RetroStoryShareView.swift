@@ -297,11 +297,17 @@ final class TrackedLinkItem: NSObject, UIActivityItemSource {
 struct ActivityShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
     var cardType: String = "unknown"
+    /// The "share" signal's cardType mix reads as the share-card funnel; pass
+    /// false for non-card shares (e.g. the save export) so they stay out of it
+    /// (the TD signal set is frozen; no new params or values).
+    var tracked: Bool = true
     var onComplete: (() -> Void)? = nil
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
         controller.completionWithItemsHandler = { _, completed, _, _ in
-            Analytics.signal("share", ["cardType": cardType, "completed": completed ? "true" : "false"])
+            if tracked {
+                Analytics.signal("share", ["cardType": cardType, "completed": completed ? "true" : "false"])
+            }
             onComplete?()
         }
         return controller

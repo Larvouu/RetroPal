@@ -36,6 +36,13 @@ extern const NSInteger NDSScreenHeight;  // 192 (single screen)
 /// Activate/deactivate simulated microphone blow input
 - (void)setMicBlowActive:(BOOL)active;
 
+/// Configure a GBA cart to mount in slot 2 when the next ROM is loaded
+/// (dual-slot: Pal Park, cross-game unlocks). Must be called BEFORE
+/// `loadROMAtPath:` — the cart is inserted at boot, like on real hardware.
+/// `savePath` is the GBA game's own battery save; the cart both reads it at
+/// insert and writes back to it in play. Pass nil for both to clear.
+- (void)configureGBASlotROMPath:(nullable NSString *)romPath savePath:(nullable NSString *)savePath;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -63,6 +63,7 @@
 "settings.title" = "Definições";
 "settings.controls" = "Controlos";
 "settings.haptics" = "Vibração no jogo";
+"settings.haptics.strength" = "Intensidade";
 "settings.controller.footer" = "Comandos Bluetooth (Xbox, PlayStation, MFi) suportados. Emparelha nas Definições do iOS.";
 "settings.controls.controllerActive.footer" = "Está um comando ligado, por isso as definições de toque acima estão desativadas.";
 "settings.controls.dpad.footer" = "As opções de cruzeta/joystick e botão de clipe aplicam-se à disposição predefinida. Cada perfil personalizado tem a sua própria opção de cruzeta/joystick, e o seu botão de clipe fica sempre visível.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "5 slots de gravação (em vez de 2)";
 "pro.benefit.rewind" = "Rebobinagem de 30 segundos (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Códigos de batota (GameShark / Action Replay)";
-"pro.benefit.controls" = "Controlos personalizados";
+"pro.benefit.controls" = "Controlos personalizados (toque e comando)";
 "pro.benefit.speed.short" = "Todas as velocidades";
 "pro.benefit.slots.short" = "5 compartimentos";
 "pro.benefit.rewind.short" = "Recuar 30 s";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "Controlos personalizados";
 "pro.benefit.skins" = "Criação de skins personalizados";
 "pro.benefit.skins.short" = "Skins personalizados";
+"pro.benefit.filters" = "Filtros de vídeo CRT e LCD";
+"pro.benefit.externalDisplay" = "Jogo na TV com AirPlay";
+"pro.benefit.filters.short" = "Filtros de vídeo";
 "pro.badge" = "Funcionalidade Pro";
 "pro.seeAllBenefits" = "Ver todos os benefícios Pro";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "Sem anúncios";
 "pro.compare.row.allSystems" = "Todas as consolas";
 "pro.compare.row.autoSave" = "Gravação auto.";
-"pro.compare.row.screenshots" = "Partilhar capturas";
 "pro.compare.row.iCloud" = "Sincronização iCloud";
 "pro.compare.row.controllers" = "Comandos Bluetooth";
 "pro.compare.row.slots" = "Slots de gravação";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
 "pro.compare.row.skins" = "Criação de skins";
+"pro.compare.row.filters" = "Filtros de vídeo";
+"pro.compare.row.externalDisplay" = "TV / AirPlay";
 /* Prompts */
 "prompt.speed.title" = "Jogaste %@ minutos a 1,5x";
 "prompt.speed.subtitle" = "A 4x, a mesma sessão passa a voar. Desbloqueia todas as velocidades, para sempre.";
@@ -250,6 +255,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "Personalizar controlos";
+"settings.remapController" = "Remapear botões do comando";
+"remap.press" = "Prime um botão…";
+"remap.reset" = "Repor predefinições";
+"remap.footer" = "Toca num botão e depois prime o botão do comando que queres atribuir. O direcional e o analógico controlam sempre o direcional.";
+"remap.noController" = "Liga um comando para remapear os botões.";
+"remap.actions.header" = "Atalhos";
+"remap.action.fastForward" = "Avanço rápido (manter premido)";
+"remap.action.screenshot" = "Captura de ecrã";
+"remap.action.clip" = "Clipe";
+"remap.clear" = "Remover";
+"remap.actions.footer" = "Estes atalhos não têm botão por predefinição. Atribui um para os usares. O avanço rápido aplica-se enquanto o botão estiver premido. Desliza uma linha para a remover.";
 "layout.activeLayout" = "Disposição ativa";
 "layout.default" = "Predefinido";
 "layout.presets" = "Predefinições";
@@ -274,9 +290,11 @@
 "layout.editor.done" = "Concluído";
 "layout.newPreset.systems" = "Sistemas";
 "prompt.controls.title" = "Encontre a posição perfeita para as suas mãos";
-"prompt.controls.subtitle" = "Personalize a posição, tamanho e opacidade dos botões. Crie as suas predefinições para jogos diferentes.";
+"prompt.controls.subtitle" = "Personaliza a posição, o tamanho e a opacidade dos botões e remapeia os botões do comando. Guarda os teus próprios esquemas para jogos diferentes.";
 "prompt.skins.title" = "Crie o skin dos seus sonhos";
 "prompt.skins.subtitle" = "Escolha cada cor da consola, torne-o seu e partilhe as suas criações.";
+"prompt.filters.title" = "Recupera o ecrã original";
+"prompt.filters.subtitle" = "CRT, grelha LCD, matriz de pontos e mais, por jogo. As tuas capturas e clipes mantêm exatamente o mesmo aspeto.";
 "layout.editor.landscapeShort" = "Paisagem";
 "layout.editor.portraitShort" = "Retrato";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -332,6 +350,17 @@
 "saveImport.mismatch.title" = "Gravação de outro jogo?";
 "saveImport.mismatch.message" = "O nome do ficheiro não corresponde a %@. Importa-a apenas se tiveres a certeza de que pertence a este jogo.";
 "saveImport.mismatch.confirm" = "Importar mesmo assim";
+"saveExport.title" = "Exportar gravação";
+"saveExport.none.title" = "Nenhuma gravação para exportar";
+"saveExport.none.message" = "Este jogo ainda não tem gravação. Grava primeiro no menu do próprio jogo e depois volta aqui para a exportar.";
+"saveExport.error.message" = "Não foi possível exportar a gravação.";
+
+/* Slot duplo NDS: jogo GBA na ranhura 2 (detalhes do jogo, apenas jogos NDS) */
+"slot2.row" = "Jogo GBA na ranhura 2";
+"slot2.none" = "Nenhum";
+"slot2.caption" = "O jogo DS deteta-o ao arrancar, como na DS original. Alguns jogos desbloqueiam bónus ou transferências da sua versão GBA.";
+"slot2.empty" = "Ainda não tens jogos GBA na biblioteca.";
+"slot2.saveNote" = "As transferências leem a gravação feita dentro do jogo GBA, não as gravações rápidas. Grava primeiro no menu do jogo GBA.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "Substituir o ficheiro do jogo";
@@ -343,7 +372,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "Sincronização do iCloud";
 "settings.sync.state.disabled" = "Desativado";
-"settings.sync.footer" = "As tuas gravações rápidas sincronizam no teu iCloud privado e entre os teus dispositivos. Desativa esta opção para as manteres apenas neste iPhone.";
+"settings.sync.footer" = "As tuas gravações rápidas e as gravações do jogo sincronizam no teu iCloud privado e entre os teus dispositivos. Desativa esta opção para as manteres apenas neste iPhone.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Bloqueio auto";
@@ -367,6 +396,22 @@
 "skin.presetLock.caption" = "Os skins decorados precisam da disposição de controlos predefinida. Esta consola usa uma personalizada, por isso só Invisible está disponível.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "Aspeto";
+"appearance.tab.console" = "Consola";
+"appearance.tab.screen" = "Ecrã";
+"palette.group.originals" = "Originais";
+"palette.group.console" = "Clássicos da consola";
+"palette.group.colors" = "Cores";
+"palette.cgb.caption" = "Este jogo usa as suas próprias cores. As paletas aplicam-se apenas a jogos monocromáticos.";
+"filter.section" = "Filtros";
+"filter.name.none" = "Nenhum";
+"filter.name.scanlines" = "Scanlines";
+"filter.name.lcd-grid" = "Grelha LCD";
+"filter.name.dot-matrix" = "Matriz de pontos";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "Suave";
+"filter.name.sharp" = "Nítido";
+"filter.apply" = "Aplicar este filtro";
 "skin.create" = "Criar um skin";
 "skin.edit" = "Editar";
 "skin.delete" = "Eliminar";
@@ -477,13 +522,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "Novidades";
 "whatsnew.version" = "Versão %@";
-"whatsnew.s1.title" = "Importação mais rápida";
-"whatsnew.s1.b1" = "Importa vários jogos de uma vez a partir de Ficheiros.";
-"whatsnew.s1.b2" = "Um ZIP com vários jogos agora deixa-te escolher quais adicionar.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "As conquistas bloqueadas mostram agora o teu progresso enquanto jogas.";
-"whatsnew.s2.b2" = "Os avisos do emulador já não aparecem como conquistas desbloqueadas.";
-"whatsnew.s3.title" = "Biblioteca";
-"whatsnew.s3.b1" = "As capas aparecem agora sem piscar, mesmo offline.";
 "whatsnew.footer" = "Podes reler estas novidades em qualquer altura nas Definições.";
 "whatsnew.dismiss" = "Entendido!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "Ecrã externo";
+"settings.externalDisplay.row" = "Jogar numa TV";
+"settings.externalDisplay.ndsLayout" = "Ecrãs DS na TV";
+"settings.externalDisplay.sideBySide" = "Lado a lado";
+"settings.externalDisplay.stacked" = "Um por cima do outro";
+"settings.externalDisplay.footer" = "Liga uma TV por AirPlay ou por cabo e o jogo preenche o ecrã enquanto o teu iPhone mantém os comandos. A DS mostra os dois ecrãs; o ecrã tátil fica no telefone.";
+"prompt.externalDisplay.title" = "Joga no ecrã grande";
+"prompt.externalDisplay.subtitle" = "Envia o jogo para a tua TV por AirPlay ou por cabo, em ecrã inteiro, enquanto o teu iPhone mantém os comandos.";
+"pro.benefit.externalDisplay.short" = "Jogar numa TV";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "Jogar na TV com AirPlay";
+"guide.airplay.intro" = "Envia o jogo para um televisor e mantém o teu iPhone como comando. Funciona por AirPlay ou com um adaptador HDMI.";
+"guide.airplay.step1" = "Coloca o teu iPhone e a tua TV na mesma rede Wi-Fi. Com um adaptador HDMI, liga-o e passa ao passo 3.";
+"guide.airplay.step2" = "Abre o centro de controlo, toca em Duplicação de ecrã e escolhe a tua TV.";
+"guide.airplay.step3" = "Inicia um jogo. Preenche o televisor e o teu iPhone mantém os comandos.";
+"guide.airplay.step4" = "Na DS, os dois ecrãs aparecem na TV e o ecrã tátil fica no teu iPhone.";
+"guide.airplay.step5" = "Liga um comando e os botões no ecrã desaparecem. Só o ecrã tátil da DS continua a ser usado no telefone.";
+"guide.airplay.step6" = "Para escolher como ficam os dois ecrãs da DS na TV, vai a Definições, Ecrã externo.";
+"guide.airplay.footer" = "O som acompanha a imagem até ao televisor por AirPlay. Com um comando, o menu de pausa abre com o botão de menu do próprio comando, por isso nunca precisas de tocar no telefone.";
+"guide.airplay.proNotice" = "Jogar na TV faz parte do Retro Pal Pro.";
+"guide.airplay.proButton" = "Jogar na minha TV";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "Adicionar um widget ao ecrã principal";
+"guide.widget.intro" = "Põe os teus jogos no ecrã principal com as suas capas. Um toque abre o jogo onde ficaste.";
+"guide.widget.step1" = "Mantém premido um espaço vazio do ecrã principal até os ícones começarem a mexer.";
+"guide.widget.step2" = "Toca no + no topo do ecrã e procura Retro Pal.";
+"guide.widget.step3" = "Escolhe um widget: «Continuar a jogar» enche-se sozinho com os teus últimos jogos, «Um jogo» e «Quatro jogos» escolhes tu.";
+"guide.widget.step4" = "Coloca-o e toca em OK.";
+"guide.widget.step5" = "Para os dois que escolhes tu: mantém premido o widget, toca em Editar widget e escolhe o jogo e o progresso que abre.";
+"guide.widget.footer" = "As capas aparecem depois de jogares pelo menos uma vez, e o widget atualiza-se quando sais do Retro Pal. Escolher os teus jogos requer iOS 17 ou posterior; «Continuar a jogar» funciona em todos os iPhone compatíveis.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "Este código contém caracteres inesperados. Os truques só usam 0-9, A-F, espaços e traços.";
+"cheats.invalid.pairs" = "Os códigos Action Replay DS vão aos pares: cada linha precisa de dois blocos de oito caracteres, por exemplo 94000130 FCFF0000.";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "Ver códigos de truques";
+"cheats.browse.title" = "Códigos de truques";
+"cheats.browse.searchPlaceholder" = "Procurar um jogo";
+"cheats.browse.results" = "Resultados";
+"cheats.browse.none" = "Não há códigos conhecidos para este jogo.";
+"cheats.browse.unnamed" = "Código sem nome";
+"cheats.browse.offline" = "Sem ligação. Os códigos são obtidos uma vez por jogo e depois ficam guardados no teu dispositivo.";
+"cheats.browse.failed" = "Não foi possível carregar os códigos. Tenta novamente.";
+"cheats.browse.credit" = "Códigos da base comunitária libretro (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "Códigos de truques";
+"settings.cheatDB.download" = "Obter os códigos dos meus jogos";
+"settings.cheatDB.progress" = "A transferir, %d de %d";
+"settings.cheatDB.stored" = "Guardados neste dispositivo";
+"settings.cheatDB.clear" = "Apagar os códigos transferidos";
+"settings.cheatDB.footer" = "Os códigos são obtidos jogo a jogo e depois ficam guardados. Transferi-los para os teus jogos deixa-os disponíveis sem ligação.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "Como funcionam os códigos de truques";
+"guide.cheats.intro" = "Um código fica ativo assim que o adicionas. Se não acontecer nada no jogo, quase sempre falta o primeiro passo abaixo.";
+"guide.cheats.step1" = "Toca em Ver códigos de truques e escolhe um. O código e o nome preenchem-se sozinhos, depois toca em Adicionar código.";
+"guide.cheats.step2" = "A maioria dos jogos Game Boy Advance e DS precisa de um Master Code, às vezes chamado Enable Code, adicionado e ligado PRIMEIRO. Sem ele os outros códigos não fazem nada. Estão marcados com uma chave e aparecem no topo da lista.";
+"guide.cheats.step3" = "O círculo verde ao lado de um código liga-o e desliga-o. Cinzento quer dizer desligado.";
+"guide.cheats.step4" = "Alguns códigos só fazem efeito depois de saíres e voltares a uma zona, ou na mudança de ecrã seguinte.";
+"guide.cheats.step5" = "Os códigos são escritos para uma versão específica de um jogo. Um código de outra região ou revisão pode não fazer nada, ou comportar-se de forma estranha.";
+"guide.cheats.footer" = "O teu progresso é guardado antes do primeiro código, por isso podes sempre voltar atrás com Restaurar a gravação anterior aos truques.";
+"cheats.browse.masterHint" = "Os códigos marcados com uma chave têm de estar ligados para os outros funcionarem.";
+"cheats.browse.notFound" = "Este jogo não foi reconhecido pelo nome do ficheiro. Procura-o abaixo.";
+
+"guide.cheats.step6" = "Muitos códigos só disparam com um botão, e o próprio nome do código diz qual: por exemplo Press SELECT to Restore Time. Esse nome fica guardado quando adicionas o código, por isso lê-o na tua lista.";
+
+"settings.cheatDB.upToDate" = "Todos os teus jogos estão disponíveis offline";
+"settings.cheatDB.noGames" = "Adiciona primeiro um jogo à tua biblioteca.";
+
+"externalDisplay.idle.hint" = "Inicia um jogo no teu iPhone";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "Joga na TV";
+"whatsnew.s1.b1" = "Envia o jogo para um televisor por AirPlay ou por cabo, enquanto o teu iPhone mantém os comandos. Pro.";
+"whatsnew.s1.b2" = "Na DS, os dois ecrãs aparecem na TV e o ecrã tátil fica no teu iPhone.";
+"whatsnew.s2.title" = "O aspeto do equipamento original";
+"whatsnew.s2.b1" = "Seis filtros de vídeo, do CRT à grelha LCD, ao vivo e gravados nas tuas capturas e clipes. Pro.";
+"whatsnew.s2.b2" = "Vinte e quatro paletas Game Boy, à escolha em cada jogo, grátis para todos.";
+"whatsnew.s3.title" = "Truques sem os escrever";
+"whatsnew.s3.b1" = "Consulta a base comunitária do jogo que tens aberto e toca num código para o adicionar. Pro.";
+"whatsnew.s3.b2" = "Os códigos formatam-se sozinhos, e um código recusado diz finalmente o que está errado.";
+"whatsnew.s4.title" = "Comandos e teclados";
+"whatsnew.s4.b1" = "Remapeia cada botão, por consola, e põe avanço rápido, captura ou clipe num botão livre. Pro.";
+"whatsnew.s4.b2" = "Os teclados físicos já funcionam, grátis. O stick e os botões da DS estão corrigidos.";
+"whatsnew.s5.title" = "Os teus jogos no ecrã principal";
+"whatsnew.s5.b1" = "Os widgets mostram os teus jogos com a capa. Um toque abre o jogo onde ficaste.";
+"whatsnew.s5.b2" = "Escolhe o jogo e o progresso de cada widget, ou deixa-o seguir a tua última partida.";
+"whatsnew.s6.title" = "Gravações e Nintendo DS";
+"whatsnew.s6.b1" = "Exporta a gravação de um jogo para a partilhares ou guardares, e elas seguem-te por iCloud.";
+"whatsnew.s6.b2" = "Põe um jogo Game Boy Advance na segunda ranhura da DS, como na consola original.";

@@ -22,6 +22,8 @@ enum ProPromptContext: Equatable {
     case tappedLockedFeature
     case customizeControls                 // user tapped customize controls (Pro feature)
     case customSkins                       // user tapped Create skin / Edit, or imported one (creation is Pro)
+    case videoFilters                      // user tapped a display filter in the Appearance sheet (Pro)
+    case externalDisplay                   // user tapped the external-display row in Settings (Pro)
 
     /// Stable, anonymous identifier for analytics (drops associated values, esp. gameName).
     var analyticsID: String {
@@ -37,6 +39,8 @@ enum ProPromptContext: Equatable {
         case .tappedLockedFeature: return "tappedLockedFeature"
         case .customizeControls: return "customizeControls"
         case .customSkins: return "customSkins"
+        case .videoFilters: return "videoFilters"
+        case .externalDisplay: return "externalDisplay"
         }
     }
 }

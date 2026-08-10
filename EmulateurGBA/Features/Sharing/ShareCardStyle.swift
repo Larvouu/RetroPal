@@ -79,6 +79,10 @@ enum ShareCardStyle: String {
 struct ShareCardSkinContext {
     let styleKey: String
     let skin: (variant: DressVariant, name: String)?
+    /// The game's EFFECTIVE display filter (Pro-gated), so the screenshot +
+    /// clip cards bake exactly what the screen shows. `.none` without a game
+    /// context.
+    var filter: VideoFilter = .none
 
     /// No game context (Debug previews): the legacy global key, no skin option.
     static let none = ShareCardSkinContext(styleKey: ShareCardStyle.choiceKey, skin: nil)
@@ -90,19 +94,22 @@ struct ShareCardSkinContext {
     /// `romName` = the ROM filename without its extension.
     static func forRom(romName: String, system: PresetSystem) -> ShareCardSkinContext {
         let key = ShareCardStyle.choiceKey(forRom: romName)
+        let filter = VideoFilter.effective(forRomBasename: romName)
         guard ControlLayoutStore.shared.activePreset(system: system) == nil else {
-            return ShareCardSkinContext(styleKey: key, skin: nil)
+            return ShareCardSkinContext(styleKey: key, skin: nil, filter: filter)
         }
         switch SkinSelection.decode(UserDefaults.standard.string(forKey: "skin_\(romName)")) {
         case .builtin(.retroPal):
-            return ShareCardSkinContext(styleKey: key, skin: (.retroPal, GameSkin.retroPal.displayName))
+            return ShareCardSkinContext(styleKey: key, skin: (.retroPal, GameSkin.retroPal.displayName),
+                                        filter: filter)
         case .custom(let id):
             guard let skin = CustomSkinStore.shared.skin(id: id, system: system) else {
-                return ShareCardSkinContext(styleKey: key, skin: nil)
+                return ShareCardSkinContext(styleKey: key, skin: nil, filter: filter)
             }
-            return ShareCardSkinContext(styleKey: key, skin: (.custom(skin.palette), skin.name))
+            return ShareCardSkinContext(styleKey: key, skin: (.custom(skin.palette), skin.name),
+                                        filter: filter)
         default:
-            return ShareCardSkinContext(styleKey: key, skin: nil)
+            return ShareCardSkinContext(styleKey: key, skin: nil, filter: filter)
         }
     }
 }

@@ -278,7 +278,8 @@ struct ScreenshotShareView: View {
     /// Renders the branded square card from the source frame at the effective style.
     /// Re-runnable: called again whenever the style changes.
     @MainActor private func renderCard() {
-        let info = ScreenshotCardRenderer.GameInfo(name: name, playTimeSeconds: playTime, isPro: isPro)
+        let info = ScreenshotCardRenderer.GameInfo(name: name, playTimeSeconds: playTime, isPro: isPro,
+                                                   filter: skinContext.filter)
         cardImage = ScreenshotCardRenderer.render(gameFrame: gameFrame, info: info,
                                                   style: effectiveStyle, system: system,
                                                   skinVariant: skinContext.skin?.variant)

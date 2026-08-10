@@ -1,0 +1,28 @@
+"widget.recent.name" = "Verder spelen";
+"widget.recent.description" = "Je recente games op het beginscherm. Tik op een hoes om verder te gaan waar je gebleven was.";
+"widget.empty" = "Geen recente games";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Eén game";
+"widget.oneGame.description" = "Kies een game en het opgeslagen spel dat wordt geopend. Tik om te spelen.";
+"widget.fourGames.name" = "Vier games";
+"widget.fourGames.description" = "Kies maximaal vier games en het opgeslagen spel dat elke game opent.";
+"widget.param.game" = "Game";
+"widget.param.slot" = "Opgeslagen spel";
+"widget.param.game1" = "Game 1";
+"widget.param.slot1" = "Opgeslagen spel voor game 1";
+"widget.param.game2" = "Game 2";
+"widget.param.slot2" = "Opgeslagen spel voor game 2";
+"widget.param.game3" = "Game 3";
+"widget.param.slot3" = "Opgeslagen spel voor game 3";
+"widget.param.game4" = "Game 4";
+"widget.param.slot4" = "Opgeslagen spel voor game 4";
+"widget.slot.type" = "Opgeslagen spel";
+"widget.slot.resume" = "Hervatten";
+"widget.entity.game" = "Game";
+"widget.unconfigured" = "Houd ingedrukt om een game te kiezen";
+"widget.slot.1" = "Slot 1";
+"widget.slot.2" = "Slot 2";
+"widget.slot.3" = "Slot 3";
+"widget.slot.4" = "Slot 4";
+"widget.slot.5" = "Slot 5";

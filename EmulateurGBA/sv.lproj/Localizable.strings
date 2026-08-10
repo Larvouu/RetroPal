@@ -63,6 +63,7 @@
 "settings.title" = "Inställningar";
 "settings.controls" = "Kontroller";
 "settings.haptics" = "Haptik i spelet";
+"settings.haptics.strength" = "Styrka";
 "settings.controller.footer" = "Bluetooth-handkontroller (Xbox, PlayStation, MFi) stöds. Para ihop i iOS-inställningarna.";
 "settings.controls.controllerActive.footer" = "En handkontroll är ansluten, så touch-inställningarna ovan är avstängda.";
 "settings.controls.dpad.footer" = "Inställningarna för styrkors/joystick och klippknapp gäller standardlayouten. Varje egen profil har sitt eget val av styrkors/joystick, och dess klippknapp är alltid synlig.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "5 sparplatser (istället för 2)";
 "pro.benefit.rewind" = "30 sekunders tillbakaspolning (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Fuskkoder (GameShark / Action Replay)";
-"pro.benefit.controls" = "Anpassade kontrollayouter";
+"pro.benefit.controls" = "Egna layouter och kontrollmappning";
 "pro.benefit.speed.short" = "Alla hastigheter";
 "pro.benefit.slots.short" = "5 sparplatser";
 "pro.benefit.rewind.short" = "30 s tillbakaspolning";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "Anpassade kontroller";
 "pro.benefit.skins" = "Skapa egna skins till konsolen";
 "pro.benefit.skins.short" = "Egna skins";
+"pro.benefit.filters" = "CRT- och LCD-videofilter";
+"pro.benefit.externalDisplay" = "Spela på tv med AirPlay";
+"pro.benefit.filters.short" = "Videofilter";
 "pro.badge" = "Pro-funktion";
 "pro.seeAllBenefits" = "Se alla Pro-förmåner";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "Inga annonser";
 "pro.compare.row.allSystems" = "Alla konsoler";
 "pro.compare.row.autoSave" = "Autospara";
-"pro.compare.row.screenshots" = "Dela skärmdumpar";
 "pro.compare.row.iCloud" = "iCloud-synk";
 "pro.compare.row.controllers" = "Bluetooth-handkontroller";
 "pro.compare.row.slots" = "Sparplatser";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
 "pro.compare.values.proSpeeds" = "0,25×–4×";
 "pro.compare.row.skins" = "Skapa skins";
+"pro.compare.row.filters" = "Videofilter";
+"pro.compare.row.externalDisplay" = "Tv / AirPlay";
 /* Prompts */
 "prompt.speed.title" = "Du har spelat %@ minuter på 1,5x";
 "prompt.speed.subtitle" = "På 4x flyger samma session förbi. Lås upp alla hastigheter, för alltid.";
@@ -250,6 +255,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "Anpassa kontroller";
+"settings.remapController" = "Mappa om kontrollens knappar";
+"remap.press" = "Tryck på en knapp…";
+"remap.reset" = "Återställ till standard";
+"remap.footer" = "Tryck på en knapp och tryck sedan på kontrollknappen du vill tilldela. Styrkorset och spaken styr alltid styrkorset.";
+"remap.noController" = "Anslut en kontroll för att mappa om knapparna.";
+"remap.actions.header" = "Genvägar";
+"remap.action.fastForward" = "Snabbspolning (håll)";
+"remap.action.screenshot" = "Skärmbild";
+"remap.action.clip" = "Klipp";
+"remap.clear" = "Ta bort";
+"remap.actions.footer" = "De här genvägarna har ingen knapp som standard. Tilldela en för att använda dem. Snabbspolningen gäller så länge knappen hålls in. Svep på en rad för att ta bort den.";
 "layout.activeLayout" = "Aktiv layout";
 "layout.default" = "Standard";
 "layout.presets" = "Förinställningar";
@@ -274,9 +290,11 @@
 "layout.editor.done" = "Klar";
 "layout.newPreset.systems" = "System";
 "prompt.controls.title" = "Hitta den perfekta layouten för dina händer";
-"prompt.controls.subtitle" = "Anpassa knapposition, storlek och opacitet. Skapa egna förinställningar för olika spel.";
+"prompt.controls.subtitle" = "Anpassa knapparnas position, storlek och genomskinlighet och mappa om kontrollens knappar. Spara egna layouter för olika spel.";
 "prompt.skins.title" = "Skapa ditt drömskin";
 "prompt.skins.subtitle" = "Välj varje färg på konsolen, gör den till din egen och dela dina skapelser.";
+"prompt.filters.title" = "Få tillbaka originalskärmen";
+"prompt.filters.subtitle" = "CRT, LCD-rutnät, punktmatris med mera, per spel. Dina skärmbilder och klipp behåller exakt samma utseende.";
 "layout.editor.landscapeShort" = "Liggande";
 "layout.editor.portraitShort" = "Stående";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -332,6 +350,17 @@
 "saveImport.mismatch.title" = "Sparfil från ett annat spel?";
 "saveImport.mismatch.message" = "Filnamnet matchar inte %@. Importera den bara om du är säker på att den hör till det här spelet.";
 "saveImport.mismatch.confirm" = "Importera ändå";
+"saveExport.title" = "Exportera sparfil";
+"saveExport.none.title" = "Ingen sparfil att exportera";
+"saveExport.none.message" = "Det här spelet har ingen sparfil ännu. Spara först i spelets egen meny och kom sedan tillbaka hit för att exportera den.";
+"saveExport.error.message" = "Sparfilen kunde inte exporteras.";
+
+/* NDS dubbel kortplats: GBA-spel i kortplats 2 (speldetaljer, endast NDS-spel) */
+"slot2.row" = "GBA-spel i kortplats 2";
+"slot2.none" = "Inget";
+"slot2.caption" = "DS-spelet känner av det vid start, precis som på en riktig DS. Vissa spel låser upp bonusar eller överföringar från sin GBA-version.";
+"slot2.empty" = "Inga GBA-spel i ditt bibliotek ännu.";
+"slot2.saveNote" = "Överföringar läser GBA-spelets egen sparfil, inte snabbsparningarna. Spara först i GBA-spelets egen meny.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "Ersätt spelfilen";
@@ -343,7 +372,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "iCloud-synkronisering";
 "settings.sync.state.disabled" = "Av";
-"settings.sync.footer" = "Dina snabbsparningar synkroniseras till ditt privata iCloud och mellan dina enheter. Stäng av detta för att behålla dem endast på den här iPhonen.";
+"settings.sync.footer" = "Dina snabbsparningar och dina sparfiler i spelet synkroniseras till ditt privata iCloud och mellan dina enheter. Stäng av detta för att behålla dem endast på den här iPhonen.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-lås";
@@ -367,6 +396,22 @@
 "skin.presetLock.caption" = "De klädda skinsen kräver standardlayouten för kontroller. Den här konsolen använder en egen layout, så endast Invisible är tillgängligt.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "Utseende";
+"appearance.tab.console" = "Konsol";
+"appearance.tab.screen" = "Skärm";
+"palette.group.originals" = "Original";
+"palette.group.console" = "Konsolklassiker";
+"palette.group.colors" = "Färger";
+"palette.cgb.caption" = "Det här spelet använder sina egna färger. Paletter gäller bara monokroma spel.";
+"filter.section" = "Filter";
+"filter.name.none" = "Inget";
+"filter.name.scanlines" = "Scanlines";
+"filter.name.lcd-grid" = "LCD-rutnät";
+"filter.name.dot-matrix" = "Punktmatris";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "Mjuk";
+"filter.name.sharp" = "Skarp";
+"filter.apply" = "Använd det här filtret";
 "skin.create" = "Skapa skin";
 "skin.edit" = "Redigera";
 "skin.delete" = "Radera";
@@ -477,13 +522,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "Nyheter";
 "whatsnew.version" = "Version %@";
-"whatsnew.s1.title" = "Snabbare import";
-"whatsnew.s1.b1" = "Importera flera spel på en gång från Filer.";
-"whatsnew.s1.b2" = "En ZIP med flera spel låter dig nu välja vilka som ska läggas till.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "Låsta prestationer visar nu dina framsteg medan du spelar.";
-"whatsnew.s2.b2" = "Emulatorns meddelanden visas inte längre som upplåsta prestationer.";
-"whatsnew.s3.title" = "Bibliotek";
-"whatsnew.s3.b1" = "Omslag visas nu utan att blinka, även offline.";
 "whatsnew.footer" = "Du kan läsa de här nyheterna när som helst i Inställningar.";
 "whatsnew.dismiss" = "Uppfattat!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "Extern skärm";
+"settings.externalDisplay.row" = "Spela på en tv";
+"settings.externalDisplay.ndsLayout" = "DS-skärmar på tv:n";
+"settings.externalDisplay.sideBySide" = "Sida vid sida";
+"settings.externalDisplay.stacked" = "Ovanför varandra";
+"settings.externalDisplay.footer" = "Anslut en tv via AirPlay eller kabel så fyller spelet skärmen medan din iPhone behåller kontrollerna. DS visar båda skärmarna; pekskärmen stannar på telefonen.";
+"prompt.externalDisplay.title" = "Spela på stor skärm";
+"prompt.externalDisplay.subtitle" = "Skicka spelet till din tv via AirPlay eller kabel, i helskärm, medan din iPhone behåller kontrollerna.";
+"pro.benefit.externalDisplay.short" = "Spela på en tv";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "Spela på tv:n med AirPlay";
+"guide.airplay.intro" = "Skicka spelet till en tv och behåll din iPhone som handkontroll. Funkar via AirPlay eller med en HDMI-adapter.";
+"guide.airplay.step1" = "Ha din iPhone och din tv på samma wifi-nätverk. Med en HDMI-adapter ansluter du den och hoppar till steg 3.";
+"guide.airplay.step2" = "Öppna kontrollcenter, tryck på Skärmdubblering och välj din tv.";
+"guide.airplay.step3" = "Starta ett spel. Det fyller tv:n, och din iPhone behåller kontrollerna.";
+"guide.airplay.step4" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPhone.";
+"guide.airplay.step5" = "Anslut en handkontroll så försvinner skärmknapparna. Bara DS pekskärm används fortfarande på telefonen.";
+"guide.airplay.step6" = "Hur de två DS-skärmarna ligger på tv:n väljer du under Inställningar, Extern skärm.";
+"guide.airplay.footer" = "Ljudet följer bilden till tv:n via AirPlay. Med en handkontroll öppnas pausmenyn med kontrollens egen menyknapp, så du behöver aldrig röra telefonen.";
+"guide.airplay.proNotice" = "Att spela på tv ingår i Retro Pal Pro.";
+"guide.airplay.proButton" = "Spela på min tv";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "Lägg till en widget på hemskärmen";
+"guide.widget.intro" = "Lägg dina spel på hemskärmen som omslag. En tryckning öppnar spelet där du slutade.";
+"guide.widget.step1" = "Tryck och håll på en tom yta på hemskärmen tills symbolerna börjar skaka.";
+"guide.widget.step2" = "Tryck på + högst upp och sök efter Retro Pal.";
+"guide.widget.step3" = "Välj en widget: ”Fortsätt spela” fyller sig själv med dina senaste spel, ”Ett spel” och ”Fyra spel” väljer du själv.";
+"guide.widget.step4" = "Placera den och tryck på Klar.";
+"guide.widget.step5" = "För de två du väljer själv: tryck och håll på widgeten, tryck på Redigera widget och välj spelet och sparningen den öppnar.";
+"guide.widget.footer" = "Omslag dyker upp när du har spelat ett spel minst en gång, och widgeten uppdateras när du lämnar Retro Pal. Att välja egna spel kräver iOS 17 eller senare; ”Fortsätt spela” fungerar på alla iPhone som stöds.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "Den här koden innehåller tecken som inte hör hemma. Fuskkoder använder bara 0-9, A-F, mellanslag och bindestreck.";
+"cheats.invalid.pairs" = "Action Replay DS-koder kommer parvis: varje rad behöver två block med åtta tecken, till exempel 94000130 FCFF0000.";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "Bläddra bland fuskkoder";
+"cheats.browse.title" = "Fuskkoder";
+"cheats.browse.searchPlaceholder" = "Sök efter ett spel";
+"cheats.browse.results" = "Resultat";
+"cheats.browse.none" = "Inga kända koder för det här spelet.";
+"cheats.browse.unnamed" = "Namnlös kod";
+"cheats.browse.offline" = "Ingen anslutning. Koder hämtas en gång per spel och sparas sedan på din enhet.";
+"cheats.browse.failed" = "Koderna kunde inte laddas. Försök igen.";
+"cheats.browse.credit" = "Koder från libretros community-databas (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "Fuskkoder";
+"settings.cheatDB.download" = "Hämta koder till mina spel";
+"settings.cheatDB.progress" = "Hämtar, %d av %d";
+"settings.cheatDB.stored" = "Sparade på den här enheten";
+"settings.cheatDB.clear" = "Radera hämtade koder";
+"settings.cheatDB.footer" = "Koder hämtas ett spel i taget och sparas sedan. Hämtar du dem till dina spel funkar de utan anslutning.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "Så funkar fuskkoder";
+"guide.cheats.intro" = "En kod är aktiv så snart du lägger till den. Händer inget i spelet saknas nästan alltid första steget nedan.";
+"guide.cheats.step1" = "Tryck på Bläddra bland fuskkoder och välj en. Koden och namnet fylls i åt dig, tryck sedan på Lägg till kod.";
+"guide.cheats.step2" = "De flesta Game Boy Advance- och DS-spel behöver FÖRST en Master Code, ibland kallad Enable Code, tillagd och påslagen. Utan den gör de andra koderna ingenting. De är märkta med en nyckel och ligger överst i listan.";
+"guide.cheats.step3" = "Den gröna cirkeln bredvid en kod slår på och av den. Grå betyder av.";
+"guide.cheats.step4" = "Vissa koder börjar gälla först när du lämnar och kommer tillbaka till ett område, eller vid nästa skärmbyte.";
+"guide.cheats.step5" = "Koder skrivs för en viss version av ett spel. En kod från en annan region eller revision kanske inte gör något, eller beter sig konstigt.";
+"guide.cheats.footer" = "Ditt framsteg sparas innan den första koden läggs till, så du kan alltid gå tillbaka med Återställ sparning från före fusket.";
+"cheats.browse.masterHint" = "Koder märkta med en nyckel måste vara påslagna för att de andra ska fungera.";
+"cheats.browse.notFound" = "Det här spelet kändes inte igen på filnamnet. Sök efter det nedan.";
+
+"guide.cheats.step6" = "Många koder utlöses först med ett knapptryck, och kodens namn säger vilket: till exempel Press SELECT to Restore Time. Namnet sparas när du lägger till koden, så läs det i din lista.";
+
+"settings.cheatDB.upToDate" = "Alla dina spel är tillgängliga offline";
+"settings.cheatDB.noGames" = "Lägg först till ett spel i ditt bibliotek.";
+
+"externalDisplay.idle.hint" = "Starta ett spel på din iPhone";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "Spela på tv:n";
+"whatsnew.s1.b1" = "Skicka spelet till en tv med AirPlay eller kabel, medan din iPhone behåller kontrollerna. Pro.";
+"whatsnew.s1.b2" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPhone.";
+"whatsnew.s2.title" = "Originalhårdvarans utseende";
+"whatsnew.s2.b1" = "Sex videofilter, från CRT till LCD-rutnät, live och inbakade i dina skärmbilder och klipp. Pro.";
+"whatsnew.s2.b2" = "Tjugofyra Game Boy-paletter, valda per spel, gratis för alla.";
+"whatsnew.s3.title" = "Fuskkoder utan att skriva dem";
+"whatsnew.s3.b1" = "Bläddra i communityns databas för spelet du kör och tryck på en kod för att lägga till den. Pro.";
+"whatsnew.s3.b2" = "Koder formaterar sig själva, och en nekad kod säger äntligen vad som är fel.";
+"whatsnew.s4.title" = "Handkontroller och tangentbord";
+"whatsnew.s4.b1" = "Ändra varje knapp, per konsol, och lägg snabbspolning, skärmbild eller klipp på en ledig knapp. Pro.";
+"whatsnew.s4.b2" = "Fysiska tangentbord fungerar nu, gratis. Spaken och DS-knapparna är fixade.";
+"whatsnew.s5.title" = "Dina spel på hemskärmen";
+"whatsnew.s5.b1" = "Widgets visar dina spel som omslag. En tryckning öppnar spelet där du slutade.";
+"whatsnew.s5.b2" = "Välj spel och sparning för varje widget, eller låt den följa din senaste omgång.";
+"whatsnew.s6.title" = "Sparningar och Nintendo DS";
+"whatsnew.s6.b1" = "Exportera ett spels sparning för att dela eller behålla den, och sparningar följer dig nu via iCloud.";
+"whatsnew.s6.b2" = "Stoppa in ett Game Boy Advance-spel i DS andra plats, precis som på den riktiga konsolen.";

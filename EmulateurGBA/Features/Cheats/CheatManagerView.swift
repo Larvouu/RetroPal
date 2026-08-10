@@ -12,6 +12,10 @@ import SwiftUI
 struct CheatManagerView: View {
     let romName: String
     let isNDS: Bool
+    /// Real console key for the cheat index ("gb" / "gbc" / "gba" / "nds").
+    /// Separate from `isNDS`, which only describes the input layout: GB and
+    /// GBC have their own cheat sets and must not be searched as GBA.
+    let systemKey: String
     let onAddCheat: (String) -> Bool
     let onClearCheats: () -> Void
     let onReapplyCheats: ([StoredCheat]) -> Void
@@ -28,6 +32,14 @@ struct CheatManagerView: View {
     @State private var nameInput: String = ""
     @State private var cheats: [StoredCheat] = []
     @State private var showError = false
+    /// Set when the shape check names the mistake; nil falls back to the
+    /// core's generic "not recognised" message.
+    @State private var codeProblem: CheatCodeFormatter.Problem?
+    /// Previous field contents, so formatting can tell an append (safe to
+    /// reformat) from a mid-string edit (never reformat, the caret would jump).
+    @State private var lastCodeInput: String = ""
+    @State private var showBrowser = false
+    @State private var showHowTo = false
     @State private var hasBackedUp = false
     @State private var showOverflowActions = false
     @State private var showRestoreConfirm = false
@@ -98,6 +110,15 @@ struct CheatManagerView: View {
                             .textInputAutocapitalization(.characters)
                             .scrollContentBackground(.hidden)
                             .focused($focusedField, equals: .code)
+                            .onChange(of: codeInput) { newValue in
+                                let tidied = CheatCodeFormatter.formatted(
+                                    newValue, previous: lastCodeInput, isNDS: isNDS)
+                                lastCodeInput = tidied
+                                if tidied != newValue { codeInput = tidied }
+                                // Typing is how you fix a mistake, so clear the
+                                // complaint as soon as the text changes.
+                                if showError { showError = false; codeProblem = nil }
+                            }
                     }
                     .frame(minHeight: 70, maxHeight: 100)
                     .background(Color(.systemGray6))
@@ -122,9 +143,7 @@ struct CheatManagerView: View {
 
                     // Error message — fully visible
                     if showError {
-                        Text(isNDS
-                             ? NSLocalizedString("cheats.invalid.nds", comment: "")
-                             : NSLocalizedString("cheats.invalid.gba", comment: ""))
+                        Text(errorMessage)
                             .font(.caption)
                             .foregroundColor(.red)
                             .fixedSize(horizontal: false, vertical: true)
@@ -133,6 +152,49 @@ struct CheatManagerView: View {
 
                     Divider()
                         .padding(.top, 4)
+
+                    // Browse the community database. Deliberately ABOVE the
+                    // list and always present: anchoring it to the empty state
+                    // would hide it the moment someone adds their first code,
+                    // which is exactly when they want to look for more.
+                    Button {
+                        showBrowser = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                            Text(NSLocalizedString("cheats.browse.button", comment: ""))
+                            Spacer(minLength: 0)
+                            if CheatLibrary.shared.isCached(title: romName, system: systemKey) {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.systemGray6))
+                    )
+
+                    // "Why is nothing happening?" gets an answer right where
+                    // people ask it. Most games need a master code active
+                    // before any other code does anything, and nothing in the
+                    // app said so.
+                    Button {
+                        showHowTo = true
+                    } label: {
+                        Label(NSLocalizedString("guide.cheats.title", comment: ""),
+                              systemImage: "questionmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
 
                     // Cheat list
                     if cheats.isEmpty {
@@ -186,6 +248,34 @@ struct CheatManagerView: View {
             }
             .onTapGesture {
                 focusedField = nil
+            }
+            .sheet(isPresented: $showBrowser) {
+                CheatBrowserSheet(romName: romName, system: systemKey) { code, name in
+                    // Straight into the fields rather than applied blind: the
+                    // player still sees it and still taps Add. The name comes
+                    // along so the saved cheat reads "Infinite Health" instead
+                    // of a wall of hex.
+                    codeInput = code
+                    lastCodeInput = code
+                    if !name.isEmpty { nameInput = name }
+                    showError = false
+                    codeProblem = nil
+                }
+            }
+            .sheet(isPresented: $showHowTo) {
+                HowToSheet(
+                    title: NSLocalizedString("guide.cheats.title", comment: ""),
+                    intro: NSLocalizedString("guide.cheats.intro", comment: ""),
+                    steps: [
+                        NSLocalizedString("guide.cheats.step1", comment: ""),
+                        NSLocalizedString("guide.cheats.step2", comment: ""),
+                        NSLocalizedString("guide.cheats.step3", comment: ""),
+                        NSLocalizedString("guide.cheats.step4", comment: ""),
+                        NSLocalizedString("guide.cheats.step5", comment: ""),
+                        NSLocalizedString("guide.cheats.step6", comment: "")
+                    ],
+                    footer: NSLocalizedString("guide.cheats.footer", comment: "")
+            )
             }
             .navigationTitle(NSLocalizedString("overlay.cheats", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
@@ -245,7 +335,11 @@ struct CheatManagerView: View {
                     // Restore + clear cheats + signal the host to dismiss
                     // the cheats sheet AND close the overlay menu, so the
                     // user lands directly back in the running game.
-                    cheats.removeAll()
+                    // Switch every code OFF rather than delete them: restoring
+                    // undoes the SAVE, not the work of finding and entering the
+                    // codes. Keeping them means one tap to try again instead of
+                    // hunting them down a second time.
+                    for index in cheats.indices { cheats[index].enabled = false }
                     onClearCheats()
                     saveCheats()
                     _ = onRestoreBackup()
@@ -279,9 +373,14 @@ struct CheatManagerView: View {
             // Name + code
             VStack(alignment: .leading, spacing: 2) {
                 if !cheat.wrappedValue.name.isEmpty {
+                    // NOT one line. libretro puts the instruction in the name
+                    // ("Press SELECT to Restore Time", and far longer), so
+                    // truncating it hides the only thing that explains what
+                    // the code does. Clarity over brevity: grow the row.
                     Text(cheat.wrappedValue.name)
                         .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(cheat.wrappedValue.code)
                     .font(.system(.caption2, design: .monospaced))
@@ -312,9 +411,32 @@ struct CheatManagerView: View {
 
     // MARK: - Actions
 
+    /// Specific when the shape check can name the mistake, generic when only
+    /// the core refused it.
+    private var errorMessage: String {
+        switch codeProblem {
+        case .invalidCharacter:
+            return NSLocalizedString("cheats.invalid.characters", comment: "")
+        case .unpairedLine:
+            return NSLocalizedString("cheats.invalid.pairs", comment: "")
+        case nil:
+            return isNDS
+                ? NSLocalizedString("cheats.invalid.nds", comment: "")
+                : NSLocalizedString("cheats.invalid.gba", comment: "")
+        }
+    }
+
     private func addCheat() {
         let code = codeInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty else { return }
+
+        // Say why, when we can. The core still has the last word on everything
+        // this check lets through.
+        if let problem = CheatCodeFormatter.problem(in: code, isNDS: isNDS) {
+            codeProblem = problem
+            showError = true
+            return
+        }
 
         if !hasBackedUp {
             onBackupSave()
@@ -328,11 +450,14 @@ struct CheatManagerView: View {
             let name = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
             cheats.append(StoredCheat(code: code, name: name))
             codeInput = ""
+            lastCodeInput = ""
             nameInput = ""
             showError = false
+            codeProblem = nil
             focusedField = nil
             saveCheats()
         } else {
+            codeProblem = nil   // the core refused a well-shaped code
             showError = true
         }
     }

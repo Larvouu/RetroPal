@@ -63,6 +63,7 @@
 "settings.title" = "設定";
 "settings.controls" = "操作";
 "settings.haptics" = "ゲーム中の触覚フィードバック";
+"settings.haptics.strength" = "強さ";
 "settings.controller.footer" = "Bluetooth コントローラー(Xbox、PlayStation、MFi)に対応しています。iOS の設定でペアリングしてください。";
 "settings.controls.controllerActive.footer" = "コントローラー接続中のため、上のタッチ操作の設定は無効になっています。";
 "settings.controls.dpad.footer" = "十字キー/ジョイスティックとクリップボタンの設定は、デフォルトレイアウトに適用されます。カスタムプリセットにはそれぞれ独自の十字キー/ジョイスティック設定があり、クリップボタンは常に表示されます。";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "セーブスロット5個(通常は2個)";
 "pro.benefit.rewind" = "30秒の巻き戻し(GBA/GB/GBC)";
 "pro.benefit.cheats" = "チートコード(GameShark / Action Replay)";
-"pro.benefit.controls" = "操作レイアウトのカスタマイズ";
+"pro.benefit.controls" = "カスタム配置とコントローラー割り当て";
 "pro.benefit.speed.short" = "全速度対応";
 "pro.benefit.slots.short" = "セーブスロット5個";
 "pro.benefit.rewind.short" = "30秒巻き戻し";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "操作カスタマイズ";
 "pro.benefit.skins" = "オリジナルの本体スキンを作成";
 "pro.benefit.skins.short" = "カスタムスキン";
+"pro.benefit.filters" = "CRT・LCD ビデオフィルター";
+"pro.benefit.externalDisplay" = "AirPlayでテレビに出力";
+"pro.benefit.filters.short" = "ビデオフィルター";
 "pro.badge" = "Pro 機能";
 "pro.seeAllBenefits" = "Pro の全機能を見る";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "広告なし、ずっと";
 "pro.compare.row.allSystems" = "全機種対応";
 "pro.compare.row.autoSave" = "オートセーブ";
-"pro.compare.row.screenshots" = "スクリーンショット共有";
 "pro.compare.row.iCloud" = "iCloud 同期";
 "pro.compare.row.controllers" = "Bluetooth コントローラー";
 "pro.compare.row.slots" = "セーブスロット";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1倍、1.5倍";
 "pro.compare.values.proSpeeds" = "0.25倍〜4倍";
 "pro.compare.row.skins" = "スキン作成";
+"pro.compare.row.filters" = "ビデオフィルター";
+"pro.compare.row.externalDisplay" = "テレビ / AirPlay";
 /* Pro Prompts */
 "prompt.speed.title" = "1.5倍速で%@分プレイしました";
 "prompt.speed.subtitle" = "4倍速なら同じ時間があっという間。全速度を一度の購入でずっと使えます。";
@@ -248,6 +253,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "操作をカスタマイズ";
+"settings.remapController" = "コントローラーのボタン割り当て";
+"remap.press" = "ボタンを押してください…";
+"remap.reset" = "デフォルトに戻す";
+"remap.footer" = "ボタンをタップしてから、割り当てたいコントローラーのボタンを押してください。十字キーとスティックは常に十字キーを操作します。";
+"remap.noController" = "ボタンを割り当てるにはコントローラーを接続してください。";
+"remap.actions.header" = "ショートカット";
+"remap.action.fastForward" = "早送り（長押し）";
+"remap.action.screenshot" = "スクリーンショット";
+"remap.action.clip" = "クリップ";
+"remap.clear" = "解除";
+"remap.actions.footer" = "これらのショートカットには初期状態でボタンが割り当てられていません。使うにはボタンを割り当ててください。早送りはボタンを押している間だけ有効です。行をスワイプすると解除できます。";
 "layout.activeLayout" = "使用中のレイアウト";
 "layout.default" = "デフォルト";
 "layout.presets" = "プリセット";
@@ -272,9 +288,11 @@
 "layout.editor.done" = "完了";
 "layout.newPreset.systems" = "機種";
 "prompt.controls.title" = "自分の手にぴったりのレイアウトを";
-"prompt.controls.subtitle" = "ボタンの位置、サイズ、不透明度を自由に調整。ゲームごとにレイアウトを保存できます。";
+"prompt.controls.subtitle" = "ボタンの位置・サイズ・不透明度をカスタマイズし、コントローラーのボタンも割り当て直せます。ゲームごとに自分のレイアウトを保存できます。";
 "prompt.skins.title" = "理想のスキンを作ろう";
 "prompt.skins.subtitle" = "本体の色をすべて自分好みに。作ったスキンは共有もできます。";
+"prompt.filters.title" = "あのころの画面をもう一度";
+"prompt.filters.subtitle" = "CRT、LCDグリッド、ドットマトリクスなどをゲームごとに。スクリーンショットやクリップにも同じ見た目が反映されます。";
 "layout.editor.landscapeShort" = "横向き";
 "layout.editor.portraitShort" = "縦向き";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -330,6 +348,17 @@
 "saveImport.mismatch.title" = "別のゲームのセーブでは？";
 "saveImport.mismatch.message" = "ファイル名が %@ と一致しません。このゲームのセーブだと確信できる場合のみ読み込んでください。";
 "saveImport.mismatch.confirm" = "それでも読み込む";
+"saveExport.title" = "セーブを書き出す";
+"saveExport.none.title" = "書き出せるセーブがありません";
+"saveExport.none.message" = "このゲームにはまだゲーム内セーブがありません。まずゲーム内のメニューでセーブしてから、ここで書き出してください。";
+"saveExport.error.message" = "セーブを書き出せませんでした。";
+
+/* NDSダブルスロット：スロット2のGBAソフト（ゲーム詳細、NDSソフトのみ） */
+"slot2.row" = "スロット2のGBAソフト";
+"slot2.none" = "なし";
+"slot2.caption" = "本物のDSと同じように、DSソフトの起動時に検出されます。一部のゲームでは、GBA版からの特典やデータ転送が利用できます。";
+"slot2.empty" = "ライブラリにGBAソフトがまだありません。";
+"slot2.saveNote" = "転送はGBAソフトのゲーム内セーブを読み取ります。クイックセーブは対象外です。まずGBAソフト内でセーブしてください。";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "ゲームファイルを差し替える";
@@ -341,7 +370,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "iCloud 同期";
 "settings.sync.state.disabled" = "オフ";
-"settings.sync.footer" = "クイックセーブはあなたのプライベートな iCloud に同期され、他のデバイスでも使えます。オフにすると、この iPhone にのみ保存されます。";
+"settings.sync.footer" = "クイックセーブとゲーム内セーブはあなたのプライベートな iCloud に同期され、他のデバイスでも使えます。オフにすると、この iPhone にのみ保存されます。";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "自動ホールド";
@@ -365,6 +394,22 @@
 "skin.presetLock.caption" = "本体デザインのスキンにはデフォルトの操作レイアウトが必要です。この機種ではカスタムレイアウトを使用しているため、「非表示」のみ選択できます。";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "外観";
+"appearance.tab.console" = "本体";
+"appearance.tab.screen" = "画面";
+"palette.group.originals" = "オリジナル";
+"palette.group.console" = "本体風";
+"palette.group.colors" = "カラー";
+"palette.cgb.caption" = "このゲームは独自のカラーを使用しています。パレットはモノクロのゲームにのみ適用されます。";
+"filter.section" = "フィルター";
+"filter.name.none" = "なし";
+"filter.name.scanlines" = "走査線";
+"filter.name.lcd-grid" = "LCDグリッド";
+"filter.name.dot-matrix" = "ドットマトリクス";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "スムーズ";
+"filter.name.sharp" = "シャープ";
+"filter.apply" = "このフィルターを適用";
 "skin.create" = "スキンを作成";
 "skin.edit" = "編集";
 "skin.delete" = "削除";
@@ -474,13 +519,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "新機能";
 "whatsnew.version" = "バージョン %@";
-"whatsnew.s1.title" = "読み込みがより快適に";
-"whatsnew.s1.b1" = "「ファイル」から複数のゲームを一度に読み込めるようになりました。";
-"whatsnew.s1.b2" = "複数のゲームが入ったZIPは、追加するゲームを選べるようになりました。";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "ロック中の実績に、プレイ中の進捗が表示されるようになりました。";
-"whatsnew.s2.b2" = "エミュレータのお知らせが実績解除として表示されなくなりました。";
-"whatsnew.s3.title" = "ライブラリ";
-"whatsnew.s3.b1" = "カバー画像がちらつかずに表示されるようになりました。オフラインでも表示されます。";
 "whatsnew.footer" = "この内容は設定からいつでも確認できます。";
 "whatsnew.dismiss" = "了解！";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "外部ディスプレイ";
+"settings.externalDisplay.row" = "テレビで遊ぶ";
+"settings.externalDisplay.ndsLayout" = "テレビでのDS画面";
+"settings.externalDisplay.sideBySide" = "横に並べる";
+"settings.externalDisplay.stacked" = "上下に並べる";
+"settings.externalDisplay.footer" = "AirPlayまたはケーブルでテレビにつなぐと、ゲームが画面いっぱいに映り、iPhoneは操作用として使えます。DSは2画面とも表示され、タッチ操作は手元の画面のままです。";
+"prompt.externalDisplay.title" = "大画面で遊ぶ";
+"prompt.externalDisplay.subtitle" = "AirPlayまたはケーブルで、ゲームをテレビに全画面で映せます。iPhoneはそのまま操作用に使えます。";
+"pro.benefit.externalDisplay.short" = "テレビで遊ぶ";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "AirPlayでテレビで遊ぶ";
+"guide.airplay.intro" = "ゲームをテレビに映し、iPhoneはコントローラーとして使えます。AirPlayでも、HDMIアダプタでも使えます。";
+"guide.airplay.step1" = "iPhoneとテレビを同じWi-Fiにつなぎます。HDMIアダプタを使う場合は接続して手順3へ進んでください。";
+"guide.airplay.step2" = "コントロールセンターを開き、「画面ミラーリング」をタップして、テレビを選びます。";
+"guide.airplay.step3" = "ゲームを起動します。テレビに大きく映り、iPhoneは操作用のままです。";
+"guide.airplay.step4" = "DSでは2画面ともテレビに表示され、タッチ操作はiPhoneに残ります。";
+"guide.airplay.step5" = "コントローラーをつなぐと画面上のボタンは消えます。手元で使うのはDSのタッチ画面だけになります。";
+"guide.airplay.step6" = "テレビでの2画面の並べ方は、設定の「外部ディスプレイ」で選べます。";
+"guide.airplay.footer" = "音声もAirPlayで映像と一緒にテレビへ流れます。コントローラー使用時はコントローラーのメニューボタンでポーズメニューを開けるので、iPhoneに触れる必要はありません。";
+"guide.airplay.proNotice" = "テレビで遊ぶ機能はRetro Pal Proに含まれます。";
+"guide.airplay.proButton" = "テレビで遊ぶ";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "ホーム画面にウィジェットを追加する";
+"guide.widget.intro" = "ゲームをパッケージ画像としてホーム画面に置けます。タップすると、続きからすぐに始められます。";
+"guide.widget.step1" = "ホーム画面の何もない場所を長押しし、アイコンが揺れるまで待ちます。";
+"guide.widget.step2" = "画面上部の「+」をタップし、Retro Pal を検索します。";
+"guide.widget.step3" = "ウィジェットを選びます。「つづきから」は最近遊んだゲームで自動的に埋まり、「ゲームを1つ」と「ゲームを4つ」は自分で選べます。";
+"guide.widget.step4" = "配置して「完了」をタップします。";
+"guide.widget.step5" = "自分で選ぶ2種類の場合：ウィジェットを長押しして「ウィジェットを編集」をタップし、ゲームと開くセーブデータを選びます。";
+"guide.widget.footer" = "パッケージ画像は一度そのゲームを遊ぶと表示され、ウィジェットはRetro Palを離れたときに更新されます。ゲームを自分で選ぶにはiOS 17以降が必要です。「つづきから」は対応するすべてのiPhoneで使えます。";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "このコードには使われない文字が含まれています。チートコードは0-9、A-F、スペース、ハイフンのみです。";
+"cheats.invalid.pairs" = "Action Replay DSのコードは2つで1組です。各行に8文字のブロックが2つ必要です（例：94000130 FCFF0000）。";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "チートコードを探す";
+"cheats.browse.title" = "チートコード";
+"cheats.browse.searchPlaceholder" = "ゲームを検索";
+"cheats.browse.results" = "検索結果";
+"cheats.browse.none" = "このゲームのコードは見つかりません。";
+"cheats.browse.unnamed" = "名称のないコード";
+"cheats.browse.offline" = "接続がありません。コードはゲームごとに一度取得され、その後は端末に保存されます。";
+"cheats.browse.failed" = "コードを読み込めませんでした。もう一度お試しください。";
+"cheats.browse.credit" = "libretro コミュニティデータベースのコード（CC BY-SA 4.0）。";
+"settings.cheatDB.section" = "チートコード";
+"settings.cheatDB.download" = "自分のゲームのコードを取得";
+"settings.cheatDB.progress" = "取得中 %d / %d";
+"settings.cheatDB.stored" = "この端末に保存済み";
+"settings.cheatDB.clear" = "取得したコードを削除";
+"settings.cheatDB.footer" = "コードはゲームごとに取得され、その後保存されます。手持ちのゲーム分を取得しておくと、接続なしでも使えます。";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "チートコードの使いかた";
+"guide.cheats.intro" = "コードは追加した時点で有効になります。ゲーム内で何も起きない場合、ほとんどは下の最初の手順が抜けています。";
+"guide.cheats.step1" = "「チートコードを探す」から1つ選びます。コードと名前は自動で入力されるので、「コードを追加」をタップします。";
+"guide.cheats.step2" = "ゲームボーイアドバンスとDSの多くのソフトでは、まずマスターコード（Enable Codeとも呼ばれます）を追加してオンにする必要があります。これがないと他のコードはまったく機能しません。鍵マークが付き、リストの先頭に表示されます。";
+"guide.cheats.step3" = "コード横の緑の丸で、そのコードのオン・オフを切り替えます。グレーはオフです。";
+"guide.cheats.step4" = "コードによっては、エリアを出入りしたり、次に画面が切り替わってから効き始めるものがあります。";
+"guide.cheats.step5" = "コードは特定のバージョン向けに書かれています。地域やリビジョンが違うコードは、効かなかったり、おかしな動作をすることがあります。";
+"guide.cheats.footer" = "最初のコードを追加する前に進行状況が保存されるので、「チート前のセーブに戻す」でいつでも元に戻せます。";
+"cheats.browse.masterHint" = "鍵マークの付いたコードをオンにしないと、他のコードは機能しません。";
+"cheats.browse.notFound" = "ファイル名からこのゲームを判別できませんでした。下から検索してください。";
+
+"guide.cheats.step6" = "多くのコードはボタンを押して発動し、どのボタンかはコード名に書かれています（例：Press SELECT to Restore Time）。コードを追加すると名前も一緒に保存されるので、リストで確認してください。";
+
+"settings.cheatDB.upToDate" = "すべてのゲームがオフラインで利用できます";
+"settings.cheatDB.noGames" = "まずライブラリにゲームを追加してください。";
+
+"externalDisplay.idle.hint" = "iPhoneでゲームを起動してください";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "テレビで遊ぶ";
+"whatsnew.s1.b1" = "AirPlayやケーブルでゲームをテレビに映し、iPhoneは操作用として使えます。Pro。";
+"whatsnew.s1.b2" = "DSでは2画面ともテレビに表示され、タッチ操作は手元のiPhoneに残ります。";
+"whatsnew.s2.title" = "実機のような見た目";
+"whatsnew.s2.b1" = "CRTからLCDグリッドまで6種類の映像フィルター。プレイ中はもちろん、スクリーンショットやクリップにも反映されます。Pro。";
+"whatsnew.s2.b2" = "ゲームボーイのパレット24種類。ゲームごとに選べて、どなたでも無料です。";
+"whatsnew.s3.title" = "チートコードを打ち込まずに";
+"whatsnew.s3.b1" = "遊んでいるゲームのコミュニティデータベースを開き、コードをタップするだけで追加できます。Pro。";
+"whatsnew.s3.b2" = "コードは自動で整形され、受け付けられなかったコードは理由を教えてくれます。";
+"whatsnew.s4.title" = "コントローラーとキーボード";
+"whatsnew.s4.b1" = "ボタンをコンソールごとに割り当て直せます。早送り、スクリーンショット、クリップも空きボタンに設定できます。Pro。";
+"whatsnew.s4.b2" = "物理キーボードに対応しました。無料です。スティックの方向とDSのボタンも修正しました。";
+"whatsnew.s5.title" = "ホーム画面にあなたのゲームを";
+"whatsnew.s5.b1" = "ウィジェットがゲームをパッケージ画像で表示します。タップすれば続きから遊べます。";
+"whatsnew.s5.b2" = "ウィジェットごとにゲームとセーブデータを選ぶことも、最後に遊んだゲームに任せることもできます。";
+"whatsnew.s6.title" = "セーブとニンテンドーDS";
+"whatsnew.s6.b1" = "ゲームのセーブを書き出して共有・保管できます。ゲーム内セーブはiCloudで引き継がれます。";
+"whatsnew.s6.b2" = "DSのスロット2にゲームボーイアドバンスのソフトを挿せます。実機と同じように。";

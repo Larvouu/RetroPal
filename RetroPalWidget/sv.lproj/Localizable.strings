@@ -1,0 +1,28 @@
+"widget.recent.name" = "Fortsätt spela";
+"widget.recent.description" = "Dina senaste spel på hemskärmen. Tryck på ett omslag för att fortsätta där du slutade.";
+"widget.empty" = "Inga senaste spel";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Ett spel";
+"widget.oneGame.description" = "Välj ett spel och vilken sparning det öppnar. Tryck för att spela.";
+"widget.fourGames.name" = "Fyra spel";
+"widget.fourGames.description" = "Välj upp till fyra spel och vilken sparning vart och ett öppnar.";
+"widget.param.game" = "Spel";
+"widget.param.slot" = "Sparning";
+"widget.param.game1" = "Spel 1";
+"widget.param.slot1" = "Sparning för spel 1";
+"widget.param.game2" = "Spel 2";
+"widget.param.slot2" = "Sparning för spel 2";
+"widget.param.game3" = "Spel 3";
+"widget.param.slot3" = "Sparning för spel 3";
+"widget.param.game4" = "Spel 4";
+"widget.param.slot4" = "Sparning för spel 4";
+"widget.slot.type" = "Sparning";
+"widget.slot.resume" = "Fortsätt";
+"widget.entity.game" = "Spel";
+"widget.unconfigured" = "Tryck och håll för att välja ett spel";
+"widget.slot.1" = "Plats 1";
+"widget.slot.2" = "Plats 2";
+"widget.slot.3" = "Plats 3";
+"widget.slot.4" = "Plats 4";
+"widget.slot.5" = "Plats 5";

@@ -1,0 +1,28 @@
+"widget.recent.name" = "Reprendre la partie";
+"widget.recent.description" = "Vos jeux récents sur l'écran d'accueil. Touchez une jaquette pour reprendre là où vous vous êtes arrêté.";
+"widget.empty" = "Aucun jeu récent";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Un jeu";
+"widget.oneGame.description" = "Choisissez un jeu et la sauvegarde qu'il ouvre. Touchez pour jouer.";
+"widget.fourGames.name" = "Quatre jeux";
+"widget.fourGames.description" = "Choisissez jusqu'à quatre jeux et la sauvegarde que chacun ouvre.";
+"widget.param.game" = "Jeu";
+"widget.param.slot" = "Sauvegarde";
+"widget.param.game1" = "Jeu 1";
+"widget.param.slot1" = "Sauvegarde du jeu 1";
+"widget.param.game2" = "Jeu 2";
+"widget.param.slot2" = "Sauvegarde du jeu 2";
+"widget.param.game3" = "Jeu 3";
+"widget.param.slot3" = "Sauvegarde du jeu 3";
+"widget.param.game4" = "Jeu 4";
+"widget.param.slot4" = "Sauvegarde du jeu 4";
+"widget.slot.type" = "Sauvegarde";
+"widget.slot.resume" = "Reprendre";
+"widget.entity.game" = "Jeu";
+"widget.unconfigured" = "Touchez longuement pour choisir un jeu";
+"widget.slot.1" = "Emplacement 1";
+"widget.slot.2" = "Emplacement 2";
+"widget.slot.3" = "Emplacement 3";
+"widget.slot.4" = "Emplacement 4";
+"widget.slot.5" = "Emplacement 5";

@@ -35,11 +35,13 @@ struct ControllerManagerTests {
             return ControllerManager.buttonMask(from: src)
         }
 
-        // Face buttons
+        // Face buttons. X/Y are POSITIONAL: the NDS diamond has X north and
+        // Y west, while GC's faceX is west and faceY north — so they cross
+        // (name-matching made Square open NDS menus).
         #expect(mask { $0.faceA = true } == GBAInput.a.rawValue)
         #expect(mask { $0.faceB = true } == GBAInput.b.rawValue)
-        #expect(mask { $0.faceX = true } == GBAInput.x.rawValue)
-        #expect(mask { $0.faceY = true } == GBAInput.y.rawValue)
+        #expect(mask { $0.faceX = true } == GBAInput.y.rawValue)
+        #expect(mask { $0.faceY = true } == GBAInput.x.rawValue)
         // D-pad / left stick (the snapshot folds the stick into the d-pad)
         #expect(mask { $0.up    = true } == GBAInput.up.rawValue)
         #expect(mask { $0.down  = true } == GBAInput.down.rawValue)
@@ -101,5 +103,94 @@ struct ControllerManagerTests {
 
         #expect(receivedMasks.contains(0),
                 "disconnect must dispatch mask=0 so held buttons release")
+    }
+
+    // MARK: - Custom mapping (1.2.4 remapping, wave one)
+
+    /// A nil mapping is the byte-identical built-in path (locked by the tests
+    /// above); a custom mapping replaces the BUTTON assignments with its own
+    /// while the d-pad stays direct.
+    @Test
+    func test_customMapping_swapsFaceButtons() {
+        var mapping = ControllerMapping.defaults(for: .gba)
+        mapping.assignments[.a] = .faceB     // Nintendo-vs-Xbox style swap
+        mapping.assignments[.b] = .faceA
+
+        var src = ControllerInputSource()
+        src.faceA = true
+        #expect(ControllerManager.buttonMask(from: src, mapping: mapping) == GBAInput.b.rawValue)
+        src.faceA = false
+        src.faceB = true
+        #expect(ControllerManager.buttonMask(from: src, mapping: mapping) == GBAInput.a.rawValue)
+    }
+
+    /// The d-pad is not remappable: it maps directly under any custom mapping.
+    @Test
+    func test_customMapping_dpadStaysDirect() {
+        let mapping = ControllerMapping(assignments: [:])   // nothing assigned at all
+        var src = ControllerInputSource()
+        src.left = true
+        #expect(ControllerManager.buttonMask(from: src, mapping: mapping) == GBAInput.left.rawValue)
+    }
+
+    /// A custom mapping is explicit: the built-in Select-via-L3 fallback does
+    /// NOT apply unless the user binds it, and an unassigned physical button
+    /// produces nothing.
+    @Test
+    func test_customMapping_isExplicit() {
+        let defaults = ControllerMapping.defaults(for: .gba)
+        var src = ControllerInputSource()
+        src.leftStickClick = true
+        #expect(ControllerManager.buttonMask(from: src, mapping: defaults) == 0,
+                "L3 is unbound in the default custom mapping")
+
+        var mapping = defaults
+        mapping.assignments[.select] = .leftStickClick
+        #expect(ControllerManager.buttonMask(from: src, mapping: mapping) == GBAInput.select.rawValue)
+    }
+
+    /// Two console inputs may deliberately share one physical button; both
+    /// bits set together.
+    @Test
+    func test_customMapping_sharedPhysicalPressesBoth() {
+        var mapping = ControllerMapping.defaults(for: .gba)
+        mapping.assignments[.a] = .faceA
+        mapping.assignments[.b] = .faceA
+        var src = ControllerInputSource()
+        src.faceA = true
+        #expect(ControllerManager.buttonMask(from: src, mapping: mapping)
+                == (GBAInput.a.rawValue | GBAInput.b.rawValue))
+    }
+
+    // MARK: - Left-stick angle resolution (DualShock 4 left/right regression)
+
+    /// The stick resolves by ANGLE through the shared DPadGeometry sectors —
+    /// full deflection on any axis must produce that direction (the per-axis
+    /// isPressed path lost horizontal deflection on some pads).
+    @Test
+    func test_stickDirections_cardinalsAndDiagonals() {
+        // GC coordinates: x +right, y +up.
+        #expect(ControllerInputSource.stickDirections(x: 1, y: 0) == GBAInput.right.rawValue)
+        #expect(ControllerInputSource.stickDirections(x: -1, y: 0) == GBAInput.left.rawValue)
+        #expect(ControllerInputSource.stickDirections(x: 0, y: 1) == GBAInput.up.rawValue)
+        #expect(ControllerInputSource.stickDirections(x: 0, y: -1) == GBAInput.down.rawValue)
+        // A true 45° diagonal fires both bits (the corner zones).
+        #expect(ControllerInputSource.stickDirections(x: 0.8, y: 0.8)
+                == (GBAInput.right.rawValue | GBAInput.up.rawValue))
+        // Inside the radial deadzone: neutral.
+        #expect(ControllerInputSource.stickDirections(x: 0.1, y: 0.1) == 0)
+    }
+
+    /// Round-trip: the store persists and restores a mapping exactly, and
+    /// reset restores the nil (built-in) state.
+    @Test
+    func test_mappingStore_roundTripAndReset() {
+        defer { ControllerMappingStore.reset(for: .gbc) }
+        var mapping = ControllerMapping.defaults(for: .gbc)
+        mapping.assignments[.a] = .faceY
+        ControllerMappingStore.save(mapping, for: .gbc)
+        #expect(ControllerMappingStore.stored(for: .gbc) == mapping)
+        ControllerMappingStore.reset(for: .gbc)
+        #expect(ControllerMappingStore.stored(for: .gbc) == nil)
     }
 }

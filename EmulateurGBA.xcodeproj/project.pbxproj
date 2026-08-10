@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		264C179A2FF3B21400AB5BFD /* rcheevos in Frameworks */ = {isa = PBXBuildFile; productRef = 264C17992FF3B21400AB5BFD /* rcheevos */; };
+		264C1CED301763B400AB5BFD /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 264C1CEC301763B400AB5BFD /* WidgetKit.framework */; };
+		264C1CEF301763B400AB5BFD /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 264C1CEE301763B400AB5BFD /* SwiftUI.framework */; };
+		264C1CFA301763B600AB5BFD /* RetroPalWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 264C1CEB301763B400AB5BFD /* RetroPalWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2678BF692FF1A907008F9AC6 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 2678BF682FF1A907008F9AC6 /* TelemetryDeck */; };
 		AA000011AAAA0011AAAAAAAA /* libmelonds-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */; };
 		AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002AAAA0002AAAAAAAA /* libteakra.a */; };
@@ -21,16 +24,55 @@
 			remoteGlobalIDString = 26E03F712F72C166004BD51E;
 			remoteInfo = EmulateurGBA;
 		};
+		264C1CF8301763B600AB5BFD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 26E03F6A2F72C166004BD51E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 264C1CEA301763B400AB5BFD;
+			remoteInfo = RetroPalWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		264C1CFF301763B600AB5BFD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				264C1CFA301763B600AB5BFD /* RetroPalWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EmulateurGBATests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		264C1CEB301763B400AB5BFD /* RetroPalWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RetroPalWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		264C1CEC301763B400AB5BFD /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		264C1CEE301763B400AB5BFD /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		264C1D003017643B00AB5BFD /* RetroPalWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RetroPalWidgetExtension.entitlements; sourceTree = "<group>"; };
 		26E03F722F72C166004BD51E /* EmulateurGBA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EmulateurGBA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmelonds-core.a"; path = "Vendor/melonds-ios/lib/libmelonds-core.a"; sourceTree = SOURCE_ROOT; };
 		AA000002AAAA0002AAAAAAAA /* libteakra.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libteakra.a; path = "Vendor/melonds-ios/lib/libteakra.a"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		264C1CFE301763B600AB5BFD /* Exceptions for "RetroPalWidget" folder in "RetroPalWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 264C1CEA301763B400AB5BFD /* RetroPalWidgetExtension */;
+		};
+		264C1D1830176A7A00AB5BFD /* Exceptions for "EmulateurGBA" folder in "RetroPalWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Data/Widget/WidgetSharing.swift,
+			);
+			target = 264C1CEA301763B400AB5BFD /* RetroPalWidgetExtension */;
+		};
 		FF000040FF000040FF000040 /* Exceptions for "EmulateurGBA" folder in "EmulateurGBA" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -46,10 +88,19 @@
 			path = EmulateurGBATests;
 			sourceTree = "<group>";
 		};
+		264C1CF0301763B400AB5BFD /* RetroPalWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				264C1CFE301763B600AB5BFD /* Exceptions for "RetroPalWidget" folder in "RetroPalWidgetExtension" target */,
+			);
+			path = RetroPalWidget;
+			sourceTree = "<group>";
+		};
 		26E03F742F72C166004BD51E /* EmulateurGBA */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				FF000040FF000040FF000040 /* Exceptions for "EmulateurGBA" folder in "EmulateurGBA" target */,
+				264C1D1830176A7A00AB5BFD /* Exceptions for "EmulateurGBA" folder in "RetroPalWidgetExtension" target */,
 			);
 			path = EmulateurGBA;
 			sourceTree = "<group>";
@@ -61,6 +112,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		264C1CE8301763B400AB5BFD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				264C1CEF301763B400AB5BFD /* SwiftUI.framework in Frameworks */,
+				264C1CED301763B400AB5BFD /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,8 +141,10 @@
 		26E03F692F72C166004BD51E = {
 			isa = PBXGroup;
 			children = (
+				264C1D003017643B00AB5BFD /* RetroPalWidgetExtension.entitlements */,
 				26E03F742F72C166004BD51E /* EmulateurGBA */,
 				261E13872FBABA3E00C59F11 /* EmulateurGBATests */,
+				264C1CF0301763B400AB5BFD /* RetroPalWidget */,
 				AA000020AAAA0020AAAAAAAA /* Frameworks */,
 				26E03F732F72C166004BD51E /* Products */,
 			);
@@ -93,6 +155,7 @@
 			children = (
 				26E03F722F72C166004BD51E /* EmulateurGBA.app */,
 				261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */,
+				264C1CEB301763B400AB5BFD /* RetroPalWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -102,6 +165,8 @@
 			children = (
 				AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */,
 				AA000002AAAA0002AAAAAAAA /* libteakra.a */,
+				264C1CEC301763B400AB5BFD /* WidgetKit.framework */,
+				264C1CEE301763B400AB5BFD /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -132,6 +197,28 @@
 			productReference = 261E13862FBABA3E00C59F11 /* EmulateurGBATests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		264C1CEA301763B400AB5BFD /* RetroPalWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 264C1CFB301763B600AB5BFD /* Build configuration list for PBXNativeTarget "RetroPalWidgetExtension" */;
+			buildPhases = (
+				264C1CE7301763B400AB5BFD /* Sources */,
+				264C1CE8301763B400AB5BFD /* Frameworks */,
+				264C1CE9301763B400AB5BFD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				264C1CF0301763B400AB5BFD /* RetroPalWidget */,
+			);
+			name = RetroPalWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = RetroPalWidgetExtension;
+			productReference = 264C1CEB301763B400AB5BFD /* RetroPalWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		26E03F712F72C166004BD51E /* EmulateurGBA */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 26E03F802F72C167004BD51E /* Build configuration list for PBXNativeTarget "EmulateurGBA" */;
@@ -139,10 +226,12 @@
 				26E03F6E2F72C166004BD51E /* Sources */,
 				26E03F6F2F72C166004BD51E /* Frameworks */,
 				26E03F702F72C166004BD51E /* Resources */,
+				264C1CFF301763B600AB5BFD /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				264C1CF9301763B600AB5BFD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				26E03F742F72C166004BD51E /* EmulateurGBA */,
@@ -163,12 +252,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2650;
+				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					261E13852FBABA3E00C59F11 = {
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = 26E03F712F72C166004BD51E;
+					};
+					264C1CEA301763B400AB5BFD = {
+						CreatedOnToolsVersion = 26.6;
 					};
 					26E03F712F72C166004BD51E = {
 						CreatedOnToolsVersion = 16.2;
@@ -209,12 +301,20 @@
 			targets = (
 				26E03F712F72C166004BD51E /* EmulateurGBA */,
 				261E13852FBABA3E00C59F11 /* EmulateurGBATests */,
+				264C1CEA301763B400AB5BFD /* RetroPalWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		261E13842FBABA3E00C59F11 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		264C1CE9301763B400AB5BFD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -238,6 +338,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		264C1CE7301763B400AB5BFD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		26E03F6E2F72C166004BD51E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -253,6 +360,11 @@
 			target = 26E03F712F72C166004BD51E /* EmulateurGBA */;
 			targetProxy = 261E138A2FBABA3E00C59F11 /* PBXContainerItemProxy */;
 		};
+		264C1CF9301763B600AB5BFD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 264C1CEA301763B400AB5BFD /* RetroPalWidgetExtension */;
+			targetProxy = 264C1CF8301763B600AB5BFD /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -264,7 +376,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.EmulateurGBATests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -286,7 +398,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.EmulateurGBATests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -297,6 +409,70 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EmulateurGBA.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EmulateurGBA";
+			};
+			name = Release;
+		};
+		264C1CFC301763B600AB5BFD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 27;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RetroPalWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RetroPalWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		264C1CFD301763B600AB5BFD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 27;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RetroPalWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RetroPalWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -426,7 +602,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -447,7 +623,7 @@
 					"$(inherited)",
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 				);
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -464,7 +640,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -485,7 +661,7 @@
 					"$(inherited)",
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 				);
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -503,6 +679,15 @@
 			buildConfigurations = (
 				261E138D2FBABA3E00C59F11 /* Debug */,
 				261E138E2FBABA3E00C59F11 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		264C1CFB301763B600AB5BFD /* Build configuration list for PBXNativeTarget "RetroPalWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				264C1CFC301763B600AB5BFD /* Debug */,
+				264C1CFD301763B600AB5BFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

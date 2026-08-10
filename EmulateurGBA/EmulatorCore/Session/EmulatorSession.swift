@@ -38,6 +38,22 @@ final class EmulatorSession: ObservableObject {
 
     // MARK: - ROM Management
 
+    /// ROM basename of the GBA game mounted in slot 2 (NDS dual-slot), nil
+    /// when none. Set by `configureGBASlot2` before `loadROM`; folded into
+    /// the live-session basenames so the iCloud battery mirror also leaves
+    /// the mounted GBA game's .sav alone (the cart holds its save RAM live,
+    /// and Pal Park writes to it).
+    private var gbaSlot2Basename: String?
+
+    /// Mount a GBA game in the NDS slot 2 for the next `loadROM`. No-op on
+    /// non-NDS bridges. `saveBasename` is the GBA game's battery-save key
+    /// (`BatterySaveImporter.romBasename` of its stored filename).
+    func configureGBASlot2(romPath: String, savePath: String, saveBasename: String) {
+        guard let melon = bridge as? MelonDSBridge else { return }
+        melon.configureGBASlotROMPath(romPath, savePath: savePath)
+        gbaSlot2Basename = saveBasename
+    }
+
     func loadROM(at url: URL) -> Bool {
         let success = bridge.loadROM(atPath: url.path)
         if success {
@@ -48,6 +64,13 @@ final class EmulatorSession: ObservableObject {
             let romName = BatterySaveImporter.romBasename(forStoredFilename: url.lastPathComponent)
             let savePath = BatterySaveImporter.savePath(forRomBasename: romName).path
             bridge.setSavePath(savePath)
+            // The core now holds this .sav open for the whole session (mGBA
+            // retains its VFile; melonDS rewrites it as the game saves) — flag
+            // it, plus the slot-2 GBA game's save when one is mounted, so the
+            // iCloud battery mirror never touches a live file.
+            var live: Set<String> = [romName]
+            if let slot2 = gbaSlot2Basename { live.insert(slot2) }
+            BatterySaveImporter.activeSessionBasenames = live
 
             bridge.reset()
             // Run one frame so the game initializes SOUNDBIAS (audio rate)
@@ -337,6 +360,22 @@ final class EmulatorSession: ObservableObject {
         bridge.flushSaveData()
     }
 
+    // MARK: - GB (DMG) Palette
+
+    /// Apply a DMG palette to the running game. Live on the next rendered
+    /// frame for DMG-mode games; a no-op for GBA/NDS and ignored by CGB-mode
+    /// games (they define their own colors). Safe to call while paused — the
+    /// visible (already-rendered) frame keeps the old colors until the next
+    /// frame runs.
+    func applyGBPalette(_ palette: GBPalette) {
+        var colors = palette.colors12
+        bridge.setGBPalette(&colors)
+    }
+
+    /// Whether the running game actually renders through the DMG palette
+    /// (drives the palette section's availability in the Appearance sheet).
+    var isDMGPaletteApplicable: Bool { bridge.isDMGPaletteApplicable() }
+
     // MARK: - Cheat Codes
 
     /// Add a cheat code. Sanitizes input, then tries all formats silently until one works.
@@ -429,7 +468,19 @@ final class EmulatorSession: ObservableObject {
         onFrameAdvance = nil
         audioEngine?.stop()
         audioEngine = nil
+        // Final battery flush while the core is still alive (no-op when
+        // clean; only the background path flushed until now), so the .sav on
+        // disk is fresh for the post-shutdown iCloud mirror pass.
+        bridge.flushSaveData()
         isROMLoaded = false
         bridge.shutdown()
+        // The core has released the .sav files (final flush included, slot-2
+        // GBA save too when mounted). Unflag them and tell the iCloud battery
+        // mirror it is now safe to reconcile these games.
+        BatterySaveImporter.activeSessionBasenames = []
+        gbaSlot2Basename = nil
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .batterySavesDidChange, object: nil)
+        }
     }
 }

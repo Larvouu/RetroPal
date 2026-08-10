@@ -1,0 +1,28 @@
+"widget.recent.name" = "Continuă jocul";
+"widget.recent.description" = "Jocurile tale recente pe ecranul principal. Atinge o copertă pentru a relua de unde ai rămas.";
+"widget.empty" = "Niciun joc recent";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Un joc";
+"widget.oneGame.description" = "Alege un joc și salvarea pe care o deschide. Atinge pentru a juca.";
+"widget.fourGames.name" = "Patru jocuri";
+"widget.fourGames.description" = "Alege până la patru jocuri și salvarea pe care o deschide fiecare.";
+"widget.param.game" = "Joc";
+"widget.param.slot" = "Salvare";
+"widget.param.game1" = "Jocul 1";
+"widget.param.slot1" = "Salvarea jocului 1";
+"widget.param.game2" = "Jocul 2";
+"widget.param.slot2" = "Salvarea jocului 2";
+"widget.param.game3" = "Jocul 3";
+"widget.param.slot3" = "Salvarea jocului 3";
+"widget.param.game4" = "Jocul 4";
+"widget.param.slot4" = "Salvarea jocului 4";
+"widget.slot.type" = "Salvare";
+"widget.slot.resume" = "Continuă";
+"widget.entity.game" = "Joc";
+"widget.unconfigured" = "Ține apăsat pentru a alege un joc";
+"widget.slot.1" = "Slotul 1";
+"widget.slot.2" = "Slotul 2";
+"widget.slot.3" = "Slotul 3";
+"widget.slot.4" = "Slotul 4";
+"widget.slot.5" = "Slotul 5";

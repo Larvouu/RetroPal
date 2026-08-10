@@ -24,6 +24,17 @@
 //  The type is intentionally free of iCloud/singleton coupling so the full branch
 //  matrix is unit-testable with two throwaway temp directories.
 //
+//  BATTERY SAVES (added for 1.2.4): the same engine also mirrors the flat
+//  `BatterySaves/*.sav` tree (the in-game progress) via
+//  `reconcileBatterySaves(skipping:)` — construct the instance with the
+//  two BatterySaves roots and call that entry point instead of `reconcile()`.
+//  Same rules (local authoritative, mtime-wins, loser archived, conflicts
+//  local-only and bounded), no `.png` companion, `Backups/` and `_Conflicts/`
+//  never mirrored. The one extra rule: the ROM whose save is OPEN by a live
+//  emulation session is skipped entirely (mGBA holds the file through a
+//  retained VFile; melonDS rewrites it as the game saves), so a live save is
+//  never replaced or half-read — it reconciles at quit and on the next pass.
+//
 
 import Foundation
 
@@ -71,6 +82,85 @@ struct SaveSyncReconciler {
             result.cloudHadFiles = result.cloudHadFiles || r.cloudHadFiles
         }
         return result
+    }
+
+    // MARK: - Battery saves (.sav, flat tree)
+
+    /// Run a full bidirectional reconcile of the flat battery-save tree. The
+    /// instance's `localRoot` / `cloudRoot` must be the two `BatterySaves`
+    /// directories. `skipping` holds the ROM basenames of the live emulation
+    /// session (if any) — the played game, plus the slot-2 GBA game when an
+    /// NDS session has one mounted: their `.sav` files are left completely
+    /// untouched in BOTH directions and reconcile once the session has ended.
+    @discardableResult
+    func reconcileBatterySaves(skipping skips: Set<String> = []) -> Result {
+        ensureDir(localRoot)
+        ensureDir(cloudRoot)
+        var result = Result()
+        let skipNames = Set(skips.map { $0 + ".sav" })
+        let cloudNames = savNames(in: cloudRoot)
+        result.cloudHadFiles = !cloudNames.isEmpty
+        for name in savNames(in: localRoot).union(cloudNames) {
+            if skipNames.contains(name) { continue }
+            if reconcileBatteryFile(name) { result.localChanged = true }
+        }
+        return result
+    }
+
+    /// One `.sav`: the save-state slot logic without the `.png` companion,
+    /// archived flat (`_Conflicts/<name>`, the file name IS the ROM, bounded to
+    /// one copy). Returns true if the local ACTIVE copy changed (a pull).
+    private func reconcileBatteryFile(_ name: String) -> Bool {
+        let localFile = localRoot.appendingPathComponent(name)
+        let cloudFile = cloudRoot.appendingPathComponent(name)
+        let localExists = fm.fileExists(atPath: localFile.path)
+        let cloudExists = fm.fileExists(atPath: cloudFile.path) || isEvicted(cloudFile)
+
+        switch (localExists, cloudExists) {
+        case (false, false):
+            return false
+        case (true, false):
+            copyUp(localFile, cloudFile)
+            return false
+        case (false, true):
+            copyDown(cloudFile, localFile)
+            return true
+        case (true, true):
+            guard materialize(cloudFile) else { return false }   // not downloaded yet; retry next sync
+            if sameContents(localFile, cloudFile) { return false }
+            let lm = mtime(localFile) ?? .distantPast
+            let cm = mtime(cloudFile) ?? .distantPast
+            ensureDir(conflictsRoot())
+            let archived = conflictsRoot().appendingPathComponent(name)
+            if cm > lm {
+                // Cloud newer -> cloud wins. Preserve the local loser, then pull.
+                copyPreservingDate(from: localFile, to: archived)
+                copyDown(cloudFile, localFile)
+                return true
+            } else {
+                // Local newer (or tie) -> local wins. Preserve the cloud loser
+                // locally, then push. Local active unchanged.
+                copyPreservingDate(from: cloudFile, to: archived)
+                copyUp(localFile, cloudFile)
+                return false
+            }
+        }
+    }
+
+    /// `.sav` file names in the flat battery dir, with evicted placeholders
+    /// normalized. Subdirectories (`Backups`, `_Conflicts`) don't end in `.sav`
+    /// and are naturally excluded, as is any non-save stray file.
+    private func savNames(in dir: URL) -> Set<String> {
+        let items = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
+        var names = Set<String>()
+        for item in items {
+            var name = item
+            if name.hasPrefix("."), name.hasSuffix(".icloud") {
+                name = String(name.dropFirst().dropLast(".icloud".count))
+            }
+            if name.hasSuffix(".sav") { names.insert(name) }
+        }
+        return names
     }
 
     // MARK: - Per-ROM

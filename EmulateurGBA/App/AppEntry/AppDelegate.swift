@@ -24,6 +24,11 @@ enum AppOrientationLock {
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
-        AppOrientationLock.mask
+        // The per-game lock is a PHONE concern. This hook is asked about every
+        // window, so once a television is connected an un-checked mask would
+        // pin the TV to the game's orientation too — a portrait-locked game
+        // would rotate the whole television.
+        if ExternalDisplayManager.shared.isExternalWindow(window) { return .all }
+        return AppOrientationLock.mask
     }
 }

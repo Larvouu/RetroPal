@@ -14,6 +14,7 @@
 
 #include <melonds/NDS.h>
 #include <melonds/NDSCart.h>
+#include <melonds/GBACart.h>
 #include <melonds/GPU.h>
 #include <melonds/SPU.h>
 #include <melonds/Args.h>
@@ -63,6 +64,14 @@ static int resolveNDSLanguageFromLocale(void) {
     // Save path for battery saves
     std::string _savePath;
     std::string _romName;
+
+    // Slot-2 GBA cart (dual-slot), configured before loadROMAtPath:.
+    // Kept for the bridge's lifetime: loadROMAtPath's internal shutdown must
+    // not drop a configuration made just before it.
+    NSString *_gbaSlotROMPath;
+    NSString *_gbaSlotSavePath;
+    // Mirror of the mounted cart's save path for flushSaveData (empty = no cart).
+    std::string _gbaSavePath;
 }
 
 - (instancetype)init {
@@ -141,9 +150,53 @@ static int resolveNDSLanguageFromLocale(void) {
     // Insert cart and reset
     _nds->SetNDSCart(std::move(cart));
 
+    [self insertConfiguredGBACart];
+
     _romLoaded = YES;
     NSLog(@"MelonDSBridge: ROM loaded successfully: %@", [path lastPathComponent]);
     return YES;
+}
+
+- (void)configureGBASlotROMPath:(NSString *)romPath savePath:(NSString *)savePath {
+    _gbaSlotROMPath = [romPath copy];
+    _gbaSlotSavePath = [savePath copy];
+}
+
+/// Mount the configured GBA cart in slot 2 (no-op when none configured).
+/// Failures never fail the NDS load — the game boots with an empty slot,
+/// exactly as if no cart were inserted.
+- (void)insertConfiguredGBACart {
+    if (_gbaSlotROMPath.length == 0) return;
+
+    NSData *gbaROM = [NSData dataWithContentsOfFile:_gbaSlotROMPath];
+    if (!gbaROM || gbaROM.length == 0) {
+        NSLog(@"MelonDSBridge: Slot-2 GBA ROM unreadable, booting with empty slot: %@", _gbaSlotROMPath);
+        return;
+    }
+    // The GBA game's existing battery save, if any (Pal Park reads the party
+    // out of it). A missing file is normal for a never-played game.
+    NSData *gbaSave = nil;
+    if (_gbaSlotSavePath.length > 0) {
+        gbaSave = [NSData dataWithContentsOfFile:_gbaSlotSavePath];
+    }
+    auto gbaCart = melonDS::GBACart::ParseROM(
+        (const melonDS::u8 *)gbaROM.bytes, (melonDS::u32)gbaROM.length,
+        (const melonDS::u8 *)(gbaSave ? gbaSave.bytes : nullptr),
+        (melonDS::u32)(gbaSave ? gbaSave.length : 0)
+    );
+    if (!gbaCart) {
+        NSLog(@"MelonDSBridge: Slot-2 GBA ROM failed to parse, booting with empty slot: %@", _gbaSlotROMPath);
+        return;
+    }
+    _nds->SetGBACart(std::move(gbaCart));
+    // Write-through for in-play saves (Pal Park REMOVES migrated Pokémon from
+    // the GBA save, so writes matter as much as reads).
+    if (_gbaSlotSavePath.length > 0) {
+        _gbaSavePath = [_gbaSlotSavePath UTF8String];
+        melonDS::Platform::SetGBASavePath(_gbaSavePath);
+    }
+    NSLog(@"MelonDSBridge: Slot-2 GBA cart mounted: %@ (save: %@)",
+          [_gbaSlotROMPath lastPathComponent], gbaSave ? @"loaded" : @"none yet");
 }
 
 - (void)reset {
@@ -239,8 +292,16 @@ static int resolveNDSLanguageFromLocale(void) {
     }
 }
 
+- (void)setGBPalette:(const uint32_t *)colors {
+    // NDS has no DMG palette; nothing to do.
+}
+
+- (BOOL)isDMGPaletteApplicable {
+    return NO;
+}
+
 - (void)flushSaveData {
-    if (!_nds || !_romLoaded || _savePath.empty()) return;
+    if (!_nds || !_romLoaded) return;
     // melonDS writes save changes through Platform::WriteNDSSave as the game
     // saves (each call fopen/fwrite/fclose, so OS-flushed), but the cart flush
     // is deferred a few frames. Force the current save RAM to disk now (we are
@@ -248,9 +309,21 @@ static int resolveNDSLanguageFromLocale(void) {
     // writing it round-trips cleanly; atomically:YES makes the write safe.
     const melonDS::u8 *saveMem = _nds->GetNDSSave();
     melonDS::u32 saveLen = _nds->GetNDSSaveLength();
-    if (!saveMem || saveLen == 0) return;
-    NSData *data = [NSData dataWithBytes:saveMem length:saveLen];
-    [data writeToFile:[NSString stringWithUTF8String:_savePath.c_str()] atomically:YES];
+    if (!_savePath.empty() && saveMem && saveLen > 0) {
+        NSData *data = [NSData dataWithBytes:saveMem length:saveLen];
+        [data writeToFile:[NSString stringWithUTF8String:_savePath.c_str()] atomically:YES];
+    }
+    // Same forced flush for the slot-2 GBA cart's save RAM, when one is
+    // mounted (its writes go through Platform::WriteGBASave in play, with the
+    // same deferred-flush caveat).
+    if (!_gbaSavePath.empty()) {
+        const melonDS::u8 *gbaMem = _nds->GetGBASave();
+        melonDS::u32 gbaLen = _nds->GetGBASaveLength();
+        if (gbaMem && gbaLen > 0) {
+            NSData *gbaData = [NSData dataWithBytes:gbaMem length:gbaLen];
+            [gbaData writeToFile:[NSString stringWithUTF8String:_gbaSavePath.c_str()] atomically:YES];
+        }
+    }
 }
 
 // MARK: - Emulation
@@ -474,6 +547,11 @@ static int resolveNDSLanguageFromLocale(void) {
     _savePath.clear();
     _romName.clear();
     melonDS::Platform::SetNDSSavePath("");
+    // Release the slot-2 save path but keep the configured request
+    // (_gbaSlotROMPath/_gbaSlotSavePath): loadROMAtPath: shuts down first,
+    // and must still find the configuration when it re-mounts the cart.
+    _gbaSavePath.clear();
+    melonDS::Platform::SetGBASavePath("");
 }
 
 // MARK: - Cheat Codes

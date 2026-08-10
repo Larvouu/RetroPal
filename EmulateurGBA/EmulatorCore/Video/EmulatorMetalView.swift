@@ -11,8 +11,16 @@ import MetalKit
 
 final class EmulatorMetalView: MTKView, MTKViewDelegate {
     private var commandQueue: MTLCommandQueue?
+    /// Boot pipelines: the trivial nearest fragment, compiled synchronously
+    /// (near-instant) so the first frame shows immediately.
     private var pipelineState: MTLRenderPipelineState?
     private var ndsPipelineState: MTLRenderPipelineState?
+    /// Filter pipelines: the heavier filteredFragment, compiled ASYNC at setup
+    /// (its PSO build was delaying the first NDS frames ~0.5s behind the dress
+    /// — device report, 2026-07-24). Until ready, a filtered game renders
+    /// plain for a beat and the filter pops in — never the other way around.
+    private var filteredPipelineState: MTLRenderPipelineState?
+    private var filteredNDSPipelineState: MTLRenderPipelineState?
     private var ndsVertexBuffer: MTLBuffer?
     private var textures: [MTLTexture] = []
     private var currentTextureIndex = 0
@@ -28,6 +36,24 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     /// It down-samples internally to its low "gif" fps, so the image is only
     /// built a few times per second. Owned/assigned by EmulatorViewController.
     weak var clipRecorder: GameplayClipRecorder?
+
+    /// The live display filter (per-game, Pro). `.none` renders byte-identical
+    /// to the historical plain-nearest path. Set by EmulatorViewController at
+    /// start and on selection; read per draw (a uniform, no pipeline rebuild).
+    /// Setting a real filter lazily kicks the filter-pipeline compile — boot
+    /// never pays for the filter shader unless a filter is actually in play.
+    var videoFilter: VideoFilter = .none {
+        didSet { if videoFilter != .none { buildFilterPipelinesIfNeeded() } }
+    }
+
+    /// Swift twin of the shader's FilterUniforms — keep layouts in sync.
+    /// Internal because the external-display mirror sends the same bytes;
+    /// two copies of a struct that must match a shader layout would drift.
+    struct FilterUniforms {
+        var filterType: UInt32
+        var screenCount: UInt32
+        var gameSize: SIMD2<Float>
+    }
 
     // GBA frame timing: 16,777,216 Hz CPU / 280,896 cycles per frame ≈ 59.7275 fps
     private static let gbaFrameDuration: CFTimeInterval = 280896.0 / 16777216.0
@@ -98,12 +124,15 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             return
         }
 
-        let fragmentFunc = library.makeFunction(name: "fragmentShader")
+        // Boot pipelines only, SYNC — the trivial nearest fragment compiles
+        // near-instantly. The filter pipelines are built lazily on demand
+        // (buildFilterPipelinesIfNeeded), never at boot.
+        let plainFrag = library.makeFunction(name: "fragmentShader")
 
         // Single-screen pipeline (GBA)
         let singleDesc = MTLRenderPipelineDescriptor()
         singleDesc.vertexFunction = library.makeFunction(name: "vertexShader")
-        singleDesc.fragmentFunction = fragmentFunc
+        singleDesc.fragmentFunction = plainFrag
         singleDesc.colorAttachments[0].pixelFormat = colorPixelFormat
         pipelineState = try? device.makeRenderPipelineState(descriptor: singleDesc)
 
@@ -112,7 +141,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         // is an exact pass-through, so the default rendering is unchanged.
         let dualDesc = MTLRenderPipelineDescriptor()
         dualDesc.vertexFunction = library.makeFunction(name: "ndsVertexShader")
-        dualDesc.fragmentFunction = fragmentFunc
+        dualDesc.fragmentFunction = plainFrag
         dualDesc.colorAttachments[0].pixelFormat = colorPixelFormat
         dualDesc.colorAttachments[0].isBlendingEnabled = true
         dualDesc.colorAttachments[0].rgbBlendOperation = .add
@@ -122,6 +151,47 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         dualDesc.colorAttachments[0].sourceAlphaBlendFactor = .one
         dualDesc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
         ndsPipelineState = try? device.makeRenderPipelineState(descriptor: dualDesc)
+    }
+
+    /// True once the async filter-pipeline builds were kicked off (idempotence
+    /// guard; the states themselves land later).
+    private var filterPipelinesRequested = false
+
+    /// Compile the filter pipelines, ASYNC, on demand — first time a real
+    /// filter is set. Boot never waits on (or contends with) the heavy filter
+    /// shader: melonDS's CPU-hungry first frames were still being slowed by
+    /// the boot-time async compiles (a second NDS device report), and a
+    /// no-filter user never needs them at all. Until they land, a filtered
+    /// game renders plain and the filter pops in. Completion runs on an
+    /// arbitrary thread; assign on main, where draw() runs.
+    private func buildFilterPipelinesIfNeeded() {
+        guard !filterPipelinesRequested, let device = self.device,
+              let library = device.makeDefaultLibrary() else { return }
+        filterPipelinesRequested = true
+        let filterFrag = library.makeFunction(name: "filteredFragment")
+
+        let singleDesc = MTLRenderPipelineDescriptor()
+        singleDesc.vertexFunction = library.makeFunction(name: "vertexShader")
+        singleDesc.fragmentFunction = filterFrag
+        singleDesc.colorAttachments[0].pixelFormat = colorPixelFormat
+        device.makeRenderPipelineState(descriptor: singleDesc) { [weak self] state, _ in
+            DispatchQueue.main.async { self?.filteredPipelineState = state }
+        }
+
+        let dualDesc = MTLRenderPipelineDescriptor()
+        dualDesc.vertexFunction = library.makeFunction(name: "ndsVertexShader")
+        dualDesc.fragmentFunction = filterFrag
+        dualDesc.colorAttachments[0].pixelFormat = colorPixelFormat
+        dualDesc.colorAttachments[0].isBlendingEnabled = true
+        dualDesc.colorAttachments[0].rgbBlendOperation = .add
+        dualDesc.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        dualDesc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        dualDesc.colorAttachments[0].alphaBlendOperation = .add
+        dualDesc.colorAttachments[0].sourceAlphaBlendFactor = .one
+        dualDesc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        device.makeRenderPipelineState(descriptor: dualDesc) { [weak self] state, _ in
+            DispatchQueue.main.async { self?.filteredNDSPipelineState = state }
+        }
     }
 
     // MARK: - Public API
@@ -159,19 +229,82 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         isPaused = true
     }
 
+    // MARK: - External-display mirror
+    //
+    // The mirror is PRESENTATION ONLY. This view stays the emulation clock:
+    // startRendering() unpauses it, its display link drives draw(in:), and
+    // draw(in:) is what advances the core. A view on an AirPlay screen has no
+    // dependable display link, so it must never be given that job. It only
+    // ever encodes the texture this view last wrote.
+
+    /// Everything the mirror needs to draw the current frame, resolved on the
+    /// producer so pipeline selection can never diverge between the two views.
+    struct MirrorFrame {
+        let texture: MTLTexture
+        let isDualScreen: Bool
+        let pipeline: MTLRenderPipelineState
+        /// The plain boot pipeline takes no uniforms; only the filtered one does.
+        let usesFilterUniforms: Bool
+        let uniforms: FilterUniforms
+    }
+
+    /// Shared with the mirror: one GPU on iOS, so one queue is enough.
+    var mirrorCommandQueue: MTLCommandQueue? { commandQueue }
+
+    /// The mirror MUST match this, because the pipeline states below were
+    /// compiled against it; a different format makes them invalid for it.
+    var mirrorPixelFormat: MTLPixelFormat { colorPixelFormat }
+
+    /// Native frame size of the running game, so a mirror can letterbox
+    /// itself for single-screen consoles. nil when nothing is attached.
+    var mirrorGameSize: CGSize? {
+        guard let session else { return nil }
+        return CGSize(width: session.screenWidth, height: session.totalBufferHeight)
+    }
+
+    var mirrorIsDualScreen: Bool { isDualScreen }
+
+    /// nil while nothing is running, so the mirror shows the idle screen
+    /// instead of a stale last frame.
+    func mirrorFrame() -> MirrorFrame? {
+        guard isEmulatorRunning, let session, textures.count == 2 else { return nil }
+        let wantsFilter = videoFilter != .none
+        let filtered = wantsFilter
+            ? (isDualScreen ? filteredNDSPipelineState : filteredPipelineState)
+            : nil
+        guard let pipeline = filtered ?? (isDualScreen ? ndsPipelineState : pipelineState) else {
+            return nil
+        }
+        return MirrorFrame(
+            texture: textures[1 - currentTextureIndex],
+            isDualScreen: isDualScreen,
+            pipeline: pipeline,
+            usesFilterUniforms: filtered != nil,
+            uniforms: FilterUniforms(
+                filterType: videoFilter.metalIndex,
+                screenCount: UInt32(isDualScreen ? 2 : 1),
+                gameSize: SIMD2(Float(session.screenWidth), Float(session.totalBufferHeight))))
+    }
+
     // MARK: - NDS Vertex Geometry
 
-    /// Build vertex data for two quads rendering both NDS screens.
-    /// Supports two modes: stacked (portrait) and side-by-side (landscape).
-    /// Each screen maintains its native 4:3 aspect ratio.
-    private func rebuildNDSVertices() {
-        guard let device = self.device else { return }
+    /// One vertex of a screen quad. Internal, so the external-display mirror
+    /// can build its own buffer from exactly the same geometry.
+    struct ScreenVertex {
+        var px: Float; var py: Float; var u: Float; var v: Float; var a: Float
+    }
 
-        let viewW = Float(bounds.width > 0 ? bounds.width : 256)
-        let viewH = Float(bounds.height > 0 ? bounds.height : 384)
+    /// Pure geometry: the two NDS quads for a view of the given size. Both
+    /// this view and the external-display mirror call it, so the TV layout
+    /// can never drift away from the phone's.
+    static func ndsScreenVertices(viewW: Float, viewH: Float,
+                                  sideBySide: Bool,
+                                  topScreenRatio: Float,
+                                  custom: (top: CustomScreenQuad, bottom: CustomScreenQuad)?,
+                                  swapped: Bool) -> [ScreenVertex] {
+        typealias V = ScreenVertex
         let viewAspect = viewW / viewH
         let screenAspect: Float = 256.0 / 192.0  // 4:3
-        let swapped = UserDefaults.standard.bool(forKey: "ndsSwapScreens")
 
         // Texture V coordinates: top screen = 0.0–0.5, bottom screen = 0.5–1.0
         // When swapped, the "first" quad shows the bottom texture and vice versa
@@ -180,13 +313,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         let secondVMin: Float = swapped ? 0.0 : 0.5
         let secondVMax: Float = swapped ? 0.5 : 1.0
 
-        struct V {
-            var px: Float; var py: Float; var u: Float; var v: Float; var a: Float
-        }
-
-        let vertices: [V]
-
-        if let custom = ndsCustomScreens {
+        if let custom {
             // === Preset layout: arbitrary view-space rect + alpha per screen ===
             // Convert each rect from view coordinates (y down) to clip space (y up).
             func quad(_ q: CustomScreenQuad, vMin: Float, vMax: Float) -> [V] {
@@ -200,10 +327,10 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
                     V(px: l, py: t, u: 0, v: vMin, a: a), V(px: r, py: b, u: 1, v: vMax, a: a), V(px: r, py: t, u: 1, v: vMin, a: a),
                 ]
             }
-            vertices = quad(custom.top, vMin: firstVMin, vMax: firstVMax)
+            return quad(custom.top, vMin: firstVMin, vMax: firstVMax)
                 + quad(custom.bottom, vMin: secondVMin, vMax: secondVMax)
 
-        } else if ndsSideBySide {
+        } else if sideBySide {
             // === Side-by-side (landscape): left = top screen, right = bottom screen ===
             // Both screens same size, touching each other, centered horizontally.
             // Each screen is aspect-fit to 4:3 within half the view width.
@@ -231,7 +358,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             let rightTop = clipH / 2.0
             let rightBot = -clipH / 2.0
 
-            vertices = [
+            return [
                 // Left screen (first screen)
                 V(px: leftL, py: leftBot, u: 0, v: firstVMax, a: 1), V(px: leftR, py: leftBot, u: 1, v: firstVMax, a: 1), V(px: leftL, py: leftTop, u: 0, v: firstVMin, a: 1),
                 V(px: leftL, py: leftTop, u: 0, v: firstVMin, a: 1), V(px: leftR, py: leftBot, u: 1, v: firstVMax, a: 1), V(px: leftR, py: leftTop, u: 1, v: firstVMin, a: 1),
@@ -241,8 +368,8 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             ]
 
         } else {
-            // === Stacked (portrait): screens sized according to ndsTopScreenRatio ===
-            let topRatio = ndsTopScreenRatio
+            // === Stacked (portrait): screens sized according to topScreenRatio ===
+            let topRatio = topScreenRatio
             let gapRatio = EmulatorMetalView.ndsGapRatio
             let botRatio: Float = 1.0 - topRatio - gapRatio
 
@@ -274,7 +401,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             let topL = -topW / 2.0, topR = topW / 2.0
             let botL = -botW / 2.0, botR = botW / 2.0
 
-            vertices = [
+            return [
                 // Top quad (first screen)
                 V(px: topL, py: topBottom, u: 0, v: firstVMax, a: 1), V(px: topR, py: topBottom, u: 1, v: firstVMax, a: 1), V(px: topL, py: topTop, u: 0, v: firstVMin, a: 1),
                 V(px: topL, py: topTop,    u: 0, v: firstVMin, a: 1), V(px: topR, py: topBottom, u: 1, v: firstVMax, a: 1), V(px: topR, py: topTop, u: 1, v: firstVMin, a: 1),
@@ -283,8 +410,23 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
                 V(px: botL, py: botTop,    u: 0, v: secondVMin, a: 1), V(px: botR, py: botBottom, u: 1, v: secondVMax, a: 1), V(px: botR, py: botTop, u: 1, v: secondVMin, a: 1),
             ]
         }
+    }
 
-        ndsVertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<V>.stride * vertices.count, options: .storageModeShared)
+    /// Build vertex data for two quads rendering both NDS screens.
+    /// Supports two modes: stacked (portrait) and side-by-side (landscape).
+    /// Each screen maintains its native 4:3 aspect ratio.
+    private func rebuildNDSVertices() {
+        guard let device = self.device else { return }
+        let vertices = EmulatorMetalView.ndsScreenVertices(
+            viewW: Float(bounds.width > 0 ? bounds.width : 256),
+            viewH: Float(bounds.height > 0 ? bounds.height : 384),
+            sideBySide: ndsSideBySide,
+            topScreenRatio: ndsTopScreenRatio,
+            custom: ndsCustomScreens,
+            swapped: UserDefaults.standard.bool(forKey: "ndsSwapScreens"))
+        ndsVertexBuffer = device.makeBuffer(bytes: vertices,
+                                            length: MemoryLayout<ScreenVertex>.stride * vertices.count,
+                                            options: .storageModeShared)
     }
 
     // MARK: - MTKViewDelegate
@@ -374,15 +516,36 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
               let commandBuffer = commandQueue?.makeCommandBuffer(),
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDesc) else { return }
 
-        if isDualScreen, let ndsPipeline = ndsPipelineState, let vertexBuf = ndsVertexBuffer {
-            encoder.setRenderPipelineState(ndsPipeline)
-            encoder.setVertexBuffer(vertexBuf, offset: 0, index: 0)
-            encoder.setFragmentTexture(displayTexture, index: 0)
-            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 12)
-        } else if let pipeline = pipelineState {
-            encoder.setRenderPipelineState(pipeline)
-            encoder.setFragmentTexture(displayTexture, index: 0)
-            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        // The filtered pipeline only when a filter is active AND its async
+        // build has landed; otherwise the plain boot pipeline (which takes no
+        // uniforms). A filtered game renders plain for its first beat.
+        var uniforms = FilterUniforms(
+            filterType: videoFilter.metalIndex,
+            screenCount: UInt32(isDualScreen ? 2 : 1),
+            gameSize: SIMD2(Float(session.screenWidth), Float(session.totalBufferHeight)))
+        let wantsFilter = videoFilter != .none
+
+        if isDualScreen, let vertexBuf = ndsVertexBuffer {
+            let filtered = wantsFilter ? filteredNDSPipelineState : nil
+            if let pipeline = filtered ?? ndsPipelineState {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(vertexBuf, offset: 0, index: 0)
+                encoder.setFragmentTexture(displayTexture, index: 0)
+                if filtered != nil {
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<FilterUniforms>.stride, index: 0)
+                }
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 12)
+            }
+        } else if !isDualScreen {
+            let filtered = wantsFilter ? filteredPipelineState : nil
+            if let pipeline = filtered ?? pipelineState {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(displayTexture, index: 0)
+                if filtered != nil {
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<FilterUniforms>.stride, index: 0)
+                }
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+            }
         }
 
         encoder.endEncoding()

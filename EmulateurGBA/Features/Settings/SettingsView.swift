@@ -5,12 +5,20 @@
 
 import SwiftUI
 import UIKit
+import CoreData
 
 struct SettingsView: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled: Bool = true
+    /// In-game haptic strength, 1-6. 3 = the historical default feel; the sub-row
+    /// only shows while haptics are ON. Read by TouchControlsView.fireHaptic.
+    @AppStorage("hapticStrength") private var hapticStrength: Int = 3
     @AppStorage("useJoystick") private var useJoystick: Bool = false
     @AppStorage("showClipButton") private var showClipButton: Bool = true
     @AppStorage("ndsSwapScreens") private var ndsSwapScreens: Bool = false
+    /// TV layout for the DS on an external display. Default matches
+    /// ExternalDisplayManager's own default when the key is absent.
+    @AppStorage(ExternalDisplayManager.ndsSideBySideKey)
+    private var externalNDSSideBySide: Bool = true
     @AppStorage("ndsLanguage") private var ndsLanguage: String = "auto"
     @AppStorage("ndsClockManual") private var ndsClockManual: Bool = false
     /// Manual RTC date/time as seconds since 1970, read by MelonDSBridge.
@@ -29,6 +37,16 @@ struct SettingsView: View {
     @State private var showRomGuide = false
     @State private var showSaveGuide = false
     @State private var showControllerGuide = false
+    @State private var showAirPlayGuide = false
+    @State private var showWidgetGuide = false
+    @State private var cheatCacheBytes: Int64 = 0
+    @State private var cheatPrefetch: (done: Int, total: Int)?
+    @State private var cheatPrefetchFailed = false
+    /// How many library games already have their codes on disk. nil until
+    /// counted. Drives the "nothing left to fetch" state, so the button is
+    /// never offered when tapping it would do nothing — that dead tap read as
+    /// a bug on device.
+    @State private var cheatCoverage: (cached: Int, total: Int)?
     #if DEBUG
     @State private var showReviewPreview = false
     #endif
@@ -102,6 +120,128 @@ struct SettingsView: View {
     /// switch), signalling the row is disabled because the setting applies only
     /// to the on-screen touch controls. The Spacer pushes the glyph to sit
     /// beside the switch rather than next to the text.
+    /// A Pro-locked settings row: a refined invitation, not a barrier. Gold
+    /// accents (icon, title, trailing crown — never a lock) read as premium
+    /// and tempting; tapping opens the Pro sheet at `context`. Shared by
+    /// Customize Controls and Controller Remapping (one "make the controls
+    /// yours" family, one sheet).
+
+    private var airPlayProCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "crown.fill")
+                    .font(.footnote)
+                    .foregroundStyle(goldTitleGradient)
+                Text(NSLocalizedString("guide.airplay.proNotice", comment: ""))
+                    .font(.subheadline)
+                    .foregroundStyle(goldTitleGradient)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button {
+                // Dismiss first, then present: a sheet raised from inside a
+                // sheet mid-dismissal is the bug this defer exists to avoid
+                // (same pattern as the save-import follow-ups).
+                showAirPlayGuide = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    proSheetItem = ProSheetItem(context: .externalDisplay)
+                }
+            } label: {
+                Text(NSLocalizedString("guide.airplay.proButton", comment: ""))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.plain)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(ProPalette.gold.opacity(0.45), lineWidth: 1)
+            )
+            .foregroundStyle(goldTitleGradient)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    /// Pre-fetches cheats for every game in the library, using the same
+    /// per-game path the browser uses, so anything already cached is counted
+    /// instantly and never fetched twice.
+    @MainActor
+    private func prefetchCheats() async {
+        cheatPrefetchFailed = false
+        let targets = cheatTargets()
+        guard !targets.isEmpty else { return }
+        cheatPrefetch = (0, targets.count)
+        do {
+            try await CheatLibrary.shared.prefetch(games: targets) { done, total in
+                cheatPrefetch = (done, total)
+            }
+        } catch {
+            cheatPrefetchFailed = true
+        }
+        cheatPrefetch = nil
+        cheatCacheBytes = CheatLibrary.shared.cacheSize()
+        cheatCoverage = countCheatCoverage()
+    }
+
+    /// (already cached, total) across the library, using the same key the
+    /// browser uses so the two can never disagree about what is covered.
+    @MainActor
+    private func countCheatCoverage() -> (cached: Int, total: Int) {
+        let targets = cheatTargets()
+        let cached = targets.filter {
+            CheatLibrary.shared.isCached(title: $0.title, system: $0.system)
+        }.count
+        return (cached, targets.count)
+    }
+
+    /// Every library game as (ROM filename stem, console key) — the identity
+    /// the cheat index matches on.
+    @MainActor
+    private func cheatTargets() -> [(title: String, system: String)] {
+        let context = PersistenceController.shared.container.viewContext
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        let games = (try? context.fetch(request)) ?? []
+        return games.compactMap { game in
+            guard let path = game.romFilePath else { return nil }
+            let stem = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+            guard !stem.isEmpty else { return nil }
+            return (stem, game.systemType ?? "gba")
+        }
+    }
+
+    private func premiumLockedRow(label: String, icon: String,
+                                  context: ProPromptContext) -> some View {
+        Button {
+            proSheetItem = ProSheetItem(context: context)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundStyle(goldTitleGradient)
+                Text(label)
+                    .foregroundStyle(goldTitleGradient)
+                Spacer(minLength: 8)
+                Image(systemName: "crown.fill")
+                    .font(.footnote)
+                    .foregroundStyle(goldTitleGradient)
+                    .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.5), radius: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("\(label), \(NSLocalizedString("pro.badge", comment: ""))")
+        .listRowBackground(premiumRowBackground)
+    }
+
     @ViewBuilder
     private func controlsRowLabel(_ text: String) -> some View {
         HStack(spacing: 6) {
@@ -164,6 +304,28 @@ struct SettingsView: View {
                 }
                 .disabled(controllers.isConnected)
 
+                if hapticsEnabled {
+                    // Strength sub-option, revealed by the toggle above. Six
+                    // levels; 3 keeps the app's historical feel.
+                    VStack(alignment: .leading, spacing: 8) {
+                        controlsRowLabel(NSLocalizedString("settings.haptics.strength", comment: ""))
+                        Picker(NSLocalizedString("settings.haptics.strength", comment: ""),
+                               selection: $hapticStrength) {
+                            ForEach(1...6, id: \.self) { level in
+                                Text("\(level)").tag(level)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        // Answer the selection with the strength it picked, so
+                        // the level is chosen by feel, not by number.
+                        .onChange(of: hapticStrength) { level in
+                            TouchControlsView.previewHaptic(level: level)
+                        }
+                    }
+                    .disabled(controllers.isConnected)
+                }
+
                 Toggle(isOn: $useJoystick) {
                     controlsRowLabel(useJoystick
                          ? NSLocalizedString("settings.joystick", comment: "")
@@ -187,32 +349,9 @@ struct SettingsView: View {
                               systemImage: "hand.draw")
                     }
                 } else {
-                    // Locked: a refined Pro invitation. Gold accents (the
-                    // hand.draw icon, the title, a trailing crown) read as premium
-                    // and tempting; the crown — not a lock — keeps it inviting
-                    // rather than barring. Opens the Pro sheet, like the top card.
-                    Button {
-                        proSheetItem = ProSheetItem(context: .customizeControls)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "hand.draw")
-                                .font(.body)
-                                .foregroundStyle(goldTitleGradient)
-                            Text(NSLocalizedString("settings.customizeControls", comment: ""))
-                                .foregroundStyle(goldTitleGradient)
-                            Spacer(minLength: 8)
-                            Image(systemName: "crown.fill")
-                                .font(.footnote)
-                                .foregroundStyle(goldTitleGradient)
-                                .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.5), radius: 4)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("\(NSLocalizedString("settings.customizeControls", comment: "")), \(NSLocalizedString("pro.badge", comment: ""))")
-                    .listRowBackground(premiumRowBackground)
+                    premiumLockedRow(label: NSLocalizedString("settings.customizeControls", comment: ""),
+                                     icon: "hand.draw",
+                                     context: .customizeControls)
                 }
             }
 
@@ -232,6 +371,47 @@ struct SettingsView: View {
                                              name: controllers.controllerName,
                                              compact: true)
                     }
+                }
+
+                // Button remapping (Pro) — only offered while a pad is
+                // actually connected (the guided flow needs its presses).
+                // Same Pro treatment and the SAME Pro sheet as Customize
+                // Controls: the two are one "make the controls yours" family.
+                if controllers.isConnected {
+                    if proManager.isPro {
+                        NavigationLink {
+                            ControllerRemapView()
+                        } label: {
+                            Label(NSLocalizedString("settings.remapController", comment: ""),
+                                  systemImage: "arrow.triangle.swap")
+                        }
+                    } else {
+                        premiumLockedRow(label: NSLocalizedString("settings.remapController", comment: ""),
+                                         icon: "arrow.triangle.swap",
+                                         context: .customizeControls)
+                    }
+                }
+            }
+
+            // External display (Pro). Free users keep the passive mirroring iOS
+            // already gives them: we only put a window on the TV for Pro, so
+            // the gate adds an output instead of removing one.
+            Section(header: Text(NSLocalizedString("settings.externalDisplay.section", comment: "")),
+                    footer: Text(NSLocalizedString("settings.externalDisplay.footer", comment: ""))) {
+                if proManager.isPro {
+                    Picker(NSLocalizedString("settings.externalDisplay.ndsLayout", comment: ""),
+                           selection: $externalNDSSideBySide) {
+                        Text(NSLocalizedString("settings.externalDisplay.sideBySide", comment: "")).tag(true)
+                        Text(NSLocalizedString("settings.externalDisplay.stacked", comment: "")).tag(false)
+                    }
+                    .onChange(of: externalNDSSideBySide) { newValue in
+                        // Push to a television that is already connected.
+                        ExternalDisplayManager.shared.ndsSideBySide = newValue
+                    }
+                } else {
+                    premiumLockedRow(label: NSLocalizedString("settings.externalDisplay.row", comment: ""),
+                                     icon: "airplayvideo",
+                                     context: .externalDisplay)
                 }
             }
 
@@ -257,6 +437,74 @@ struct SettingsView: View {
 
             RetroAchievementsSection(onConnect: { showRALogin = true })
 
+            // Cheat codes are Pro, so this section only means anything there.
+            // The database itself is fetched a game at a time; this makes the
+            // games someone actually OWNS available without a connection —
+            // a dozen small files rather than the four thousand a whole-console
+            // download would be.
+            if proManager.isPro {
+                Section(header: Text(NSLocalizedString("settings.cheatDB.section", comment: "")),
+                        footer: Text(NSLocalizedString("settings.cheatDB.footer", comment: ""))) {
+                    if let progress = cheatPrefetch {
+                        // A determinate bar, not a spinner: the total is known
+                        // up front, so hiding it would be a choice to tell the
+                        // user less than we know.
+                        VStack(alignment: .leading, spacing: 6) {
+                            ProgressView(value: Double(progress.done),
+                                         total: Double(max(progress.total, 1)))
+                            Text(String(format: NSLocalizedString("settings.cheatDB.progress", comment: ""),
+                                        progress.done, progress.total))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    } else if let coverage = cheatCoverage,
+                              coverage.total > 0, coverage.cached >= coverage.total {
+                        // Everything is already on disk. Say so instead of
+                        // offering a button whose tap does nothing.
+                        Label(NSLocalizedString("settings.cheatDB.upToDate", comment: ""),
+                              systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .symbolRenderingMode(.hierarchical)
+                    } else if cheatCoverage?.total == 0 {
+                        Text(NSLocalizedString("settings.cheatDB.noGames", comment: ""))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button {
+                            Task { await prefetchCheats() }
+                        } label: {
+                            Label(NSLocalizedString("settings.cheatDB.download", comment: ""),
+                                  systemImage: "arrow.down.circle")
+                                .foregroundColor(.primary)
+                        }
+                    }
+
+                    if cheatPrefetchFailed {
+                        Text(NSLocalizedString("cheats.browse.offline", comment: ""))
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
+                    if cheatCacheBytes > 0 {
+                        HStack {
+                            Text(NSLocalizedString("settings.cheatDB.stored", comment: ""))
+                            Spacer()
+                            Text(ByteCountFormatter.string(fromByteCount: cheatCacheBytes,
+                                                           countStyle: .file))
+                                .foregroundStyle(.secondary)
+                        }
+                        Button(role: .destructive) {
+                            CheatLibrary.shared.clearCache()
+                            cheatCacheBytes = CheatLibrary.shared.cacheSize()
+                            cheatCoverage = countCheatCoverage()
+                        } label: {
+                            Text(NSLocalizedString("settings.cheatDB.clear", comment: ""))
+                        }
+                    }
+                }
+            }
+
             Section(NSLocalizedString("settings.guides.section", comment: "")) {
                 Button {
                     showRomGuide = true
@@ -270,6 +518,25 @@ struct SettingsView: View {
                 } label: {
                     Label(NSLocalizedString("saveImport.title", comment: ""),
                           systemImage: "square.and.arrow.down")
+                        .foregroundColor(.primary)
+                }
+                // Deliberately a plain row for everyone, not a gold Pro row:
+                // the steps are worth reading before deciding to buy, and the
+                // Pro card inside the sheet does the asking.
+                Button {
+                    showAirPlayGuide = true
+                } label: {
+                    Label(NSLocalizedString("guide.airplay.title", comment: ""),
+                          systemImage: "airplayvideo")
+                        .foregroundColor(.primary)
+                }
+                // The widget is free and lives entirely outside the app, so a
+                // guide is the only place it can be discovered from inside it.
+                Button {
+                    showWidgetGuide = true
+                } label: {
+                    Label(NSLocalizedString("guide.widget.title", comment: ""),
+                          systemImage: "square.grid.2x2")
                         .foregroundColor(.primary)
                 }
             }
@@ -406,6 +673,8 @@ struct SettingsView: View {
                 debugProSheetButton("Tapped locked feature (generic)", context: .tappedLockedFeature)
                 debugProSheetButton("Customize controls", context: .customizeControls)
                 debugProSheetButton("Custom skins (create/edit/import)", context: .customSkins)
+                debugProSheetButton("Video filters (Appearance ▸ Screen)", context: .videoFilters)
+                debugProSheetButton("External display / AirPlay (Settings)", context: .externalDisplay)
             }
             #endif
 
@@ -417,6 +686,10 @@ struct SettingsView: View {
 
         }
         .navigationTitle(NSLocalizedString("settings.title", comment: ""))
+        .task {
+            cheatCacheBytes = CheatLibrary.shared.cacheSize()
+            cheatCoverage = countCheatCoverage()
+        }
         // Presented at the List level (not inside the RA section) so a section
         // re-render can't dismiss it as it animates in.
         .sheet(isPresented: $showRALogin) { RALoginView() }
@@ -475,7 +748,6 @@ struct SettingsView: View {
                 ],
                 footer: NSLocalizedString("guide.importRom.footer", comment: "")
             )
-            .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showSaveGuide) {
             HowToSheet(
@@ -489,7 +761,39 @@ struct SettingsView: View {
                 ],
                 footer: NSLocalizedString("guide.saveImport.footer", comment: "")
             )
-            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showWidgetGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.widget.title", comment: ""),
+                intro: NSLocalizedString("guide.widget.intro", comment: ""),
+                steps: [
+                    NSLocalizedString("guide.widget.step1", comment: ""),
+                    NSLocalizedString("guide.widget.step2", comment: ""),
+                    NSLocalizedString("guide.widget.step3", comment: ""),
+                    NSLocalizedString("guide.widget.step4", comment: ""),
+                    NSLocalizedString("guide.widget.step5", comment: "")
+                ],
+                footer: NSLocalizedString("guide.widget.footer", comment: "")
+            )
+        }
+        .sheet(isPresented: $showAirPlayGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.airplay.title", comment: ""),
+                intro: NSLocalizedString("guide.airplay.intro", comment: ""),
+                steps: [
+                    NSLocalizedString("guide.airplay.step1", comment: ""),
+                    NSLocalizedString("guide.airplay.step2", comment: ""),
+                    NSLocalizedString("guide.airplay.step3", comment: ""),
+                    NSLocalizedString("guide.airplay.step4", comment: ""),
+                    NSLocalizedString("guide.airplay.step5", comment: ""),
+                    NSLocalizedString("guide.airplay.step6", comment: "")
+                ],
+                footer: NSLocalizedString("guide.airplay.footer", comment: "")
+            ) {
+                // Free users get the offer above the steps; Pro users get the
+                // steps and nothing else to read.
+                if !proManager.isPro { airPlayProCard }
+            }
         }
         .sheet(isPresented: $showControllerGuide) {
             HowToSheet(
@@ -505,7 +809,6 @@ struct SettingsView: View {
                 ControllerStatusView(isConnected: controllers.isConnected,
                                      name: controllers.controllerName)
             }
-            .presentationDetents([.medium, .large])
         }
     }
 

@@ -1,0 +1,28 @@
+"widget.recent.name" = "つづきから";
+"widget.recent.description" = "最近プレイしたゲームをホーム画面に表示します。パッケージをタップすると、続きから遊べます。";
+"widget.empty" = "最近プレイしたゲームはありません";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "ゲームを1つ";
+"widget.oneGame.description" = "ゲームと開くセーブデータを選びます。タップすると遊べます。";
+"widget.fourGames.name" = "ゲームを4つ";
+"widget.fourGames.description" = "最大4つのゲームと、それぞれが開くセーブデータを選びます。";
+"widget.param.game" = "ゲーム";
+"widget.param.slot" = "セーブデータ";
+"widget.param.game1" = "ゲーム1";
+"widget.param.slot1" = "ゲーム1のセーブデータ";
+"widget.param.game2" = "ゲーム2";
+"widget.param.slot2" = "ゲーム2のセーブデータ";
+"widget.param.game3" = "ゲーム3";
+"widget.param.slot3" = "ゲーム3のセーブデータ";
+"widget.param.game4" = "ゲーム4";
+"widget.param.slot4" = "ゲーム4のセーブデータ";
+"widget.slot.type" = "セーブデータ";
+"widget.slot.resume" = "つづきから";
+"widget.entity.game" = "ゲーム";
+"widget.unconfigured" = "長押ししてゲームを選んでください";
+"widget.slot.1" = "スロット1";
+"widget.slot.2" = "スロット2";
+"widget.slot.3" = "スロット3";
+"widget.slot.4" = "スロット4";
+"widget.slot.5" = "スロット5";

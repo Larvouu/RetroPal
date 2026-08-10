@@ -230,7 +230,8 @@ struct ControlPresetsView: View {
 /// A segmented control whose selected segment carries a custom color.
 /// SwiftUI's native segmented Picker does not expose the selected-segment
 /// color, so this thin UIKit wrapper does.
-private struct ColoredSegmentedPicker<Value: Equatable>: UIViewRepresentable {
+/// Internal (not private): also the tab bar of the in-game Appearance sheet.
+struct ColoredSegmentedPicker<Value: Equatable>: UIViewRepresentable {
     let segments: [(label: String, value: Value)]
     @Binding var selection: Value
     let selectedColor: UIColor

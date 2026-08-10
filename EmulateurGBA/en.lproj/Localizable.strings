@@ -63,6 +63,7 @@
 "settings.title" = "Settings";
 "settings.controls" = "Controls";
 "settings.haptics" = "In-Game Haptic Feedback";
+"settings.haptics.strength" = "Strength";
 "settings.controller.footer" = "Bluetooth controllers (Xbox, PlayStation, MFi) are supported. Pair one in iOS Settings.";
 "settings.controls.controllerActive.footer" = "A controller is connected, so the touch-control settings above are turned off.";
 "settings.controls.dpad.footer" = "The D-Pad/Joystick and clip-button choices apply to the default layout. Each custom preset has its own D-Pad/Joystick choice, and its clip button always stays visible.";
@@ -104,7 +105,7 @@
 "pro.benefit.slots" = "5 save slots (up from 2)";
 "pro.benefit.rewind" = "30-second rewind (GBA/GB/GBC)";
 "pro.benefit.cheats" = "Cheat codes (GameShark / Action Replay)";
-"pro.benefit.controls" = "Custom control layouts";
+"pro.benefit.controls" = "Custom touch layouts and controller remapping";
 "pro.benefit.speed.short" = "All speeds";
 "pro.benefit.slots.short" = "5 save slots";
 "pro.benefit.rewind.short" = "30-second rewind";
@@ -112,6 +113,9 @@
 "pro.benefit.controls.short" = "Custom controls";
 "pro.benefit.skins" = "Create custom console skins";
 "pro.benefit.skins.short" = "Custom skins";
+"pro.benefit.filters" = "CRT and LCD video filters";
+"pro.benefit.externalDisplay" = "Play on a TV with AirPlay";
+"pro.benefit.filters.short" = "Video filters";
 "pro.badge" = "Pro feature";
 "pro.seeAllBenefits" = "See everything in Pro";
 
@@ -121,7 +125,6 @@
 "pro.compare.row.noAds" = "No ads, ever";
 "pro.compare.row.allSystems" = "All consoles";
 "pro.compare.row.autoSave" = "Auto-save";
-"pro.compare.row.screenshots" = "Screenshot sharing";
 "pro.compare.row.iCloud" = "iCloud sync";
 "pro.compare.row.controllers" = "Bluetooth controllers";
 "pro.compare.row.slots" = "Save slots";
@@ -132,6 +135,8 @@
 "pro.compare.values.freeSpeeds" = "1×, 1.5×";
 "pro.compare.values.proSpeeds" = "0.25×–4×";
 "pro.compare.row.skins" = "Skin creation";
+"pro.compare.row.filters" = "Video filters";
+"pro.compare.row.externalDisplay" = "TV / AirPlay";
 /* Pro Prompts */
 "prompt.speed.title" = "You've played %@ minutes at 1.5x";
 "prompt.speed.subtitle" = "At 4x, the same session flies by. Unlock all speeds, forever.";
@@ -248,6 +253,17 @@
 
 /* Control Layout */
 "settings.customizeControls" = "Customize Controls";
+"settings.remapController" = "Remap Controller Buttons";
+"remap.press" = "Press a button…";
+"remap.reset" = "Reset to Defaults";
+"remap.footer" = "Tap a button, then press the controller button to assign to it. The D-pad and stick always control the D-pad.";
+"remap.noController" = "Connect a controller to remap its buttons.";
+"remap.actions.header" = "Shortcuts";
+"remap.action.fastForward" = "Fast forward (hold)";
+"remap.action.screenshot" = "Screenshot";
+"remap.action.clip" = "Clip";
+"remap.clear" = "Clear";
+"remap.actions.footer" = "These shortcuts have no button by default. Assign one to use them; fast forward applies while the button is held. Swipe a row to clear it.";
 "layout.activeLayout" = "Active Layout";
 "layout.default" = "Default";
 "layout.presets" = "Presets";
@@ -272,9 +288,11 @@
 "layout.editor.done" = "Done";
 "layout.newPreset.systems" = "Systems";
 "prompt.controls.title" = "Find the perfect layout for your hands";
-"prompt.controls.subtitle" = "Customize button positions, size, and opacity. Save your own layouts for different games.";
+"prompt.controls.subtitle" = "Customize button positions, size, and opacity, and remap your controller's buttons. Save your own layouts for different games.";
 "prompt.skins.title" = "Create the skin of your dreams";
 "prompt.skins.subtitle" = "Pick every color of the console, make it your own, and share your creations.";
+"prompt.filters.title" = "Bring back the original screen";
+"prompt.filters.subtitle" = "CRT, LCD grid, dot matrix and more, per game. Your screenshots and clips keep the exact same look.";
 "layout.editor.landscapeShort" = "Landscape";
 "layout.editor.portraitShort" = "Portrait";
 /* Pro upgrade - legal footer (App Store Guideline 3.1.2(c)) */
@@ -330,6 +348,17 @@
 "saveImport.mismatch.title" = "Save from a different game?";
 "saveImport.mismatch.message" = "The file name doesn't match %@. Only import it if you're sure it belongs to this game.";
 "saveImport.mismatch.confirm" = "Import anyway";
+"saveExport.title" = "Export Save";
+"saveExport.none.title" = "No Save to Export";
+"saveExport.none.message" = "This game has no in-game save yet. Save from the game's own menu first, then come back to export it.";
+"saveExport.error.message" = "Could not export the save.";
+
+/* NDS dual-slot: GBA game in slot 2 (Game Details, NDS games only) */
+"slot2.row" = "GBA game in slot 2";
+"slot2.none" = "None";
+"slot2.caption" = "The DS game detects it when it starts, like on the original DS. Some games unlock bonuses or transfers from their GBA versions.";
+"slot2.empty" = "No GBA games in your library yet.";
+"slot2.saveNote" = "Transfers read the GBA game's own in-game save, not quick saves. Save from inside the GBA game first.";
 
 /* Replace game file (save-preserving ROM recovery) */
 "details.replaceROM" = "Replace game file";
@@ -341,7 +370,7 @@
 /* Settings - iCloud sync opt-out */
 "settings.sync.toggle" = "iCloud sync";
 "settings.sync.state.disabled" = "Off";
-"settings.sync.footer" = "Your quick-saves sync to your private iCloud and across your devices. Turn this off to keep them on this iPhone only.";
+"settings.sync.footer" = "Your quick-saves and in-game saves sync to your private iCloud and across your devices. Turn this off to keep them on this iPhone only.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto lock";
@@ -365,6 +394,22 @@
 "skin.presetLock.caption" = "Dressed skins need the default control layout. This console uses a custom one, so only Invisible is available.";
 
 /* Custom skins editor + picker (1.0.1) */
+"overlay.appearance" = "Appearance";
+"appearance.tab.console" = "Console";
+"appearance.tab.screen" = "Screen";
+"palette.group.originals" = "Originals";
+"palette.group.console" = "Console classics";
+"palette.group.colors" = "Colors";
+"palette.cgb.caption" = "This game uses its own colors. Palettes apply to monochrome games only.";
+"filter.section" = "Filters";
+"filter.name.none" = "None";
+"filter.name.scanlines" = "Scanlines";
+"filter.name.lcd-grid" = "LCD Grid";
+"filter.name.dot-matrix" = "Dot Matrix";
+"filter.name.crt" = "CRT";
+"filter.name.smooth" = "Smooth";
+"filter.name.sharp" = "Sharp";
+"filter.apply" = "Apply this filter";
 "skin.create" = "Create a skin";
 "skin.edit" = "Edit";
 "skin.delete" = "Delete";
@@ -474,13 +519,99 @@
 // What's New sheet (once per update + Settings > About; whatsnew.s* keys are stable, rewritten each release)
 "whatsnew.title" = "What's New";
 "whatsnew.version" = "Version %@";
-"whatsnew.s1.title" = "Faster imports";
-"whatsnew.s1.b1" = "Import several games at once from the Files picker.";
-"whatsnew.s1.b2" = "A ZIP containing several games now lets you choose which ones to add.";
-"whatsnew.s2.title" = "RetroAchievements";
-"whatsnew.s2.b1" = "Locked achievements now show your progress as you play.";
-"whatsnew.s2.b2" = "Emulator notices no longer show up as achievement unlocks.";
-"whatsnew.s3.title" = "Library";
-"whatsnew.s3.b1" = "Game covers now show without flashing, even offline.";
 "whatsnew.footer" = "You can reread these notes anytime in Settings.";
 "whatsnew.dismiss" = "Got it!";
+
+/* --- External display (AirPlay / cable), Pro --- */
+"settings.externalDisplay.section" = "External display";
+"settings.externalDisplay.row" = "Play on a TV";
+"settings.externalDisplay.ndsLayout" = "DS screens on the TV";
+"settings.externalDisplay.sideBySide" = "Side by side";
+"settings.externalDisplay.stacked" = "Stacked";
+"settings.externalDisplay.footer" = "Connect a TV with AirPlay or a cable and the game fills the screen while your iPhone keeps the controls. The DS shows both screens; its touch screen stays on the phone.";
+"prompt.externalDisplay.title" = "Play on the big screen";
+"prompt.externalDisplay.subtitle" = "Send the game to your TV over AirPlay or a cable, in full screen, while your iPhone keeps the controls.";
+"pro.benefit.externalDisplay.short" = "Play on a TV";
+
+/* --- Guide: playing on a TV (AirPlay / HDMI) --- */
+"guide.airplay.title" = "Play on your TV with AirPlay";
+"guide.airplay.intro" = "Send the game to a television and keep your iPhone as the controller. Works over AirPlay, or with an HDMI adapter.";
+"guide.airplay.step1" = "Put your iPhone and your TV on the same Wi-Fi network. With an HDMI adapter, plug it in and skip to step 3.";
+"guide.airplay.step2" = "Open Control Centre, tap Screen Mirroring, then choose your TV.";
+"guide.airplay.step3" = "Start a game. It fills the television, and your iPhone keeps the controls.";
+"guide.airplay.step4" = "On DS, both screens appear on the TV and the touch screen stays on your iPhone.";
+"guide.airplay.step5" = "Connect a controller and the on-screen buttons disappear. Only the DS touch screen is still used on the phone.";
+"guide.airplay.step6" = "To choose how the two DS screens sit on the TV, go to Settings, External display.";
+"guide.airplay.footer" = "Sound follows the picture to the television over AirPlay. With a controller, the pause menu opens with the pad's own menu button, so you never need to touch the phone.";
+"guide.airplay.proNotice" = "Playing on a TV is part of Retro Pal Pro.";
+"guide.airplay.proButton" = "Play on my TV";
+
+/* --- Guide: adding a Home Screen widget --- */
+"guide.widget.title" = "Add a widget to your Home Screen";
+"guide.widget.intro" = "Put your games on the Home Screen as their box art. One tap opens a game straight where you left off.";
+"guide.widget.step1" = "Touch and hold an empty spot on the Home Screen until the icons start to jiggle.";
+"guide.widget.step2" = "Tap the + at the top of the screen, then search for Retro Pal.";
+"guide.widget.step3" = "Choose a widget: “Continue Playing” fills itself with your latest games, “Pick a Game” and “Pick Four Games” let you choose.";
+"guide.widget.step4" = "Place it and tap Done.";
+"guide.widget.step5" = "For the two you choose yourself: touch and hold the widget, tap Edit Widget, then pick the game and the save it opens.";
+"guide.widget.footer" = "Box art appears once you have played a game at least once, and the widget refreshes when you leave Retro Pal. Choosing your own games needs iOS 17 or later; “Continue Playing” works on every supported iPhone.";
+
+/* --- Cheat code entry: named problems --- */
+"cheats.invalid.characters" = "This code contains characters that are not expected. Only 0-9, A-F, spaces and dashes are used in cheat codes.";
+"cheats.invalid.pairs" = "Action Replay DS codes go in pairs: each line needs two blocks of eight characters, for example 94000130 FCFF0000.";
+
+/* --- Cheat database (libretro, fetched per game) --- */
+"cheats.browse.button" = "Browse cheat codes";
+"cheats.browse.title" = "Cheat codes";
+"cheats.browse.searchPlaceholder" = "Search for a game";
+"cheats.browse.results" = "Results";
+"cheats.browse.none" = "No codes known for this game.";
+"cheats.browse.unnamed" = "Unnamed code";
+"cheats.browse.offline" = "No connection. Cheat codes are fetched once per game, then kept on your device.";
+"cheats.browse.failed" = "The codes could not be loaded. Try again.";
+"cheats.browse.credit" = "Codes from the libretro community database (CC BY-SA 4.0).";
+"settings.cheatDB.section" = "Cheat codes";
+"settings.cheatDB.download" = "Download codes for my games";
+"settings.cheatDB.progress" = "Downloading, %d of %d";
+"settings.cheatDB.stored" = "Stored on this device";
+"settings.cheatDB.clear" = "Delete downloaded codes";
+"settings.cheatDB.footer" = "Codes are fetched one game at a time and kept afterwards. Downloading them for your games makes them available without a connection.";
+
+/* --- Cheat how-to + browser hints --- */
+"guide.cheats.title" = "How cheat codes work";
+"guide.cheats.intro" = "A code is active as soon as you add it. If nothing happens in the game, it is almost always the first step below that is missing.";
+"guide.cheats.step1" = "Tap Browse cheat codes and pick one. The code and its name fill in for you, then tap Add code.";
+"guide.cheats.step2" = "Most Game Boy Advance and DS games need a Master Code, sometimes called Enable Code, added and switched on FIRST. Without it the other codes do nothing at all. They are marked with a key and shown at the top of the list.";
+"guide.cheats.step3" = "The green circle next to a code switches it on and off. Grey means off.";
+"guide.cheats.step4" = "Some codes only take effect after leaving and re-entering an area, or after the next screen change.";
+"guide.cheats.step5" = "Codes are written for one version of a game. A code from a different region or revision may do nothing, or behave strangely.";
+"guide.cheats.footer" = "Your progress is saved before the first code is added, so you can always go back with Restore pre-cheat save.";
+"cheats.browse.masterHint" = "Codes marked with a key must be switched on before the others work.";
+"cheats.browse.notFound" = "This game was not recognised from its file name. Search for it below.";
+
+"guide.cheats.step6" = "Many codes need a button press to fire, and the code's own name says which: for example Press SELECT to Restore Time. That name is kept when you add the code, so read it in your list.";
+
+"settings.cheatDB.upToDate" = "All your games are available offline";
+"settings.cheatDB.noGames" = "Add a game to your library first.";
+
+"externalDisplay.idle.hint" = "Launch a game on your iPhone";
+
+/* --- What's New, rewritten each release (see TODOS.md) --- */
+"whatsnew.s1.title" = "Play on your TV";
+"whatsnew.s1.b1" = "Send the game to a television with AirPlay or a cable, while your iPhone keeps the controls. Pro.";
+"whatsnew.s1.b2" = "On DS, both screens appear on the TV and the touch screen stays on your iPhone.";
+"whatsnew.s2.title" = "The look of the original hardware";
+"whatsnew.s2.b1" = "Six video filters, CRT to LCD grid, applied live and baked into your screenshots and clips. Pro.";
+"whatsnew.s2.b2" = "Twenty-four Game Boy palettes, chosen per game, free for everyone.";
+"whatsnew.s3.title" = "Cheat codes without typing them";
+"whatsnew.s3.b1" = "Browse the community database for the game you are playing and tap a code to add it. Pro.";
+"whatsnew.s3.b2" = "Codes tidy themselves as you type, and a rejected code now says what is wrong with it.";
+"whatsnew.s4.title" = "Controllers and keyboards";
+"whatsnew.s4.b1" = "Remap every button, per console, and bind fast forward, screenshot or clip to a spare one. Pro.";
+"whatsnew.s4.b2" = "Hardware keyboards now work, free. Stick direction and the DS face buttons are fixed.";
+"whatsnew.s5.title" = "Your games on the Home Screen";
+"whatsnew.s5.b1" = "Widgets show your games as their box art. One tap opens a game where you left off.";
+"whatsnew.s5.b2" = "Pick the game and the save each widget opens, or let it follow whatever you played last.";
+"whatsnew.s6.title" = "Saves and Nintendo DS";
+"whatsnew.s6.b1" = "Export a game's save to share or back it up, and in-game saves now follow you through iCloud.";
+"whatsnew.s6.b2" = "Put a Game Boy Advance game in the DS second slot, like the original console did.";

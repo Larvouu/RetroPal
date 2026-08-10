@@ -122,10 +122,14 @@ final class OverlayMenuView: UIView {
     private let buttonLockButton = OverlayMenuView.makeButton(
         title: NSLocalizedString("overlay.buttonLock", comment: ""), icon: "pin.slash")
     private var buttonLockEnabled = false
-    /// Opens the per-game Skin picker (Nostalgia / Invisible / Retro Pal). Sits in the
-    /// "occasionally-tapped options" row next to Sound + hold-to-lock. Label is fixed
-    /// English ("Skin") per the product decision.
-    private let skinButton = OverlayMenuView.makeButton(title: "Skin", icon: "paintpalette.fill")
+    /// Opens the per-game Appearance sheet (skins; plus palettes/filters on the
+    /// Screen tab for GB/GBC). Sits in the "occasionally-tapped options" row next
+    /// to Sound + hold-to-lock. Renamed from the fixed-English "Skin" 2026-07-24:
+    /// the button now governs more than the dress, so it carries the localized
+    /// iOS-standard word (Appearance/Apparence).
+    private let skinButton = OverlayMenuView.makeButton(
+        title: NSLocalizedString("overlay.appearance", comment: "Pause-menu button opening the skin/palette/filter sheet"),
+        icon: "paintpalette.fill")
     /// Which face buttons the hold-to-lock gesture affects, mirrored into the
     /// toggle icon and the caption. A/B for GBA/GB/GBC; the VC widens it to
     /// A/B/X/Y for NDS via `setLockableButtons(forNDS:)` (matches `lockableMask`).

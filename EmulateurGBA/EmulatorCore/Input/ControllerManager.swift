@@ -40,18 +40,71 @@ final class ControllerManager: ObservableObject {
     /// update live as a pad connects or disconnects.
     @Published private(set) var controllerName: String?
 
+    /// The active pad's vendor family — the remap UI shows the buttons' own
+    /// printed names (△, LB, ZL…) instead of the generic GC terms.
+    @Published private(set) var controllerStyle: ControllerStyle = .generic
+
     /// Called on the main thread with the current GBAInput bitmask whenever the
-    /// active controller's input changes. Carries 0 when a controller
-    /// disconnects, so no button stays stuck pressed.
+    /// active controller's OR the hardware keyboard's input changes (the two
+    /// sources are OR-combined). Carries 0 when a controller disconnects, so
+    /// no button stays stuck pressed.
     var onButtonsChanged: ((UInt32) -> Void)?
 
     /// Called on the main thread when a controller connects (true) or the last
-    /// one disconnects (false).
+    /// one disconnects (false). A hardware keyboard deliberately does NOT
+    /// count as "connected": it adds input, but never hides the touch controls.
     var onConnectionChanged: ((Bool) -> Void)?
+
+    /// The custom button mapping applied to controller input (per console
+    /// family, Pro). Set by EmulatorViewController at session start; nil = the
+    /// built-in layout, byte-identical to the historical behavior.
+    var activeMapping: ControllerMapping?
+
+    /// Fired on the main thread when the pad's spare "menu-ish" button is
+    /// pressed (DualShock/DualSense touchpad click, Xbox Share) — the VC opens
+    /// the in-game menu. These buttons sit outside PhysicalButton on purpose:
+    /// they are never remappable and never game input.
+    var onMenuRequested: (() -> Void)?
+
+    /// Fired on the main thread when a bound shortcut verb's button changes
+    /// state (true = pressed). Fast forward uses both edges (hold); the card
+    /// verbs act on press only.
+    var onActionChanged: ((RemapAction, Bool) -> Void)?
+    private var actionStates: [RemapAction: Bool] = [:]
+
+    /// Fired on a FRESH press of the pad's east button (Circle / B) — the
+    /// universal "back" role. The VC uses it to close the pause menu (resume).
+    /// A UI role, not game input: it follows the PHYSICAL east button whatever
+    /// the custom mapping says, like the menu-ish button above.
+    var onBackRequested: (() -> Void)?
+    private var lastBackPressed = false
+
+    /// Remap capture mode: while set, controller presses are routed HERE (the
+    /// first newly-pressed mappable button per event) instead of the game, on
+    /// the main thread. The remap UI sets it for one assignment and clears it.
+    var captureHandler: ((PhysicalButton) -> Void)? {
+        didSet {
+            // Seed with the pad's LIVE state when capture arms: a button
+            // already held (or an analog trigger resting past threshold) must
+            // not bind itself on the first event — only a FRESH press captures.
+            if captureHandler != nil, let pad = activeController?.extendedGamepad {
+                lastSnapshot = ControllerInputSource(pad)
+            } else {
+                lastSnapshot = nil
+            }
+        }
+    }
+    private var lastSnapshot: ControllerInputSource?
 
     /// The one controller currently driving input. A second controller
     /// connected at the same time is ignored.
     private var activeController: GCController?
+
+    /// The hardware keyboard's current GBAInput bitmask (fixed layout, free).
+    private var keyboardMask: UInt32 = 0
+    /// The controller's last emitted bitmask, kept so either source can
+    /// re-emit the OR-combined state.
+    private var controllerMask: UInt32 = 0
 
     private init() {
         let nc = NotificationCenter.default
@@ -63,24 +116,50 @@ final class ControllerManager: ObservableObject {
         if let existing = GCController.controllers().first(where: { $0.extendedGamepad != nil }) {
             adopt(existing)
         }
+        // Hardware keyboard (free, fixed layout — the first iPad brick; works
+        // on iPhone too). GCKeyboard.coalesced covers every attached keyboard.
+        nc.addObserver(self, selector: #selector(handleKeyboardConnect(_:)),
+                       name: .GCKeyboardDidConnect, object: nil)
+        nc.addObserver(self, selector: #selector(handleKeyboardDisconnect(_:)),
+                       name: .GCKeyboardDidDisconnect, object: nil)
+        if let keyboard = GCKeyboard.coalesced {
+            adoptKeyboard(keyboard)
+        }
     }
 
     // MARK: - Button mapping (pure — unit-tested)
 
     /// Map a controller input snapshot to the emulator's `GBAInput` bitmask.
-    /// X / Y are NDS-only; the GBA bridge ignores those bits. Select is
-    /// reachable two ways so every controller can produce it: the Options
-    /// button, or clicking the left thumbstick (L3).
-    static func buttonMask(from s: ControllerInputSource) -> UInt32 {
+    /// The D-pad (+ left stick) always steers the console D-pad. With no
+    /// custom `mapping` the built-in layout applies: X / Y are NDS-only (the
+    /// GBA bridge ignores those bits) and Select is reachable two ways so
+    /// every controller can produce it — the Options button, or clicking the
+    /// left thumbstick (L3). A custom mapping (Pro) replaces the button
+    /// assignments with its explicit ones.
+    static func buttonMask(from s: ControllerInputSource,
+                           mapping: ControllerMapping? = nil) -> UInt32 {
         var mask: UInt32 = 0
-        if s.faceA      { mask |= GBAInput.a.rawValue }
-        if s.faceB      { mask |= GBAInput.b.rawValue }
-        if s.faceX      { mask |= GBAInput.x.rawValue }
-        if s.faceY      { mask |= GBAInput.y.rawValue }
         if s.up         { mask |= GBAInput.up.rawValue }
         if s.down       { mask |= GBAInput.down.rawValue }
         if s.left       { mask |= GBAInput.left.rawValue }
         if s.right      { mask |= GBAInput.right.rawValue }
+
+        if let mapping {
+            for (input, physical) in mapping.assignments where s.isPressed(physical) {
+                mask |= input.gbaInput.rawValue
+            }
+            return mask
+        }
+
+        if s.faceA      { mask |= GBAInput.a.rawValue }
+        if s.faceB      { mask |= GBAInput.b.rawValue }
+        // NDS X/Y are POSITIONAL, not name-matched: the NDS diamond puts X
+        // north and Y west (SNES-style), while GC's buttonX is WEST and
+        // buttonY NORTH. Name-matching crossed them (Square opened menus —
+        // device report, 2026-07-25): pad west drives console Y, pad
+        // north drives console X, like every other position in this map.
+        if s.faceX      { mask |= GBAInput.y.rawValue }
+        if s.faceY      { mask |= GBAInput.x.rawValue }
         if s.shoulderL  { mask |= GBAInput.l.rawValue }
         if s.shoulderR  { mask |= GBAInput.r.rawValue }
         if s.menu       { mask |= GBAInput.start.rawValue }
@@ -96,11 +175,59 @@ final class ControllerManager: ObservableObject {
         guard activeController == nil, let pad = controller.extendedGamepad else { return }
         activeController = controller
         pad.valueChangedHandler = { [weak self] pad, _ in
-            self?.onButtonsChanged?(ControllerManager.buttonMask(from: ControllerInputSource(pad)))
+            guard let self else { return }
+            let snapshot = ControllerInputSource(pad)
+            // Remap capture: report the first NEWLY pressed mappable button
+            // and swallow the event (no game input while assigning).
+            if let capture = self.captureHandler {
+                let previous = self.lastSnapshot
+                self.lastSnapshot = snapshot
+                if let pressed = snapshot.pressedButtons.first(where: { previous?.isPressed($0) != true }) {
+                    capture(pressed)
+                }
+                return
+            }
+            self.controllerMask = ControllerManager.buttonMask(from: snapshot,
+                                                               mapping: self.activeMapping)
+            // The "back" role (east button), edge-detected on fresh presses.
+            if snapshot.faceB != self.lastBackPressed {
+                self.lastBackPressed = snapshot.faceB
+                if snapshot.faceB { self.onBackRequested?() }
+            }
+            // Shortcut verbs (wave 2): edge-detect each bound action.
+            if let mapping = self.activeMapping, !mapping.actions.isEmpty {
+                for (action, physical) in mapping.actions {
+                    let pressed = snapshot.isPressed(physical)
+                    if (self.actionStates[action] ?? false) != pressed {
+                        self.actionStates[action] = pressed
+                        self.onActionChanged?(action, pressed)
+                    }
+                }
+            }
+            self.emitButtons()
+        }
+        // The spare menu-ish button some pads carry beyond Start/Select opens
+        // the in-game menu directly (press only).
+        let fireMenu: (GCControllerButtonInput, Float, Bool) -> Void = { [weak self] _, _, pressed in
+            guard pressed else { return }
+            self?.onMenuRequested?()
+        }
+        if let ds4 = pad as? GCDualShockGamepad {
+            ds4.touchpadButton.pressedChangedHandler = fireMenu
+        } else if let dualSense = pad as? GCDualSenseGamepad {
+            dualSense.touchpadButton.pressedChangedHandler = fireMenu
+        } else if let xbox = pad as? GCXboxGamepad {
+            xbox.buttonShare?.pressedChangedHandler = fireMenu
         }
         controllerName = controller.vendorName
+        controllerStyle = ControllerStyle.from(productCategory: controller.productCategory)
         isConnected = true
         Analytics.signal("controller_connected")
+    }
+
+    /// Emit the OR of both input sources (controller + hardware keyboard).
+    private func emitButtons() {
+        onButtonsChanged?(controllerMask | keyboardMask)
     }
 
     @objc private func handleConnect(_ note: Notification) {
@@ -114,14 +241,75 @@ final class ControllerManager: ObservableObject {
         guard let controller = note.object as? GCController,
               controller === activeController else { return }
         activeController = nil
-        onButtonsChanged?(0)  // release any buttons the controller was holding
+        controllerMask = 0
+        emitButtons()  // release any buttons the controller was holding
+        // Release any held shortcut verb (a stuck hold-to-fast-forward would
+        // outlive the pad otherwise).
+        for (action, pressed) in actionStates where pressed {
+            onActionChanged?(action, false)
+        }
+        actionStates = [:]
         // Fall back to another still-connected controller, if one exists.
         if let next = GCController.controllers().first(where: { $0.extendedGamepad != nil }) {
             adopt(next)
         } else {
             controllerName = nil
+            controllerStyle = .generic
             isConnected = false
         }
+    }
+
+    // MARK: - Hardware keyboard (free, fixed layout)
+
+    /// The classic emulator layout, by PHYSICAL key position (ANSI names —
+    /// on AZERTY etc. the cluster keeps its position, not its label, like
+    /// every desktop emulator): arrows = D-pad · X = A · Z = B · S = X ·
+    /// A = Y · Q = L · W = R · Return = Start · Shift = Select.
+    private static let keyboardLayout: [GCKeyCode: GBAInput] = [
+        .upArrow: .up, .downArrow: .down, .leftArrow: .left, .rightArrow: .right,
+        .keyX: .a, .keyZ: .b, .keyS: .x, .keyA: .y,
+        .keyQ: .l, .keyW: .r,
+        .returnOrEnter: .start, .leftShift: .select, .rightShift: .select,
+    ]
+
+    /// A hardware keyboard is attached. Separate from `isConnected`, which
+    /// stays false for keyboards on purpose so the touch controls remain
+    /// visible — but for anything that asks "is the phone still the input
+    /// surface", a keyboard counts.
+    var isKeyboardAttached: Bool { GCKeyboard.coalesced != nil }
+
+    /// Fired on keyboard connect/disconnect so hosts can re-evaluate.
+    var onKeyboardChanged: (() -> Void)?
+
+    private func adoptKeyboard(_ keyboard: GCKeyboard) {
+        keyboard.keyboardInput?.keyChangedHandler = { [weak self] _, _, keyCode, pressed in
+            guard let self, let input = ControllerManager.keyboardLayout[keyCode] else { return }
+            // Recompute from the live key states rather than toggling bits:
+            // left+right Shift share Select, and a missed release can't stick.
+            if let keys = GCKeyboard.coalesced?.keyboardInput {
+                var mask: UInt32 = 0
+                for (code, mapped) in ControllerManager.keyboardLayout
+                where keys.button(forKeyCode: code)?.isPressed == true {
+                    mask |= mapped.rawValue
+                }
+                self.keyboardMask = mask
+            } else {
+                if pressed { self.keyboardMask |= input.rawValue }
+                else { self.keyboardMask &= ~input.rawValue }
+            }
+            DispatchQueue.main.async { self.emitButtons() }
+        }
+    }
+
+    @objc private func handleKeyboardConnect(_ note: Notification) {
+        if let keyboard = GCKeyboard.coalesced { adoptKeyboard(keyboard) }
+        onKeyboardChanged?()
+    }
+
+    @objc private func handleKeyboardDisconnect(_ note: Notification) {
+        keyboardMask = 0
+        emitButtons()
+        onKeyboardChanged?()
     }
 
     #if DEBUG

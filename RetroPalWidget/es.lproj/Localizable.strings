@@ -1,0 +1,28 @@
+"widget.recent.name" = "Seguir jugando";
+"widget.recent.description" = "Tus juegos recientes en la pantalla de inicio. Toca una carátula para continuar donde lo dejaste.";
+"widget.empty" = "No hay juegos recientes";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Un juego";
+"widget.oneGame.description" = "Elige un juego y la partida que abre. Toca para jugar.";
+"widget.fourGames.name" = "Cuatro juegos";
+"widget.fourGames.description" = "Elige hasta cuatro juegos y la partida que abre cada uno.";
+"widget.param.game" = "Juego";
+"widget.param.slot" = "Partida guardada";
+"widget.param.game1" = "Juego 1";
+"widget.param.slot1" = "Partida del juego 1";
+"widget.param.game2" = "Juego 2";
+"widget.param.slot2" = "Partida del juego 2";
+"widget.param.game3" = "Juego 3";
+"widget.param.slot3" = "Partida del juego 3";
+"widget.param.game4" = "Juego 4";
+"widget.param.slot4" = "Partida del juego 4";
+"widget.slot.type" = "Partida guardada";
+"widget.slot.resume" = "Continuar";
+"widget.entity.game" = "Juego";
+"widget.unconfigured" = "Mantén pulsado para elegir un juego";
+"widget.slot.1" = "Ranura 1";
+"widget.slot.2" = "Ranura 2";
+"widget.slot.3" = "Ranura 3";
+"widget.slot.4" = "Ranura 4";
+"widget.slot.5" = "Ranura 5";

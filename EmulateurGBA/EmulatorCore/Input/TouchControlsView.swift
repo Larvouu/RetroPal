@@ -99,8 +99,23 @@ class TouchControlsView: UIView {
     private static let unlockMaxDuration: CFTimeInterval = 0.5
     private static let unlockMaxDisplacement: CGFloat = 10
 
-    // Haptic feedback
-    private let hapticLight = UIImpactFeedbackGenerator(style: .light)
+    // Haptic feedback — game-button taps honor the Settings strength (1-6).
+    /// Level → (style, intensity) map. Level 3 IS the historical feel (.light at
+    /// full intensity, the pre-1.2.4 constant); lower levels soften through
+    /// .soft, higher move through .medium to .heavy. Perceptual spacing owes a
+    /// device pass.
+    static let hapticLevels: [(style: UIImpactFeedbackGenerator.FeedbackStyle, intensity: CGFloat)] = [
+        (.soft, 0.5), (.soft, 0.8), (.light, 1.0), (.medium, 0.8), (.medium, 1.0), (.heavy, 1.0)
+    ]
+    private var hapticGenerator = UIImpactFeedbackGenerator(style: .light)
+    private var hapticGeneratorLevel = 3
+
+    /// One-off haptic at `level` — the Settings strength picker answers each
+    /// selection with the strength it just picked, so choosing is by feel.
+    static func previewHaptic(level: Int) {
+        let map = hapticLevels[min(max(level, 1), 6) - 1]
+        UIImpactFeedbackGenerator(style: map.style).impactOccurred(intensity: map.intensity)
+    }
 
     // Button views (internal for subclass access)
     private(set) var dpad: UIView  // Either DPadView (joystick) or CrossDPadView (d-pad)
@@ -787,9 +802,7 @@ class TouchControlsView: UIView {
         // Update glyph directly: applyButtons()'s guard may early-return when the
         // raw touch already pressed this button (augmented unchanged).
         (pending.view as? ActionButton)?.isLocked = true
-        if UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true {
-            hapticLight.impactOccurred()
-        }
+        fireHaptic()
         fadeAndRemoveRing(pending.ringLayer)
         // Push augmented state to delegate immediately (in case raw touch matches it already).
         applyButtons(lastRawButtons)
@@ -802,9 +815,7 @@ class TouchControlsView: UIView {
         for (view, buttonMask) in buttonMap where (buttonMask & mask) != 0 {
             (view as? ActionButton)?.isLocked = false
         }
-        if UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true {
-            hapticLight.impactOccurred()
-        }
+        fireHaptic()
     }
 
     private func startLockDisplayLinkIfNeeded() {
@@ -846,12 +857,19 @@ class TouchControlsView: UIView {
         NotificationCenter.default.removeObserver(self)
     }
 
-    /// Fire the light haptic if the user has haptics enabled. Used by the action triggers
-    /// (Menu/Clip), which aren't part of the game-input loop's new-press haptic.
+    /// Fire the game-button haptic at the Settings strength, if haptics are
+    /// enabled. One chokepoint for every in-game haptic (button presses, the
+    /// Menu/Clip triggers, hold-to-lock); the generator is rebuilt only when
+    /// the strength level changed since the last fire.
     private func fireHaptic() {
-        if UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true {
-            hapticLight.impactOccurred()
+        guard UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true else { return }
+        let stored = UserDefaults.standard.object(forKey: "hapticStrength") as? Int ?? 3
+        let level = min(max(stored, 1), 6)
+        if level != hapticGeneratorLevel {
+            hapticGeneratorLevel = level
+            hapticGenerator = UIImpactFeedbackGenerator(style: Self.hapticLevels[level - 1].style)
         }
+        hapticGenerator.impactOccurred(intensity: Self.hapticLevels[level - 1].intensity)
     }
 
     /// Whether a touch (in `view`'s coordinates) hits the button. Round (inscribed circle) for the
@@ -966,9 +984,10 @@ class TouchControlsView: UIView {
         // locked (silent re-press of a locked button — already pressed visually).
         let newlyPressedRaw = buttons & ~lastRawButtons & ~lockedButtons
         lastRawButtons = buttons
-        if newlyPressedRaw != 0 && UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true {
-            // Always a light tap — medium felt too strong on the action buttons.
-            hapticLight.impactOccurred()
+        if newlyPressedRaw != 0 {
+            // Strength is the user's Settings choice; the default level keeps
+            // the historical light tap (medium felt too strong as a constant).
+            fireHaptic()
         }
 
         guard augmented != activeButtons else { return }

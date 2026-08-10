@@ -24,6 +24,10 @@ struct ScreenshotCardRenderer {
         /// Appended to the points value as " · <suffix>" (e.g. the localized
         /// "Completed" on a 100% per-game card). Only used with `points`.
         var statSuffix: String? = nil
+        /// The game's display filter, baked into the card's game frame (at the
+        /// frame's on-card size) so the card mirrors the screen. `.none` for
+        /// surfaces without gameplay content (RA badge cards, chrome builds).
+        var filter: VideoFilter = .none
     }
 
     // MARK: - Colors
@@ -449,24 +453,11 @@ struct ScreenshotCardRenderer {
         ctx.setFillColor(UIColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1).cgColor)
         UIBezierPath(roundedRect: bezelRect, cornerRadius: bezelRadius).fill()
 
-        // Game image: pre-convert from mGBA RGBX to RGBA
-        let convertedGame: UIImage
-        if let convertCtx = CGContext(
-            data: nil, width: Int(frameW), height: Int(frameH),
-            bitsPerComponent: 8, bytesPerRow: Int(frameW) * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) {
-            convertCtx.interpolationQuality = .none
-            convertCtx.draw(gameFrame, in: CGRect(x: 0, y: 0, width: frameW, height: frameH))
-            if let converted = convertCtx.makeImage() {
-                convertedGame = UIImage(cgImage: converted)
-            } else {
-                convertedGame = UIImage(cgImage: gameFrame)
-            }
-        } else {
-            convertedGame = UIImage(cgImage: gameFrame)
-        }
+        // Game image: RGBX→RGBA conversion + the display filter, at the drawn
+        // size (the shared helper the console cards use).
+        let convertedGame = cleanGameImage(gameFrame,
+                                           target: CGSize(width: frameW, height: frameH),
+                                           filter: info.filter)
 
         let gameRect = CGRect(x: gameX, y: gameY, width: frameW, height: frameH)
         ctx.saveGState()
@@ -553,7 +544,7 @@ struct ScreenshotCardRenderer {
         // The game frame, drawn into the GB screen via CGContext (the same RGBX->RGBA conversion the
         // standard card uses). Skipped for the live clip preview, which overlays the looping clip.
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -613,7 +604,7 @@ struct ScreenshotCardRenderer {
         console.draw(in: CGRect(origin: .zero, size: size))   // body + dress fill the card
 
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -686,7 +677,7 @@ struct ScreenshotCardRenderer {
                 let bottomHalf = gameFrame.cropping(to: CGRect(x: 0, y: H / 2, width: gameFrame.width, height: H - H / 2))
                 func drawScreen(_ cg: CGImage?, into rect: CGRect) {
                     guard let cg else { return }
-                    let img = cleanGameImage(cg, target: rect.size)
+                    let img = cleanGameImage(cg, target: rect.size, filter: info.filter)
                     ctx.saveGState()
                     UIBezierPath(roundedRect: rect, cornerRadius: 6).addClip()
                     img.draw(in: rect)
@@ -696,7 +687,7 @@ struct ScreenshotCardRenderer {
                 drawScreen(bottomHalf, into: lower)
             } else {
                 // Combined-screen path (NDS clip chrome / fallback): the stacked frame in one rect.
-                let game = cleanGameImage(gameFrame, target: layout.screen.size)
+                let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
                 ctx.saveGState()
                 UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
                 game.draw(in: layout.screen)
@@ -837,9 +828,19 @@ struct ScreenshotCardRenderer {
 
     /// mGBA frames are RGBX (no real alpha). Redraw opaque at the target size with the SAME
     /// premultiplied-RGBA conversion the standard card uses, so the screen renders with correct
-    /// colours (the earlier noneSkipLast path drew black).
-    private static func cleanGameImage(_ cg: CGImage, target: CGSize) -> UIImage {
+    /// colours (the earlier noneSkipLast path drew black). With a filter, the offscreen
+    /// filter pass produces the RGBA output directly AT the target size — the card's game
+    /// frame then mirrors the live screen (filters are display-space, so they must be
+    /// applied at the drawn size, not the native frame).
+    static func cleanGameImage(_ cg: CGImage, target: CGSize,
+                               filter: VideoFilter = .none) -> UIImage {
         let w = max(1, Int(target.width.rounded())), h = max(1, Int(target.height.rounded()))
+        if filter != .none,
+           let filtered = VideoFilterRenderer.apply(filter, to: cg,
+                                                    targetSize: CGSize(width: w, height: h)),
+           filtered !== cg {
+            return UIImage(cgImage: filtered)
+        }
         if let c = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
                              bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {

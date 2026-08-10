@@ -191,4 +191,144 @@ struct SaveSyncReconcilerTests {
         #expect(FileManager.default.fileExists(
             atPath: cloud.appendingPathComponent("_Conflicts").path) == false)
     }
+
+    // MARK: - Battery saves (.sav, flat tree)
+
+    private func sav(_ root: URL, _ name: String) -> URL {
+        root.appendingPathComponent(name)
+    }
+
+    private func batteryConflict(_ localRoot: URL, _ name: String) -> URL {
+        localRoot.appendingPathComponent("_Conflicts", isDirectory: true).appendingPathComponent(name)
+    }
+
+    @Test("Battery: cloud-only .sav pulls down, local-only pushes up")
+    func batteryOneSideOnly() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("CLOUD", to: sav(cloud, "Pokemon.sav"))
+        write("LOCAL", to: sav(local, "Zelda.sav"))
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        #expect(read(sav(local, "Pokemon.sav")) == "CLOUD")
+        #expect(read(sav(cloud, "Zelda.sav")) == "LOCAL")
+        #expect(result.localChanged == true)      // the pull
+        #expect(result.cloudHadFiles == true)
+    }
+
+    @Test("Battery: identical content does nothing and archives nothing")
+    func batteryIdenticalNoOp() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("SAME", to: sav(local, "Pokemon.sav"), modified: old)
+        write("SAME", to: sav(cloud, "Pokemon.sav"), modified: new)
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        #expect(result.localChanged == false)
+        #expect(FileManager.default.fileExists(
+            atPath: batteryConflict(local, "Pokemon.sav").path) == false)
+    }
+
+    @Test("Battery: cloud newer wins; the local loser is ARCHIVED, not destroyed")
+    func batteryCloudNewerArchivesLoser() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("LOCAL_OLD", to: sav(local, "Pokemon.sav"), modified: old)
+        write("CLOUD_NEW", to: sav(cloud, "Pokemon.sav"), modified: new)
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        #expect(read(sav(local, "Pokemon.sav")) == "CLOUD_NEW")
+        #expect(read(batteryConflict(local, "Pokemon.sav")) == "LOCAL_OLD")
+        #expect(result.localChanged == true)
+    }
+
+    @Test("Battery: local newer wins; the cloud loser is ARCHIVED locally, then pushed over")
+    func batteryLocalNewerArchivesCloudLoser() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("LOCAL_NEW", to: sav(local, "Pokemon.sav"), modified: new)
+        write("CLOUD_OLD", to: sav(cloud, "Pokemon.sav"), modified: old)
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        #expect(read(sav(local, "Pokemon.sav")) == "LOCAL_NEW")
+        #expect(read(sav(cloud, "Pokemon.sav")) == "LOCAL_NEW")
+        #expect(read(batteryConflict(local, "Pokemon.sav")) == "CLOUD_OLD")
+        #expect(result.localChanged == false)
+    }
+
+    @Test("Battery: the live session's .sav is untouched in BOTH directions")
+    func batteryActiveSessionSkipped() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("LOCAL_LIVE", to: sav(local, "Pokemon.sav"), modified: old)
+        write("CLOUD_NEW", to: sav(cloud, "Pokemon.sav"), modified: new)
+        write("OTHER", to: sav(cloud, "Zelda.sav"))
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud)
+            .reconcileBatterySaves(skipping: ["Pokemon"])
+
+        // The live save is neither replaced nor archived, and nothing was pushed.
+        #expect(read(sav(local, "Pokemon.sav")) == "LOCAL_LIVE")
+        #expect(read(sav(cloud, "Pokemon.sav")) == "CLOUD_NEW")
+        #expect(FileManager.default.fileExists(
+            atPath: batteryConflict(local, "Pokemon.sav").path) == false)
+        // Other games still reconcile in the same pass.
+        #expect(read(sav(local, "Zelda.sav")) == "OTHER")
+        #expect(result.localChanged == true)
+    }
+
+    @Test("Battery: an NDS session with a slot-2 GBA game skips BOTH live .sav files")
+    func batteryDualSlotSessionSkipsBothSaves() {
+        let local = tempRoot(); let cloud = tempRoot()
+        // The played NDS game and the GBA game mounted in its slot 2: both
+        // saves are live in the core (Pal Park writes to the GBA one).
+        write("NDS_LIVE", to: sav(local, "PokemonDiamond.sav"), modified: old)
+        write("CLOUD_NDS", to: sav(cloud, "PokemonDiamond.sav"), modified: new)
+        write("GBA_LIVE", to: sav(local, "PokemonEmerald.sav"), modified: old)
+        write("CLOUD_GBA", to: sav(cloud, "PokemonEmerald.sav"), modified: new)
+        write("OTHER", to: sav(cloud, "Zelda.sav"))
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud)
+            .reconcileBatterySaves(skipping: ["PokemonDiamond", "PokemonEmerald"])
+
+        // Neither live save is replaced or archived.
+        #expect(read(sav(local, "PokemonDiamond.sav")) == "NDS_LIVE")
+        #expect(read(sav(local, "PokemonEmerald.sav")) == "GBA_LIVE")
+        #expect(FileManager.default.fileExists(
+            atPath: batteryConflict(local, "PokemonDiamond.sav").path) == false)
+        #expect(FileManager.default.fileExists(
+            atPath: batteryConflict(local, "PokemonEmerald.sav").path) == false)
+        // Other games still reconcile in the same pass.
+        #expect(read(sav(local, "Zelda.sav")) == "OTHER")
+        #expect(result.localChanged == true)
+    }
+
+    @Test("Battery: Backups and _Conflicts subtrees are never mirrored")
+    func batteryBackupsAndConflictsIgnored() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("BACKUP", to: local.appendingPathComponent("Backups", isDirectory: true)
+            .appendingPathComponent("Pokemon-20260101-120000.sav"))
+        write("ARCHIVED", to: batteryConflict(local, "Pokemon.sav"))
+
+        let result = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        #expect(FileManager.default.fileExists(
+            atPath: cloud.appendingPathComponent("Backups").path) == false)
+        #expect(FileManager.default.fileExists(
+            atPath: cloud.appendingPathComponent("_Conflicts").path) == false)
+        #expect(FileManager.default.fileExists(
+            atPath: sav(cloud, "Pokemon.sav").path) == false)
+        #expect(result.cloudHadFiles == false)
+    }
+
+    @Test("Battery: pull preserves the source modification date")
+    func batteryPullPreservesDate() {
+        let local = tempRoot(); let cloud = tempRoot()
+        write("CLOUD", to: sav(cloud, "Pokemon.sav"), modified: old)
+
+        _ = SaveSyncReconciler(localRoot: local, cloudRoot: cloud).reconcileBatterySaves()
+
+        let pulled = mtime(sav(local, "Pokemon.sav"))
+        #expect(pulled != nil)
+        #expect(abs(pulled!.timeIntervalSince1970 - old.timeIntervalSince1970) < 1.0)
+    }
 }

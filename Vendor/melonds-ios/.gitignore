@@ -1,3 +1,6 @@
 build/
+build-wfc-net/
 lib/
 include/melonds/
+include/libslirp.h
+include/libslirp-version.h

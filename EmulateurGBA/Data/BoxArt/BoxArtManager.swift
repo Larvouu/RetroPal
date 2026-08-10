@@ -133,6 +133,26 @@ final class BoxArtManager {
         directory.appendingPathComponent(romHash + "-ra").appendingPathExtension("png")
     }
 
+    /// The game's local cover file by priority: the user-picked custom cover
+    /// beats the adopted RA image (which BoxArtManager only grants over a
+    /// heuristic match or a no-match — never over a byte-exact CRC match),
+    /// which beats the downloaded one. nil when the game has no cover state.
+    /// Single source of truth for every cover consumer (library rows, the
+    /// slot-2 picker, the NDS dress slot-2 square).
+    func coverFileURL(forROMHash romHash: String?, coverType: String?) -> URL? {
+        guard let romHash else { return nil }
+        switch coverType {
+        case Self.coverStateCustom:
+            return customImageURL(forROMHash: romHash)
+        case Self.coverStateRA:
+            return raImageURL(forROMHash: romHash)
+        case Self.coverStateBoxArt, Self.coverStateBoxArtHeuristic:
+            return imageURL(forROMHash: romHash)
+        default:
+            return nil
+        }
+    }
+
     // MARK: - Custom covers (main thread; called from Game Details)
 
     /// Persists a user-picked cover and flips the game to "custom".

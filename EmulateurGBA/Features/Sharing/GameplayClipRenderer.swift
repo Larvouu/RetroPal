@@ -41,6 +41,7 @@ enum GameplayClipRenderer {
     static func renderClip(frames: [CGImage], fps: Double, speed: Double = 1.0,
                            title: String, playTime: TimeInterval, style: ShareCardStyle, isPro: Bool,
                            system: PresetSystem = .gba, skinVariant: DressVariant? = nil,
+                           filter: VideoFilter = .none,
                            completion: @escaping (URL?) -> Void) {
         guard frames.count >= 2 else { completion(nil); return }
         let size = CGSize(width: cardSide, height: cardSide)
@@ -64,7 +65,8 @@ enum GameplayClipRenderer {
             let screens = layout.ndsScreens.isEmpty ? [layout.screen] : layout.ndsScreens
             DispatchQueue.global(qos: .userInitiated).async {
                 let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
-                    gbCompositeFrame(chrome: chrome, screens: screens, gameImage: game, side: cardSide)
+                    gbCompositeFrame(chrome: chrome, screens: screens, gameImage: game, side: cardSide,
+                                     filter: filter)
                 }
                 DispatchQueue.main.async { completion(url) }
             }
@@ -73,7 +75,8 @@ enum GameplayClipRenderer {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
-                compositeCard(gameImage: game, title: title, playTime: playTime, style: style, isPro: isPro)
+                compositeCard(gameImage: game, title: title, playTime: playTime, style: style, isPro: isPro,
+                              filter: filter)
             }
             DispatchQueue.main.async { completion(url) }
         }
@@ -83,7 +86,8 @@ enum GameplayClipRenderer {
     /// the gameplay frame drawn into the GB screen rect. UIGraphicsImageRenderer is thread-safe, so
     /// this runs off the main thread; the chrome was built on the main thread by `renderClip`.
     private static func gbCompositeFrame(chrome: UIImage?, screens: [CGRect],
-                                         gameImage: CGImage, side: CGFloat) -> CGImage? {
+                                         gameImage: CGImage, side: CGFloat,
+                                         filter: VideoFilter = .none) -> CGImage? {
         let fmt = UIGraphicsImageRendererFormat.default()
         fmt.scale = 1; fmt.opaque = true
         let img = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: fmt).image { rctx in
@@ -92,10 +96,12 @@ enum GameplayClipRenderer {
             ctx.fill(CGRect(x: 0, y: 0, width: side, height: side))
             chrome?.draw(in: CGRect(x: 0, y: 0, width: side, height: side))
             func drawGame(_ cg: CGImage, into rect: CGRect) {
+                // Filter at the on-card screen size, mirroring the live view.
+                let drawn = VideoFilterRenderer.apply(filter, to: cg, targetSize: rect.size) ?? cg
                 ctx.saveGState()
                 UIBezierPath(roundedRect: rect, cornerRadius: 6).addClip()
                 ctx.interpolationQuality = .none
-                UIImage(cgImage: cg).draw(in: rect)
+                UIImage(cgImage: drawn).draw(in: rect)
                 ctx.restoreGState()
             }
             if screens.count == 2 {
@@ -117,12 +123,13 @@ enum GameplayClipRenderer {
     /// Standard/Pro style can be toggled instantly; the chrome is baked into the MP4
     /// only at Share/Save via `renderClip`.
     static func renderGameplayClip(frames: [CGImage], fps: Double, speed: Double = 1.0,
-                                   frameAspect: CGFloat, completion: @escaping (URL?) -> Void) {
+                                   frameAspect: CGFloat, filter: VideoFilter = .none,
+                                   completion: @escaping (URL?) -> Void) {
         guard frames.count >= 2 else { completion(nil); return }
         let size = rawVideoSize(frameAspect: frameAspect)
         DispatchQueue.global(qos: .userInitiated).async {
             let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
-                rawFrame(gameImage: game, size: size)
+                rawFrame(gameImage: game, size: size, filter: filter)
             }
             DispatchQueue.main.async { completion(url) }
         }
@@ -214,7 +221,14 @@ enum GameplayClipRenderer {
     /// One raw preview frame: the game image filling the video frame, nearest-
     /// neighbor (sharp pixels), no card chrome. Uses the same UIGraphics path as
     /// `compositeCard` so colour + orientation handling matches the export.
-    private static func rawFrame(gameImage: CGImage, size: CGSize) -> CGImage? {
+    private static func rawFrame(gameImage: CGImage, size: CGSize,
+                                 filter: VideoFilter = .none) -> CGImage? {
+        // Filter at the raw video size so the LIVE preview mirrors the screen
+        // too (the export re-applies the filter at the card's screen size; the
+        // preview's slight point-rescale of this video is preview-only).
+        if filter != .none {
+            return VideoFilterRenderer.apply(filter, to: gameImage, targetSize: size)
+        }
         let fmt = UIGraphicsImageRendererFormat.default()
         fmt.scale = 1
         fmt.opaque = true
@@ -230,7 +244,8 @@ enum GameplayClipRenderer {
     /// Draw one neon card frame with `gameImage` inside the bezel. Uses
     /// UIGraphicsImageRenderer (upright, correct colours) like the screenshot card.
     private static func compositeCard(gameImage: CGImage, title: String, playTime: TimeInterval,
-                                      style: ShareCardStyle, isPro: Bool) -> CGImage? {
+                                      style: ShareCardStyle, isPro: Bool,
+                                      filter: VideoFilter = .none) -> CGImage? {
         let side = cardSide
         let renderer = UIGraphicsImageRenderer(
             size: CGSize(width: side, height: side),
@@ -288,8 +303,11 @@ enum GameplayClipRenderer {
             ctx.interpolationQuality = .none
             // UIImage.draw handles CGImage orientation correctly inside a
             // UIGraphics context (same approach as ScreenshotCardRenderer), so
-            // no manual flip needed here.
-            UIImage(cgImage: gameImage).draw(in: gameRect)
+            // no manual flip needed here. The display filter bakes in at the
+            // on-card screen size, mirroring the live view.
+            let drawnGame = VideoFilterRenderer.apply(filter, to: gameImage,
+                                                      targetSize: gameRect.size) ?? gameImage
+            UIImage(cgImage: drawnGame).draw(in: gameRect)
             ctx.restoreGState()
 
             purple.withAlphaComponent(0.6).setStroke()

@@ -15,10 +15,19 @@ struct AppShellView: View {
     /// chain inside LibraryView fires on first appearance.
     @State private var pendingOpenURL: URL?
 
+    /// Game launch requested by a home-screen widget tap. Same
+    /// binding-then-onChange shape as `pendingOpenURL` so it survives a cold
+    /// launch, where SwiftUI delivers the URL after the first render pass.
+    @State private var pendingPlayRequest: WidgetSharing.PlayRequest?
+
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LibraryView(pendingOpenURL: $pendingOpenURL, isActiveTab: selectedTab == .library)
+                LibraryView(pendingOpenURL: $pendingOpenURL,
+                            pendingPlayRequest: $pendingPlayRequest,
+                            isActiveTab: selectedTab == .library)
             }
             .tabItem {
                 Label(NSLocalizedString("tab.library", comment: ""), systemImage: "books.vertical")
@@ -35,8 +44,28 @@ struct AppShellView: View {
         }
         .task {
             await ProManager.shared.setup()
+            // Seed the widget on a fresh install / first launch after update;
+            // every later change is picked up when the app backgrounds.
+            WidgetSnapshotWriter.refresh()
+        }
+        .onChange(of: scenePhase) { phase in
+            // Publish on the way out: the user is heading to the Home Screen,
+            // which is exactly when the widget is about to be read. Covers
+            // every library mutation (import, delete, rename, cover) without
+            // scattering refresh calls. No-op while a game is loaded — see
+            // WidgetSnapshotWriter.isGameLoaded; the post-game refresh happens
+            // when the emulator cover dismisses instead.
+            if phase == .background { WidgetSnapshotWriter.refresh() }
         }
         .onOpenURL { url in
+            // Our own scheme is checked FIRST. A widget tap is a launch
+            // request, and the import path below would otherwise swallow it
+            // as an unreadable ROM file.
+            if WidgetSharing.isOurURL(url) {
+                selectedTab = .library
+                pendingPlayRequest = WidgetSharing.parsePlayURL(url)
+                return
+            }
             // A shared custom skin (.retropalskin) imports in place (no library routing).
             if SkinSharing.isSkinFile(url) {
                 SkinSharing.handleIncoming(url)

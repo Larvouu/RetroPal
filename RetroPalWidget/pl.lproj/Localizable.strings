@@ -1,0 +1,28 @@
+"widget.recent.name" = "Graj dalej";
+"widget.recent.description" = "Ostatnio grane gry na ekranie początkowym. Dotknij okładki, aby wrócić tam, gdzie przerwałeś.";
+"widget.empty" = "Brak ostatnich gier";
+
+/* --- Configurable widgets (iOS 17+) --- */
+"widget.oneGame.name" = "Jedna gra";
+"widget.oneGame.description" = "Wybierz grę i zapis, który ma otworzyć. Dotknij, aby zagrać.";
+"widget.fourGames.name" = "Cztery gry";
+"widget.fourGames.description" = "Wybierz do czterech gier i zapis, który otwiera każda z nich.";
+"widget.param.game" = "Gra";
+"widget.param.slot" = "Zapis";
+"widget.param.game1" = "Gra 1";
+"widget.param.slot1" = "Zapis gry 1";
+"widget.param.game2" = "Gra 2";
+"widget.param.slot2" = "Zapis gry 2";
+"widget.param.game3" = "Gra 3";
+"widget.param.slot3" = "Zapis gry 3";
+"widget.param.game4" = "Gra 4";
+"widget.param.slot4" = "Zapis gry 4";
+"widget.slot.type" = "Zapis";
+"widget.slot.resume" = "Wznów";
+"widget.entity.game" = "Gra";
+"widget.unconfigured" = "Dotknij i przytrzymaj, aby wybrać grę";
+"widget.slot.1" = "Slot 1";
+"widget.slot.2" = "Slot 2";
+"widget.slot.3" = "Slot 3";
+"widget.slot.4" = "Slot 4";
+"widget.slot.5" = "Slot 5";

@@ -28,6 +28,16 @@
 // Pre-recorded blow waveform from melonDS (local copy with melonDS types dependency removed)
 #include "mic_blow.h"
 
+// WFC spike (see WFC_SPIKE.md): real DS-game internet access through the
+// melonDS slirp user-mode network stack, feeding the Nintendo WFC revival
+// servers. OFF by default — enabling RETROPAL_WFC requires the extra static
+// libs from Vendor/melonds-ios/build-wfc-net.sh, so current builds are
+// byte-identical without it.
+#if RETROPAL_WFC
+#include <melonds/Net.h>
+#include <melonds/Net_Slirp.h>
+#endif
+
 // ============================================================
 // Microphone shared state — written by UI/audio threads, read by emulator thread
 // ============================================================
@@ -424,11 +434,48 @@ int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata) { return 0; }
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata) { return 0; }
 
 // ============================================================
-// Network — stubs
+// Network — WFC spike behind RETROPAL_WFC, stubs otherwise
 // ============================================================
 
+#if RETROPAL_WFC
+// One process-wide Net + slirp driver, started lazily the first time the
+// emulated wifi hardware actually emits a frame (games that never touch
+// wifi never pay for it). Single emu instance on iOS -> instance id 0.
+// Net::RecvPacket pumps the driver's RecvCheck itself, on the emu thread,
+// so no extra polling thread is needed.
+namespace {
+    melonDS::Net g_net;
+    std::atomic<bool> g_netStarted{false};
+    std::mutex g_netStartLock;
+
+    void EnsureNetStarted()
+    {
+        if (g_netStarted.load(std::memory_order_acquire)) return;
+        std::lock_guard<std::mutex> lock(g_netStartLock);
+        if (g_netStarted.load(std::memory_order_relaxed)) return;
+        g_net.SetDriver(std::make_unique<melonDS::Net_Slirp>(
+            [](const u8* data, int len) { g_net.RXEnqueue(data, len); }));
+        g_net.RegisterInstance(0);
+        g_netStarted.store(true, std::memory_order_release);
+    }
+}
+
+int Net_SendPacket(u8* data, int len, void* userdata)
+{
+    EnsureNetStarted();
+    g_net.SendPacket(data, len, 0);
+    return 0;
+}
+
+int Net_RecvPacket(u8* data, void* userdata)
+{
+    if (!g_netStarted.load(std::memory_order_acquire)) return 0;
+    return g_net.RecvPacket(data, 0);
+}
+#else
 int Net_SendPacket(u8* data, int len, void* userdata) { return 0; }
 int Net_RecvPacket(u8* data, void* userdata) { return 0; }
+#endif
 
 // ============================================================
 // Camera — stubs
