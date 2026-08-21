@@ -16,7 +16,7 @@ struct SkinPreviewGallery: View {
     private let landscapeLeading: CGFloat = 59                          // Dynamic Island side
 
     private let systems: [(system: PresetSystem, name: String)] =
-        [(.gba, "GBA"), (.gbc, "GB/GBC"), (.nds, "NDS")]
+        [(.gba, "GBA"), (.gbc, "GB/GBC"), (.nds, "NDS"), (.snes, "SNES"), (.nes, "NES")]
     private let skins = GameSkin.pickerOrder
 
     var body: some View {

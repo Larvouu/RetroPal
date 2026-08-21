@@ -9,7 +9,7 @@
 "library.empty.title" = "Välkommen till Retro Pal";
 "library.empty.subtitle" = "Spela dina retrospel på iPhone. Inga annonser, ingen personlig spårning.";
 "library.empty.button" = "Lägg till ett spel";
-"library.empty.step1" = "Få in ett spel (.gba, .gb, .gbc eller .nds) på din iPhone via Safari, AirDrop eller iCloud Drive.";
+"library.empty.step1" = "Få in ett spel (.gba, .gb, .gbc, .nds, .sfc, .smc eller .nes) på din iPhone via Safari, AirDrop eller iCloud Drive.";
 "library.empty.step2" = "Tryck på %@ och välj filen i Filer-appen.";
 "library.empty.step3" = "Spela. Dina framsteg sparas automatiskt";
 "library.empty.romHint" = "Inga ROM:er än? Det finns många gratis, lagliga spel. Sök \"GBA homebrew\" online.";
@@ -103,7 +103,7 @@
 "pro.welcome" = "Välkommen till Pro!";
 "pro.benefit.speed" = "Alla hastigheter: 0,25x till 4x";
 "pro.benefit.slots" = "5 sparplatser (istället för 2)";
-"pro.benefit.rewind" = "30 sekunders tillbakaspolning (GBA/GB/GBC)";
+"pro.benefit.rewind" = "30 sekunders tillbakaspolning";
 "pro.benefit.cheats" = "Fuskkoder (GameShark / Action Replay)";
 "pro.benefit.controls" = "Egna layouter och kontrollmappning";
 "pro.benefit.speed.short" = "Alla hastigheter";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Bluetooth-handkontroller";
 "pro.compare.row.slots" = "Sparplatser";
 "pro.compare.row.speeds" = "Hastigheter";
-"pro.compare.row.rewind" = "Tillbakaspolning (GBA/GB/GBC)";
+"pro.compare.row.rewind" = "Tillbakaspolning";
 "pro.compare.row.cheats" = "Fuskkoder";
 "pro.compare.row.controls" = "Anpassade kontroller";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "Du har spelat %@ minuter retrospel";
 "prompt.milestone.subtitle" = "Du älskar det uppenbarligen. Lås upp hela upplevelsen.";
 "prompt.rewind.title" = "Behöver du gå längre tillbaka?";
-"prompt.rewind.subtitle" = "Pro ger dig 30 sekunders tillbakaspolning på GBA/GB/GBC. Förlora aldrig en bossfight igen.";
+"prompt.rewind.subtitle" = "Pro ger dig 30 sekunders tillbakaspolning, på alla konsoler. Förlora aldrig en bossfight igen.";
 "prompt.cheats.title" = "Du har spelat %@ i 4 timmar. Redo att spela utan gränser?";
 "prompt.cheats.subtitle" = "Lås upp fuskkoder, maxhastighet och mer. Ett köp, klart. För alltid.";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "Lås upp alla hastigheter, 5 sparplatser, 30s tillbakaspolning (GBA/GB/GBC) och mer.";
+"prompt.generic.subtitle" = "Lås upp alla hastigheter, 5 sparplatser, 30s tillbakaspolning och mer.";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "Nostalgia";
@@ -179,7 +179,7 @@
 "legal.melonds" = "melonDS-licens";
 "legal.importantNotice.title" = "Viktigt meddelande";
 "legal.aboutApp.title" = "Om denna app";
-"legal.aboutApp.description1" = "Retro Pal är ett lokalt emulator-gränssnitt för Game Boy Advance-, Game Boy-, Game Boy Color- och Nintendo DS-spel. Appen laddar inte ner, distribuerar eller ger åtkomst till något spelinnehåll. Alla ROM-filer måste importeras av användaren från den egna enhetens lagring via Filer-appen.";
+"legal.aboutApp.description1" = "Retro Pal är ett lokalt emulator-gränssnitt för Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo- och NES-spel. Appen laddar inte ner, distribuerar eller ger åtkomst till något spelinnehåll. Alla ROM-filer måste importeras av användaren från den egna enhetens lagring via Filer-appen.";
 "legal.aboutApp.description2" = "Den här appen tillhandahåller ingen spelkatalog, distribuerar inget spelinnehåll och underlättar inte nedladdning av upphovsrättsskyddat material.";
 "legal.privacy.title" = "Integritet";
 "legal.privacy.description" = "Dina spel och sparfiler stannar på din enhet. För att förbättra appen skickar Retro Pal endast anonym användningsstatistik, utan personuppgifter och utan annons-id:n.";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA är en Game Boy Advance-emulator som används som den centrala emulatormotorn i denna app. Källkoden för mGBA finns tillgänglig på [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "Licensierad under GNU General Public License v3.0 (GPL-3.0)";
 "legal.melonds.description" = "melonDS är en Nintendo DS-emulator som används som emulatormotor för DS-spel i denna app. Källkoden för melonDS finns tillgänglig på [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "MesenCE-licens";
+"legal.mesen.licenseLine" = "Licensierad under GNU General Public License v3.0 (GPL-3.0)";
+"legal.mesen.description" = "MesenCE är en Super Nintendo- och NES-emulator som används som emulatormotor för SNES- och NES-spel i denna app. Källkoden för MesenCE finns tillgänglig på [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Retro Pal-licens";
 "legal.retropal.licenseLine" = "Licensierad under GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Den fullständiga källkoden för Retro Pal finns tillgänglig på [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Programvaran tillhandahålls utan någon garanti.";
-"legal.compliance" = "Retro Pal distribueras under GNU General Public License v3.0. Den bygger på mGBA (Mozilla Public License 2.0) och melonDS (GPL-3.0), som används utan ändringar. Den fullständiga motsvarande källkoden finns tillgänglig i förvaret som länkas ovan, och programvaran tillhandahålls utan någon garanti.";
+"legal.compliance" = "Retro Pal distribueras under GNU General Public License v3.0. Den bygger på mGBA (Mozilla Public License 2.0) och melonDS (GPL-3.0), som används utan ändringar, och på MesenCE (GPL-3.0), som används med en liten ändring som publiceras som en patchfil tillsammans med källkoden. Den fullständiga motsvarande källkoden finns tillgänglig i förvaret som länkas ovan, och programvaran tillhandahålls utan någon garanti.";
 
 "details.noSaves" = "Inga snabbsparningar än. Skapa en under spelet med menyknappen.";
 "library.importing" = "Importerar ROM...";
@@ -214,10 +217,14 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark-, CodeBreaker- eller Action Replay-format";
 "cheats.hint.nds" = "Action Replay DS-format (XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Pro Action Replay- eller Game Genie-format (XXXX-XXXX)";
+"cheats.hint.nes" = "Pro Action Rocky- eller Game Genie-format (bokstäver)";
 "cheats.namePlaceholder" = "Namn (valfritt)";
 "cheats.add" = "Lägg till kod";
 "cheats.invalid.gba" = "Koden kändes inte igen. Förväntat format: GameShark, CodeBreaker eller Action Replay.";
 "cheats.invalid.nds" = "Koden kändes inte igen. Förväntat format: Action Replay DS (XXXXXXXX YYYYYYYY, ett par per rad).";
+"cheats.invalid.snes" = "Koden känns inte igen. Förväntat: Game Genie (XXXX-XXXX) eller Pro Action Replay (åtta tecken).";
+"cheats.invalid.nes" = "Koden känns inte igen. Förväntat: Game Genie (sex eller åtta bokstäver) eller Pro Action Rocky (åtta tecken).";
 "cheats.empty" = "Inga aktiva fusk";
 "cheats.findHint" = "Koderna hittar du enkelt online. Sök efter ditt spels cheat codes.";
 "cheats.clearAll" = "Rensa alla";
@@ -243,10 +250,6 @@
 "prompt.slotsTapped.subtitle" = "Lås upp 5 sparplatser så att det alltid finns plats. Ett köp, för alltid.";
 "settings.appLabel" = "App";
 
-"review.headline" = "Har du kul?";
-"review.body" = "Recensioner är det som håller liv i små appar i App Store. En mening hjälper otroligt mycket.";
-"review.cta" = "Betygsätt 5 stjärnor";
-"review.later" = "Inte nu";
 "cheats.type" = "Kodtyp";
 "cheats.restore" = "Återställ sparning före fusk";
 "cheats.restore.confirm.title" = "Återställ sparning före fusk?";
@@ -256,6 +259,13 @@
 /* Control Layout */
 "settings.customizeControls" = "Anpassa kontroller";
 "settings.remapController" = "Mappa om kontrollens knappar";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "Skärmplacering med handkontroll";
+"controllerLayout.customised" = "Anpassad";
+"controllerLayout.footer" = "Välj var spelskärmen sitter, och hur stor den är, när en handkontroll är ansluten. Bra när handkontrollen själv täcker en del av skärmen. Varje konsol behåller sin egen placering, i stående och liggande läge.";
+"controllerLayout.resetAll" = "Återställ ursprungliga placeringar";
+"controllerLayout.reset.footer" = "Återställer varje konsol till den placering appen använder som standard med en handkontroll.";
 "remap.press" = "Tryck på en knapp…";
 "remap.reset" = "Återställ till standard";
 "remap.footer" = "Tryck på en knapp och tryck sedan på kontrollknappen du vill tilldela. Styrkorset och spaken styr alltid styrkorset.";
@@ -324,11 +334,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Lägg till ett spel";
 "guide.importRom.intro" = "Retro Pal innehåller inga spel. Du tillhandahåller dina egna ROM-filer, som du äger rättigheterna till (dina egna kassetter eller gratis, lagliga homebrew-spel).";
-"guide.importRom.step1" = "Få spelfilen (.gba, .gb, .gbc eller .nds) till din iPhone: ladda ner den i Safari, via AirDrop från en dator, eller från iCloud Drive.";
+"guide.importRom.step1" = "Få spelfilen (.gba, .gb, .gbc, .nds, .sfc, .smc eller .nes) till din iPhone: ladda ner den i Safari, via AirDrop från en dator, eller från iCloud Drive.";
 "guide.importRom.step2" = "Kontrollera att den syns i Filer-appen (under Nedladdningar, På min iPhone eller iCloud Drive).";
 "guide.importRom.step3" = "Tryck på +-knappen högst upp i biblioteket i Retro Pal.";
 "guide.importRom.step4" = "Välj filen. Spelet dyker genast upp i ditt bibliotek, redo att spelas.";
-"guide.importRom.footer" = "Format som stöds: .gba, .gb, .gbc, .nds och .zip-filer med ett enda spel. .7z och arkiv med flera spel stöds inte; packa upp en enda fil först. Importera bara filer som du äger rättigheterna till.";
+"guide.importRom.footer" = "Format som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes och .zip-filer med ett enda spel. .7z och arkiv med flera spel stöds inte; packa upp en enda fil först. Importera bara filer som du äger rättigheterna till.";
 "settings.guides.section" = "Guider";
 "settings.controller.row" = "Handkontroll";
 "common.done" = "Klar";
@@ -421,6 +431,10 @@
 "skin.editor.surround" = "Ram";
 "skin.editor.dpad" = "Styrkors";
 "skin.editor.abButtons" = "A/B-knappar";
+"skin.editor.faceA" = "A-knapp";
+"skin.editor.faceB" = "B-knapp";
+"skin.editor.faceX" = "X-knapp";
+"skin.editor.faceY" = "Y-knapp";
 "skin.editor.abLetters" = "A/B-bokstäver";
 "skin.editor.smallButtons" = "Små knappar";
 "skin.editor.menuIcons" = "Menyikoner";
@@ -470,6 +484,10 @@
 "ra.dashboard.title" = "Prestationer";
 "ra.dashboard.unlocked" = "Upplåsta";
 "ra.dashboard.locked" = "Återstående";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "Spelet klart";
+"ra.hud.subsetCompleted" = "Serie klar";
 "ra.dashboard.empty" = "Det här spelet har inga prestationer, eller så har inga laddats än.";
 "ra.dashboard.summary" = "%lld av %lld upplåsta";
 "ra.dashboard.rarity" = "%@ av spelarna";
@@ -505,8 +523,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Det går inte att komma åt den valda filen. Prova att importera den via appen Filer.";
 "import.error.copyFailed" = "Spelet kunde inte kopieras till Retro Pal. Frigör lagringsutrymme och försök igen.";
-"import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc och .nds.";
-"import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc och .nds; andra konsoler stöds inte.";
+"import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc och .nes.";
+"import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc, .nds, .sfc, .smc och .nes; andra konsoler stöds inte.";
 "import.error.zipExtractionFailed" = "Den här ZIP-filen kunde inte öppnas. Packa upp den i appen Filer och importera spelfilen direkt.";
 "import.error.alreadyImported" = "Det här spelet finns redan i ditt bibliotek.";
 "import.error.saveFailed" = "Spelet kunde inte läggas till i biblioteket. Försök igen.";
@@ -523,12 +541,15 @@
 "whatsnew.title" = "Nyheter";
 "whatsnew.version" = "Version %@";
 "whatsnew.footer" = "Du kan läsa de här nyheterna när som helst i Inställningar.";
+"whatsnew.notice.pro" = "Om Pro: engångspriset för livstid höjs i en kommande uppdatering. Det finns inget datum än. Allt som är gratis i dag förblir gratis, alltid: inga annonser, och du behöver aldrig betala för att spela.";
 "whatsnew.dismiss" = "Uppfattat!";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "Extern skärm";
 "settings.externalDisplay.row" = "Spela på en tv";
 "settings.externalDisplay.ndsLayout" = "DS-skärmar på tv:n";
+"settings.externalDisplay.noTV" = "Ingen tv ansluten";
+"settings.externalDisplay.noTV.caption" = "Tryck för att se hur du spelar på en tv.";
 "settings.externalDisplay.sideBySide" = "Sida vid sida";
 "settings.externalDisplay.stacked" = "Ovanför varandra";
 "settings.externalDisplay.footer" = "Anslut en tv via AirPlay eller kabel så fyller spelet skärmen medan din iPhone behåller kontrollerna. DS visar båda skärmarna; pekskärmen stannar på telefonen.";
@@ -544,7 +565,7 @@
 "guide.airplay.step3" = "Starta ett spel. Det fyller tv:n, och din iPhone behåller kontrollerna.";
 "guide.airplay.step4" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPhone.";
 "guide.airplay.step5" = "Anslut en handkontroll så försvinner skärmknapparna. Bara DS pekskärm används fortfarande på telefonen.";
-"guide.airplay.step6" = "Hur de två DS-skärmarna ligger på tv:n väljer du under Inställningar, Extern skärm.";
+"guide.airplay.step6" = "När din tv är ansluten väljer du hur de två DS-skärmarna ligger under Inställningar, Extern skärm.";
 "guide.airplay.footer" = "Ljudet följer bilden till tv:n via AirPlay. Med en handkontroll öppnas pausmenyn med kontrollens egen menyknapp, så du behöver aldrig röra telefonen.";
 "guide.airplay.proNotice" = "Att spela på tv ingår i Retro Pal Pro.";
 "guide.airplay.proButton" = "Spela på min tv";
@@ -561,7 +582,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Den här koden innehåller tecken som inte hör hemma. Fuskkoder använder bara 0-9, A-F, mellanslag och bindestreck.";
+"cheats.invalid.characters.nes" = "Den här koden innehåller tecken som inte hör hemma. NES-koder använder Game Genie-bokstäverna A P Z L G I T Y E O X U K S V N, eller 0-9 och A-F, plus mellanslag och bindestreck.";
 "cheats.invalid.pairs" = "Action Replay DS-koder kommer parvis: varje rad behöver två block med åtta tecken, till exempel 94000130 FCFF0000.";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "En kod som står på flera rader läggs in som EN post. Klistra in alla rader tillsammans, inte en i taget.";
+"cheats.multiline.seedAlone" = "Den här raden låser bara upp de andra raderna i sin kod. Ensam gör den ingenting. Klistra in den tillsammans med resten.";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "Bläddra bland fuskkoder";
@@ -573,6 +599,8 @@
 "cheats.browse.offline" = "Ingen anslutning. Koder hämtas en gång per spel och sparas sedan på din enhet.";
 "cheats.browse.failed" = "Koderna kunde inte laddas. Försök igen.";
 "cheats.browse.credit" = "Koder från libretros community-databas (CC BY-SA 4.0).";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "De här koderna kommer från en annan utgåva av samma spel: %@. De fungerar ofta, men inte alltid.";
 "settings.cheatDB.section" = "Fuskkoder";
 "settings.cheatDB.download" = "Hämta koder till mina spel";
 "settings.cheatDB.progress" = "Hämtar, %d av %d";
@@ -600,21 +628,24 @@
 "externalDisplay.idle.hint" = "Starta ett spel på din iPhone";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Spela på tv:n";
-"whatsnew.s1.b1" = "Skicka spelet till en tv med AirPlay eller kabel, medan din iPhone behåller kontrollerna. Pro.";
-"whatsnew.s1.b2" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPhone.";
-"whatsnew.s2.title" = "Originalhårdvarans utseende";
-"whatsnew.s2.b1" = "Sex videofilter, från CRT till LCD-rutnät, live och inbakade i dina skärmbilder och klipp. Pro.";
-"whatsnew.s2.b2" = "Tjugofyra Game Boy-paletter, valda per spel, gratis för alla.";
-"whatsnew.s3.title" = "Fuskkoder utan att skriva dem";
-"whatsnew.s3.b1" = "Bläddra i communityns databas för spelet du kör och tryck på en kod för att lägga till den. Pro.";
-"whatsnew.s3.b2" = "Koder formaterar sig själva, och en nekad kod säger äntligen vad som är fel.";
-"whatsnew.s4.title" = "Handkontroller och tangentbord";
-"whatsnew.s4.b1" = "Ändra varje knapp, per konsol, och lägg snabbspolning, skärmbild eller klipp på en ledig knapp. Pro.";
-"whatsnew.s4.b2" = "Fysiska tangentbord fungerar nu, gratis. Spaken och DS-knapparna är fixade.";
-"whatsnew.s5.title" = "Dina spel på hemskärmen";
-"whatsnew.s5.b1" = "Widgets visar dina spel som omslag. En tryckning öppnar spelet där du slutade.";
-"whatsnew.s5.b2" = "Välj spel och sparning för varje widget, eller låt den följa din senaste omgång.";
-"whatsnew.s6.title" = "Sparningar och Nintendo DS";
-"whatsnew.s6.b1" = "Exportera ett spels sparning för att dela eller behålla den, och sparningar följer dig nu via iCloud.";
-"whatsnew.s6.b2" = "Stoppa in ett Game Boy Advance-spel i DS andra plats, precis som på den riktiga konsolen.";
+"whatsnew.s1.title" = "Två konsoler till";
+"whatsnew.s1.b1" = "Super Nintendo- och NES-spel körs nu i Retro Pal, och båda konsolerna är gratis för alla.";
+"whatsnew.s1.b2" = "Sparningar, hastighet, tillbakaspolning, fuskkoder och prestationer fungerar på dem från första dagen.";
+"whatsnew.s2.title" = "De ser ut som de riktiga";
+"whatsnew.s2.b1" = "Varje ny konsol bär sitt eget hölje runt spelet, i stående och liggande läge.";
+"whatsnew.s2.b2" = "Bygg ditt eget skal och ge varje knapp sin egen färg, och dela sedan ett kort på det. {PRO}";
+"whatsnew.s3.title" = "Tillbakaspolning på varje konsol";
+"whatsnew.s3.b1" = "Tillbakaspolning når Nintendo DS, som behövde ett långt snålare sätt att spara sina långt större ögonblicksbilder.";
+"whatsnew.s3.b2" = "Fem sekunder för alla, trettio med {PRO}, på alla sex konsolerna.";
+"whatsnew.s4.title" = "Fuskkoder, lagade";
+"whatsnew.s4.b1" = "En kod på flera rader läggs in som en enda post, och appen säger till innan det blir fel.";
+"whatsnew.s4.b2" = "Ett spel vars egen utgåva saknar koder kan låna dem från en annan region av samma kassett.";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "Ett spel med flera prestationsserier visar nu varje serie med sin egen räkning och sitt eget märke.";
+"whatsnew.s5.b2" = "Att avsluta en serie, eller ett helt spel, får sitt eget ögonblick på skärmen.";
+"whatsnew.s6.title" = "Med en handkontroll ansluten";
+"whatsnew.s6.b1" = "Flytta spelskärmen och ändra dess storlek när en påklämd handkontroll täcker en del av den. {PRO}";
+"whatsnew.s6.b2" = "Varje konsol minns sin egen placering, i stående och liggande läge.";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "Inga prestationer från den här serien är inlästa.";

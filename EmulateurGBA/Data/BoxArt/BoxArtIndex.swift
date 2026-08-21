@@ -80,6 +80,71 @@ final class BoxArtIndex {
         return table.names[idx]
     }
 
+    /// The SAME game as `serial`, under the names its other regional releases
+    /// were given. Strongest first is meaningless here, so they come back in a
+    /// stable sorted order.
+    ///
+    /// Why this exists, and why a cheat feature reaches into the box-art index:
+    /// a cartridge game code is four characters, and the fourth is the region
+    /// (`BPRE` USA, `BPRF` France, `BPRD` Germany, `BPRI` Italy, `BPRS` Spain,
+    /// `BPRJ` Japan — all of them FireRed). The first three are the game. So
+    /// this table, which we already bundle, is a region-independent identity we
+    /// otherwise had nowhere else.
+    ///
+    /// The reason it is needed: localized releases carry localized TITLES, and
+    /// the libretro cheat files are keyed by title. "Pokemon - Version Rouge
+    /// Feu (France)" and "Pokemon - FireRed Version (USA, Europe)" share no
+    /// searchable words at all, so a French player's game looked to us like a
+    /// game with no codes in existence rather than the same game under another
+    /// name.
+    ///
+    /// Measured against the bundled data before relying on it: 298 of 1694 GBA
+    /// prefixes and 844 of 3912 DS prefixes map to more than one distinct bare
+    /// title, and the samples are regional retitlings of one game
+    /// (Aria of Sorrow / Akatsuki no Minuet, Monster Rancher / Monster Farm,
+    /// New Super Mario Bros. / New Chaoji Maliou Xiongdi), not collisions
+    /// between different games.
+    /// English releases come FIRST, and that ordering is the feature rather
+    /// than a detail. Sorting these alphabetically sent a French player to
+    /// "Pokemon - Feuerrote Edition (Germany)" when
+    /// "Pokemon - FireRed Version (USA, Europe)" was sitting right there, and
+    /// cheat files carry their descriptions in the language of their release,
+    /// so that swap costs a French reader German cheat names instead of
+    /// English ones. Measured across the bundled data: 211 of the 219
+    /// recoverable GBA releases and 280 of the 402 DS ones can reach a USA or
+    /// Europe file, so this ordering decides the outcome for most of them.
+    /// Japan sorts last: its dumps diverge most and its descriptions help
+    /// fewest of our players.
+    func regionalSiblingNames(ofSerial serial: String, system: ROMSystemType) -> [String] {
+        guard system == .gba || system == .nds, serial.count >= 4,
+              let table = table(for: system)
+        else { return [] }
+        let prefix = String(serial.prefix(3))
+        var best: [String: Int] = [:]   // name -> best (lowest) region rank
+        for (code, idx) in table.serial where code.count >= 4 && code.hasPrefix(prefix) {
+            guard code != serial else { continue }   // its own name already failed
+            let name = table.names[idx]
+            let rank = Self.regionRank(ofSerial: code)
+            best[name] = min(best[name] ?? Int.max, rank)
+        }
+        return best
+            .sorted { ($0.value, $0.key) < ($1.value, $1.key) }
+            .map(\.key)
+    }
+
+    /// The fourth character of a cartridge game code is its region. `E` is USA
+    /// and `P` is Europe, both English; `J` is Japan; everything else is one of
+    /// the localized European releases.
+    private static func regionRank(ofSerial code: String) -> Int {
+        let characters = Array(code)
+        guard characters.count >= 4 else { return 1 }
+        switch characters[3] {
+        case "E", "P": return 0
+        case "J": return 2
+        default: return 1
+        }
+    }
+
     /// Best fuzzy candidates for a user-chosen name (filename stem or in-app
     /// rename), strongest first. Empty when nothing clears BOTH bars (Dice
     /// on bigrams + token coverage) for at least one query.

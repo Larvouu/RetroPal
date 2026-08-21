@@ -53,6 +53,12 @@ final class PromptTracker {
     // Keys
     private let kTotalPlaySeconds = "pt_totalPlaySeconds"
     private let kSessionCount = "pt_sessionCount"
+    private let kLastPlayBankDate = "pt_lastPlayBankDate"
+    private let kFirstPlayDay = "pt_firstPlayDay"
+
+    /// Idle time that separates two sessions. 30 minutes is the usual analytics
+    /// convention and it comfortably absorbs a phone call or a look at Maps.
+    private let sessionGapSeconds: TimeInterval = 30 * 60
     private let kLastPromptDate = "pt_lastPromptDate"
     private let kLifetimePromptsShown = "pt_lifetimePromptsShown"
     private let kSpeedMomentShown = "pt_speedMomentShown"
@@ -67,13 +73,53 @@ final class PromptTracker {
 
     // MARK: - Tracking
 
-    /// Call when a game session ends (quit to library or app background).
+    /// Call whenever play time is banked: quit to library, app background, or
+    /// resign-active (a call, Control Center, an app switch). So this fires
+    /// MANY times inside one sitting, which is why the session count below is
+    /// not simply incremented here.
+    ///
+    /// A SESSION is a run of play, not a banking event. Until 1.2.5 this method
+    /// bumped `kSessionCount` on every call, so a single evening of play with
+    /// three notifications counted as four sessions. That inflated a
+    /// user-visible number (the Retro Story card shows it) and, worse, it
+    /// silently disabled both first-session review triggers, which asked for
+    /// `sessionCount == 0` — a state that ended at the user's first
+    /// notification. Sessions are now separated by IDLE time: elapsed time
+    /// since the last banking, minus the play time being banked, is the gap
+    /// where the user was not playing.
+    ///
+    /// Historical counts stay as they are. They are inflated for existing
+    /// users and rewriting them would make a stat on their share card drop
+    /// overnight, which reads as lost data; the inflation simply stops here.
     func recordSessionEnd(playSeconds: TimeInterval) {
+        let now = Date()
         let total = defaults.double(forKey: kTotalPlaySeconds) + playSeconds
         defaults.set(total, forKey: kTotalPlaySeconds)
 
-        let sessions = defaults.integer(forKey: kSessionCount) + 1
-        defaults.set(sessions, forKey: kSessionCount)
+        let idleSeconds: TimeInterval
+        if let lastBank = defaults.object(forKey: kLastPlayBankDate) as? Date {
+            idleSeconds = max(0, now.timeIntervalSince(lastBank) - playSeconds)
+        } else {
+            idleSeconds = .greatestFiniteMagnitude   // first ever banking = session 1
+        }
+        if idleSeconds >= sessionGapSeconds {
+            defaults.set(defaults.integer(forKey: kSessionCount) + 1, forKey: kSessionCount)
+        }
+        defaults.set(now, forKey: kLastPlayBankDate)
+
+        if defaults.object(forKey: kFirstPlayDay) == nil {
+            defaults.set(Calendar.current.startOfDay(for: now), forKey: kFirstPlayDay)
+        }
+    }
+
+    /// Whether the user first played on an EARLIER calendar day than today,
+    /// i.e. they left and came back. The strongest satisfaction signal the app
+    /// can read without asking anyone anything, and the reason it gates a
+    /// review trigger: month-one retention is ~62%, so returning is a real
+    /// choice rather than the default.
+    var isReturningDay: Bool {
+        guard let firstDay = defaults.object(forKey: kFirstPlayDay) as? Date else { return false }
+        return !Calendar.current.isDate(firstDay, inSameDayAs: Date())
     }
 
     var totalPlaySeconds: TimeInterval {
@@ -158,118 +204,87 @@ final class PromptTracker {
 
     // MARK: - App Store Review Prompt
 
-    /// Legacy gate: users who saw the old one-shot warm-up card have this
-    /// flag set. We treat it as terminal (no more prompts) so the new
-    /// two-shot flow below never re-prompts them.
-    private let kReviewPromptShown = "reviewPromptShown"
+    /// ONE path since 1.2.5: a bare `SKStoreReviewController` request fired on
+    /// the quit-to-library path. No warm-up card, no terminal states, no
+    /// dismissal counting. The request is silent once Apple's per-user display
+    /// quota (3 displays / 365 days) is spent or the user turned in-app rating
+    /// asks off system-wide, so a repeated ask costs nothing and Apple is the
+    /// limiter. That shape is deliberate and it is the shape the most-rated
+    /// emulator on the App Store uses; it was adopted in 1.2.3 from reading
+    /// their (AGPL) source, a provenance that was never written down and had
+    /// to be rediscovered on 2026-08-11. Recorded here so it is not
+    /// re-litigated: **do not add spacing, lifetime caps or a warm-up card.**
+    ///
+    /// What 1.2.5 changed is not the cadence but WHO qualifies:
+    ///
+    ///  - Until 1.2.5 the bar was an hour of play summed across every game,
+    ///    plus a session count that was broken (see `recordSessionEnd`). That
+    ///    counts a user who bounced off five games as readily as one who stuck
+    ///    with a single game, and it left `loyal_returner` as the only trigger
+    ///    that ever fired in the field.
+    ///  - Now the bar is per-GAME, and the reference implementation's: 30
+    ///    minutes on the game you just put down. It fires sooner for a focused
+    ///    player and never for a dabbler, which is a better-aimed filter rather
+    ///    than a looser one — their average rating matches ours at half our old
+    ///    time bar.
+    ///
+    /// Triggers are evaluated best-moment-first, so the reported one is the
+    /// best that applied. There is deliberately NO holding back of a mediocre
+    /// moment waiting for a better one: a third of users never return, and
+    /// holding would mean never asking them. The better moments simply tend to
+    /// arrive earlier on their own.
 
-    private let kReviewPromptRated = "reviewPromptRated"
-    private let kReviewPromptDismissedCount = "reviewPromptDismissedCount"
     private let kReviewPromptLastShownDate = "reviewPromptLastShownDate"
     private let kSaveStateCreated = "pt_saveStateCreated"
 
-    private let reviewPromptSecondsPrompt1: TimeInterval = 3600         // 1 hour cumulative (loyal-returner trigger)
-    private let reviewPromptSecondsFirstSessionDeep: TimeInterval = 7200 // 2 hours in session 1 (deep-first-timer trigger)
-    private let reviewPromptSecondsEngagedFirstTimer: TimeInterval = 900 // 15 min in session 1 + a manual save state
-    private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600      // shared gap: card AND direct asks
-    private let reviewPromptMinSessionsForFirst = 2                       // >= 3rd session
-    private let reviewPromptSecondsRAUnlock: TimeInterval = 900           // 15 min cumulative + a fresh RA unlock
-    private let reviewPromptRAUnlockWindow: TimeInterval = 30 * 60        // "fresh" = within the last 30 min
+    /// 30 minutes on the game just played. Matches the reference implementation.
+    private let reviewPromptGameSeconds: TimeInterval = 30 * 60
+    /// Minimum play in the current sitting for the two quality triggers, so a
+    /// drive-by unlock or a two-minute look-in never asks.
+    private let reviewPromptEngagedSessionSeconds: TimeInterval = 10 * 60
+    /// One ask per 24h, of any kind.
+    private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600
 
-    /// In-memory only, deliberately not persisted: a RetroAchievements unlock
-    /// opens a short celebration window for the review ask. An app relaunch
-    /// resets it, which is the conservative behavior we want.
-    private var lastAchievementUnlockDate: Date?
+    /// In-memory only, deliberately not persisted: whether a RetroAchievements
+    /// achievement unlocked during this run of the app. An app relaunch resets
+    /// it, which is the conservative behavior we want, and it is cleared once
+    /// an ask actually fires so one unlock cannot qualify forever.
+    private var achievementUnlockedThisRun = false
 
     /// Call when a RetroAchievements achievement unlocks (any game).
     func recordAchievementUnlocked() {
-        lastAchievementUnlockDate = Date()
+        achievementUnlockedThisRun = true
     }
 
-    /// The review ask runs on TWO paths since 1.2.3 (measured: the warm-up
-    /// card converted only ~10% of loyal_returner presentations, and its
-    /// terminal caps silenced the very users Apple would still let us ask):
+    /// Which trigger (if any) allows a direct system review request on the quit
+    /// path right now, best moment first. The returned identifier feeds the
+    /// analytics `trigger` param; `review_prompt_shown` means "requested" —
+    /// whether Apple actually displayed it is invisible to the app.
     ///
-    ///  - CARD path (`reviewPromptArm`): the visible warm-up card, kept ONLY
-    ///    for "ra_unlock" where the celebration context earns a visible
-    ///    moment. Polite gating unchanged: rating is terminal, two
-    ///    dismissals are terminal, legacy single-shot viewers stay excluded.
+    ///   - "ra_unlock":  an achievement unlocked this run, and ≥10 min played
+    ///                   in this sitting. The highest-emotion moment we can see.
+    ///   - "return_day": the user first played on an earlier day and has put
+    ///                   ≥10 min in today. Coming back is the clearest
+    ///                   satisfaction signal available for free.
+    ///   - "game_30min": ≥30 min on THIS game, all time, including the sitting
+    ///                   about to end. The baseline, and the one that carries
+    ///                   the volume.
     ///
-    ///  - DIRECT path (`directReviewRequestTrigger`): a bare
-    ///    SKStoreReviewController request fired on the quit-to-library path.
-    ///    Deliberately NO terminal states and no dismissal counting: the
-    ///    request is silent once Apple's per-user display quota (~3/365d) is
-    ///    spent or the user disabled in-app rating asks system-wide, so
-    ///    over-asking is invisible. Apple is the limiter, we just never
-    ///    waste one of the ~3 yearly display slots. The only local throttle
-    ///    is the shared 24h gap below.
-    ///
-    /// Both paths share `kReviewPromptLastShownDate`, so any ask (card or
-    /// direct) suppresses every other ask for 24h.
-
-    /// Which arm (if any) allows the review warm-up CARD right now (the
-    /// only caller is the pause overlay's check).
-    ///   - "ra_unlock": a RetroAchievements unlock in the last 30 min AND
-    ///     ≥15 min cumulative play. The unlock is the highest-emotion moment
-    ///     the app has; the time bar keeps a 2-minute drive-by unlock from
-    ///     prompting. The card only appears at the pause overlay, never
-    ///     over gameplay.
-    func reviewPromptArm(currentSessionSeconds: TimeInterval) -> String? {
-        // Legacy users who already saw the single-shot prompt: no more cards.
-        guard !defaults.bool(forKey: kReviewPromptShown) else { return nil }
-
-        // Terminal: user already rated via the card.
-        guard !defaults.bool(forKey: kReviewPromptRated) else { return nil }
-
-        // Terminal: two dismissed cards.
-        guard defaults.integer(forKey: kReviewPromptDismissedCount) < 2 else { return nil }
-
-        guard reviewAskGapElapsed else { return nil }
-
-        let totalPlayed = totalPlaySeconds + currentSessionSeconds
-        if let unlockDate = lastAchievementUnlockDate,
-           Date().timeIntervalSince(unlockDate) <= reviewPromptRAUnlockWindow,
-           totalPlayed >= reviewPromptSecondsRAUnlock {
-            return "ra_unlock"
-        }
-        return nil
-    }
-
-    /// Which trigger (if any) allows a DIRECT system review request on the
-    /// quit path right now. The returned identifier feeds the analytics
-    /// `trigger` param; for these values `review_prompt_shown` means
-    /// "requested" — whether Apple actually displays the dialog is invisible
-    /// to the app (see `Store/analytics-plan.md`).
-    ///   - "loyal_returner": 3rd session or later AND ≥1h cumulative play
-    ///   - "deep_first_timer": still in session 1 AND ≥2h in that session
-    ///   - "engaged_first_timer": still in session 1 AND ≥15min AND has
-    ///     created at least one manual save state. The save state is a
-    ///     deliberate engagement signal that the bare time bar lacks, so
-    ///     it qualifies a clearly-invested newcomer far earlier than the 2h
-    ///     deep-first-timer bar without asking drive-by users.
     /// Call `recordDirectReviewRequested()` when the request is fired.
-    func directReviewRequestTrigger(currentSessionSeconds: TimeInterval) -> String? {
+    func directReviewRequestTrigger(romName: String, currentSessionSeconds: TimeInterval) -> String? {
         guard reviewAskGapElapsed else { return nil }
 
-        let totalPlayed = totalPlaySeconds + currentSessionSeconds
-        if sessionCount >= reviewPromptMinSessionsForFirst
-            && totalPlayed >= reviewPromptSecondsPrompt1 {
-            return "loyal_returner"
-        }
-        if sessionCount == 0
-            && currentSessionSeconds >= reviewPromptSecondsFirstSessionDeep {
-            return "deep_first_timer"
-        }
-        if sessionCount == 0
-            && currentSessionSeconds >= reviewPromptSecondsEngagedFirstTimer
-            && hasCreatedSaveState {
-            return "engaged_first_timer"
+        let engagedSitting = currentSessionSeconds >= reviewPromptEngagedSessionSeconds
+        if achievementUnlockedThisRun && engagedSitting { return "ra_unlock" }
+        if isReturningDay && engagedSitting { return "return_day" }
+        if gamePlayTime(romName: romName) + currentSessionSeconds >= reviewPromptGameSeconds {
+            return "game_30min"
         }
         return nil
     }
 
-    /// 24h minimum between review asks of ANY kind (card or direct), so a
-    /// marathon day never produces back-to-back asks.
+    /// 24h minimum between review asks, so a marathon day never produces
+    /// back-to-back asks.
     private var reviewAskGapElapsed: Bool {
         guard let lastShown = defaults.object(forKey: kReviewPromptLastShownDate) as? Date else {
             return true
@@ -277,36 +292,20 @@ final class PromptTracker {
         return Date().timeIntervalSince(lastShown) >= reviewPromptMinGapSeconds
     }
 
-    /// Call when the card is presented. Records the date and pessimistically
-    /// increments the dismissed count so swipe-down / force-close still count.
-    /// If the user taps Rate, call `recordReviewPromptRated()` afterwards —
-    /// the rated flag short-circuits `reviewPromptArm` so the stale
-    /// dismissed count doesn't matter.
-    func recordReviewPromptPresented() {
-        defaults.set(Date(), forKey: kReviewPromptLastShownDate)
-        let count = defaults.integer(forKey: kReviewPromptDismissedCount) + 1
-        defaults.set(count, forKey: kReviewPromptDismissedCount)
-    }
-
-    /// Call when a direct system review request fires on the quit path.
-    /// Only stamps the shared ask date (24h gap): the direct path has no
-    /// dismissal counting and no terminal states by design — Apple's own
-    /// display quota is the limiter.
+    /// Call when a direct system review request fires on the quit path. Stamps
+    /// the 24h gap and consumes the achievement flag, so a single unlock cannot
+    /// keep qualifying on later quits.
     func recordDirectReviewRequested() {
         defaults.set(Date(), forKey: kReviewPromptLastShownDate)
-    }
-
-    /// Call when the user taps "Rate 5 stars" on the card. Terminal for the
-    /// CARD only — direct quit-path requests deliberately keep firing (they
-    /// are silent no-ops once Apple's quota is spent).
-    func recordReviewPromptRated() {
-        defaults.set(true, forKey: kReviewPromptRated)
+        achievementUnlockedThisRun = false
     }
 
     /// Record that the user created a manual save state. A deliberate save
-    /// (not the silent auto-save on quit/background) is a strong
-    /// first-session engagement signal, gating the engagedFirstTimer review
-    /// arm. Idempotent: one save is enough, repeated calls are a no-op.
+    /// (not the silent auto-save on quit/background) is a strong engagement
+    /// signal. It gated the retired `engagedFirstTimer` review arm and is kept
+    /// as a read-only signal: the save path is the most sensitive code in the
+    /// app and is not worth touching to delete four lines.
+    /// Idempotent: one save is enough, repeated calls are a no-op.
     func recordSaveStateCreated() {
         defaults.set(true, forKey: kSaveStateCreated)
     }

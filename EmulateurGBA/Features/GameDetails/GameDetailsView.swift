@@ -314,14 +314,18 @@ struct GameDetailsView: View {
     ///     game needed), with the user's progress as a caption
     ///   • eligible + not connected → a visible invite to connect, so the
     ///     feature is discoverable instead of hidden behind Settings
-    ///   • resolved ineligible (no RA set for this ROM) → a small
-    ///     "not available" note
+    ///   • resolved ineligible (no RA set for this ROM), OR identified with an
+    ///     EMPTY set → the same small "not available" note. A game RA knows and
+    ///     has no achievements for used to get the full section and a dashboard
+    ///     that opened on nothing, which is a worse answer than "not available"
+    ///     dressed as a better one. `hasKnownEmptySet` is the shared predicate,
+    ///     so this page and the RA profile cannot disagree about the same game.
     ///   • not resolved yet (fresh import, offline) → nothing, no flicker
     @ViewBuilder
     private var achievementsSection: some View {
         if ra.isEnabled, let filename = game.romFilePath {
             let record = raIndex.record(forFilename: filename)
-            if let record, record.isEligible {
+            if let record, record.isEligible, !record.hasKnownEmptySet {
                 Section {
                     if ra.isLoggedIn {
                         achievementsDashboardRow(filename: filename, record: record)
@@ -768,7 +772,10 @@ struct GameDetailsView: View {
                 message: NSLocalizedString("saveExport.none.message", comment: ""))
             return
         }
-        let ext = game.systemType == "nds" ? "srm" : "sav"
+        // The extension every other emulator expects for this console's save.
+        // On disk we keep one canonical `.sav` per game whatever the console;
+        // this only names the copy that leaves the app.
+        let ext = (game.systemType == "nds" || game.systemType == "snes") ? "srm" : "sav"
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("SaveExport", isDirectory: true)
         let dest = dir.appendingPathComponent("\(romName).\(ext)")

@@ -51,7 +51,7 @@ final class CrossDPadView: UIView {
     private let highlightLeft = CAShapeLayer()
     private let highlightRight = CAShapeLayer()
 
-    // One short centered ridge line per arm (GBA dress only).
+    // One short centered ridge line per arm (the light-faced dresses, plus the SNES).
     private let armLines = CAShapeLayer()
 
     /// UNIFORM inset of the GBA cross from the full hitbox shape, as a fraction of the width.
@@ -64,9 +64,8 @@ final class CrossDPadView: UIView {
     // Cross proportions
     private let armRatio: CGFloat = 0.336  // arm width as fraction of view size (20% wider than the original 0.28)
 
-    // GB/GBC dressed palette (charcoal cross), applied only when `dressed` is on.
-    private static let dpadFill = UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
-    private static let dpadEdge = UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
+    // The dark-cross palette (GB/GBC charcoal, SNES near-black) now lives on DressKind, so the
+    // cross asks the console for it instead of holding the Game Boy's own copy.
 
     /// When on, the cross wears the GB/GBC console-dress look (near-black) instead of the
     /// default translucent white. Set by TouchControlsView for the GB/GBC default layout.
@@ -134,8 +133,11 @@ final class CrossDPadView: UIView {
     private func applyResting() {
         // Retro Pal / custom recolour for the dressed cross (nil = untouched, keep Nostalgia).
         let rp = dressVariant.dpadFace(dressKind)
-        armLines.isHidden = !(dressed && dressKind != .gbc)
-        if dressed && dressKind != .gbc {
+        // The SNES wears the DS's engraved arm lines on a near-black cross instead of a light
+        // one, so it joins the light-faced consoles here and takes an inverted ink below. The
+        // Game Boy family is deliberately left out: its cross is bare and shipped that way.
+        armLines.isHidden = !(dressed && (dressKind.usesLightFaces || dressKind == .snes))
+        if dressed && dressKind.usesLightFaces {
             // GBA/NDS: a light cross, so the relief lines invert to dark. NDS draws its arm lines
             // in the #777777 ink; GBA keeps a translucent-black engraving.
             baseLayer.fillColor = (rp ?? dressKind.faceFill).cgColor
@@ -150,8 +152,21 @@ final class CrossDPadView: UIView {
                    ?? (dressVariant == .retroPal ? RetroPalPalette.ndsInk : DressKind.ndsInk)).cgColor
                 : UIColor.black.withAlphaComponent(0.22).cgColor
         } else if dressed {
-            baseLayer.fillColor = (rp ?? Self.dpadFill).cgColor
-            baseLayer.strokeColor = (rp?.rpEdge ?? Self.dpadEdge).cgColor
+            baseLayer.fillColor = (rp ?? dressKind.darkPadFill).cgColor
+            // The NES's edge is the DRESS's job: it strokes the outline the cross has instead of
+            // a dish, and a second edge on the view itself sat half a point outside it — a
+            // darker line hugging a light one, which is what looked wrong under Retro Pal.
+            baseLayer.strokeColor = dressKind == .nes
+                ? UIColor.clear.cgColor
+                : (rp?.rpEdge ?? dressKind.darkPadEdge).cgColor
+            // SNES arm lines: the DS's engraving, inked against whatever the cross actually
+            // wears. Nostalgia's cross is near-black and takes a light ink; Retro Pal's is the
+            // GBA's light button colour and takes a dark one, so this cannot be a constant.
+            // Set for the whole dark-pad branch and harmless to GB/GBC, whose lines stay hidden.
+            let crossFill = rp ?? dressKind.darkPadFill
+            armLines.strokeColor = crossFill.rpIsLight
+                ? UIColor.black.withAlphaComponent(0.22).cgColor
+                : UIColor.white.withAlphaComponent(0.28).cgColor
             bevelLayer.strokeColor = UIColor.white.withAlphaComponent(0.10).cgColor
             centerDot.fillColor = UIColor.black.withAlphaComponent(0.25).cgColor
             centerDot.strokeColor = UIColor.white.withAlphaComponent(0.15).cgColor
@@ -178,7 +193,7 @@ final class CrossDPadView: UIView {
         // GBA: inset the cross by a UNIFORM amount g on every edge AND narrow the arms by the
         // same g, so the gap to the full-size under-cross is constant all around (an even stroke,
         // with the arms still reaching near the tips). Other modes use the full bounds.
-        let isModern = dressed && dressKind != .gbc
+        let isModern = dressed && dressKind.usesLightFaces
         let g = isModern ? bounds.width * gbaCrossInset : 0
         let r = bounds.insetBy(dx: g, dy: g)
         let cx = r.midX
@@ -285,7 +300,7 @@ final class CrossDPadView: UIView {
 
     private func updateHighlights() {
         // Light GBA cross darkens on press; the dark GB/GBC cross lightens.
-        let pressColor = (dressed && dressKind != .gbc)
+        let pressColor = (dressed && dressKind.usesLightFaces)
             ? UIColor.black.withAlphaComponent(0.18).cgColor
             : UIColor.white.withAlphaComponent(0.25).cgColor
         let clearColor = UIColor.white.withAlphaComponent(0.0).cgColor

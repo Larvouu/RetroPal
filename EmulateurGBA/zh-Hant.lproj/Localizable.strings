@@ -9,7 +9,7 @@
 "library.empty.title" = "歡迎使用 Retro Pal";
 "library.empty.subtitle" = "在 iPhone 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
 "library.empty.button" = "加入遊戲";
-"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc 或 .nds）放到 iPhone 上。";
+"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc 或 .nes）放到 iPhone 上。";
 "library.empty.step2" = "點一下 %@，再到「檔案」App 選取檔案。";
 "library.empty.step3" = "開始玩吧。進度會自動儲存";
 "library.empty.romHint" = "還沒有 ROM？網路上有許多免費且合法的遊戲，搜尋「GBA homebrew」看看。";
@@ -103,7 +103,7 @@
 "pro.welcome" = "歡迎加入 Pro！";
 "pro.benefit.speed" = "全速度範圍：0.25 倍到 4 倍";
 "pro.benefit.slots" = "5 個存檔欄位（原本 2 個）";
-"pro.benefit.rewind" = "30 秒倒帶（GBA/GB/GBC）";
+"pro.benefit.rewind" = "30 秒倒帶";
 "pro.benefit.cheats" = "金手指（GameShark / Action Replay）";
 "pro.benefit.controls" = "自訂配置與控制器按鈕對應";
 "pro.benefit.speed.short" = "全速度範圍";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "藍牙控制器";
 "pro.compare.row.slots" = "存檔欄位";
 "pro.compare.row.speeds" = "速度範圍";
-"pro.compare.row.rewind" = "倒帶（GBA/GB/GBC）";
+"pro.compare.row.rewind" = "倒帶";
 "pro.compare.row.cheats" = "金手指";
 "pro.compare.row.controls" = "自訂操作";
 "pro.compare.values.freeSpeeds" = "1 倍、1.5 倍";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "你已經玩了 %@ 分鐘的復古遊戲";
 "prompt.milestone.subtitle" = "看得出你玩得超投入。解鎖完整體驗吧。";
 "prompt.rewind.title" = "需要回到更久之前嗎？";
-"prompt.rewind.subtitle" = "Pro 讓你在 GBA/GB/GBC 上倒帶 30 秒。魔王戰再也不用怕。";
+"prompt.rewind.subtitle" = "Pro 讓你在每一台主機上都能倒帶 30 秒。魔王戰再也不用怕。";
 "prompt.cheats.title" = "你玩 %@ 已滿 4 小時。準備好無拘無束地玩了嗎？";
 "prompt.cheats.subtitle" = "解鎖金手指、最高速度等功能。付一次錢，就是一輩子。";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "解鎖全部速度、5 個存檔欄位、30 秒倒帶（GBA/GB/GBC）等功能。";
+"prompt.generic.subtitle" = "解鎖全部速度、5 個存檔欄位、30 秒倒帶等功能。";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "懷舊";
@@ -179,7 +179,7 @@
 "legal.melonds" = "melonDS 授權";
 "legal.importantNotice.title" = "重要聲明";
 "legal.aboutApp.title" = "關於本 App";
-"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color 與任天堂 DS 遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
+"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color、任天堂 DS、超級任天堂與紅白機遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
 "legal.aboutApp.description2" = "本 App 不提供遊戲目錄、不散布遊戲內容，也不協助下載受著作權保護的素材。";
 "legal.privacy.title" = "隱私權";
 "legal.privacy.description" = "你的遊戲與存檔都保留在你的裝置上。為了改進 App，Retro Pal 只傳送匿名使用統計，不含個人資料，也不含廣告識別碼。";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA 是本 App 使用的核心模擬引擎，一款 Game Boy Advance 模擬器。其原始碼公開於 [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
 "legal.melonds.description" = "melonDS 是本 App 用於 DS 遊戲的模擬引擎，一款任天堂 DS 模擬器。其原始碼公開於 [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "MesenCE 授權";
+"legal.mesen.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
+"legal.mesen.description" = "MesenCE 是本 App 用於 SNES 與 NES 遊戲的模擬引擎，一款超級任天堂與 NES 模擬器。其原始碼公開於 [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Retro Pal 授權";
 "legal.retropal.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
 "legal.retropal.description" = "Retro Pal 的完整原始碼公開於 [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal)。本軟體不提供任何保固。";
-"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）與 melonDS（GPL-3.0）之上，均未經修改。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
+"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）與 melonDS（GPL-3.0）之上，兩者均未經修改；另建構於 MesenCE（GPL-3.0）之上，我們對其做了一處小修改，並以 patch 檔隨原始碼一併公開。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
 
 "details.noSaves" = "還沒有即時存檔。遊戲中按選單按鈕即可建立。";
 "details.play" = "開始遊戲";
@@ -212,10 +215,14 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark、CodeBreaker 或 Action Replay 格式";
 "cheats.hint.nds" = "Action Replay DS 格式（XXXXXXXX YYYYYYYY）";
+"cheats.hint.snes" = "Game Genie（XXXX-XXXX）或 Pro Action Replay 格式";
+"cheats.hint.nes" = "Game Genie（英文字母）或 Pro Action Rocky 格式";
 "cheats.namePlaceholder" = "名稱（選填）";
 "cheats.add" = "加入代碼";
 "cheats.invalid.gba" = "無法辨識的代碼。請使用 GameShark、CodeBreaker 或 Action Replay 格式。";
 "cheats.invalid.nds" = "無法辨識的代碼。請使用 Action Replay DS 格式：XXXXXXXX YYYYYYYY（每行一組）。";
+"cheats.invalid.snes" = "無法辨識這組代碼。請使用 Game Genie（XXXX-XXXX）或 Pro Action Replay（八個字元）。";
+"cheats.invalid.nes" = "無法辨識這組代碼。請使用 Game Genie（六或八個英文字母）或 Pro Action Rocky（八個字元）。";
 "cheats.empty" = "沒有啟用中的金手指";
 "cheats.findHint" = "代碼可以在網路上找到，搜尋你的遊戲加上金手指即可。";
 "cheats.clearAll" = "全部清除";
@@ -241,10 +248,6 @@
 "prompt.slotsTapped.subtitle" = "解鎖 5 個存檔欄位，存檔永遠有位置。一次購買，永久擁有。";
 "settings.appLabel" = "應用程式";
 
-"review.headline" = "玩得開心嗎？";
-"review.body" = "評論是小型 App 在 App Store 生存的關鍵。一句話就幫上大忙。";
-"review.cta" = "給 5 顆星";
-"review.later" = "暫時不要";
 "cheats.type" = "代碼類型";
 "cheats.restore" = "回復開啟金手指前的存檔";
 "cheats.restore.confirm.title" = "要回復開啟金手指前的存檔嗎？";
@@ -254,6 +257,13 @@
 /* Control Layout */
 "settings.customizeControls" = "自訂操作";
 "settings.remapController" = "重新對應控制器按鈕";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "連接控制器時的畫面配置";
+"controllerLayout.customised" = "已自訂";
+"controllerLayout.footer" = "設定連接控制器時遊戲畫面的位置與大小。當控制器本身遮住部分螢幕時特別實用。每部主機都會分別記住直向與橫向的配置。";
+"controllerLayout.resetAll" = "還原原本的配置";
+"controllerLayout.reset.footer" = "將每部主機還原為連接控制器時的預設配置。";
 "remap.press" = "請按下按鈕…";
 "remap.reset" = "還原預設值";
 "remap.footer" = "點一下按鈕，然後按下要指定的控制器按鈕。方向鍵和搖桿永遠控制方向鍵。";
@@ -322,11 +332,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "加入遊戲";
 "guide.importRom.intro" = "Retro Pal 不內含任何遊戲。ROM 檔案由你自行提供，且必須是你合法持有的（自己的卡帶，或免費合法的自製遊戲）。";
-"guide.importRom.step1" = "把遊戲檔（.gba、.gb、.gbc 或 .nds）放到 iPhone 上：用 Safari 下載、從電腦 AirDrop，或透過 iCloud 雲碟。";
+"guide.importRom.step1" = "把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc 或 .nes）放到 iPhone 上：用 Safari 下載、從電腦 AirDrop，或透過 iCloud 雲碟。";
 "guide.importRom.step2" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPhone」或「iCloud 雲碟」）。";
 "guide.importRom.step3" = "在 Retro Pal 中，點遊戲庫上方的 + 按鈕。";
 "guide.importRom.step4" = "選取檔案，遊戲立即出現在遊戲庫中，馬上可以玩。";
-"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds，以及只含單一遊戲的 .zip。不支援 .7z 與多遊戲壓縮檔，請先解壓出單一檔案。請只匯入你合法持有的檔案。";
+"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，以及只含單一遊戲的 .zip。不支援 .7z 與多遊戲壓縮檔，請先解壓出單一檔案。請只匯入你合法持有的檔案。";
 "settings.guides.section" = "指南";
 "settings.controller.row" = "控制器";
 "common.done" = "完成";
@@ -419,6 +429,10 @@
 "skin.editor.surround" = "螢幕邊框";
 "skin.editor.dpad" = "十字鍵";
 "skin.editor.abButtons" = "A/B 按鈕";
+"skin.editor.faceA" = "A 按鈕";
+"skin.editor.faceB" = "B 按鈕";
+"skin.editor.faceX" = "X 按鈕";
+"skin.editor.faceY" = "Y 按鈕";
 "skin.editor.abLetters" = "A/B 字樣";
 "skin.editor.smallButtons" = "小按鈕";
 "skin.editor.menuIcons" = "選單圖示";
@@ -467,6 +481,10 @@
 "ra.dashboard.title" = "成就";
 "ra.dashboard.unlocked" = "已解鎖";
 "ra.dashboard.locked" = "未解鎖";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "遊戲完成";
+"ra.hud.subsetCompleted" = "系列完成";
 "ra.dashboard.empty" = "這個遊戲沒有成就，或成就尚未載入。";
 "ra.dashboard.summary" = "已解鎖 %lld / %lld";
 "ra.dashboard.rarity" = "%@ 的玩家達成";
@@ -502,8 +520,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "無法存取所選檔案。請試著從「檔案」App 匯入。";
 "import.error.copyFailed" = "無法將遊戲複製到 Retro Pal。請先釋出一些儲存空間，再試一次。";
-"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc 和 .nds。";
-"import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc 和 .nds 遊戲，不支援其他主機。";
+"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes。";
+"import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes 遊戲，不支援其他主機。";
 "import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
 "import.error.alreadyImported" = "這個遊戲已經在你的遊戲庫裡了。";
 "import.error.saveFailed" = "無法將遊戲加入遊戲庫。請再試一次。";
@@ -520,12 +538,15 @@
 "whatsnew.title" = "新功能";
 "whatsnew.version" = "版本 %@";
 "whatsnew.footer" = "你可以隨時在設定中重新查看這些內容。";
+"whatsnew.notice.pro" = "關於 Pro：買斷制的永久版價格會在日後的更新調漲，目前還沒有日期。現在免費的內容永遠免費：沒有廣告，也永遠不需要付費才能玩。";
 "whatsnew.dismiss" = "知道了！";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "外接顯示器";
 "settings.externalDisplay.row" = "在電視上遊玩";
 "settings.externalDisplay.ndsLayout" = "電視上的 DS 畫面";
+"settings.externalDisplay.noTV" = "尚未連接電視";
+"settings.externalDisplay.noTV.caption" = "點一下即可了解如何在電視上遊玩。";
 "settings.externalDisplay.sideBySide" = "並排";
 "settings.externalDisplay.stacked" = "上下排列";
 "settings.externalDisplay.footer" = "以 AirPlay 或連接線接上電視，遊戲畫面即可佔滿螢幕，iPhone 則作為操作介面。DS 會顯示兩個畫面，觸控畫面仍留在手機上。";
@@ -541,7 +562,7 @@
 "guide.airplay.step3" = "啟動遊戲。畫面會佔滿電視，iPhone 保留操作。";
 "guide.airplay.step4" = "DS 的兩個畫面都會顯示在電視上，觸控畫面仍留在 iPhone 上。";
 "guide.airplay.step5" = "接上手把後，畫面上的按鍵會隱藏。手機上只會再用到 DS 的觸控畫面。";
-"guide.airplay.step6" = "電視上兩個 DS 畫面的排列方式，可在「設定」的「外接顯示器」中選擇。";
+"guide.airplay.step6" = "電視連接後，可在「設定」的「外接顯示器」中選擇兩個 DS 畫面的排列方式。";
 "guide.airplay.footer" = "聲音會隨畫面一起透過 AirPlay 傳到電視。使用手把時，可用手把本身的選單鍵開啟暫停選單，完全不需要碰手機。";
 "guide.airplay.proNotice" = "在電視上遊玩是 Retro Pal Pro 的功能。";
 "guide.airplay.proButton" = "在我的電視上遊玩";
@@ -558,7 +579,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "這組代碼含有不會用到的字元。密技代碼只使用 0-9、A-F、空格和連字號。";
+"cheats.invalid.characters.nes" = "這組代碼含有不會用到的字元。紅白機的代碼使用 Game Genie 的英文字母 A P Z L G I T Y E O X U K S V N，或 0-9 和 A-F，以及空格和連字號。";
 "cheats.invalid.pairs" = "Action Replay DS 代碼是成對的：每一行需要兩組八個字元的區塊，例如 94000130 FCFF0000。";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "分成多行的代碼要以「一個項目」加入。請將所有行一起貼上，不要逐行加入。";
+"cheats.multiline.seedAlone" = "這一行只用來解開同一組代碼的其他行，單獨使用不會有任何作用。請和其餘各行一起貼上。";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "瀏覽密技代碼";
@@ -570,6 +596,8 @@
 "cheats.browse.offline" = "沒有連線。代碼每款遊戲只需取得一次，之後便會保存在你的裝置上。";
 "cheats.browse.failed" = "無法載入代碼，請再試一次。";
 "cheats.browse.credit" = "代碼來自 libretro 社群資料庫（CC BY-SA 4.0）。";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "這些代碼來自同一款遊戲的其他版本：%@。多數情況下可以使用，但並非總是如此。";
 "settings.cheatDB.section" = "密技代碼";
 "settings.cheatDB.download" = "取得我的遊戲代碼";
 "settings.cheatDB.progress" = "取得中，%d / %d";
@@ -597,21 +625,24 @@
 "externalDisplay.idle.hint" = "請在 iPhone 上啟動遊戲";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "在電視上遊玩";
-"whatsnew.s1.b1" = "透過 AirPlay 或連接線把遊戲送到電視，iPhone 則保留操作。Pro。";
-"whatsnew.s1.b2" = "DS 的兩個畫面都會顯示在電視上，觸控畫面仍留在 iPhone。";
-"whatsnew.s2.title" = "原始主機的模樣";
-"whatsnew.s2.b1" = "六種影像濾鏡，從 CRT 到 LCD 格線，即時套用，也會一併記錄在截圖和短片中。Pro。";
-"whatsnew.s2.b2" = "二十四組 Game Boy 調色盤，可為每款遊戲個別選擇，所有人免費。";
-"whatsnew.s3.title" = "不用手動輸入密技代碼";
-"whatsnew.s3.b1" = "瀏覽你正在玩的遊戲的社群資料庫，點一下代碼即可加入。Pro。";
-"whatsnew.s3.b2" = "代碼會自動排好格式，被拒絕的代碼也終於會說明問題在哪。";
-"whatsnew.s4.title" = "手把與鍵盤";
-"whatsnew.s4.b1" = "可依主機重新設定每個按鍵，並把快轉、截圖或短片指定到空閒按鍵。Pro。";
-"whatsnew.s4.b2" = "現在支援實體鍵盤，免費。搖桿方向與 DS 按鍵已修正。";
-"whatsnew.s5.title" = "主畫面上的遊戲";
-"whatsnew.s5.b1" = "小工具會以封面顯示你的遊戲，點一下就能從上次的進度繼續。";
-"whatsnew.s5.b2" = "可為每個小工具指定遊戲和存檔，也可以讓它跟著你最近玩的遊戲。";
-"whatsnew.s6.title" = "存檔與任天堂 DS";
-"whatsnew.s6.b1" = "可匯出遊戲存檔來分享或保存，遊戲內存檔也會透過 iCloud 跟著你。";
-"whatsnew.s6.b2" = "可在 DS 的第二插槽放入 Game Boy Advance 遊戲，就像原始主機一樣。";
+"whatsnew.s1.title" = "多了兩台主機";
+"whatsnew.s1.b1" = "超級任天堂與紅白機的遊戲現在都能在 Retro Pal 上玩，而且兩台主機都免費開放給所有人。";
+"whatsnew.s1.b2" = "存檔、速度、倒帶、金手指與成就，從第一天就全部可用。";
+"whatsnew.s2.title" = "看起來就像真的一樣";
+"whatsnew.s2.b1" = "兩台新主機在直向與橫向都會在遊戲四周穿上自己的機殼。";
+"whatsnew.s2.b2" = "打造專屬外觀，為每顆按鍵挑一個顏色，再分享成一張卡片。{PRO}";
+"whatsnew.s3.title" = "每一台主機都能倒帶";
+"whatsnew.s3.b1" = "倒帶來到任天堂 DS。它的快照大得多，需要一種小得多的保存方式。";
+"whatsnew.s3.b2" = "所有人 5 秒，{PRO} 30 秒，六台主機全都適用。";
+"whatsnew.s4.title" = "金手指，修好了";
+"whatsnew.s4.b1" = "分成多行的代碼會以一個項目加入，而且 App 會在你弄錯之前先說明。";
+"whatsnew.s4.b2" = "自己這一版沒有代碼的遊戲，可以借用同一卡帶其他地區版本的代碼。";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "有多組成就的遊戲，現在會分別顯示每一組的數量與徽章。";
+"whatsnew.s5.b2" = "完成一組成就，或完成整款遊戲，都會在畫面上有屬於自己的一刻。";
+"whatsnew.s6.title" = "接上控制器時";
+"whatsnew.s6.b1" = "當夾式控制器遮住部分畫面時，可以移動遊戲畫面並調整大小。{PRO}";
+"whatsnew.s6.b2" = "每台主機都會分別記住直向與橫向的配置。";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "這個系列沒有載入任何成就。";

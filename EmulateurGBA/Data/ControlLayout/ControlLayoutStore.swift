@@ -16,6 +16,8 @@ final class ControlLayoutStore {
     private let activeGBAKey = "activePresetGBA"
     private let activeGBCKey = "activePresetGBC"
     private let activeNDSKey = "activePresetNDS"
+    private let activeSNESKey = "activePresetSNES"
+    private let activeNESKey = "activePresetNES"
 
     private init() {}
 
@@ -25,7 +27,55 @@ final class ControlLayoutStore {
         case .gba: return activeGBAKey
         case .gbc: return activeGBCKey
         case .nds: return activeNDSKey
+        case .snes: return activeSNESKey
+        case .nes: return activeNESKey
         }
+    }
+
+    // MARK: - Controller layout
+
+    /// One stored layout per system, JSON in UserDefaults like the presets.
+    /// Absent or pristine means "never customised", which resolves to exactly
+    /// the geometry the app renders today.
+    private func controllerKey(for system: PresetSystem) -> String {
+        "controllerLayout_" + system.rawValue
+    }
+
+    func controllerLayout(system: PresetSystem) -> ControllerLayout? {
+        guard let data = UserDefaults.standard.data(forKey: controllerKey(for: system)),
+              let layout = try? JSONDecoder().decode(ControllerLayout.self, from: data)
+        else { return nil }
+        return layout
+    }
+
+    func saveControllerLayout(_ layout: ControllerLayout, system: PresetSystem) {
+        if let data = try? JSONEncoder().encode(layout) {
+            UserDefaults.standard.set(data, forKey: controllerKey(for: system))
+        }
+    }
+
+    func resetControllerLayout(system: PresetSystem) {
+        UserDefaults.standard.removeObject(forKey: controllerKey(for: system))
+    }
+
+    /// The layout to actually apply in game, or nil for "render as before".
+    ///
+    /// nil is returned for a free user, for a system that was never customised,
+    /// and for a stored-but-pristine layout. That is the whole zero-regression
+    /// guarantee: anyone who does not opt in reaches the untouched code path.
+    /// A lapsed Pro subscriber falls back safely rather than losing the game
+    /// behind an unusable layout.
+    func activeControllerLayout(system: PresetSystem) -> ControllerLayout? {
+        guard UserDefaults.standard.bool(forKey: "isPro"),
+              let layout = controllerLayout(system: system),
+              !layout.isPristine
+        else { return nil }
+        return layout
+    }
+
+    func hasControllerLayout(system: PresetSystem) -> Bool {
+        guard let l = controllerLayout(system: system) else { return false }
+        return !l.isPristine
     }
 
     // MARK: - Preset CRUD
@@ -63,7 +113,7 @@ final class ControlLayoutStore {
         savePresets(presets)
 
         // Clear active references if this preset was active for any system.
-        for system in [PresetSystem.gba, .gbc, .nds] where activePresetID(system: system) == id {
+        for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes] where activePresetID(system: system) == id {
             setActivePreset(nil, system: system)
         }
     }

@@ -146,6 +146,22 @@ struct SkinEditorView: View {
     /// The ordered (localized-key, value-binding) slots for the current console.
     private var slots: [(String, Binding<UInt32>)] {
         switch system {
+        case .snes:
+            return [("skin.editor.body", snesBinding(\.bodyHex)),
+                    ("skin.editor.surround", snesBinding(\.surroundHex)),
+                    ("skin.editor.dpad", snesBinding(\.padHex)),
+                    ("skin.editor.faceA", snesBinding(\.faceAHex)),
+                    ("skin.editor.faceB", snesBinding(\.faceBHex)),
+                    ("skin.editor.faceX", snesBinding(\.faceXHex)),
+                    ("skin.editor.faceY", snesBinding(\.faceYHex))]
+        // Four slots, and every label already exists: this console's A and B are ONE colour, so
+        // it needs no per-letter keys the way the Super Nintendo did. `dpad` covers the cross and
+        // the pills, which really are one near-black on the real pad.
+        case .nes:
+            return [("skin.editor.body", nesBinding(\.bodyHex)),
+                    ("skin.editor.surround", nesBinding(\.surroundHex)),
+                    ("skin.editor.dpad", nesBinding(\.padHex)),
+                    ("skin.editor.abButtons", nesBinding(\.faceHex))]
         case .gbc:
             return [("skin.editor.body", gbcBinding(\.bodyHex)),
                     ("skin.editor.surround", gbcBinding(\.surroundHex)),
@@ -188,6 +204,16 @@ struct SkinEditorView: View {
     private func ndsBinding(_ kp: WritableKeyPath<NDSSkinPalette, UInt32>) -> Binding<UInt32> {
         Binding(get: { if case .nds(let p) = palette { return p[keyPath: kp] }; return 0 },
                 set: { v in if case .nds(var p) = palette { p[keyPath: kp] = v; palette = .nds(p) } })
+    }
+
+    private func snesBinding(_ kp: WritableKeyPath<SNESSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .snes(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .snes(var p) = palette { p[keyPath: kp] = v; palette = .snes(p) } })
+    }
+
+    private func nesBinding(_ kp: WritableKeyPath<NESSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .nes(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .nes(var p) = palette { p[keyPath: kp] = v; palette = .nes(p) } })
     }
 
     private var saveButton: some View {

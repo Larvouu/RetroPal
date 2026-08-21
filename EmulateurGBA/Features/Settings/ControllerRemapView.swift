@@ -32,10 +32,8 @@ struct ControllerRemapView: View {
     var body: some View {
         List {
             Section {
-                ColoredSegmentedPicker(
-                    segments: [("GBA", PresetSystem.gba),
-                               ("GB / GBC", PresetSystem.gbc),
-                               ("Nintendo DS", PresetSystem.nds)],
+                ConsoleChoiceList(
+                    systems: ConsoleChoiceList.all,
                     selection: Binding(
                         get: { system },
                         set: { newSystem in
@@ -44,7 +42,7 @@ struct ControllerRemapView: View {
                             mapping = ControllerMappingStore.stored(for: newSystem)
                                 ?? .defaults(for: newSystem)
                         }),
-                    selectedColor: UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 1)
+                    tint: Color(red: 0.45, green: 0.2, blue: 0.85)
                 )
             }
 

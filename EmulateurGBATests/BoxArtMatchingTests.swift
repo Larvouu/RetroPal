@@ -259,4 +259,38 @@ struct BoxArtMatchingTests {
         #expect(result.first == BoxArtCandidate(
             stem: "Pokemon - Version Emeraude (France)", method: "fuzzy"))
     }
+
+    // MARK: - Regional siblings (the cheat browser's fallback)
+
+    // Run against the real bundled index, because the value of this lookup is
+    // entirely a claim about that data.
+
+    @Test("A localized cartridge finds its other regional releases")
+    func findsRegionalSiblings() {
+        // BPRF is Pokemon Version Rouge Feu (France). Its siblings are the same
+        // cartridge everywhere else: BPRE USA/Europe, BPRD Germany, BPRI Italy,
+        // BPRS Spain, BPRJ Japan.
+        let siblings = BoxArtIndex.shared.regionalSiblingNames(ofSerial: "BPRF", system: .gba)
+        #expect(siblings.contains("Pokemon - FireRed Version (USA, Europe)"))
+        #expect(siblings.contains("Pokemon - Feuerrote Edition (Germany)"))
+        #expect(!siblings.contains("Pokemon - Version Rouge Feu (France)"))   // itself
+    }
+
+    @Test("The English release is offered first, not the alphabetical one")
+    func prefersEnglishSibling() {
+        // The whole point of the ordering. Alphabetically the German title wins
+        // and a French player reads German cheat names for no reason.
+        let siblings = BoxArtIndex.shared.regionalSiblingNames(ofSerial: "BPRF", system: .gba)
+        #expect(siblings.first == "Pokemon - FireRed Version (USA, Europe)")
+
+        let ruby = BoxArtIndex.shared.regionalSiblingNames(ofSerial: "AXVF", system: .gba)
+        #expect(ruby.first == "Pokemon - Ruby Version (USA, Europe)")
+    }
+
+    @Test("Consoles without a cartridge code get nothing rather than a guess")
+    func noSiblingsWithoutASerial() {
+        #expect(BoxArtIndex.shared.regionalSiblingNames(ofSerial: "BPRF", system: .gb).isEmpty)
+        #expect(BoxArtIndex.shared.regionalSiblingNames(ofSerial: "BPR", system: .gba).isEmpty)
+        #expect(BoxArtIndex.shared.regionalSiblingNames(ofSerial: "", system: .gba).isEmpty)
+    }
 }

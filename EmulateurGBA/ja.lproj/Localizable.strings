@@ -9,7 +9,7 @@
 "library.empty.title" = "Retro Pal へようこそ";
 "library.empty.subtitle" = "レトロゲームを iPhone で。広告なし、個人の追跡もありません。";
 "library.empty.button" = "ゲームを追加";
-"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
+"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
 "library.empty.step2" = "%@ をタップして、「ファイル」アプリでファイルを選びます。";
 "library.empty.step3" = "あとは遊ぶだけ。進行状況は自動で保存されます";
 "library.empty.romHint" = "ROM をお持ちでない場合も、無料で合法なゲームが多数あります。「GBA homebrew」で検索してみてください。";
@@ -103,7 +103,7 @@
 "pro.welcome" = "Pro へようこそ！";
 "pro.benefit.speed" = "全速度対応：0.25倍〜4倍";
 "pro.benefit.slots" = "セーブスロット5個(通常は2個)";
-"pro.benefit.rewind" = "30秒の巻き戻し(GBA/GB/GBC)";
+"pro.benefit.rewind" = "30秒の巻き戻し";
 "pro.benefit.cheats" = "チートコード(GameShark / Action Replay)";
 "pro.benefit.controls" = "カスタム配置とコントローラー割り当て";
 "pro.benefit.speed.short" = "全速度対応";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Bluetooth コントローラー";
 "pro.compare.row.slots" = "セーブスロット";
 "pro.compare.row.speeds" = "速度の範囲";
-"pro.compare.row.rewind" = "巻き戻し(GBA/GB/GBC)";
+"pro.compare.row.rewind" = "巻き戻し";
 "pro.compare.row.cheats" = "チートコード";
 "pro.compare.row.controls" = "操作カスタマイズ";
 "pro.compare.values.freeSpeeds" = "1倍、1.5倍";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "レトロゲームを%@分プレイしました";
 "prompt.milestone.subtitle" = "すっかり夢中ですね。すべての機能を解放しましょう。";
 "prompt.rewind.title" = "もっと前に戻りたいときは？";
-"prompt.rewind.subtitle" = "Pro なら GBA/GB/GBC で30秒の巻き戻しが使えます。ボス戦でもう負けません。";
+"prompt.rewind.subtitle" = "Pro ならどの機種でも30秒の巻き戻しが使えます。ボス戦でもう負けません。";
 "prompt.cheats.title" = "%@のプレイ時間が4時間に到達。制限なしで遊んでみませんか？";
 "prompt.cheats.subtitle" = "チートコード、最大速度などを解放。一度の購入で、一生ものです。";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "全速度、セーブスロット5個、30秒巻き戻し(GBA/GB/GBC)などを解放できます。";
+"prompt.generic.subtitle" = "全速度、セーブスロット5個、30秒巻き戻しなどを解放できます。";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "ノスタルジー";
@@ -179,7 +179,7 @@
 "legal.melonds" = "melonDS ライセンス";
 "legal.importantNotice.title" = "重要なお知らせ";
 "legal.aboutApp.title" = "このアプリについて";
-"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS 用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
+"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS、スーパーファミコン、ファミコン用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
 "legal.aboutApp.description2" = "このアプリはゲームカタログを提供せず、ゲームコンテンツを配布せず、著作権で保護された素材のダウンロードを助長することもありません。";
 "legal.privacy.title" = "プライバシー";
 "legal.privacy.description" = "ゲームとセーブデータは端末内に保存されます。アプリの改善のため、Retro Pal は匿名の利用統計のみを送信します。個人データや広告識別子は送信しません。";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA は、このアプリのコアエミュレーションエンジンとして使用しているゲームボーイアドバンスエミュレータです。ソースコードは [https://mgba.io](https://mgba.io) で公開されています";
 "legal.melonds.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
 "legal.melonds.description" = "melonDS は、このアプリで DS ゲームのエミュレーションエンジンとして使用しているニンテンドーDS エミュレータです。ソースコードは [https://melonds.kuribo64.net](https://melonds.kuribo64.net) で公開されています";
+"legal.mesen" = "MesenCE ライセンス";
+"legal.mesen.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
+"legal.mesen.description" = "MesenCE は、このアプリで SNES および NES ゲームのエミュレーションエンジンとして使用しているスーパーファミコン／NES エミュレータです。ソースコードは [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE) で公開されています";
 "legal.retropal" = "Retro Pal ライセンス";
 "legal.retropal.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
 "legal.retropal.description" = "Retro Pal の完全なソースコードは [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal) で公開されています。本ソフトウェアは無保証で提供されます。";
-"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)と melonDS(GPL-3.0)を無改変で使用しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
+"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)と melonDS(GPL-3.0)を無改変で使用し、MesenCE(GPL-3.0)には小さな変更を一点加えています。その変更はソースコードとあわせてパッチファイルとして公開しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
 
 "details.noSaves" = "クイックセーブはまだありません。プレイ中にメニューボタンから作成できます。";
 "details.play" = "プレイ";
@@ -212,10 +215,14 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark、CodeBreaker、Action Replay 形式";
 "cheats.hint.nds" = "Action Replay DS 形式(XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Game Genie(XXXX-XXXX)または Pro Action Replay 形式";
+"cheats.hint.nes" = "Game Genie(英字)または Pro Action Rocky 形式";
 "cheats.namePlaceholder" = "名前(任意)";
 "cheats.add" = "コードを追加";
 "cheats.invalid.gba" = "認識できないコードです。GameShark、CodeBreaker、Action Replay 形式で入力してください。";
 "cheats.invalid.nds" = "認識できないコードです。Action Replay DS 形式で入力してください：XXXXXXXX YYYYYYYY(1行につき1ペア)。";
+"cheats.invalid.snes" = "コードを認識できません。Game Genie(XXXX-XXXX)または Pro Action Replay(8文字)を入力してください。";
+"cheats.invalid.nes" = "コードを認識できません。Game Genie(英字6文字または8文字)または Pro Action Rocky(8文字)を入力してください。";
 "cheats.empty" = "有効なチートはありません";
 "cheats.findHint" = "コードはインターネットで見つかります。ゲーム名とチートコードで検索してみてください。";
 "cheats.clearAll" = "すべて削除";
@@ -241,10 +248,6 @@
 "prompt.slotsTapped.subtitle" = "スロットを5個に増やせば、セーブの置き場に困りません。一度の購入で、ずっと。";
 "settings.appLabel" = "アプリ";
 
-"review.headline" = "楽しんでいただけていますか？";
-"review.body" = "レビューは小さなアプリが App Store で生き残るための支えです。ひとことでも大きな助けになります。";
-"review.cta" = "星5つで評価する";
-"review.later" = "あとで";
 "cheats.type" = "コードの種類";
 "cheats.restore" = "チート適用前のセーブを復元";
 "cheats.restore.confirm.title" = "チート適用前のセーブを復元しますか？";
@@ -254,6 +257,13 @@
 /* Control Layout */
 "settings.customizeControls" = "操作をカスタマイズ";
 "settings.remapController" = "コントローラーのボタン割り当て";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "コントローラー接続時の画面配置";
+"controllerLayout.customised" = "カスタム済み";
+"controllerLayout.footer" = "コントローラーを接続しているときのゲーム画面の位置と大きさを設定できます。コントローラー自体が画面の一部を覆ってしまう場合に便利です。配置は本体ごとに、縦向きと横向きで別々に保存されます。";
+"controllerLayout.resetAll" = "元の配置に戻す";
+"controllerLayout.reset.footer" = "すべての本体を、コントローラー接続時の初期配置に戻します。";
 "remap.press" = "ボタンを押してください…";
 "remap.reset" = "デフォルトに戻す";
 "remap.footer" = "ボタンをタップしてから、割り当てたいコントローラーのボタンを押してください。十字キーとスティックは常に十字キーを操作します。";
@@ -322,11 +332,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "ゲームを追加";
 "guide.importRom.intro" = "Retro Pal にゲームは含まれていません。ROM ファイルは、合法的に所有しているもの(お持ちのカートリッジや、無料で合法な自作ゲームなど)をご自身で用意してください。";
-"guide.importRom.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds)を iPhone に取り込みます：Safari でダウンロード、パソコンから AirDrop、または iCloud Drive から。";
+"guide.importRom.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes)を iPhone に取り込みます：Safari でダウンロード、パソコンから AirDrop、または iCloud Drive から。";
 "guide.importRom.step2" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPhone 内、iCloud Drive のいずれか)。";
 "guide.importRom.step3" = "Retro Pal でライブラリ上部の + ボタンをタップします。";
 "guide.importRom.step4" = "ファイルを選択すると、すぐにライブラリに追加され、プレイできます。";
-"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、およびゲーム1本入りの .zip。.7z や複数ゲーム入りのアーカイブには対応していません。先に1つのファイルに展開してください。合法的に所有しているファイルのみ読み込めます。";
+"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、およびゲーム1本入りの .zip。.7z や複数ゲーム入りのアーカイブには対応していません。先に1つのファイルに展開してください。合法的に所有しているファイルのみ読み込めます。";
 "settings.guides.section" = "ガイド";
 "settings.controller.row" = "コントローラー";
 "common.done" = "完了";
@@ -419,6 +429,10 @@
 "skin.editor.surround" = "画面フレーム";
 "skin.editor.dpad" = "十字キー";
 "skin.editor.abButtons" = "A/B ボタン";
+"skin.editor.faceA" = "A ボタン";
+"skin.editor.faceB" = "B ボタン";
+"skin.editor.faceX" = "X ボタン";
+"skin.editor.faceY" = "Y ボタン";
 "skin.editor.abLetters" = "A/B の文字";
 "skin.editor.smallButtons" = "小ボタン";
 "skin.editor.menuIcons" = "メニューアイコン";
@@ -467,6 +481,10 @@
 "ra.dashboard.title" = "実績";
 "ra.dashboard.unlocked" = "解除済み";
 "ra.dashboard.locked" = "未解除";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "ゲームコンプリート";
+"ra.hud.subsetCompleted" = "セットコンプリート";
 "ra.dashboard.empty" = "このゲームには実績がないか、まだ読み込まれていません。";
 "ra.dashboard.summary" = "%lld / %lld 解除";
 "ra.dashboard.rarity" = "達成率 %@";
@@ -502,8 +520,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "選択したファイルにアクセスできません。「ファイル」アプリから読み込んでみてください。";
 "import.error.copyFailed" = "ゲームをRetro Palにコピーできませんでした。ストレージの空き容量を確保して、もう一度お試しください。";
-"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds のゲームです。";
-"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds のゲームで、他の機種には対応していません。";
+"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes のゲームです。";
+"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes のゲームで、他の機種には対応していません。";
 "import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
 "import.error.alreadyImported" = "このゲームはすでにライブラリにあります。";
 "import.error.saveFailed" = "ゲームをライブラリに追加できませんでした。もう一度お試しください。";
@@ -520,12 +538,15 @@
 "whatsnew.title" = "新機能";
 "whatsnew.version" = "バージョン %@";
 "whatsnew.footer" = "この内容は設定からいつでも確認できます。";
+"whatsnew.notice.pro" = "Proについて。買い切りの永久版は、今後のアップデートで値上げします。時期はまだ決まっていません。いま無料のものはこれからもずっと無料です。広告はなく、遊ぶためにお金を払う必要もありません。";
 "whatsnew.dismiss" = "了解！";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "外部ディスプレイ";
 "settings.externalDisplay.row" = "テレビで遊ぶ";
 "settings.externalDisplay.ndsLayout" = "テレビでのDS画面";
+"settings.externalDisplay.noTV" = "テレビが接続されていません";
+"settings.externalDisplay.noTV.caption" = "タップすると、テレビで遊ぶ方法を確認できます。";
 "settings.externalDisplay.sideBySide" = "横に並べる";
 "settings.externalDisplay.stacked" = "上下に並べる";
 "settings.externalDisplay.footer" = "AirPlayまたはケーブルでテレビにつなぐと、ゲームが画面いっぱいに映り、iPhoneは操作用として使えます。DSは2画面とも表示され、タッチ操作は手元の画面のままです。";
@@ -541,7 +562,7 @@
 "guide.airplay.step3" = "ゲームを起動します。テレビに大きく映り、iPhoneは操作用のままです。";
 "guide.airplay.step4" = "DSでは2画面ともテレビに表示され、タッチ操作はiPhoneに残ります。";
 "guide.airplay.step5" = "コントローラーをつなぐと画面上のボタンは消えます。手元で使うのはDSのタッチ画面だけになります。";
-"guide.airplay.step6" = "テレビでの2画面の並べ方は、設定の「外部ディスプレイ」で選べます。";
+"guide.airplay.step6" = "テレビを接続すると、2画面の並べ方を設定の「外部ディスプレイ」で選べます。";
 "guide.airplay.footer" = "音声もAirPlayで映像と一緒にテレビへ流れます。コントローラー使用時はコントローラーのメニューボタンでポーズメニューを開けるので、iPhoneに触れる必要はありません。";
 "guide.airplay.proNotice" = "テレビで遊ぶ機能はRetro Pal Proに含まれます。";
 "guide.airplay.proButton" = "テレビで遊ぶ";
@@ -558,7 +579,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "このコードには使われない文字が含まれています。チートコードは0-9、A-F、スペース、ハイフンのみです。";
+"cheats.invalid.characters.nes" = "このコードには使われない文字が含まれています。ファミコンのコードは Game Genie の英字 A P Z L G I T Y E O X U K S V N、または 0-9 と A-F、スペース、ハイフンを使います。";
 "cheats.invalid.pairs" = "Action Replay DSのコードは2つで1組です。各行に8文字のブロックが2つ必要です（例：94000130 FCFF0000）。";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "複数行にわたるコードは1つの項目としてまとめて追加してください。すべての行をまとめて貼り付け、1行ずつ追加しないでください。";
+"cheats.multiline.seedAlone" = "この行は同じコードの他の行を有効にするためだけのものです。単独では何も起きません。残りの行と一緒に貼り付けてください。";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "チートコードを探す";
@@ -570,6 +596,8 @@
 "cheats.browse.offline" = "接続がありません。コードはゲームごとに一度取得され、その後は端末に保存されます。";
 "cheats.browse.failed" = "コードを読み込めませんでした。もう一度お試しください。";
 "cheats.browse.credit" = "libretro コミュニティデータベースのコード（CC BY-SA 4.0）。";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "これらのコードは同じゲームの別版（%@）のものです。多くの場合は動作しますが、常にではありません。";
 "settings.cheatDB.section" = "チートコード";
 "settings.cheatDB.download" = "自分のゲームのコードを取得";
 "settings.cheatDB.progress" = "取得中 %d / %d";
@@ -597,21 +625,24 @@
 "externalDisplay.idle.hint" = "iPhoneでゲームを起動してください";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "テレビで遊ぶ";
-"whatsnew.s1.b1" = "AirPlayやケーブルでゲームをテレビに映し、iPhoneは操作用として使えます。Pro。";
-"whatsnew.s1.b2" = "DSでは2画面ともテレビに表示され、タッチ操作は手元のiPhoneに残ります。";
-"whatsnew.s2.title" = "実機のような見た目";
-"whatsnew.s2.b1" = "CRTからLCDグリッドまで6種類の映像フィルター。プレイ中はもちろん、スクリーンショットやクリップにも反映されます。Pro。";
-"whatsnew.s2.b2" = "ゲームボーイのパレット24種類。ゲームごとに選べて、どなたでも無料です。";
-"whatsnew.s3.title" = "チートコードを打ち込まずに";
-"whatsnew.s3.b1" = "遊んでいるゲームのコミュニティデータベースを開き、コードをタップするだけで追加できます。Pro。";
-"whatsnew.s3.b2" = "コードは自動で整形され、受け付けられなかったコードは理由を教えてくれます。";
-"whatsnew.s4.title" = "コントローラーとキーボード";
-"whatsnew.s4.b1" = "ボタンをコンソールごとに割り当て直せます。早送り、スクリーンショット、クリップも空きボタンに設定できます。Pro。";
-"whatsnew.s4.b2" = "物理キーボードに対応しました。無料です。スティックの方向とDSのボタンも修正しました。";
-"whatsnew.s5.title" = "ホーム画面にあなたのゲームを";
-"whatsnew.s5.b1" = "ウィジェットがゲームをパッケージ画像で表示します。タップすれば続きから遊べます。";
-"whatsnew.s5.b2" = "ウィジェットごとにゲームとセーブデータを選ぶことも、最後に遊んだゲームに任せることもできます。";
-"whatsnew.s6.title" = "セーブとニンテンドーDS";
-"whatsnew.s6.b1" = "ゲームのセーブを書き出して共有・保管できます。ゲーム内セーブはiCloudで引き継がれます。";
-"whatsnew.s6.b2" = "DSのスロット2にゲームボーイアドバンスのソフトを挿せます。実機と同じように。";
+"whatsnew.s1.title" = "対応機種がふたつ増えました";
+"whatsnew.s1.b1" = "スーパーファミコンとファミコンのゲームがRetro Palで遊べるようになりました。どちらも全員無料です。";
+"whatsnew.s1.b2" = "セーブ、速度変更、巻き戻し、チートコード、実績も初日から使えます。";
+"whatsnew.s2.title" = "本物のような見た目で";
+"whatsnew.s2.b1" = "新しい機種はどちらも、縦向きでも横向きでもゲームの周りに専用の本体デザインをまといます。";
+"whatsnew.s2.b2" = "自分だけのスキンを作り、ボタンごとに色を決めて、カードにして共有できます。{PRO}";
+"whatsnew.s3.title" = "すべての機種で巻き戻し";
+"whatsnew.s3.b1" = "巻き戻しがニンテンドーDSにも対応しました。はるかに大きなスナップショットを、はるかに小さく保つ必要がありました。";
+"whatsnew.s3.b2" = "全員に5秒、{PRO}なら30秒、6機種すべてで使えます。";
+"whatsnew.s4.title" = "チートコードを修正";
+"whatsnew.s4.b1" = "複数行のコードは1つの項目として追加します。間違える前にアプリが教えてくれます。";
+"whatsnew.s4.b2" = "自分の版にコードがないゲームでも、同じカートリッジの別地域版のコードを使えます。";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "実績セットが複数あるゲームは、セットごとに数とバッジを表示するようになりました。";
+"whatsnew.s5.b2" = "セットの達成も、ゲーム全体の達成も、それぞれ画面で祝います。";
+"whatsnew.s6.title" = "コントローラー接続時に";
+"whatsnew.s6.b1" = "クリップ式コントローラーが画面の一部を覆うときは、ゲーム画面を動かしてサイズを変えられます。{PRO}";
+"whatsnew.s6.b2" = "配置は機種ごとに、縦向きと横向きで別々に記憶されます。";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "このセットの実績は読み込まれていません。";

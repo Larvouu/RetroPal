@@ -167,11 +167,14 @@ extension PresetSystem {
         case .gba: return "GBA"
         case .gbc: return "GB / GBC"
         case .nds: return "Nintendo DS"
+        case .snes: return "Super Nintendo"
+        case .nes: return "NES"
         }
     }
 
-    /// Whether custom skins can be created / rendered / imported for this console. All three
-    /// (GB/GBC, GBA, NDS) are wired. Kept as a gate so an unsupported console (were one ever added)
-    /// never stores a skin it can't render.
-    var supportsCustomSkins: Bool { self == .gbc || self == .gba || self == .nds }
+    /// Whether custom skins can be created / rendered / imported for this console. Five skin
+    /// formats across six consoles (GB and GBC share one), and since the NES dress landed every
+    /// console has one. Kept as a gate rather than deleted: a console added later starts without
+    /// a dress, and this is where it says it cannot store a skin it could not render.
+    var supportsCustomSkins: Bool { true }
 }

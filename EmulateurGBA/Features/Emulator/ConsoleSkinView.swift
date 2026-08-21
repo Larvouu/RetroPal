@@ -74,14 +74,14 @@ final class ConsoleSkinView: UIView {
     var allButtonFrames: [ControlElement: CGRect] = [:] { didSet { setNeedsDisplay() } }
 
     /// Whether a system has a dress at all — the host uses this to show/hide the view.
-    static func hasSkin(for system: PresetSystem) -> Bool {
-        system == .gbc || system == .gba || system == .nds
-    }
+    /// (The NES has no dress yet: it would show a Game Boy body around an NES game, which is
+    /// worse than the plain page it gets instead.)
+    static func hasSkin(for system: PresetSystem) -> Bool { true }
 
-    /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`.
-    static func hasDressedControls(for system: PresetSystem) -> Bool {
-        system == .gbc || system == .gba || system == .nds
-    }
+    /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, and since the NES
+    /// dress landed every console has one, so both answer yes for all of them. Kept as functions
+    /// rather than deleted: a console added later starts undressed and these are where it says so.
+    static func hasDressedControls(for system: PresetSystem) -> Bool { true }
 
     private var skin: ConsoleSkin? {
         switch system {
@@ -92,7 +92,10 @@ final class ConsoleSkinView: UIView {
         case .nds: return NintendoDSSkin(screens: ndsScreens, micPressed: micPressed, variant: variant,
                                          cardMode: cardMode, controllerConnected: controllerConnected,
                                          slot2Cover: slot2Cover)
-        default:   return nil
+        case .snes: return SuperNintendoSkin(variant: variant, cardMode: cardMode,
+                                             controllerConnected: controllerConnected)
+        case .nes: return NintendoEntertainmentSystemSkin(variant: variant, cardMode: cardMode,
+                                                          controllerConnected: controllerConnected)
         }
     }
 
@@ -2524,5 +2527,1144 @@ struct NintendoDSSkin: ConsoleSkin {
                       color: UIColor.white.withAlphaComponent(0.4).cgColor)
         UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
         ctx.restoreGState()
+    }
+}
+
+// MARK: - Super Nintendo skin
+
+/// The Super Nintendo dress: a warm grey body, four coloured face buttons in a cluster, a
+/// near-black cross in a round dish, a short SELECT/START pair, and the Game Boy's dark inlaid
+/// panel around the screen. Inspired-by: our own art, the era's colours, no marks.
+///
+/// THE PAGE IS TWO PLACES, and that is the whole idea of the portrait dress (2026-08-17). The
+/// top is the console's SCREEN: the dark inlaid panel, running the full width from the very top
+/// of the device, ending just under the picture. Everything below it is the CONTROLLER: one
+/// continuous grey shell carrying the shoulders, the pad, the face cluster and the pair. The
+/// panel used to run down past the L · MENU · R strip, which put the shoulders inside the
+/// screen's surround and made them read as part of the television rather than as part of the
+/// pad. Landscape needs none of this: the picture is already a panel with a gutter each side.
+///
+/// The colours are the spec of 2026-08-12, verbatim: A #CF352E, B #EFC446 (2026-08-13,
+/// replacing the first spec's #24379B, so the pair reads red-and-yellow like the pad), X #294091,
+/// Y #366840; D-pad and the SELECT/START buttons #262628; the printed SELECT/START words the
+/// body colour a little darker, so they read on it. Body #D7D3CF as of 2026-08-17, replacing the
+/// lavender #C1BCD4. The A/B/X/Y letters were the body colour in that spec and are now black,
+/// which is the only single colour that reads on all four faces (the measurement is in
+/// `SNESTouchControlsView`). The FACE COLOURS themselves live on the buttons (DressKind +
+/// ActionButton.dressFace) because they are worn, not drawn here.
+///
+/// What makes the lower half read as a controller rather than as loose buttons: the pad sits in
+/// a round dish that clears its arm tips, the four faces sit in a recessed circle crossed by two
+/// raised capsules, and every control has a carved seat.
+struct SuperNintendoSkin: ConsoleSkin {
+
+    /// Nostalgia vs the Retro Pal recolour. (Custom skins are not offered for this console yet,
+    /// so `.custom` falls back to Nostalgia rather than rendering a palette from another one.)
+    var variant: DressVariant = .nostalgia
+    /// Card mode: the square share card. Reserved for the console share card; the in-game dress
+    /// keeps it false.
+    var cardMode: Bool = false
+    /// A hardware controller is connected: the on-screen pad is hidden, so every decoration that
+    /// anchors to a control is skipped and only the body + screen panel remain.
+    var controllerConnected: Bool = false
+
+    // MARK: Palette
+
+    /// A custom skin's slots come first, then Retro Pal's, then Nostalgia's — the same order
+    /// every other dress here reads them in.
+    private var custom: SNESSkinPalette? { variant.snesPalette }
+    private var bodyMid: UIColor {
+        custom?.body ?? (variant == .retroPal ? RetroPalPalette.snesBody : DressKind.snesBody) }
+    private var bodyTop: UIColor { RetroPalPalette.bodyGradient(bodyMid).top }
+    private var bodyBottom: UIColor { RetroPalPalette.bodyGradient(bodyMid).bottom }
+    /// The screen panel: the Game Boy's #6D6D6D, per the spec ("the same surround as GB/GBC").
+    private var surround: UIColor {
+        custom?.surround ?? (variant == .retroPal ? RetroPalPalette.snesSurround : DressKind.snesSurround) }
+    /// The near-black the D-pad and the SELECT/START pills wear — used here for the shapes drawn
+    /// UNDER them, so a pressed (shrinking) button reveals the same colour rather than the body.
+    private var dark: UIColor { custom?.pad ?? DressKind.snesDark }
+    /// The printed SELECT / START words: the body colour, moved away from itself far enough to
+    /// read on it. Away, not down: Retro Pal's shell is the GBA's near-black, where "darker"
+    /// prints an invisible word.
+    private var printedLabel: UIColor {
+        bodyMid.rpIsLight ? bodyMid.rpMixed(with: .black, 0.34)
+                          : bodyMid.rpMixed(with: .white, 0.45) }
+    /// The recessed seats, a touch darker than the body so a well reads as sunk rather than as
+    /// a rim on flat plastic — the same relationship the Game Boy and the GBA dresses use, at
+    /// the GBA's 15%. Under Retro Pal it IS the GBA's, which is lighter than that shell rather
+    /// than darker, for the same reason the printed word inverts.
+    private var creuse: UIColor {
+        if custom != nil { return bodyMid.rpMixed(with: .black, 0.15) }
+        return variant == .retroPal ? RetroPalPalette.snesCreuse : bodyMid.rpMixed(with: .black, 0.15) }
+
+    /// How far the pad's dish clears the cross's arm tips, in reference points. The arms reach
+    /// the hitbox edge, so this is the visible ring around them: was 5, doubled on 2026-08-17
+    /// so the dish reads as a dish rather than as a rim.
+    ///
+    /// 12 is the ceiling and it is not a taste limit. In portrait the pad's own leading margin
+    /// is 12pt, and the dish is centred on the pad, so at 12 the dish is exactly flush with the
+    /// device edge and past it it runs off the page. 10 leaves 2pt of body showing.
+    private static let padDishClearance: CGFloat = 10
+    /// SELECT/START pill thickness as a fraction of the hitbox short side. Must match
+    /// `SmallButton.pillThicknessRatio` so the carved seat lines up with the button.
+    private static let pillThicknessRatio: CGFloat = 0.24
+    /// The ring of surround colour wanted around the four face buttons, in reference points.
+    /// Wanted rather than guaranteed: the circle gives it up before it will touch a neighbour.
+    private static let clusterRing: CGFloat = 10
+    /// Half-thickness added to each of the two capsules beyond a face button's own radius. Must
+    /// stay above the 4pt seat `drawButtonWells` carves, so the seat lands inside the capsule.
+    private static let capsulePad: CGFloat = 6
+    /// How far the screen panel skirts below the picture in portrait, before the controller's
+    /// shell begins. The L · MENU · R strip starts 36pt into the controls container, so this is
+    /// what keeps the shoulders on the pad rather than in the screen's surround.
+    private static let panelSkirt: CGFloat = 18
+
+    /// The Retro Pal brand mark, tinted to read as printed into this body.
+    private static let brandIcon: UIImage? = RetroPalPalette.brandIcon(tinted: DressKind.snesDark)
+    private var brandColor: UIColor { printedLabel }
+    /// A custom body can be any colour, so the mark is re-tinted for it rather than served from
+    /// the Nostalgia-tinted cache (same treatment the other dresses give a custom body).
+    private var brandImage: UIImage? {
+        custom != nil || variant == .retroPal
+            ? RetroPalPalette.brandIcon(tinted: printedLabel) : Self.brandIcon }
+
+    // MARK: Draw
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        drawBody(ctx, bounds)
+        guard !screen.isEmpty else { return }
+        // The cluster goes under the wells: its circle and capsules are the ground the four
+        // face buttons are then seated into.
+        drawFaceCluster(buttons: buttons, bounds: bounds, screen: screen, scale: scale)
+        drawButtonWells(buttons: buttons, isLandscape: isLandscape, usesJoystick: usesJoystick,
+                        scale: scale)
+        drawShoulderSeats(buttons: buttons, scale: scale)
+        let panel = drawScreenPanel(ctx, bounds: bounds, screen: screen, buttons: buttons,
+                                    isLandscape: isLandscape, scale: scale)
+        drawSelectStartLabels(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawBrand(bounds: bounds, buttons: buttons, panel: panel, screen: screen,
+                  isLandscape: isLandscape, scale: scale)
+    }
+
+    // MARK: Body
+
+    /// Vertical gradient + corner vignette + the shared plastic grain, at the DS's half strength:
+    /// the Super Nintendo's shell is smooth, not the Game Boy's coarse matte.
+    private func drawBody(_ ctx: CGContext, _ bounds: CGRect) {
+        let colors = [bodyTop.cgColor, bodyMid.cgColor, bodyBottom.cgColor] as CFArray
+        if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                 colors: colors, locations: [0, 0.55, 1]) {
+            ctx.drawLinearGradient(grad, start: CGPoint(x: bounds.midX, y: bounds.minY),
+                                   end: CGPoint(x: bounds.midX, y: bounds.maxY), options: [])
+        } else {
+            bodyMid.setFill(); ctx.fill(bounds)
+        }
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let vigColors = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.12).cgColor] as CFArray
+        if let vig = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                colors: vigColors, locations: [0.55, 1]) {
+            let radius = max(bounds.width, bounds.height) * 0.62
+            ctx.drawRadialGradient(vig, startCenter: center, startRadius: 0,
+                                   endCenter: center, endRadius: radius, options: .drawsAfterEndLocation)
+        }
+        ctx.saveGState(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: bounds)
+        ctx.restoreGState()
+    }
+
+    // MARK: The face cluster
+
+    /// The four face buttons as one piece of the pad rather than four loose discs: a recessed
+    /// circle in the SCREEN'S SURROUND COLOUR holding all four, and two raised capsules in the
+    /// body colour lying across it, one over B and A, one over X and Y.
+    ///
+    /// That pairing is the hardware's. On the real pad the cluster is a round recess crossed by
+    /// two parallel diagonal plateaus, each carrying two buttons, and in this layout's diamond
+    /// (X top, Y left, A right, B bottom) the two diagonal pairs are exactly {B, A} and {X, Y}.
+    /// So the capsules follow the segment between each pair's centres and inherit their angle,
+    /// which is why nothing here is hard-coded to 45 degrees: in landscape the four sit in the
+    /// DS's staggered arrangement instead and the capsules follow that too.
+    ///
+    /// The capsules are drawn LAST so they read as lying ON the circle.
+    ///
+    /// The circle's radius is the tight one plus `clusterRing`, and the ring is what it gives up
+    /// when there is no room: it is clamped so it never reaches the page edge, the picture, or
+    /// any control that is not a face button. On an iPhone SE in portrait the clamp binds, on
+    /// CLIP, and the ring closes to nearly nothing with the capsules touching its edge. If even
+    /// the BUTTONS will not fit, nothing is drawn at all, since a circle cutting through the
+    /// buttons it exists to hold is worse than no circle.
+    private func drawFaceCluster(buttons: [ControlElement: CGRect], bounds: CGRect,
+                                 screen: CGRect, scale: CGFloat) {
+        // X/Y first, B/A second: the later capsule lies on the earlier one where they cross,
+        // and A and B are the pair a thumb rests on.
+        let pairs: [(ControlElement, ControlElement)] = [(.btnX, .btnY), (.btnB, .btnA)]
+        let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { buttons[$0] }
+        guard faces.count == 4 else { return }
+        let c = CGPoint(x: faces.map(\.midX).reduce(0, +) / 4,
+                        y: faces.map(\.midY).reduce(0, +) / 4)
+
+        // Two radii, because the circle has two different jobs. It must HOLD the buttons, and it
+        // wants to hold the capsules too: a capsule reaches its pair's far centre plus its own
+        // half-thickness, which is a face radius plus `capsulePad`. When the page is tight the
+        // capsules are what gives, reaching the ring's edge the way the real pad's plateaus do,
+        // and only the buttons' radius is treated as a floor.
+        var tightButtons: CGFloat = 0
+        var tight: CGFloat = 0
+        for f in faces {
+            let d = hypot(f.midX - c.x, f.midY - c.y) + min(f.width, f.height) / 2
+            tightButtons = max(tightButtons, d)
+            tight = max(tight, d + Self.capsulePad * scale)
+        }
+
+        /// Distance from the cluster's centre to a rectangle (0 if the centre is inside it).
+        func gap(to r: CGRect) -> CGFloat {
+            let dx = max(r.minX - c.x, 0, c.x - r.maxX)
+            let dy = max(r.minY - c.y, 0, c.y - r.maxY)
+            return hypot(dx, dy)
+        }
+        var allowed = min(c.x - bounds.minX, bounds.maxX - c.x,
+                          c.y - bounds.minY, bounds.maxY - c.y) - 2 * scale
+        allowed = min(allowed, gap(to: screen.insetBy(dx: -8 * scale, dy: -8 * scale)))
+        for e in [ControlElement.dpad, .btnMenu, .btnClip, .btnSelect, .btnStart, .btnL, .btnR] {
+            guard let f = buttons[e] else { continue }
+            // The pad is measured by its DISH, not by its hitbox: the dish is the drawn thing
+            // the circle could visibly collide with, and it is the wider of the two.
+            let margin = (e == .dpad ? Self.padDishClearance + 2 : 4) * scale
+            allowed = min(allowed, gap(to: f.insetBy(dx: -margin, dy: -margin)))
+        }
+        let r = min(tight + Self.clusterRing * scale, allowed)
+        guard r > tightButtons else { return }
+
+        drawRecessedCircle(center: c, radius: r, fill: surround, scale: scale)
+
+        for (first, second) in pairs {
+            guard let f = buttons[first], let s = buttons[second] else { continue }
+            let t = max(min(f.width, f.height), min(s.width, s.height)) + 2 * Self.capsulePad * scale
+            let line = CGMutablePath()
+            line.move(to: CGPoint(x: f.midX, y: f.midY))
+            line.addLine(to: CGPoint(x: s.midX, y: s.midY))
+            let capsule = UIBezierPath(cgPath: line.copy(strokingWithWidth: t, lineCap: .round,
+                                                         lineJoin: .round, miterLimit: 0))
+            drawRaised(capsule, fill: bodyMid, scale: scale)
+        }
+    }
+
+    // MARK: Wells
+
+    /// A carved seat under every control: the round dish the cross sits in, a circle under each
+    /// face button, the diagonal slit under SELECT/START, and a circle under MENU and CLIP.
+    private func drawButtonWells(buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                 usesJoystick: Bool, scale: CGFloat) {
+        if let d = buttons[.dpad] {
+            // The dish reads as the seat the whole cross sits in, so it has to clear the arm
+            // tips by enough to be seen as a ring rather than as a rim (2026-08-17): the
+            // arms reach the hitbox edge, so the radius is measured from there.
+            let r = max(d.width, d.height) / 2 + Self.padDishClearance * scale
+            drawRecessedCircle(center: CGPoint(x: d.midX, y: d.midY), radius: r,
+                               fill: creuse, scale: scale)
+            // The cross's own dark shape, a hair bigger, so a tilted press reveals it — the
+            // joystick's round dish covers it, so it is drawn for the cross only.
+            if !usesJoystick {
+                dark.setFill()
+                crossPath(in: d.insetBy(dx: -1 * scale, dy: -1 * scale),
+                          armRatio: 0.336, cornerRadius: 6 * scale).fill()
+            }
+        }
+        for e in [ControlElement.btnA, .btnB, .btnX, .btnY, .btnMenu, .btnClip] {
+            guard let f = buttons[e] else { continue }
+            let r = min(f.width, f.height) / 2 + 4 * scale
+            drawRecessedCircle(center: CGPoint(x: f.midX, y: f.midY), radius: r, scale: scale)
+        }
+        for e in [ControlElement.btnA, .btnB, .btnX, .btnY, .btnMenu, .btnClip] {
+            guard let f = buttons[e] else { continue }
+            let r = min(f.width, f.height) / 2 + 1 * scale
+            dark.setFill()
+            UIBezierPath(ovalIn: CGRect(x: f.midX - r, y: f.midY - r, width: 2 * r, height: 2 * r)).fill()
+        }
+        for e in [ControlElement.btnSelect, .btnStart] {
+            guard let f = buttons[e] else { continue }
+            let pillT = min(f.width, f.height) * Self.pillThicknessRatio
+            // The seat comes from the same endpoints the button's own pill is built from, so a
+            // change to one is a change to both. The SNES pair draw at half length; the hitbox,
+            // the diagonal and the printed word beside them are unchanged.
+            let (p1, p2) = DressKind.pillEndpoints(in: f, thickness: pillT, isLandscape: isLandscape,
+                                                   lengthRatio: DressKind.snes.pillLengthRatio)
+            drawRecessedSlit(from: p1, to: p2, thickness: pillT + 4 * scale, scale: scale)
+        }
+    }
+
+    /// A carved seat around each shoulder, capsule-matched — the ring only, no dark under-shape,
+    /// because the shoulders wear the body colour and a dark ring would read as a gap.
+    private func drawShoulderSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        for e in [ControlElement.btnL, .btnR] {
+            guard let f = buttons[e] else { continue }
+            drawRecessedCapsule(f.insetBy(dx: -4 * scale, dy: -4 * scale), fill: bodyMid, scale: scale)
+        }
+    }
+
+    // MARK: Screen panel
+
+    /// The dark inlaid panel around the game screen — the Game Boy's treatment and its #6D6D6D,
+    /// per the spec, on the Game Boy Advance's geometry (which is the layout this console wears).
+    ///
+    /// PORTRAIT: full width, and SYMMETRIC about the picture — the same skirt above it as below
+    /// it, so the panel reads as a frame around the game rather than as the top of the device.
+    /// It used to run from the very top of the screen down past the L · MENU · R strip, which
+    /// put the status bar on the panel and seated the shoulders inside the screen's surround,
+    /// making them read as television rather than as pad. Both ends are the same number now,
+    /// and that is the whole rule.
+    /// LANDSCAPE: grown from the screen with side margins, enveloping the SELECT · MENU · START
+    /// row, clear of the device edges. Untouched by the above: that page already reads as a
+    /// picture with a gutter of controller each side.
+    @discardableResult
+    private func drawScreenPanel(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                                 buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                 scale: CGFloat) -> CGRect {
+        let sidePad = 8 * scale
+        let botMargin = 10 * scale
+        var bottom = screen.maxY + Self.panelSkirt * scale
+        if isLandscape {
+            let ys = [buttons[.btnSelect], buttons[.btnMenu], buttons[.btnStart]].compactMap { $0?.maxY }
+            if let m = ys.max() { bottom = m + botMargin }
+        }
+        var rect: CGRect
+        if cardMode {
+            rect = screen.insetBy(dx: -18 * scale, dy: -18 * scale)
+        } else if isLandscape {
+            rect = CGRect(x: screen.minX - sidePad, y: screen.minY - 12 * scale,
+                          width: screen.width + 2 * sidePad, height: bottom - (screen.minY - 12 * scale))
+            rect = rect.intersection(bounds.insetBy(dx: 4 * scale, dy: 4 * scale))
+        } else {
+            let top = screen.minY - Self.panelSkirt * scale
+            rect = CGRect(x: bounds.minX, y: top, width: bounds.width, height: bottom - top)
+        }
+        guard rect.width > 8, rect.height > 8 else { return .zero }
+
+        // ONE radius on all four corners (2026-08-17). The Game Boy's panel carries an
+        // oversized bottom-right curve, which is that console's own asymmetry; this one is a
+        // television bezel and reads as a mistake unless its corners match. In portrait only
+        // the two bottom corners are on the page at all, and they now mirror each other.
+        let small = 8 * scale
+        let panel = roundedPath(rect, tl: small, tr: small, br: small, bl: small)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.5 * scale), blur: 5 * scale,
+                      color: UIColor.black.withAlphaComponent(0.35).cgColor)
+        surround.setFill(); panel.fill()
+        ctx.restoreGState()
+        let outer = roundedPath(rect.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                tl: small + 2 * scale, tr: small + 2 * scale,
+                                br: small + 2 * scale, bl: small + 2 * scale)
+        drawRecessRelief(panel, outer: outer, scale: scale)
+        let lcd = roundedPath(screen.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                              tl: 3 * scale, tr: 3 * scale, br: 3 * scale, bl: 3 * scale)
+        UIColor.black.withAlphaComponent(0.45).setStroke()
+        lcd.lineWidth = 1.5 * scale
+        lcd.stroke()
+        // Portrait only: the controller's own top edge, catching light just under the panel.
+        // The panel's drop shadow already darkens the body below it; this is the lit lip on the
+        // other side of that shadow, and the two together are what make the seam read as one
+        // piece of plastic beginning where another ends.
+        if !isLandscape && !cardMode {
+            let y = rect.maxY + 2.5 * scale
+            let lip = UIBezierPath()
+            lip.move(to: CGPoint(x: bounds.minX, y: y))
+            lip.addLine(to: CGPoint(x: bounds.maxX, y: y))
+            UIColor.white.withAlphaComponent(0.35).setStroke()
+            lip.lineWidth = 1 * scale
+            lip.stroke()
+        }
+        return rect
+    }
+
+    // MARK: Printed labels
+
+    /// SELECT and START printed on the case beside their pill — rotated to the diagonal in
+    /// portrait, horizontal in landscape, in the body colour darkened so it reads.
+    private func drawSelectStartLabels(buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                       scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        for (e, text) in [(ControlElement.btnSelect, "SELECT"), (.btnStart, "START")] {
+            guard let f = buttons[e] else { continue }
+            let kern = 0.5 * scale
+            if isLandscape {
+                var size = 10 * scale
+                var sz = measure(text, size: size, kern: kern)
+                if sz.width > 0 { size *= (f.width * 0.7) / sz.width; sz = measure(text, size: size, kern: kern) }
+                NSAttributedString(string: text, attributes: [
+                    .font: UIFont.systemFont(ofSize: size, weight: .semibold),
+                    .foregroundColor: printedLabel, .kern: kern,
+                ]).draw(at: CGPoint(x: f.midX - sz.width / 2,
+                                    y: f.minY + f.height * 2 / 3 - sz.height / 2))
+                continue
+            }
+            let dx = f.width, dy = -f.height
+            let len = max(1, hypot(dx, dy))
+            let angle = atan2(dy, dx)
+            var size = 10 * scale
+            var sz = measure(text, size: size, kern: kern)
+            if sz.width > 0 { size *= (len * 0.7) / sz.width; sz = measure(text, size: size, kern: kern) }
+            let nx = -dy / len, ny = dx / len
+            let pillT = min(f.width, f.height) * Self.pillThicknessRatio
+            let off = pillT / 2 + 2 * scale + sz.height / 2
+            let center = CGPoint(x: f.midX + nx * off, y: f.midY + ny * off)
+            ctx.saveGState()
+            ctx.translateBy(x: center.x, y: center.y)
+            ctx.rotate(by: angle)
+            NSAttributedString(string: text, attributes: [
+                .font: UIFont.systemFont(ofSize: size, weight: .semibold),
+                .foregroundColor: printedLabel, .kern: kern,
+            ]).draw(at: CGPoint(x: -sz.width / 2, y: -sz.height / 2))
+            ctx.restoreGState()
+        }
+    }
+
+    // MARK: Brand
+
+    /// The Retro Pal mark, in whatever space the controller has left.
+    ///
+    /// PORTRAIT: the band across the bottom of the shell, under the SELECT/START row, centred on
+    /// the D-pad's column. It inherited the Game Boy Advance's spot, level with CLIP and left of
+    /// MENU, and that spot stopped existing when CLIP moved down into the bottom row: measured
+    /// on a 14 Pro the plaque overlapped the SELECT pill by about 14pt. Sitting on the D-pad's
+    /// column rather than the page's centre also keeps it out of the home indicator's path.
+    /// LANDSCAPE: the left gutter, centred between the D-pad's bottom and the device's.
+    /// CARD: above the picture, horizontally centred, at 1.5x — the GBA card's spot and the GBA
+    /// card's size, deliberately, so the two cards read as one family. The card has no MENU and
+    /// no CLIP (Menu is parked off it, Clip hidden), which is why the in-game anchors below
+    /// cannot serve here and why this console's card carried no brand at all until now.
+    private func drawBrand(bounds: CGRect, buttons: [ControlElement: CGRect], panel: CGRect,
+                           screen: CGRect, isLandscape: Bool, scale: CGFloat) {
+        guard !controllerConnected else { return }
+        let txt = measure("PHONES", size: 9.5 * scale, kern: 0.5 * scale)
+        let iconH = 14 * scale
+        let icon = UIImage(systemName: "headphones")
+        let aspect: CGFloat = icon.map { $0.size.width / max(1, $0.size.height) } ?? 1
+        var w = (iconH * aspect + 5 * scale + txt.width + 36 * scale) * 1.125
+        var h = (max(iconH, txt.height) + 14 * scale) * 1.125
+        let rect: CGRect
+        if cardMode {
+            w *= 1.5; h *= 1.5
+            let cy = max(h / 2 + 8 * scale, (bounds.minY + screen.minY) / 2)
+            rect = CGRect(x: bounds.midX - w / 2, y: cy - h / 2, width: w, height: h)
+        } else if isLandscape {
+            // ABOVE the pad rather than below it, and 25% larger: the band over the pad is the
+            // emptiest part of this page, and the band under it is where a thumb rests.
+            //
+            // On the PAD'S COLUMN, centre to centre, and centred in the band between the shoulder
+            // row and the top of the pad's up arm. Both were the gutter's own centre lines before,
+            // which put the plaque high and left of the pad and made it read as a stray label
+            // rather than as the machine's badge; and the band it now takes is the one CLIP
+            // vacated when it crossed to the right gutter.
+            guard let d = buttons[.dpad] else { return }
+            w *= 1.25; h *= 1.25
+            let gutter = panel.minX - bounds.minX
+            guard gutter > 24 * scale else { return }
+            if w > gutter - 12 * scale { let f = (gutter - 12 * scale) / w; w *= f; h *= f }
+            // Both shoulders, and the lower edge of the two, exactly as the layout reads it for
+            // CLIP (`DressKind.snesLandscapeUtilityCenterY` is the shared line).
+            let shoulderBottom = [buttons[.btnL], buttons[.btnR]]
+                .compactMap { $0?.maxY }.max() ?? bounds.minY
+            let availH = d.minY - shoulderBottom
+            guard availH > h + 8 * scale else { return }
+            let cy = DressKind.snesLandscapeUtilityCenterY(shoulderBottom: shoulderBottom,
+                                                           padTop: d.minY)
+            // Centred on the pad, then held inside the gutter. The clamp only engages where the
+            // plaque would otherwise cross the picture's panel or the device edge, so on the
+            // devices where the pad's column has the room the alignment is exact.
+            let x = min(max(bounds.minX + 12 * scale, d.midX - w / 2),
+                        panel.minX - 12 * scale - w)
+            rect = CGRect(x: x, y: cy - h / 2, width: w, height: h)
+        } else {
+            let rowBottom = [buttons[.btnSelect], buttons[.btnStart], buttons[.btnClip]]
+                .compactMap { $0?.maxY }.max() ?? bounds.midY
+            let availH = bounds.maxY - rowBottom
+            guard availH > h + 8 * scale else { return }
+            let avail = bounds.width - 24 * scale
+            if w > avail { let f = avail / w; w *= f; h *= f }
+            let wanted = (buttons[.dpad]?.midX ?? bounds.midX) - w / 2
+            let x = min(max(bounds.minX + 12 * scale, wanted), bounds.maxX - 12 * scale - w)
+            rect = CGRect(x: x, y: (rowBottom + bounds.maxY) / 2 - h / 2, width: w, height: h)
+        }
+        drawBranding(in: rect, scale: scale)
+    }
+
+    private func drawBranding(in rect: CGRect, scale: CGFloat) {
+        guard rect.width > 24 * scale, rect.height > 12 * scale else { return }
+        drawRecessedCapsule(rect, fill: bodyMid, scale: scale)
+        let inset = rect.insetBy(dx: rect.height * 0.34, dy: rect.height * 0.20)
+        guard inset.width > 4, inset.height > 4 else { return }
+        let iconSide = inset.height
+        let gap = iconSide * 0.22
+        if let icon = brandImage {
+            icon.draw(in: aspectFit(icon.size, in: CGRect(x: inset.minX, y: inset.minY,
+                                                          width: iconSide, height: iconSide)))
+        }
+        let textX = inset.minX + iconSide + gap
+        let textRect = CGRect(x: textX, y: inset.minY, width: inset.maxX - textX, height: inset.height)
+        guard textRect.width > 8 else { return }
+        let kern = 0.5 * scale
+        var fontSize = textRect.height * 0.95
+        var sz = measure("Retro Pal", size: fontSize, kern: kern)
+        if sz.width > textRect.width, sz.width > 0 {
+            fontSize *= textRect.width / sz.width
+            sz = measure("Retro Pal", size: fontSize, kern: kern)
+        }
+        drawEmbossedText("Retro Pal", at: CGPoint(x: textRect.minX, y: textRect.midY - sz.height / 2),
+                         size: fontSize, color: brandColor, kern: kern, scale: scale)
+    }
+
+    // MARK: Relief primitives
+
+    /// A RAISED shape: filled, grained, with a drop shadow under it, a light catch inside its top
+    /// rim and a dark one inside its bottom rim. The inverse of `drawRecessRelief`, and what
+    /// makes the two face capsules read as plateaus standing in the cluster's recess.
+    private func drawRaised(_ path: UIBezierPath, fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.6 * scale), blur: 3.4 * scale,
+                      color: UIColor.black.withAlphaComponent(0.30).cgColor)
+        fill.setFill(); path.fill()
+        ctx.restoreGState()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: path.bounds)
+        ctx.restoreGState()
+        let outer = UIBezierPath(cgPath: path.cgPath)
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.4 * scale), blur: 1.8 * scale,
+                      color: UIColor.white.withAlphaComponent(0.55).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.4 * scale), blur: 2.0 * scale,
+                      color: UIColor.black.withAlphaComponent(0.35).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+    }
+
+    private func drawRecessedCircle(center c: CGPoint, radius r: CGFloat,
+                                    fill: UIColor? = nil, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let rect = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
+        let path = UIBezierPath(ovalIn: rect)
+        (fill ?? bodyMid).setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: rect); ctx.restoreGState()
+        drawRecessRelief(path, outer: UIBezierPath(ovalIn: rect.insetBy(dx: -2 * scale, dy: -2 * scale)),
+                         scale: scale)
+    }
+
+    private func drawRecessedCapsule(_ rect: CGRect, fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let radius = min(rect.width, rect.height) / 2
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+        fill.setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: rect); ctx.restoreGState()
+        let outer = UIBezierPath(roundedRect: rect.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                 cornerRadius: radius + 2 * scale)
+        drawRecessRelief(path, outer: outer, scale: scale)
+    }
+
+    /// A recessed capsule along an arbitrary segment (the diagonal SELECT/START seats).
+    private func drawRecessedSlit(from p1: CGPoint, to p2: CGPoint, thickness t: CGFloat,
+                                  scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let line = CGMutablePath(); line.move(to: p1); line.addLine(to: p2)
+        let path = UIBezierPath(cgPath: line.copy(strokingWithWidth: t, lineCap: .round,
+                                                  lineJoin: .round, miterLimit: 0))
+        bodyMid.setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: path.bounds); ctx.restoreGState()
+        let outer = UIBezierPath(cgPath: line.copy(strokingWithWidth: t + 4 * scale, lineCap: .round,
+                                                   lineJoin: .round, miterLimit: 0))
+        drawRecessRelief(path, outer: outer, scale: scale)
+    }
+
+    private func drawRecessRelief(_ path: UIBezierPath, outer: UIBezierPath, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.8 * scale), blur: 2.6 * scale,
+                      color: UIColor.black.withAlphaComponent(0.45).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 2 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.2 * scale), blur: 1.6 * scale,
+                      color: UIColor.white.withAlphaComponent(0.4).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+    }
+
+    // MARK: Small helpers (ported, unchanged in behaviour)
+
+    private func measure(_ s: String, size: CGFloat, kern: CGFloat) -> CGSize {
+        NSAttributedString(string: s, attributes: [
+            .font: UIFont.systemFont(ofSize: size, weight: .semibold), .kern: kern,
+        ]).size()
+    }
+
+    private func drawEmbossedText(_ s: String, at origin: CGPoint, size: CGFloat,
+                                  color: UIColor, kern: CGFloat, scale: CGFloat) {
+        let font = UIFont.systemFont(ofSize: size, weight: .semibold)
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: UIColor.white.withAlphaComponent(0.5), .kern: kern,
+        ]).draw(at: CGPoint(x: origin.x - 0.6 * scale, y: origin.y - 0.6 * scale))
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: UIColor.black.withAlphaComponent(0.30), .kern: kern,
+        ]).draw(at: CGPoint(x: origin.x + 0.6 * scale, y: origin.y + 0.6 * scale))
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: color, .kern: kern,
+        ]).draw(at: origin)
+    }
+
+    private func aspectFit(_ imageSize: CGSize, in rect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let s = min(rect.width / imageSize.width, rect.height / imageSize.height)
+        let w = imageSize.width * s, h = imageSize.height * s
+        return CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h)
+    }
+
+    private func roundedPath(_ rect: CGRect, tl: CGFloat, tr: CGFloat,
+                             br: CGFloat, bl: CGFloat) -> UIBezierPath {
+        let p = UIBezierPath()
+        p.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))
+        p.addArc(withCenter: CGPoint(x: rect.maxX - tr, y: rect.minY + tr), radius: tr,
+                 startAngle: -.pi / 2, endAngle: 0, clockwise: true)
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - br))
+        p.addArc(withCenter: CGPoint(x: rect.maxX - br, y: rect.maxY - br), radius: br,
+                 startAngle: 0, endAngle: .pi / 2, clockwise: true)
+        p.addLine(to: CGPoint(x: rect.minX + bl, y: rect.maxY))
+        p.addArc(withCenter: CGPoint(x: rect.minX + bl, y: rect.maxY - bl), radius: bl,
+                 startAngle: .pi / 2, endAngle: .pi, clockwise: true)
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
+        p.addArc(withCenter: CGPoint(x: rect.minX + tl, y: rect.minY + tl), radius: tl,
+                 startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true)
+        p.close()
+        return p
+    }
+
+    /// The rounded 12-point cross the dressed pad wears, so the dark shape under it lines up.
+    private func crossPath(in bounds: CGRect, armRatio: CGFloat, cornerRadius rr: CGFloat) -> UIBezierPath {
+        let w = bounds.width, h = bounds.height
+        let cx = bounds.midX, cy = bounds.midY
+        let ox = bounds.origin.x, oy = bounds.origin.y
+        let halfArm = w * armRatio / 2
+        let r = min(rr, halfArm)
+        let p = UIBezierPath()
+        p.move(to: CGPoint(x: cx - halfArm + r, y: oy))
+        p.addLine(to: CGPoint(x: cx + halfArm - r, y: oy))
+        p.addArc(withCenter: CGPoint(x: cx + halfArm - r, y: oy + r), radius: r, startAngle: -.pi/2, endAngle: 0, clockwise: true)
+        p.addLine(to: CGPoint(x: cx + halfArm, y: cy - halfArm))
+        p.addLine(to: CGPoint(x: ox + w - r, y: cy - halfArm))
+        p.addArc(withCenter: CGPoint(x: ox + w - r, y: cy - halfArm + r), radius: r, startAngle: -.pi/2, endAngle: 0, clockwise: true)
+        p.addLine(to: CGPoint(x: ox + w, y: cy + halfArm - r))
+        p.addArc(withCenter: CGPoint(x: ox + w - r, y: cy + halfArm - r), radius: r, startAngle: 0, endAngle: .pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx + halfArm, y: cy + halfArm))
+        p.addLine(to: CGPoint(x: cx + halfArm, y: oy + h - r))
+        p.addArc(withCenter: CGPoint(x: cx + halfArm - r, y: oy + h - r), radius: r, startAngle: 0, endAngle: .pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm + r, y: oy + h))
+        p.addArc(withCenter: CGPoint(x: cx - halfArm + r, y: oy + h - r), radius: r, startAngle: .pi/2, endAngle: .pi, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm, y: cy + halfArm))
+        p.addLine(to: CGPoint(x: ox + r, y: cy + halfArm))
+        p.addArc(withCenter: CGPoint(x: ox + r, y: cy + halfArm - r), radius: r, startAngle: .pi/2, endAngle: .pi, clockwise: true)
+        p.addLine(to: CGPoint(x: ox, y: cy - halfArm + r))
+        p.addArc(withCenter: CGPoint(x: ox + r, y: cy - halfArm + r), radius: r, startAngle: .pi, endAngle: -.pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm, y: cy - halfArm))
+        p.addLine(to: CGPoint(x: cx - halfArm, y: oy + r))
+        p.addArc(withCenter: CGPoint(x: cx - halfArm + r, y: oy + r), radius: r, startAngle: .pi, endAngle: -.pi/2, clockwise: true)
+        p.close()
+        return p
+    }
+}
+
+// MARK: - NES skin
+
+/// The NES dress: the pad's light grey shell, a red band across it, two red round faces recessed
+/// into their own dark panel, two black pills in a second one, a near-black cross in a round dish,
+/// and the deep inlaid panel around the screen. Inspired-by: our own art, the era's colours, no
+/// marks.
+///
+/// The palette is `Store/components/console-nes.svg`, the drawing this app already ships as the
+/// Appearance button's icon, so the picture of the console and the console you hold cannot
+/// describe the same machine differently. Body #D2D5DC, faces and band #D9412B, cross and pills
+/// #262628, the wells #8A8F9C, screen panel #3A3550.
+///
+/// WHAT MAKES IT READ AS A NES RATHER THAN AS A SECOND SUPER NINTENDO, since the two share a body
+/// family and a near-black pad: the two RECESSED WELLS. On this pad the buttons sit in sunken
+/// panels rather than on a plateau, which is the opposite relief of the Super Nintendo's raised
+/// capsules, and it is the first thing the eye picks up. The red band is the second, and the
+/// screen panel's deeper, bluer surround is the third.
+///
+/// Same two-place portrait rule as the Super Nintendo: the panel is symmetric about the picture
+/// and everything below it is the controller.
+struct NintendoEntertainmentSystemSkin: ConsoleSkin {
+
+    var variant: DressVariant = .nostalgia
+    var cardMode: Bool = false
+    var controllerConnected: Bool = false
+
+    // MARK: Palette
+
+    private var custom: NESSkinPalette? { variant.nesPalette }
+    private var bodyMid: UIColor {
+        custom?.body ?? (variant == .retroPal ? RetroPalPalette.nesBody : DressKind.nesBody) }
+    private var bodyTop: UIColor { RetroPalPalette.bodyGradient(bodyMid).top }
+    private var bodyBottom: UIColor { RetroPalPalette.bodyGradient(bodyMid).bottom }
+    private var surround: UIColor {
+        custom?.surround ?? (variant == .retroPal ? RetroPalPalette.nesSurround : DressKind.nesSurround) }
+    /// The cross and the two pills (and the seats the face buttons sit on). Named for what it is
+    /// on the Nostalgia dress; under Retro Pal it is the light control colour, which is the whole
+    /// point of that recolour on this console.
+    private var dark: UIColor {
+        custom?.pad ?? (variant == .retroPal ? RetroPalPalette.nesFace : DressKind.snesDark) }
+    /// The light grey the two wells, the A/B backing pill and the cross's outline share. Not a
+    /// slot and not derived from the body: on this console the shell is near-black and the cross
+    /// is near-black, so this tone is the only thing separating them. Deriving it from a custom
+    /// body would let a skin lose that outline without ever choosing to.
+    private var well: UIColor { DressKind.nesWell }
+    /// The printed SELECT and START words: the face red, per the spec. It is the same colour as
+    /// the buttons and the band, which is what makes the three read as one printed layer on a
+    /// dark shell.
+    private var printedLabel: UIColor { stripe }
+    /// The brand plaque's own ink, which cannot be the red: it sits on a shell, not on a light
+    /// panel, so it moves away from the body in whichever direction there is room.
+    private var brandInk: UIColor {
+        bodyMid.rpIsLight ? bodyMid.rpMixed(with: .black, 0.40)
+                          : bodyMid.rpMixed(with: .white, 0.45) }
+    private var creuse: UIColor {
+        bodyMid.rpIsLight ? bodyMid.rpMixed(with: .black, 0.15)
+                          : bodyMid.rpMixed(with: .white, 0.12) }
+
+    /// The red band across the shell, the machine's own stripe. Follows the face colour, so a
+    /// custom skin that repaints the buttons repaints the band with them.
+    private var stripe: UIColor {
+        custom?.face ?? (variant == .retroPal ? RetroPalPalette.nesFace : DressKind.nesFace) }
+
+    /// The outline drawn around the cross (or the joystick), in reference points. This console
+    /// has no dish behind its pad: the outline IS the separation.
+    private static let padStrokeWidth: CGFloat = 4
+    /// Half-thickness added around a button when its well is drawn.
+    private static let wellPad: CGFloat = DressKind.nesWellPad
+    /// SELECT/START pill thickness as a fraction of the hitbox short side (matches SmallButton).
+    private static let pillThicknessRatio: CGFloat = 0.24
+    /// The skirt above and below the picture. Symmetric, like the Super Nintendo's. Shared with
+    /// the layout through `DressKind`, which places MENU and CLIP against the panel's lower edge.
+    private static let panelSkirt: CGFloat = DressKind.nesPanelSkirt
+    /// The red band's thickness and its gap below the screen panel.
+    private static let stripeThickness: CGFloat = 6
+    private static let stripeGap: CGFloat = 10
+
+    private var brandImage: UIImage? { RetroPalPalette.brandIcon(tinted: brandInk) }
+
+    // MARK: Draw
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        drawBody(ctx, bounds)
+        guard !screen.isEmpty else { return }
+        drawWells(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawButtonSeats(buttons: buttons, usesJoystick: usesJoystick, scale: scale)
+        let panel = drawScreenPanel(ctx, bounds: bounds, screen: screen, buttons: buttons,
+                                    isLandscape: isLandscape, scale: scale)
+        drawStripe(ctx, bounds: bounds, panel: panel, buttons: buttons,
+                   isLandscape: isLandscape, scale: scale)
+        drawSelectStartLabels(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawBrand(bounds: bounds, buttons: buttons, panel: panel, screen: screen,
+                  isLandscape: isLandscape, scale: scale)
+    }
+
+    // MARK: Body
+
+    private func drawBody(_ ctx: CGContext, _ bounds: CGRect) {
+        let colors = [bodyTop.cgColor, bodyMid.cgColor, bodyBottom.cgColor] as CFArray
+        if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                 colors: colors, locations: [0, 0.55, 1]) {
+            ctx.drawLinearGradient(grad, start: CGPoint(x: bounds.midX, y: bounds.minY),
+                                   end: CGPoint(x: bounds.midX, y: bounds.maxY), options: [])
+        } else {
+            bodyMid.setFill(); ctx.fill(bounds)
+        }
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let vigColors = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.12).cgColor] as CFArray
+        if let vig = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                colors: vigColors, locations: [0.55, 1]) {
+            let radius = max(bounds.width, bounds.height) * 0.62
+            ctx.drawRadialGradient(vig, startCenter: center, startRadius: 0,
+                                   endCenter: center, endRadius: radius, options: .drawsAfterEndLocation)
+        }
+        ctx.saveGState(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: bounds)
+        ctx.restoreGState()
+    }
+
+    /// The red band. Portrait: full width, just under the screen panel, which is where the
+    /// machine wears it. Landscape: skipped — the panel spans the middle of the page there and a
+    /// band under it would cut the controls in half rather than decorate a shell.
+    private func drawStripe(_ ctx: CGContext, bounds: CGRect, panel: CGRect,
+                            buttons: [ControlElement: CGRect], isLandscape: Bool, scale: CGFloat) {
+        guard !isLandscape, !cardMode, panel.height > 8 else { return }
+        let y = panel.maxY + Self.stripeGap * scale
+        let h = Self.stripeThickness * scale
+        // Never let the band reach a control: it is decoration, and a control sitting on it would
+        // read as a button that means something.
+        let firstControlTop = [buttons[.btnMenu], buttons[.btnClip], buttons[.btnA], buttons[.btnB]]
+            .compactMap { $0?.minY }.min() ?? bounds.maxY
+        guard y + h + 6 * scale < firstControlTop else { return }
+        let rect = CGRect(x: bounds.minX, y: y, width: bounds.width, height: h)
+        stripe.setFill(); ctx.fill(rect)
+        // A thin dark line under it, so the band reads as inlaid rather than painted on.
+        UIColor.black.withAlphaComponent(0.18).setFill()
+        ctx.fill(CGRect(x: rect.minX, y: rect.maxY, width: rect.width, height: 1 * scale))
+    }
+
+    // MARK: Wells
+
+    /// The two sunken panels: one holding A and B, one holding SELECT and START. This is the
+    /// shape that says NES, and it is the inverse of the Super Nintendo's raised capsules.
+    private func drawWells(buttons: [ControlElement: CGRect], isLandscape: Bool, scale: CGFloat) {
+        if let a = buttons[.btnA], let b = buttons[.btnB] {
+            // Thickness from `DressKind`, because the layout measures this same well's TOP edge
+            // to place MENU and CLIP above it.
+            let t = DressKind.nesFaceWellThickness(a: a, b: b, scale: scale)
+            let line = CGMutablePath()
+            line.move(to: CGPoint(x: b.midX, y: b.midY))
+            line.addLine(to: CGPoint(x: a.midX, y: a.midY))
+            let capsule = UIBezierPath(cgPath: line.copy(strokingWithWidth: t, lineCap: .round,
+                                                         lineJoin: .round, miterLimit: 0))
+            drawRecessed(capsule, fill: well, scale: scale)
+        }
+        guard let select = buttons[.btnSelect], let start = buttons[.btnStart] else { return }
+        let pillT = min(select.width, select.height) * Self.pillThicknessRatio
+        let pad = Self.wellPad * scale
+        let union = select.union(start).insetBy(dx: -pad, dy: -pad)
+        // One panel around the pair, at the pill's own corner radius plus the pad. Its OUTER
+        // edge is the surround's light grey, per the spec: the carved look on this console comes
+        // from a light rim around a light panel on a dark shell, not from a shadow.
+        let path = UIBezierPath(roundedRect: union, cornerRadius: pillT / 2 + pad)
+        drawRecessed(path, fill: well, scale: scale)
+        surround.setStroke()
+        let rim = UIBezierPath(roundedRect: union.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                               cornerRadius: pillT / 2 + pad + 1.5 * scale)
+        rim.lineWidth = 1.5 * scale
+        rim.stroke()
+    }
+
+    /// A carved seat under the cross and under each of the other controls, so every button sits
+    /// in something. The face buttons already have their well, so they take only their dark
+    /// under-disc.
+    private func drawButtonSeats(buttons: [ControlElement: CGRect], usesJoystick: Bool, scale: CGFloat) {
+        if let d = buttons[.dpad] {
+            // No dish. The cross wears an OUTLINE instead, which is what this pad has and what
+            // it needs: near-black arms on a near-black shell would otherwise have no edge at
+            // all. The joystick gets the same treatment as a circle, since it replaces the same
+            // control and would have the same problem.
+            let stroke = Self.padStrokeWidth * scale
+            if usesJoystick {
+                // Nothing covers this one: the dressed joystick hides its own base ring and
+                // draws only a thumb, so a stroke centred on the hitbox's edge is all there is.
+                let shape = UIBezierPath(ovalIn: d.insetBy(dx: stroke / 2, dy: stroke / 2))
+                well.setStroke()
+                shape.lineWidth = stroke
+                shape.stroke()
+            } else {
+                // The cross VIEW fills this hitbox exactly, and it sits above the dress, so half
+                // of any stroke centred on that same outline is covered by the cross itself.
+                // Draw it at DOUBLE width and the half that survives is `stroke` all the way
+                // round. Insetting the path instead (what this did first) moved the outline out
+                // by the full inset at the arm tips but only a third of it along the arms, so
+                // the pad looked like it had grown over its own edge, worst under Retro Pal
+                // where the cross is light and the mismatch has nowhere to hide.
+                //
+                // Corner radius 6 UNSCALED, because that is the constant the cross view builds
+                // its own path with: the two outlines have to be the same curve, not the same
+                // formula. On the card there is no cross view on top, so the stroke stays
+                // single-width and straddles the edge (same 4pt of light line, half each side).
+                let shape = crossPath(in: d, armRatio: 0.336, cornerRadius: 6)
+                dark.setFill()
+                shape.fill()
+                well.setStroke()
+                shape.lineWidth = cardMode ? stroke : stroke * 2
+                shape.stroke()
+            }
+        }
+        for e in [ControlElement.btnMenu, .btnClip] {
+            guard let f = buttons[e] else { continue }
+            let r = min(f.width, f.height) / 2 + 4 * scale
+            drawRecessedCircle(center: CGPoint(x: f.midX, y: f.midY), radius: r,
+                               fill: creuse, scale: scale)
+        }
+        for e in [ControlElement.btnA, .btnB, .btnMenu, .btnClip] {
+            guard let f = buttons[e] else { continue }
+            let r = min(f.width, f.height) / 2 + 1 * scale
+            dark.setFill()
+            UIBezierPath(ovalIn: CGRect(x: f.midX - r, y: f.midY - r, width: 2 * r, height: 2 * r)).fill()
+        }
+    }
+
+    // MARK: Screen panel
+
+    /// The deep inlaid panel around the picture, in the cartridge flap's colour. Symmetric about
+    /// the picture in portrait (the same skirt above and below), grown from it in landscape.
+    @discardableResult
+    private func drawScreenPanel(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                                 buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                 scale: CGFloat) -> CGRect {
+        let sidePad = 8 * scale
+        let botMargin = 10 * scale
+        var bottom = screen.maxY + Self.panelSkirt * scale
+        if isLandscape {
+            let ys = [buttons[.btnSelect], buttons[.btnMenu], buttons[.btnStart]].compactMap { $0?.maxY }
+            if let m = ys.max() { bottom = m + botMargin }
+        }
+        var rect: CGRect
+        if cardMode {
+            rect = screen.insetBy(dx: -18 * scale, dy: -18 * scale)
+        } else if isLandscape {
+            rect = CGRect(x: screen.minX - sidePad, y: screen.minY - 12 * scale,
+                          width: screen.width + 2 * sidePad, height: bottom - (screen.minY - 12 * scale))
+            rect = rect.intersection(bounds.insetBy(dx: 4 * scale, dy: 4 * scale))
+        } else {
+            let top = screen.minY - Self.panelSkirt * scale
+            rect = CGRect(x: bounds.minX, y: top, width: bounds.width, height: bottom - top)
+        }
+        guard rect.width > 8, rect.height > 8 else { return .zero }
+
+        let corner = 8 * scale
+        let panel = UIBezierPath(roundedRect: rect, cornerRadius: corner)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.5 * scale), blur: 5 * scale,
+                      color: UIColor.black.withAlphaComponent(0.35).cgColor)
+        surround.setFill(); panel.fill()
+        ctx.restoreGState()
+        let outer = UIBezierPath(roundedRect: rect.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                 cornerRadius: corner + 2 * scale)
+        drawRecessRelief(panel, outer: outer, scale: scale)
+        let lcd = UIBezierPath(roundedRect: screen.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                               cornerRadius: 3 * scale)
+        UIColor.black.withAlphaComponent(0.45).setStroke()
+        lcd.lineWidth = 1.5 * scale
+        lcd.stroke()
+        if !isLandscape && !cardMode {
+            let y = rect.maxY + 2.5 * scale
+            let lip = UIBezierPath()
+            lip.move(to: CGPoint(x: bounds.minX, y: y))
+            lip.addLine(to: CGPoint(x: bounds.maxX, y: y))
+            UIColor.white.withAlphaComponent(0.35).setStroke()
+            lip.lineWidth = 1 * scale
+            lip.stroke()
+        }
+        return rect
+    }
+
+    // MARK: Printed labels
+
+    /// SELECT and START printed under their pills, horizontal in both orientations: this pad
+    /// prints them straight, under a straight pair, unlike the Game Boy's diagonal.
+    private func drawSelectStartLabels(buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                       scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        for (e, text) in [(ControlElement.btnSelect, "SELECT"), (.btnStart, "START")] {
+            guard let f = buttons[e] else { continue }
+            let size = DressKind.nesPrintedSize * scale
+            let kern = DressKind.nesPrintedKern * scale
+            let sz = measure(text, size: size, kern: kern)
+            // ABOVE the pill, not below it: this pad prints its words over the pair. Word, gap
+            // and pill are ONE block and it is the block that centres in the well, so the pill's
+            // own y comes from `pillCenterY` — the same call the button that draws it makes.
+            let pillT = min(f.width, f.height) * Self.pillThicknessRatio
+            let pillY = DressKind.nes.pillCenterY(in: f, scale: scale)
+            let y = pillY - pillT / 2 - DressKind.nesPrintedGap * scale - sz.height / 2
+            ctx.saveGState()
+            NSAttributedString(string: text, attributes: [
+                .font: UIFont.systemFont(ofSize: size, weight: .semibold),
+                .foregroundColor: printedLabel, .kern: kern,
+            ]).draw(at: CGPoint(x: f.midX - sz.width / 2, y: y - sz.height / 2))
+            ctx.restoreGState()
+        }
+    }
+
+    // MARK: Brand
+
+    /// PORTRAIT: the band across the bottom of the shell, centred on the page. LANDSCAPE: the
+    /// left gutter ABOVE the pad, on the pad's own column. CARD: above the picture, centred.
+    ///
+    /// Both non-card placements are centred on something the eye already uses as an axis (the
+    /// page in portrait, the cross in landscape) rather than on the space that happened to be
+    /// free, which is what the Super Nintendo's does and what this one did first.
+    private func drawBrand(bounds: CGRect, buttons: [ControlElement: CGRect], panel: CGRect,
+                           screen: CGRect, isLandscape: Bool, scale: CGFloat) {
+        guard !controllerConnected else { return }
+        let txt = measure("PHONES", size: 9.5 * scale, kern: 0.5 * scale)
+        let iconH = 14 * scale
+        let icon = UIImage(systemName: "headphones")
+        let aspect: CGFloat = icon.map { $0.size.width / max(1, $0.size.height) } ?? 1
+        var w = (iconH * aspect + 5 * scale + txt.width + 36 * scale) * 1.125
+        var h = (max(iconH, txt.height) + 14 * scale) * 1.125
+        let rect: CGRect
+        if cardMode {
+            w *= 1.5; h *= 1.5
+            let cy = max(h / 2 + 8 * scale, (bounds.minY + screen.minY) / 2)
+            rect = CGRect(x: bounds.midX - w / 2, y: cy - h / 2, width: w, height: h)
+        } else if isLandscape {
+            // Above the cross, on the cross's own centre line, in the band between the top of the
+            // page and the top of the up arrow. That band is empty on this console (the picture
+            // does not reach into the gutter) and it is where the machine's own name sits.
+            guard let d = buttons[.dpad] else { return }
+            let gutter = panel.minX - bounds.minX
+            guard gutter > 24 * scale else { return }
+            if w > gutter - 12 * scale { let f = (gutter - 12 * scale) / w; w *= f; h *= f }
+            let availH = d.minY - bounds.minY
+            guard availH > h + 8 * scale else { return }
+            let x = min(max(bounds.minX + 6 * scale, d.midX - w / 2), panel.minX - 6 * scale - w)
+            rect = CGRect(x: x, y: (bounds.minY + d.minY) / 2 - h / 2, width: w, height: h)
+        } else {
+            let rowBottom = [buttons[.btnSelect], buttons[.btnStart], buttons[.btnA]]
+                .compactMap { $0?.maxY }.max() ?? bounds.midY
+            let availH = bounds.maxY - rowBottom
+            guard availH > h + 8 * scale else { return }
+            let avail = bounds.width - 24 * scale
+            if w > avail { let f = avail / w; w *= f; h *= f }
+            rect = CGRect(x: bounds.midX - w / 2, y: (rowBottom + bounds.maxY) / 2 - h / 2,
+                          width: w, height: h)
+        }
+        drawBranding(in: rect, scale: scale)
+    }
+
+    private func drawBranding(in rect: CGRect, scale: CGFloat) {
+        guard rect.width > 24 * scale, rect.height > 12 * scale else { return }
+        drawRecessedCapsule(rect, fill: creuse, scale: scale)
+        let inset = rect.insetBy(dx: rect.height * 0.34, dy: rect.height * 0.20)
+        guard inset.width > 4, inset.height > 4 else { return }
+        let iconSide = inset.height
+        let gap = iconSide * 0.22
+        if let icon = brandImage {
+            icon.draw(in: aspectFit(icon.size, in: CGRect(x: inset.minX, y: inset.minY,
+                                                          width: iconSide, height: iconSide)))
+        }
+        let textX = inset.minX + iconSide + gap
+        let textRect = CGRect(x: textX, y: inset.minY, width: inset.maxX - textX, height: inset.height)
+        guard textRect.width > 8 else { return }
+        let kern = 0.5 * scale
+        var fontSize = textRect.height * 0.95
+        var sz = measure("Retro Pal", size: fontSize, kern: kern)
+        if sz.width > textRect.width, sz.width > 0 {
+            fontSize *= textRect.width / sz.width
+            sz = measure("Retro Pal", size: fontSize, kern: kern)
+        }
+        drawEmbossedText("Retro Pal", at: CGPoint(x: textRect.minX, y: textRect.midY - sz.height / 2),
+                         size: fontSize, color: brandInk, kern: kern, scale: scale)
+    }
+
+    // MARK: Relief primitives (the Super Nintendo's, unchanged)
+
+    private func drawRecessed(_ path: UIBezierPath, fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        fill.setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: path.bounds); ctx.restoreGState()
+        let outer = UIBezierPath(cgPath: path.cgPath)
+        outer.lineWidth = 4 * scale
+        drawRecessRelief(path, outer: outer, scale: scale)
+    }
+
+    private func drawRecessedCircle(center c: CGPoint, radius r: CGFloat,
+                                    fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let rect = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
+        let path = UIBezierPath(ovalIn: rect)
+        fill.setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: rect); ctx.restoreGState()
+        drawRecessRelief(path, outer: UIBezierPath(ovalIn: rect.insetBy(dx: -2 * scale, dy: -2 * scale)),
+                         scale: scale)
+    }
+
+    private func drawRecessedCapsule(_ rect: CGRect, fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let radius = min(rect.width, rect.height) / 2
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+        fill.setFill(); path.fill()
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: rect); ctx.restoreGState()
+        let outer = UIBezierPath(roundedRect: rect.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                 cornerRadius: radius + 2 * scale)
+        drawRecessRelief(path, outer: outer, scale: scale)
+    }
+
+    private func drawRecessRelief(_ path: UIBezierPath, outer: UIBezierPath, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.8 * scale), blur: 2.6 * scale,
+                      color: UIColor.black.withAlphaComponent(0.45).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 2 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.2 * scale), blur: 1.6 * scale,
+                      color: UIColor.white.withAlphaComponent(0.4).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+    }
+
+    // MARK: Small helpers
+
+    private func measure(_ s: String, size: CGFloat, kern: CGFloat) -> CGSize {
+        NSAttributedString(string: s, attributes: [
+            .font: UIFont.systemFont(ofSize: size, weight: .semibold), .kern: kern,
+        ]).size()
+    }
+
+    private func drawEmbossedText(_ s: String, at origin: CGPoint, size: CGFloat,
+                                  color: UIColor, kern: CGFloat, scale: CGFloat) {
+        let font = UIFont.systemFont(ofSize: size, weight: .semibold)
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: UIColor.white.withAlphaComponent(0.5), .kern: kern,
+        ]).draw(at: CGPoint(x: origin.x - 0.6 * scale, y: origin.y - 0.6 * scale))
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: UIColor.black.withAlphaComponent(0.30), .kern: kern,
+        ]).draw(at: CGPoint(x: origin.x + 0.6 * scale, y: origin.y + 0.6 * scale))
+        NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: color, .kern: kern,
+        ]).draw(at: origin)
+    }
+
+    private func aspectFit(_ imageSize: CGSize, in rect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let s = min(rect.width / imageSize.width, rect.height / imageSize.height)
+        let w = imageSize.width * s, h = imageSize.height * s
+        return CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h)
+    }
+
+    /// The rounded 12-point cross the dressed pad wears, so the dark shape under it lines up.
+    private func crossPath(in bounds: CGRect, armRatio: CGFloat, cornerRadius rr: CGFloat) -> UIBezierPath {
+        let w = bounds.width, h = bounds.height
+        let cx = bounds.midX, cy = bounds.midY
+        let ox = bounds.origin.x, oy = bounds.origin.y
+        let halfArm = w * armRatio / 2
+        let r = min(rr, halfArm)
+        let p = UIBezierPath()
+        p.move(to: CGPoint(x: cx - halfArm + r, y: oy))
+        p.addLine(to: CGPoint(x: cx + halfArm - r, y: oy))
+        p.addArc(withCenter: CGPoint(x: cx + halfArm - r, y: oy + r), radius: r, startAngle: -.pi/2, endAngle: 0, clockwise: true)
+        p.addLine(to: CGPoint(x: cx + halfArm, y: cy - halfArm))
+        p.addLine(to: CGPoint(x: ox + w - r, y: cy - halfArm))
+        p.addArc(withCenter: CGPoint(x: ox + w - r, y: cy - halfArm + r), radius: r, startAngle: -.pi/2, endAngle: 0, clockwise: true)
+        p.addLine(to: CGPoint(x: ox + w, y: cy + halfArm - r))
+        p.addArc(withCenter: CGPoint(x: ox + w - r, y: cy + halfArm - r), radius: r, startAngle: 0, endAngle: .pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx + halfArm, y: cy + halfArm))
+        p.addLine(to: CGPoint(x: cx + halfArm, y: oy + h - r))
+        p.addArc(withCenter: CGPoint(x: cx + halfArm - r, y: oy + h - r), radius: r, startAngle: 0, endAngle: .pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm + r, y: oy + h))
+        p.addArc(withCenter: CGPoint(x: cx - halfArm + r, y: oy + h - r), radius: r, startAngle: .pi/2, endAngle: .pi, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm, y: cy + halfArm))
+        p.addLine(to: CGPoint(x: ox + r, y: cy + halfArm))
+        p.addArc(withCenter: CGPoint(x: ox + r, y: cy + halfArm - r), radius: r, startAngle: .pi/2, endAngle: .pi, clockwise: true)
+        p.addLine(to: CGPoint(x: ox, y: cy - halfArm + r))
+        p.addArc(withCenter: CGPoint(x: ox + r, y: cy - halfArm + r), radius: r, startAngle: .pi, endAngle: -.pi/2, clockwise: true)
+        p.addLine(to: CGPoint(x: cx - halfArm, y: cy - halfArm))
+        p.addLine(to: CGPoint(x: cx - halfArm, y: oy + r))
+        p.addArc(withCenter: CGPoint(x: cx - halfArm + r, y: oy + r), radius: r, startAngle: .pi, endAngle: -.pi/2, clockwise: true)
+        p.close()
+        return p
     }
 }

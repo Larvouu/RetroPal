@@ -21,6 +21,10 @@ import SwiftUI
 struct CheatBrowserSheet: View {
     let romName: String
     let system: String
+    /// The cartridge game code, when the header has one (GBA and DS only).
+    /// Used solely to reach another region's codes when this game's own title
+    /// has no cheat file, which is the normal case outside English.
+    let gameCode: String?
     /// Hands the tapped code and its name back to the manager's fields.
     let onPick: (_ code: String, _ name: String) -> Void
 
@@ -36,6 +40,9 @@ struct CheatBrowserSheet: View {
     @State private var isSearching = false
     @State private var query = ""
     @State private var searchResults: [String] = []
+    /// Set when the codes on screen belong to another region's release of this
+    /// same cartridge. Holds that release's title, which the banner names.
+    @State private var regionalFallback: String?
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -102,6 +109,23 @@ struct CheatBrowserSheet: View {
     @ViewBuilder
     private var codeList: some View {
         List {
+            // Never let borrowed codes pass as this release's own. Sits above
+            // the codes, not in a footer, because it changes how the list
+            // should be read rather than annotating it.
+            if let regionalFallback {
+                Section {
+                    Label {
+                        Text(String(
+                            format: NSLocalizedString("cheats.browse.otherRegion", comment: ""),
+                            regionalFallback))
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "globe")
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
             ForEach(entries) { entry in
                 Section {
                     ForEach(sorted(entry.cheats)) { cheat in
@@ -219,10 +243,12 @@ struct CheatBrowserSheet: View {
     private func load() async {
         isLoading = true
         didFail = false
+        regionalFallback = nil
         do {
             entries = try await library.entries(forTitle: romName, system: system)
-            // Could not recognise the file: drop into search rather than a
-            // dead end, seeded with its own name.
+            if entries.isEmpty { try await loadRegionalFallback() }
+            // Could not recognise the file, and no other region has it either:
+            // drop into search rather than a dead end, seeded with its own name.
             if entries.isEmpty { beginSearch() } else { isSearching = false }
         } catch {
             wasOffline = (error as? CheatLibrary.Failure) == .offline || !library.isOnline
@@ -231,9 +257,53 @@ struct CheatBrowserSheet: View {
         isLoading = false
     }
 
+    /// The same cartridge, released elsewhere under another name.
+    ///
+    /// libretro keys its cheat files by title, and localized releases carry
+    /// localized titles, so the French Pokemon Rouge Feu had no codes at all
+    /// while the identical USA and German releases both did. That is not a
+    /// missing-data problem, it is a naming one, and the cartridge game code
+    /// resolves it exactly: `BPRF` and `BPRE` are the same game.
+    ///
+    /// Serving them is defensible and was verified on real codes rather than
+    /// assumed: the species half of these encrypted codes is region
+    /// independent and only the prefix is regional, so a foreign code often
+    /// works and, when it does not, it fails the way any wrong code fails.
+    /// What is NOT acceptable is doing it silently, so the banner names the
+    /// release the codes came from and the player decides.
+    ///
+    /// Deliberately takes the FIRST region that has codes rather than merging
+    /// every region's file. Merging would stack several games' worth of codes
+    /// under headers the player cannot tell apart, and mixing codes from two
+    /// regional dumps is exactly the way to produce the silent corruption this
+    /// whole area is trying to eliminate.
+    private func loadRegionalFallback() async throws {
+        guard let gameCode,
+              let romSystem = ROMSystemType(rawValue: system)
+        else { return }
+        let siblings = BoxArtIndex.shared.regionalSiblingNames(ofSerial: gameCode, system: romSystem)
+        for title in siblings {
+            // A title with no cheat file is ordinary and returns empty, so it
+            // is simply the next candidate's turn. Being OFFLINE is not
+            // ordinary and must not be swallowed: silently walking six titles
+            // that all fail for the same reason would end in the search screen
+            // when the honest answer is "no connection".
+            let found = try await library.entries(forTitle: title, system: system)
+            if !found.isEmpty {
+                entries = found
+                regionalFallback = title
+                return
+            }
+        }
+    }
+
     private func loadSpecific(_ stem: String) async {
         isLoading = true
         didFail = false
+        // The user has chosen a game by hand, so any earlier borrowed-region
+        // banner is about a different lookup and would now be describing codes
+        // that are not on screen.
+        regionalFallback = nil
         do {
             entries = try await library.entries(forTitle: stem, system: system)
             if !entries.isEmpty {

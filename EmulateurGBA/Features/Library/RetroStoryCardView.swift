@@ -399,6 +399,8 @@ struct RetroStoryCardView: View {
         case "gb": return "Game Boy"
         case "gbc": return "Game Boy Color"
         case "nds": return "Nintendo DS"
+        case "snes": return "Super Nintendo"
+        case "nes": return "NES"
         default: return "Game Boy Advance"
         }
     }

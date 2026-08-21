@@ -9,7 +9,7 @@
 "library.empty.title" = "Bienvenido a Retro Pal";
 "library.empty.subtitle" = "Juega a tus juegos retro en tu iPhone. Sin anuncios, sin seguimiento personal.";
 "library.empty.button" = "Añadir un juego";
-"library.empty.step1" = "Consigue un juego (.gba, .gb, .gbc o .nds) en tu iPhone mediante Safari, AirDrop o iCloud Drive.";
+"library.empty.step1" = "Consigue un juego (.gba, .gb, .gbc, .nds, .sfc, .smc o .nes) en tu iPhone mediante Safari, AirDrop o iCloud Drive.";
 "library.empty.step2" = "Toca %@ y elige el archivo en la app Archivos.";
 "library.empty.step3" = "Juega. Tu progreso se guarda automáticamente";
 "library.empty.romHint" = "¿Aún sin ROMs? Existen muchos juegos gratuitos y legales. Busca \"GBA homebrew\" en línea.";
@@ -103,7 +103,7 @@
 "pro.welcome" = "¡Bienvenido a Pro!";
 "pro.benefit.speed" = "Todas las velocidades: 0,25x a 4x";
 "pro.benefit.slots" = "5 ranuras de guardado (en vez de 2)";
-"pro.benefit.rewind" = "Rebobinado de 30 segundos (GBA/GB/GBC)";
+"pro.benefit.rewind" = "Rebobinado de 30 segundos";
 "pro.benefit.cheats" = "Códigos trampa (GameShark / Action Replay)";
 "pro.benefit.controls" = "Controles personalizados (táctil y mando)";
 "pro.benefit.speed.short" = "Todas las velocidades";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Mandos Bluetooth";
 "pro.compare.row.slots" = "Ranuras de guardado";
 "pro.compare.row.speeds" = "Velocidades";
-"pro.compare.row.rewind" = "Rebobinado (GBA/GB/GBC)";
+"pro.compare.row.rewind" = "Rebobinado";
 "pro.compare.row.cheats" = "Códigos trampa";
 "pro.compare.row.controls" = "Controles personalizados";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "Has jugado %@ minutos a juegos retro";
 "prompt.milestone.subtitle" = "Está claro que te encanta. Desbloquea la experiencia completa.";
 "prompt.rewind.title" = "¿Necesitas retroceder más?";
-"prompt.rewind.subtitle" = "Pro te da 30 segundos de rebobinado en GBA/GB/GBC. No vuelvas a perder contra un jefe final.";
+"prompt.rewind.subtitle" = "Pro te da 30 segundos de rebobinado en todas las consolas. No vuelvas a perder contra un jefe final.";
 "prompt.cheats.title" = "Has jugado 4 horas a %@. ¿Listo para jugar sin límites?";
 "prompt.cheats.subtitle" = "Desbloquea códigos trampa, velocidad máxima y más. Una compra y listo. De por vida.";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "Desbloquea todas las velocidades, 5 ranuras, rebobinado de 30s (GBA/GB/GBC) y más.";
+"prompt.generic.subtitle" = "Desbloquea todas las velocidades, 5 ranuras, rebobinado de 30s y más.";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "Nostalgia";
@@ -179,7 +179,7 @@
 "legal.melonds" = "Licencia de melonDS";
 "legal.importantNotice.title" = "Aviso importante";
 "legal.aboutApp.title" = "Acerca de esta app";
-"legal.aboutApp.description1" = "Retro Pal es un emulador local para juegos de Game Boy Advance, Game Boy, Game Boy Color y Nintendo DS. No descarga, distribuye ni facilita el acceso a contenido de juegos. Todos los archivos ROM deben ser importados por el usuario desde el almacenamiento de su propio dispositivo a través de la app Archivos.";
+"legal.aboutApp.description1" = "Retro Pal es un emulador local para juegos de Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo y NES. No descarga, distribuye ni facilita el acceso a contenido de juegos. Todos los archivos ROM deben ser importados por el usuario desde el almacenamiento de su propio dispositivo a través de la app Archivos.";
 "legal.aboutApp.description2" = "Esta app no ofrece un catálogo de juegos, no distribuye contenido de juegos ni facilita la descarga de material protegido por derechos de autor.";
 "legal.privacy.title" = "Privacidad";
 "legal.privacy.description" = "Tus juegos y partidas se quedan en tu dispositivo. Para mejorar la app, Retro Pal envía solo estadísticas de uso anónimas, sin datos personales ni identificadores publicitarios.";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA es un emulador de Game Boy Advance utilizado como motor de emulación principal en esta app. El código fuente de mGBA está disponible en [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "Licenciado bajo la GNU General Public License v3.0 (GPL-3.0)";
 "legal.melonds.description" = "melonDS es un emulador de Nintendo DS utilizado como motor de emulación para juegos de DS en esta app. El código fuente de melonDS está disponible en [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "Licencia de MesenCE";
+"legal.mesen.licenseLine" = "Licenciado bajo la GNU General Public License v3.0 (GPL-3.0)";
+"legal.mesen.description" = "MesenCE es un emulador de Super Nintendo y NES utilizado como motor de emulación para juegos de SNES y NES en esta app. El código fuente de MesenCE está disponible en [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Licencia de Retro Pal";
 "legal.retropal.licenseLine" = "Licenciado bajo la GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "El código fuente completo de Retro Pal está disponible en [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). El software se proporciona sin ninguna garantía.";
-"legal.compliance" = "Retro Pal se distribuye bajo la GNU General Public License v3.0. Se basa en mGBA (Mozilla Public License 2.0) y melonDS (GPL-3.0), utilizados sin modificaciones. El código fuente correspondiente completo está disponible en el repositorio enlazado arriba, y el software se proporciona sin ninguna garantía.";
+"legal.compliance" = "Retro Pal se distribuye bajo la GNU General Public License v3.0. Se basa en mGBA (Mozilla Public License 2.0) y melonDS (GPL-3.0), utilizados sin modificaciones, y en MesenCE (GPL-3.0), utilizado con un pequeño cambio que se publica como archivo de parche junto al código fuente. El código fuente correspondiente completo está disponible en el repositorio enlazado arriba, y el software se proporciona sin ninguna garantía.";
 
 "details.noSaves" = "Aún no hay guardados rápidos. Crea uno durante el juego con el botón de menú.";
 "library.importing" = "Importando ROM...";
@@ -214,10 +217,14 @@
 /* Cheats */
 "cheats.hint.gba" = "Formato GameShark, CodeBreaker o Action Replay";
 "cheats.hint.nds" = "Formato Action Replay DS (XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Formato Game Genie (XXXX-XXXX) o Pro Action Replay";
+"cheats.hint.nes" = "Formato Game Genie (letras) o Pro Action Rocky";
 "cheats.namePlaceholder" = "Nombre (opcional)";
 "cheats.add" = "Añadir código";
 "cheats.invalid.gba" = "Código no reconocido. Se espera formato GameShark, CodeBreaker o Action Replay.";
 "cheats.invalid.nds" = "Código no reconocido. Se espera formato Action Replay DS (XXXXXXXX YYYYYYYY, un par por línea).";
+"cheats.invalid.snes" = "Código no reconocido. Se esperaba Game Genie (XXXX-XXXX) o Pro Action Replay (ocho caracteres).";
+"cheats.invalid.nes" = "Código no reconocido. Se esperaba Game Genie (seis u ocho letras) o Pro Action Rocky (ocho caracteres).";
 "cheats.empty" = "Sin trampas activas";
 "cheats.findHint" = "Los códigos se encuentran fácilmente en línea. Busca los cheat codes de tu juego.";
 "cheats.clearAll" = "Borrar todo";
@@ -243,10 +250,6 @@
 "prompt.slotsTapped.subtitle" = "Desbloquea 5 ranuras de guardado para que siempre haya sitio. Una compra, para siempre.";
 "settings.appLabel" = "Aplicación";
 
-"review.headline" = "¿Te diviertes?";
-"review.body" = "Las reseñas son lo que mantiene vivas las apps pequeñas en la App Store. Una frase ayuda muchísimo.";
-"review.cta" = "Valorar 5 estrellas";
-"review.later" = "Ahora no";
 "cheats.type" = "Tipo de código";
 "cheats.restore" = "Restaurar guardado pre-trucos";
 "cheats.restore.confirm.title" = "¿Restaurar el guardado anterior a los trucos?";
@@ -256,6 +259,13 @@
 /* Control Layout */
 "settings.customizeControls" = "Personalizar controles";
 "settings.remapController" = "Reasignar botones del mando";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "Disposición de pantalla con mando";
+"controllerLayout.customised" = "Personalizada";
+"controllerLayout.footer" = "Elige dónde se coloca la pantalla del juego, y su tamaño, mientras hay un mando conectado. Útil si el propio mando tapa parte de la pantalla. Cada consola guarda su disposición, en vertical y en horizontal.";
+"controllerLayout.resetAll" = "Restaurar las disposiciones originales";
+"controllerLayout.reset.footer" = "Devuelve cada consola a la disposición que la app usa por defecto con un mando.";
 "remap.press" = "Pulsa un botón…";
 "remap.reset" = "Restablecer valores predeterminados";
 "remap.footer" = "Toca un botón y luego pulsa el botón del mando que quieras asignarle. La cruceta y el stick siempre controlan la cruceta.";
@@ -324,11 +334,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Añadir un juego";
 "guide.importRom.intro" = "Retro Pal no incluye juegos. Tú aportas tus propios archivos ROM, de los que posees los derechos legalmente (tus propios cartuchos o juegos homebrew gratuitos y legales).";
-"guide.importRom.step1" = "Lleva el archivo del juego (.gba, .gb, .gbc o .nds) a tu iPhone: descárgalo en Safari, por AirDrop desde un ordenador, o desde iCloud Drive.";
+"guide.importRom.step1" = "Lleva el archivo del juego (.gba, .gb, .gbc, .nds, .sfc, .smc o .nes) a tu iPhone: descárgalo en Safari, por AirDrop desde un ordenador, o desde iCloud Drive.";
 "guide.importRom.step2" = "Comprueba que aparece en la app Archivos (en Descargas, En mi iPhone o iCloud Drive).";
 "guide.importRom.step3" = "En Retro Pal, toca el botón + en la parte superior de la biblioteca.";
 "guide.importRom.step4" = "Elige el archivo. El juego aparece enseguida en tu biblioteca, listo para jugar.";
-"guide.importRom.footer" = "Formatos admitidos: .gba, .gb, .gbc, .nds y archivos .zip con un solo juego. Los .7z y los archivos con varios juegos no son compatibles; extrae primero un solo archivo. Importa solo archivos que poseas legalmente.";
+"guide.importRom.footer" = "Formatos admitidos: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes y archivos .zip con un solo juego. Los .7z y los archivos con varios juegos no son compatibles; extrae primero un solo archivo. Importa solo archivos que poseas legalmente.";
 "settings.guides.section" = "Guías";
 "settings.controller.row" = "Mando";
 "common.done" = "Listo";
@@ -421,6 +431,10 @@
 "skin.editor.surround" = "Marco";
 "skin.editor.dpad" = "Cruceta";
 "skin.editor.abButtons" = "Botones A/B";
+"skin.editor.faceA" = "Botón A";
+"skin.editor.faceB" = "Botón B";
+"skin.editor.faceX" = "Botón X";
+"skin.editor.faceY" = "Botón Y";
 "skin.editor.abLetters" = "Letras A/B";
 "skin.editor.smallButtons" = "Botones pequeños";
 "skin.editor.menuIcons" = "Iconos de menú";
@@ -470,6 +484,10 @@
 "ra.dashboard.title" = "Logros";
 "ra.dashboard.unlocked" = "Desbloqueados";
 "ra.dashboard.locked" = "Restantes";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "Juego completado";
+"ra.hud.subsetCompleted" = "Serie completada";
 "ra.dashboard.empty" = "Este juego no tiene logros, o aún no se han cargado.";
 "ra.dashboard.summary" = "%lld de %lld desbloqueados";
 "ra.dashboard.rarity" = "%@ de los jugadores";
@@ -505,8 +523,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "No se puede acceder al archivo seleccionado. Prueba a importarlo desde la app Archivos.";
 "import.error.copyFailed" = "El juego no se ha podido copiar en Retro Pal. Libera espacio de almacenamiento e inténtalo de nuevo.";
-"import.error.invalidROM" = "Este archivo no es un juego que Retro Pal pueda leer. Juegos compatibles: .gba, .gb, .gbc y .nds.";
-"import.error.zipNoROM" = "No se ha encontrado ningún juego en este ZIP. Retro Pal lee juegos .gba, .gb, .gbc y .nds; otras consolas no son compatibles.";
+"import.error.invalidROM" = "Este archivo no es un juego que Retro Pal pueda leer. Juegos compatibles: .gba, .gb, .gbc, .nds, .sfc, .smc y .nes.";
+"import.error.zipNoROM" = "No se ha encontrado ningún juego en este ZIP. Retro Pal lee juegos .gba, .gb, .gbc, .nds, .sfc, .smc y .nes; otras consolas no son compatibles.";
 "import.error.zipExtractionFailed" = "Este ZIP no se ha podido abrir. Descomprímelo en la app Archivos e importa el archivo del juego directamente.";
 "import.error.alreadyImported" = "Este juego ya está en tu biblioteca.";
 "import.error.saveFailed" = "El juego no se ha podido añadir a tu biblioteca. Inténtalo de nuevo.";
@@ -523,12 +541,15 @@
 "whatsnew.title" = "Novedades";
 "whatsnew.version" = "Versión %@";
 "whatsnew.footer" = "Puedes volver a leer estas novedades cuando quieras en Ajustes.";
+"whatsnew.notice.pro" = "Sobre Pro: su precio de por vida, de pago único, subirá en una próxima actualización. Todavía no hay fecha. Todo lo que hoy es gratis lo seguirá siendo, siempre: sin anuncios, y nunca tienes que pagar para jugar.";
 "whatsnew.dismiss" = "¡Entendido!";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "Pantalla externa";
 "settings.externalDisplay.row" = "Jugar en una tele";
 "settings.externalDisplay.ndsLayout" = "Pantallas DS en la tele";
+"settings.externalDisplay.noTV" = "No hay ninguna tele conectada";
+"settings.externalDisplay.noTV.caption" = "Toca para ver cómo jugar en un televisor.";
 "settings.externalDisplay.sideBySide" = "Una al lado de la otra";
 "settings.externalDisplay.stacked" = "Una encima de la otra";
 "settings.externalDisplay.footer" = "Conecta una tele por AirPlay o por cable y el juego llena la pantalla mientras tu iPhone conserva los controles. La DS muestra sus dos pantallas; la táctil sigue en el teléfono.";
@@ -544,7 +565,7 @@
 "guide.airplay.step3" = "Inicia un juego. Llena el televisor y tu iPhone conserva los controles.";
 "guide.airplay.step4" = "En DS, las dos pantallas aparecen en la tele y la táctil sigue en tu iPhone.";
 "guide.airplay.step5" = "Conecta un mando y los botones en pantalla desaparecen. Solo la pantalla táctil de DS se sigue usando en el teléfono.";
-"guide.airplay.step6" = "Para elegir cómo se colocan las dos pantallas de DS en la tele, ve a Ajustes, Pantalla externa.";
+"guide.airplay.step6" = "Cuando tu tele esté conectada, elige cómo se colocan las dos pantallas de DS en Ajustes, Pantalla externa.";
 "guide.airplay.footer" = "El sonido acompaña a la imagen hasta el televisor por AirPlay. Con un mando, el menú de pausa se abre con su propio botón de menú, así que nunca necesitas tocar el teléfono.";
 "guide.airplay.proNotice" = "Jugar en la tele forma parte de Retro Pal Pro.";
 "guide.airplay.proButton" = "Jugar en mi tele";
@@ -561,7 +582,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Este código contiene caracteres inesperados. Los trucos solo usan 0-9, A-F, espacios y guiones.";
+"cheats.invalid.characters.nes" = "Este código contiene caracteres inesperados. Los códigos de NES usan las letras de Game Genie A P Z L G I T Y E O X U K S V N, o 0-9 y A-F, además de espacios y guiones.";
 "cheats.invalid.pairs" = "Los códigos Action Replay DS van por parejas: cada línea necesita dos bloques de ocho caracteres, por ejemplo 94000130 FCFF0000.";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "Un código escrito en varias líneas se añade como UNA sola entrada. Pega todas las líneas juntas, no las añadas una por una.";
+"cheats.multiline.seedAlone" = "Esta línea solo desbloquea las demás líneas de su código. Por sí sola no hace nada. Pégala junto con el resto.";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "Buscar trucos";
@@ -573,6 +599,8 @@
 "cheats.browse.offline" = "Sin conexión. Los códigos se descargan una vez por juego y luego se guardan en tu dispositivo.";
 "cheats.browse.failed" = "No se pudieron cargar los códigos. Inténtalo de nuevo.";
 "cheats.browse.credit" = "Códigos de la base comunitaria libretro (CC BY-SA 4.0).";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "Estos códigos proceden de otra edición del mismo juego: %@. Suelen funcionar, pero no siempre.";
 "settings.cheatDB.section" = "Trucos";
 "settings.cheatDB.download" = "Descargar los códigos de mis juegos";
 "settings.cheatDB.progress" = "Descargando, %d de %d";
@@ -600,21 +628,24 @@
 "externalDisplay.idle.hint" = "Inicia un juego en tu iPhone";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Juega en tu tele";
-"whatsnew.s1.b1" = "Envía el juego a un televisor por AirPlay o por cable, mientras tu iPhone conserva los controles. Pro.";
-"whatsnew.s1.b2" = "En DS, las dos pantallas aparecen en la tele y la táctil sigue en tu iPhone.";
-"whatsnew.s2.title" = "El aspecto del hardware original";
-"whatsnew.s2.b1" = "Seis filtros de vídeo, del CRT a la rejilla LCD, en directo y grabados en tus capturas y clips. Pro.";
-"whatsnew.s2.b2" = "Veinticuatro paletas de Game Boy, elegidas juego a juego, gratis para todos.";
-"whatsnew.s3.title" = "Trucos sin teclearlos";
-"whatsnew.s3.b1" = "Consulta la base comunitaria del juego que tienes abierto y toca un código para añadirlo. Pro.";
-"whatsnew.s3.b2" = "Los códigos se formatean solos, y uno rechazado por fin dice qué le pasa.";
-"whatsnew.s4.title" = "Mandos y teclados";
-"whatsnew.s4.b1" = "Reasigna cada botón, por consola, y pon avance rápido, captura o clip en uno libre. Pro.";
-"whatsnew.s4.b2" = "Los teclados físicos ya funcionan, gratis. El stick y los botones de DS están corregidos.";
-"whatsnew.s5.title" = "Tus juegos en la pantalla de inicio";
-"whatsnew.s5.b1" = "Los widgets muestran tus juegos con su carátula. Un toque abre el juego donde lo dejaste.";
-"whatsnew.s5.b2" = "Elige el juego y la partida de cada widget, o deja que siga tu última partida.";
-"whatsnew.s6.title" = "Partidas guardadas y Nintendo DS";
-"whatsnew.s6.b1" = "Exporta la partida de un juego para compartirla o guardarla, y las partidas te siguen por iCloud.";
-"whatsnew.s6.b2" = "Pon un juego de Game Boy Advance en la segunda ranura de la DS, como en la consola original.";
+"whatsnew.s1.title" = "Dos consolas más";
+"whatsnew.s1.b1" = "Los juegos de Super Nintendo y NES ya funcionan en Retro Pal, y ambas consolas son gratuitas para todo el mundo.";
+"whatsnew.s1.b2" = "Partidas, velocidad, rebobinado, trucos y logros funcionan en ellas desde el primer día.";
+"whatsnew.s2.title" = "Tienen el aspecto de las de verdad";
+"whatsnew.s2.b1" = "Cada consola nueva lleva su propia carcasa alrededor del juego, en vertical y en horizontal.";
+"whatsnew.s2.b2" = "Crea tu propio diseño y dale su color a cada botón, y comparte luego una tarjeta. {PRO}";
+"whatsnew.s3.title" = "Rebobinado en todas las consolas";
+"whatsnew.s3.b1" = "El rebobinado llega a Nintendo DS, que necesitaba una forma mucho más pequeña de guardar sus instantáneas.";
+"whatsnew.s3.b2" = "Cinco segundos para todos, treinta con {PRO}, en las seis consolas.";
+"whatsnew.s4.title" = "Los trucos, arreglados";
+"whatsnew.s4.b1" = "Un código escrito en varias líneas se añade como una sola entrada, y la app lo dice antes de que te equivoques.";
+"whatsnew.s4.b2" = "Un juego cuya edición no tiene códigos puede tomar prestados los de otra región del mismo cartucho.";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "Un juego con varias series de logros muestra ahora cada serie con su propio recuento y su insignia.";
+"whatsnew.s5.b2" = "Terminar una serie, o un juego entero, tiene su propio momento en pantalla.";
+"whatsnew.s6.title" = "Con un mando conectado";
+"whatsnew.s6.b1" = "Mueve la pantalla del juego y cambia su tamaño cuando un mando de pinza tapa parte de ella. {PRO}";
+"whatsnew.s6.b2" = "Cada consola recuerda su propia disposición, en vertical y en horizontal.";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "No hay logros cargados de esta serie.";

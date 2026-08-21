@@ -4,3 +4,6 @@
 [submodule "Vendor/melonds"]
 	path = Vendor/melonds
 	url = https://github.com/melonDS-emu/melonDS.git
+[submodule "Vendor/mesence"]
+	path = Vendor/mesence
+	url = https://github.com/nesdev-org/MesenCE.git

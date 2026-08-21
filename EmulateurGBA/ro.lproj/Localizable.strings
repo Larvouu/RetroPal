@@ -9,7 +9,7 @@
 "library.empty.title" = "Bun venit pe Retro Pal";
 "library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire personală.";
 "library.empty.button" = "Adaugă un joc";
-"library.empty.step1" = "Adu un joc (.gba, .gb, .gbc sau .nds) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
+"library.empty.step1" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc sau .nes) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
 "library.empty.step2" = "Atinge %@, apoi alege fișierul în aplicația Fișiere.";
 "library.empty.step3" = "Joacă. Progresul se salvează automat";
 "library.empty.romHint" = "Încă nu ai ROM-uri? Există multe jocuri gratuite și legale. Caută online \"GBA homebrew\".";
@@ -103,7 +103,7 @@
 "pro.welcome" = "Bine ai venit în Pro!";
 "pro.benefit.speed" = "Toate vitezele: de la 0,25x la 4x";
 "pro.benefit.slots" = "5 sloturi de salvare (în loc de 2)";
-"pro.benefit.rewind" = "Derulare înapoi de 30 de secunde (GBA/GB/GBC)";
+"pro.benefit.rewind" = "Derulare înapoi de 30 de secunde";
 "pro.benefit.cheats" = "Coduri de trișare (GameShark / Action Replay)";
 "pro.benefit.controls" = "Controale personalizate (tactil și controller)";
 "pro.benefit.speed.short" = "Toate vitezele";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Controlere Bluetooth";
 "pro.compare.row.slots" = "Sloturi de salvare";
 "pro.compare.row.speeds" = "Viteze";
-"pro.compare.row.rewind" = "Derulare (GBA/GB/GBC)";
+"pro.compare.row.rewind" = "Derulare";
 "pro.compare.row.cheats" = "Coduri de trișare";
 "pro.compare.row.controls" = "Comenzi personalizate";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "Ai jucat %@ minute de jocuri retro";
 "prompt.milestone.subtitle" = "E clar că adoră asta. Deblochează experiența completă.";
 "prompt.rewind.title" = "Trebuie să te întorci mai mult?";
-"prompt.rewind.subtitle" = "Pro îți oferă 30 de secunde de derulare înapoi pe GBA/GB/GBC. Nu mai pierde niciodată o luptă cu un boss.";
+"prompt.rewind.subtitle" = "Pro îți oferă 30 de secunde de derulare înapoi pe orice consolă. Nu mai pierde niciodată o luptă cu un boss.";
 "prompt.cheats.title" = "Ai jucat 4 ore de %@. Gata să joci fără limite?";
 "prompt.cheats.subtitle" = "Deblochează coduri de trișare, viteză maximă și multe altele. O singură achiziție, atât. Pe viață.";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "Deblochează toate vitezele, 5 sloturi, derulare 30s (GBA/GB/GBC) și multe altele.";
+"prompt.generic.subtitle" = "Deblochează toate vitezele, 5 sloturi, derulare 30s și multe altele.";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "Nostalgia";
@@ -179,7 +179,7 @@
 "legal.melonds" = "Licența melonDS";
 "legal.importantNotice.title" = "Notificare importantă";
 "legal.aboutApp.title" = "Despre această aplicație";
-"legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color și Nintendo DS. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
+"legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo și NES. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
 "legal.aboutApp.description2" = "Această aplicație nu oferă un catalog de jocuri, nu distribuie conținut de jocuri și nu facilitează descărcarea de materiale protejate prin drepturi de autor.";
 "legal.privacy.title" = "Confidențialitate";
 "legal.privacy.description" = "Jocurile și salvările tale rămân pe dispozitivul tău. Pentru a îmbunătăți aplicația, Retro Pal trimite doar statistici de utilizare anonime, fără date personale și fără identificatori publicitari.";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA este un emulator Game Boy Advance folosit ca motor principal de emulare în această aplicație. Codul sursă al mGBA este disponibil la [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
 "legal.melonds.description" = "melonDS este un emulator Nintendo DS folosit ca motor de emulare pentru jocurile DS în această aplicație. Codul sursă al melonDS este disponibil la [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "Licența MesenCE";
+"legal.mesen.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
+"legal.mesen.description" = "MesenCE este un emulator Super Nintendo și NES folosit ca motor de emulare pentru jocurile SNES și NES în această aplicație. Codul sursă al MesenCE este disponibil la [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Licența Retro Pal";
 "legal.retropal.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Codul sursă complet al Retro Pal este disponibil la [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Software-ul este furnizat fără nicio garanție.";
-"legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și melonDS (GPL-3.0), utilizate fără modificări. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
+"legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și melonDS (GPL-3.0), utilizate fără modificări, și pe MesenCE (GPL-3.0), utilizat cu o mică modificare, publicată ca fișier patch alături de codul sursă. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
 
 "details.noSaves" = "Încă nicio salvare rapidă. Creează una în joc cu butonul de meniu.";
 "library.importing" = "Se importă ROM...";
@@ -214,10 +217,14 @@
 /* Cheats */
 "cheats.hint.gba" = "Format GameShark, CodeBreaker sau Action Replay";
 "cheats.hint.nds" = "Format Action Replay DS (XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Format Game Genie (XXXX-XXXX) sau Pro Action Replay";
+"cheats.hint.nes" = "Format Game Genie (litere) sau Pro Action Rocky";
 "cheats.namePlaceholder" = "Nume (opțional)";
 "cheats.add" = "Adaugă cod";
 "cheats.invalid.gba" = "Cod nerecunoscut. Format așteptat: GameShark, CodeBreaker sau Action Replay.";
 "cheats.invalid.nds" = "Cod nerecunoscut. Format așteptat: Action Replay DS (XXXXXXXX YYYYYYYY, o pereche pe linie).";
+"cheats.invalid.snes" = "Cod nerecunoscut. Se aștepta Game Genie (XXXX-XXXX) sau Pro Action Replay (opt caractere).";
+"cheats.invalid.nes" = "Cod nerecunoscut. Se aștepta Game Genie (șase sau opt litere) sau Pro Action Rocky (opt caractere).";
 "cheats.empty" = "Niciun cod activ";
 "cheats.findHint" = "Codurile se găsesc ușor online. Caută cheat codes pentru jocul tău.";
 "cheats.clearAll" = "Șterge tot";
@@ -243,10 +250,6 @@
 "prompt.slotsTapped.subtitle" = "Deblochează 5 sloturi de salvare ca să ai întotdeauna loc. O singură achiziție, pentru totdeauna.";
 "settings.appLabel" = "Aplicație";
 
-"review.headline" = "Te distrezi?";
-"review.body" = "Recenziile sunt ceea ce ține aplicațiile mici în viață pe App Store. O frază ajută enorm.";
-"review.cta" = "Evaluează cu 5 stele";
-"review.later" = "Nu acum";
 "cheats.type" = "Tip cod";
 "cheats.restore" = "Restaurează salvarea de dinainte de coduri";
 "cheats.restore.confirm.title" = "Restaurezi salvarea de dinainte de coduri?";
@@ -256,6 +259,13 @@
 /* Control Layout */
 "settings.customizeControls" = "Personalizează comenzile";
 "settings.remapController" = "Reasociază butoanele controllerului";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "Aranjarea ecranului cu controler";
+"controllerLayout.customised" = "Personalizată";
+"controllerLayout.footer" = "Alege unde stă ecranul jocului și cât de mare este, cât timp un controler este conectat. Util când controlerul acoperă o parte din ecran. Fiecare consolă își păstrează aranjarea proprie, pe verticală și pe orizontală.";
+"controllerLayout.resetAll" = "Restabilește aranjările inițiale";
+"controllerLayout.reset.footer" = "Readuce fiecare consolă la aranjarea folosită implicit de aplicație cu un controler.";
 "remap.press" = "Apasă un buton…";
 "remap.reset" = "Restabilește valorile implicite";
 "remap.footer" = "Atinge un buton, apoi apasă butonul controllerului pe care vrei să îl asociezi. Crucea direcțională și stickul controlează mereu crucea.";
@@ -324,11 +334,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Adaugă un joc";
 "guide.importRom.intro" = "Retro Pal nu include jocuri. Tu îți furnizezi propriile fișiere ROM, pentru care deții drepturile legal (propriile cartușe sau jocuri homebrew gratuite și legale).";
-"guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc sau .nds) pe iPhone: descarcă-l în Safari, prin AirDrop de pe un computer, sau din iCloud Drive.";
+"guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc sau .nes) pe iPhone: descarcă-l în Safari, prin AirDrop de pe un computer, sau din iCloud Drive.";
 "guide.importRom.step2" = "Verifică să apară în aplicația Fișiere (în Descărcări, Pe iPhone-ul meu sau iCloud Drive).";
 "guide.importRom.step3" = "În Retro Pal, atinge butonul + din partea de sus a bibliotecii.";
 "guide.importRom.step4" = "Alege fișierul. Jocul apare imediat în biblioteca ta, gata de jucat.";
-"guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds și fișiere .zip cu un singur joc. Fișierele .7z și arhivele cu mai multe jocuri nu sunt acceptate; extrage mai întâi un singur fișier. Importă doar fișiere pentru care deții drepturile.";
+"guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes și fișiere .zip cu un singur joc. Fișierele .7z și arhivele cu mai multe jocuri nu sunt acceptate; extrage mai întâi un singur fișier. Importă doar fișiere pentru care deții drepturile.";
 "settings.guides.section" = "Ghiduri";
 "settings.controller.row" = "Controler";
 "common.done" = "Gata";
@@ -421,6 +431,10 @@
 "skin.editor.surround" = "Ramă";
 "skin.editor.dpad" = "Cruce";
 "skin.editor.abButtons" = "Butoane A/B";
+"skin.editor.faceA" = "Buton A";
+"skin.editor.faceB" = "Buton B";
+"skin.editor.faceX" = "Buton X";
+"skin.editor.faceY" = "Buton Y";
 "skin.editor.abLetters" = "Litere A/B";
 "skin.editor.smallButtons" = "Butoane mici";
 "skin.editor.menuIcons" = "Pictograme meniu";
@@ -470,6 +484,10 @@
 "ra.dashboard.title" = "Realizări";
 "ra.dashboard.unlocked" = "Deblocate";
 "ra.dashboard.locked" = "Rămase";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "Joc finalizat";
+"ra.hud.subsetCompleted" = "Serie finalizată";
 "ra.dashboard.empty" = "Acest joc nu are realizări sau nu au fost încărcate încă.";
 "ra.dashboard.summary" = "%lld din %lld deblocate";
 "ra.dashboard.rarity" = "%@ dintre jucători";
@@ -505,8 +523,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Fișierul selectat nu poate fi accesat. Încearcă să îl imporți din aplicația Fișiere.";
 "import.error.copyFailed" = "Jocul nu a putut fi copiat în Retro Pal. Eliberează spațiu de stocare și încearcă din nou.";
-"import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc și .nds.";
-"import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc și .nds; alte console nu sunt acceptate.";
+"import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc și .nes.";
+"import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc, .nds, .sfc, .smc și .nes; alte console nu sunt acceptate.";
 "import.error.zipExtractionFailed" = "Acest ZIP nu a putut fi deschis. Dezarhivează-l în aplicația Fișiere, apoi importă direct fișierul jocului.";
 "import.error.alreadyImported" = "Acest joc este deja în biblioteca ta.";
 "import.error.saveFailed" = "Jocul nu a putut fi adăugat în bibliotecă. Încearcă din nou.";
@@ -523,12 +541,15 @@
 "whatsnew.title" = "Noutăți";
 "whatsnew.version" = "Versiunea %@";
 "whatsnew.footer" = "Poți reciti aceste noutăți oricând în Setări.";
+"whatsnew.notice.pro" = "Despre Pro: prețul pe viață, plătit o singură dată, va crește într-o actualizare viitoare. Încă nu există o dată. Tot ce este gratuit azi rămâne gratuit, mereu: fără reclame, și nu trebuie niciodată să plătești ca să te joci.";
 "whatsnew.dismiss" = "Am înțeles!";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "Ecran extern";
 "settings.externalDisplay.row" = "Joacă pe televizor";
 "settings.externalDisplay.ndsLayout" = "Ecranele DS pe televizor";
+"settings.externalDisplay.noTV" = "Niciun televizor conectat";
+"settings.externalDisplay.noTV.caption" = "Atinge ca să vezi cum joci pe un televizor.";
 "settings.externalDisplay.sideBySide" = "Unul lângă altul";
 "settings.externalDisplay.stacked" = "Unul peste altul";
 "settings.externalDisplay.footer" = "Conectează un televizor prin AirPlay sau prin cablu, iar jocul umple ecranul în timp ce iPhone-ul păstrează comenzile. DS-ul afișează ambele ecrane; cel tactil rămâne pe telefon.";
@@ -544,7 +565,7 @@
 "guide.airplay.step3" = "Pornește un joc. Umple televizorul, iar iPhone-ul păstrează comenzile.";
 "guide.airplay.step4" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPhone.";
 "guide.airplay.step5" = "Conectează un controler și butoanele de pe ecran dispar. Pe telefon mai folosești doar ecranul tactil al DS-ului.";
-"guide.airplay.step6" = "Cum stau cele două ecrane DS pe televizor alegi din Setări, Ecran extern.";
+"guide.airplay.step6" = "După ce televizorul este conectat, alege cum stau cele două ecrane DS din Setări, Ecran extern.";
 "guide.airplay.footer" = "Sunetul merge odată cu imaginea la televizor prin AirPlay. Cu un controler, meniul de pauză se deschide cu butonul de meniu al controlerului, deci nu trebuie să atingi deloc telefonul.";
 "guide.airplay.proNotice" = "Jocul pe televizor face parte din Retro Pal Pro.";
 "guide.airplay.proButton" = "Joacă pe televizorul meu";
@@ -561,7 +582,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Acest cod conține caractere neașteptate. Codurile folosesc doar 0-9, A-F, spații și liniuțe.";
+"cheats.invalid.characters.nes" = "Acest cod conține caractere neașteptate. Codurile NES folosesc literele Game Genie A P Z L G I T Y E O X U K S V N sau 0-9 și A-F, plus spații și liniuțe.";
 "cheats.invalid.pairs" = "Codurile Action Replay DS vin în perechi: fiecare linie are nevoie de două blocuri de opt caractere, de exemplu 94000130 FCFF0000.";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "Un cod scris pe mai multe linii se adaugă ca O SINGURĂ intrare. Lipește toate liniile împreună, nu le adăuga una câte una.";
+"cheats.multiline.seedAlone" = "Această linie doar deblochează celelalte linii ale codului său. Singură nu face nimic. Lipește-o împreună cu restul.";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "Vezi codurile";
@@ -573,6 +599,8 @@
 "cheats.browse.offline" = "Fără conexiune. Codurile se descarcă o dată pentru fiecare joc, apoi rămân pe dispozitiv.";
 "cheats.browse.failed" = "Codurile nu au putut fi încărcate. Încearcă din nou.";
 "cheats.browse.credit" = "Coduri din baza comunitară libretro (CC BY-SA 4.0).";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "Aceste coduri provin de la o altă ediție a aceluiași joc: %@. Funcționează adesea, dar nu întotdeauna.";
 "settings.cheatDB.section" = "Coduri";
 "settings.cheatDB.download" = "Descarcă codurile jocurilor mele";
 "settings.cheatDB.progress" = "Se descarcă, %d din %d";
@@ -600,21 +628,24 @@
 "externalDisplay.idle.hint" = "Pornește un joc pe iPhone";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Joacă pe televizor";
-"whatsnew.s1.b1" = "Trimite jocul pe un televizor prin AirPlay sau prin cablu, în timp ce iPhone-ul păstrează comenzile. Pro.";
-"whatsnew.s1.b2" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPhone.";
-"whatsnew.s2.title" = "Aspectul consolei originale";
-"whatsnew.s2.b1" = "Șase filtre video, de la CRT la grilă LCD, în direct și imprimate în capturile și clipurile tale. Pro.";
-"whatsnew.s2.b2" = "Douăzeci și patru de palete Game Boy, alese pentru fiecare joc, gratuit pentru toți.";
-"whatsnew.s3.title" = "Coduri fără să le scrii";
-"whatsnew.s3.b1" = "Răsfoiește baza comunității pentru jocul deschis și atinge un cod ca să îl adaugi. Pro.";
-"whatsnew.s3.b2" = "Codurile se formatează singure, iar un cod respins spune în sfârșit ce nu e în regulă.";
-"whatsnew.s4.title" = "Controlere și tastaturi";
-"whatsnew.s4.b1" = "Remapează fiecare buton, pe fiecare consolă, și pune derulare rapidă, captură sau clip pe unul liber. Pro.";
-"whatsnew.s4.b2" = "Tastaturile fizice funcționează acum, gratuit. Stick-ul și butoanele DS sunt corectate.";
-"whatsnew.s5.title" = "Jocurile tale pe ecranul principal";
-"whatsnew.s5.b1" = "Widgeturile îți arată jocurile sub formă de coperte. O atingere deschide jocul de unde ai rămas.";
-"whatsnew.s5.b2" = "Alege jocul și salvarea fiecărui widget, sau lasă-l să urmeze ultima ta partidă.";
-"whatsnew.s6.title" = "Salvări și Nintendo DS";
-"whatsnew.s6.b1" = "Exportă salvarea unui joc ca să o împarți sau să o păstrezi, iar salvările te urmează prin iCloud.";
-"whatsnew.s6.b2" = "Pune un joc Game Boy Advance în al doilea slot al DS-ului, ca pe consola originală.";
+"whatsnew.s1.title" = "Încă două console";
+"whatsnew.s1.b1" = "Jocurile Super Nintendo și NES merg acum în Retro Pal, iar ambele console sunt gratuite pentru toată lumea.";
+"whatsnew.s1.b2" = "Salvările, viteza, derularea înapoi, codurile și realizările funcționează pe ele din prima zi.";
+"whatsnew.s2.title" = "Arată ca cele adevărate";
+"whatsnew.s2.b1" = "Fiecare consolă nouă poartă propria carcasă în jurul jocului, pe verticală și pe orizontală.";
+"whatsnew.s2.b2" = "Fă-ți propria temă și dă-i fiecărui buton culoarea lui, apoi împarte un card cu ea. {PRO}";
+"whatsnew.s3.title" = "Derulare înapoi pe orice consolă";
+"whatsnew.s3.b1" = "Derularea înapoi ajunge pe Nintendo DS, care avea nevoie de un mod mult mai mic de a-și păstra instantaneele mult mai mari.";
+"whatsnew.s3.b2" = "Cinci secunde pentru toată lumea, treizeci cu {PRO}, pe toate cele șase console.";
+"whatsnew.s4.title" = "Codurile, reparate";
+"whatsnew.s4.b1" = "Un cod scris pe mai multe linii intră ca o singură intrare, iar aplicația ți-o spune înainte să greșești.";
+"whatsnew.s4.b2" = "Un joc a cărui ediție nu are coduri le poate împrumuta de la altă regiune a aceluiași cartuș.";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "Un joc cu mai multe serii de realizări arată acum fiecare serie cu propriul număr și propria insignă.";
+"whatsnew.s5.b2" = "Terminarea unei serii, sau a unui joc întreg, își are propriul moment pe ecran.";
+"whatsnew.s6.title" = "Cu un controler conectat";
+"whatsnew.s6.b1" = "Mută ecranul jocului și schimbă-i mărimea când un controler cu clemă acoperă o parte din el. {PRO}";
+"whatsnew.s6.b2" = "Fiecare consolă își ține minte propria aranjare, pe verticală și pe orizontală.";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "Nu este încărcată nicio realizare din această serie.";

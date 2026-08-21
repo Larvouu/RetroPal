@@ -53,24 +53,27 @@ enum GameplayClipRenderer {
         if let variant = ScreenshotCardRenderer.consoleVariant(style: style, skinVariant: skinVariant) {
             let aspect = frames.first.map { CGFloat($0.width) / CGFloat(max($0.height, 1)) } ?? 1
             let info = ScreenshotCardRenderer.GameInfo(name: title, playTimeSeconds: playTime, isPro: isPro)
-            let gameSize = CGSize(width: aspect, height: 1)
-            let chrome = system == .gba ? ScreenshotCardRenderer.gbaConsoleCard(gameFrame: nil, gameAspect: aspect, info: info, variant: variant)
-                       : system == .nds ? ScreenshotCardRenderer.ndsConsoleCard(gameFrame: nil, gameAspect: aspect, info: info, separatedScreens: true, variant: variant)
-                       : ScreenshotCardRenderer.gbConsoleCard(gameFrame: nil, gameAspect: aspect, info: info, variant: variant)
-            let layout = system == .gba ? GBCardLayout.gba(side: cardSide, gameNativeSize: gameSize)
-                       : system == .nds ? GBCardLayout.nds(side: cardSide, gameNativeSize: gameSize, separatedScreens: true)
-                       : GBCardLayout.make(side: cardSide, gameNativeSize: gameSize)
-            // NDS Nostalgia clip uses the separated two-screen layout (matching the screenshot card);
-            // GB/GBC + GBA use the single combined screen.
-            let screens = layout.ndsScreens.isEmpty ? [layout.screen] : layout.ndsScreens
-            DispatchQueue.global(qos: .userInitiated).async {
-                let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
-                    gbCompositeFrame(chrome: chrome, screens: screens, gameImage: game, side: cardSide,
-                                     filter: filter)
+            // Chrome and layout are a PAIR and must come from the same console, and the
+            // mapping lives in ScreenshotCardRenderer so this card and the screenshot card can
+            // never disagree about which console a game is. nil would mean a console with no
+            // dress; every console has one since the NES's landed, so the branded card below is
+            // now reached only by the Classic style.
+            let pair = ScreenshotCardRenderer.consoleCard(
+                system: system, gameFrame: nil, gameAspect: aspect, info: info,
+                variant: variant, side: cardSide)
+            if let (chrome, layout) = pair {
+                // NDS Nostalgia clip uses the separated two-screen layout (matching the screenshot
+                // card); every other console uses the single combined screen.
+                let screens = layout.ndsScreens.isEmpty ? [layout.screen] : layout.ndsScreens
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
+                        gbCompositeFrame(chrome: chrome, screens: screens, gameImage: game, side: cardSide,
+                                         filter: filter)
+                    }
+                    DispatchQueue.main.async { completion(url) }
                 }
-                DispatchQueue.main.async { completion(url) }
+                return
             }
-            return
         }
 
         DispatchQueue.global(qos: .userInitiated).async {

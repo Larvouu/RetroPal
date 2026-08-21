@@ -31,6 +31,33 @@ NS_ASSUME_NONNULL_BEGIN
 /// Whether this system has a touch screen (e.g., NDS bottom screen)
 @property (nonatomic, readonly) BOOL hasTouchScreen;
 
+/// Rendered width / rendered height of the game as it should be DISPLAYED,
+/// which is not always the buffer's own ratio.
+///
+/// It matches the buffer for the three original cores (GBA 3:2, GB/GBC 10:9,
+/// NDS 256x384 stacked), and it deliberately does not for SNES/NES: those
+/// consoles drew for a 4:3 television and their artists compensated for the
+/// stretch, while the buffer is 8:7 and, on SNES, double-height so a hi-res
+/// frame fits without resizing the texture mid-game.
+@property (nonatomic, readonly) CGFloat displayAspect;
+
+/// Byte order of `frameBuffer`: YES = B,G,R,A in memory (melonDS, Mesen),
+/// NO = R,G,B,A (mGBA). The renderer picks its Metal pixel format from this.
+///
+/// It used to be inferred from `hasTouchScreen`, which happened to be right
+/// while the DS was the only BGRA core and is not a fact about touch screens.
+@property (nonatomic, readonly) BOOL usesBGRAPixelOrder;
+
+/// Frames per second the loaded game actually runs at.
+///
+/// The renderer used to pace every console at the GBA's 59.7275 fps, which is
+/// right for GBA and GB/GBC and near enough for the DS. It is not near enough
+/// for a PAL SNES or NES cartridge, which runs at 50: those would play a fifth
+/// too fast and produce a fifth more audio per second than the output can
+/// consume. Only Mesen reports a real figure; the two original cores return the
+/// constant the renderer already used, so their pacing is untouched.
+@property (nonatomic, readonly) double framesPerSecond;
+
 // MARK: - ROM Management
 
 - (BOOL)loadROMAtPath:(NSString *)path;
@@ -45,6 +72,24 @@ NS_ASSUME_NONNULL_BEGIN
 // MARK: - Emulation
 
 - (void)runFrame;
+
+/// Block until the picture produced by the LAST `runFrame` is readable through
+/// `frameBuffer`, then return. Called once per drawn frame, just before the
+/// buffer is uploaded — NOT once per emulated frame.
+///
+/// mGBA and melonDS write their picture inside `runFrame` and hand back that
+/// same buffer, so for them this is a no-op and the default below is the whole
+/// implementation. MesenCE does not: its PPU parks the finished frame on a
+/// decode thread, so without this the upload takes the PREVIOUS frame and the
+/// console runs a frame behind the other three.
+///
+/// It is separate from `runFrame` on purpose. Fast-forward and catch-up run
+/// several emulated frames per drawn one and throw all but the last picture
+/// away; waiting inside `runFrame` would have paid for every one of them, which
+/// is a throughput cost for latency nobody sees.
+@optional
+- (void)awaitDisplayFrame;
+@required
 - (void)setKeys:(uint32_t)keys;
 
 // MARK: - Video
@@ -81,7 +126,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 0x0E000000 SRAM; GB/GBC = 0x0000–0xFFFF. The RetroAchievements runtime
 /// translates RA flat addresses to these via `rc_console_memory_regions()`
 /// before calling, so the bridge stays core-generic and RA-agnostic. Read-only;
-/// no side effects on emulation. NDS returns 0 (RA support deferred).
+/// no side effects on emulation. SNES = 0x7E0000 work RAM plus the synthetic
+/// addresses rcheevos uses for cartridge RAM; NES = 0x0000 internal RAM and
+/// 0x6000 cartridge RAM. Every console the app ships serves this.
 - (NSInteger)readMemoryAtAddress:(uint32_t)address into:(uint8_t *)buffer length:(NSInteger)length;
 
 // MARK: - Speed
@@ -116,9 +163,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 // MARK: - Cheat Codes
 
+// Applying a cheat set is CLEAR then re-add the enabled ones (see
+// `CheatManagerView.reapplyAll`), which is the only shape MesenCE can honour:
+// it has no global enable flag. There is therefore no per-set enable here.
 - (BOOL)addCheatCode:(NSString *)code type:(int)type;
 - (void)clearCheats;
-- (void)setCheatsEnabled:(BOOL)enabled;
 
 // MARK: - Touch Screen (NDS)
 

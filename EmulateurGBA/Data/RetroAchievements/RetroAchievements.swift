@@ -32,6 +32,23 @@ struct RAUnlock: Identifiable, Equatable {
     let boxArtURL: URL?
 }
 
+/// A set finished completely: either the whole game, or one set inside a game
+/// that has several.
+///
+/// Kept separate from `RAUnlock` on purpose. A mastery is not an achievement:
+/// it must not enter the unlock log, must not become a share card of an
+/// achievement that does not exist, and must not fire the `ra_unlock` signal
+/// and inflate a frozen metric.
+struct RAMastery: Identifiable, Equatable {
+    let id = UUID()
+    /// The game's title, or the set's title when `isSubset`.
+    let title: String
+    /// False = the entire game is done. True = one set of several is done, and
+    /// there is more left in the game.
+    let isSubset: Bool
+    let points: Int
+}
+
 /// The user's progress on the currently loaded game (nil when none / unidentified).
 struct RAGameProgress: Equatable {
     let title: String
@@ -70,6 +87,11 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// The most recent unlock, for the in-game celebration HUD. Set on unlock,
     /// cleared by the HUD once shown.
     @Published var lastUnlock: RAUnlock?
+    /// A set was just completed. Shares the HUD slot with `lastUnlock`
+    /// deliberately: the final achievement and the mastery arrive back to back
+    /// from rc_client, so two independent banners would race for the same
+    /// position on screen.
+    @Published var lastMastery: RAMastery?
     /// Progress on the game currently loaded in the active session.
     @Published private(set) var currentGame: RAGameProgress?
     /// The measured achievement currently progressing, for the in-game pill.
@@ -108,6 +130,17 @@ final class RetroAchievements: NSObject, ObservableObject {
             ach.measuredPercent = entry.percent
         }
         return list
+    }
+
+    /// The sets making up the loaded game, base set first. **Empty for the
+    /// ordinary single-set game**, which is the signal the dashboard uses to
+    /// keep rendering exactly one flat list as it always has.
+    ///
+    /// Presentation only. The persisted per-game record keeps MERGED counts,
+    /// so the library card, the Game Details row and the share cards are
+    /// untouched by any of this and `af0c185` stays fixed.
+    func subsets() -> [RASubsetInfo] {
+        client.currentGameSubsets()
     }
 
     /// Persist the live runtime's measured values (see achievements() above
@@ -589,6 +622,42 @@ final class RetroAchievements: NSObject, ObservableObject {
             RASounds.playProgress(gameSoundOn: true)
         }
     }
+
+    /// Fire the completion banner so the card that marks finishing a set, or a
+    /// whole game, can be read on screen without finishing one. DEBUG only.
+    ///
+    /// Three things it does deliberately:
+    ///
+    /// 1. **Clears `lastUnlock` first.** The HUD holds a mastery back until the
+    ///    unlock banner has gone, because in real play the two arrive in the same
+    ///    instant. A leftover unlock from the simulate-unlock button above would
+    ///    swallow this one and the button would look dead.
+    /// 2. **Stays silent**, unlike the unlock and progress previews which bypass
+    ///    the sound gate on purpose. A real completion plays nothing: the final
+    ///    achievement's own sound fired a fraction of a second earlier. A preview
+    ///    that made noise would be previewing something that does not exist.
+    /// 3. **Alternates the title length on each tap.** The card gives the title
+    ///    two lines, and set titles are long ("Shiny Pokémon Challenge" and worse),
+    ///    so the second tap is the one that shows what a long title does to the
+    ///    layout. One button, both cases, rather than a button nobody presses twice.
+    private var debugCompletionUsesLongTitle = false
+    func debugSimulateCompletion(subset: Bool) {
+        debugCompletionUsesLongTitle.toggle()
+        let long = debugCompletionUsesLongTitle
+        let title: String
+        if subset {
+            title = long ? "Shiny Pokémon Challenge (Kanto and Sevii Islands)"
+                         : "Shiny Pokémon Challenge"
+        } else {
+            title = long ? "Pokémon FireRed Version, Professor Oak Challenge"
+                         : "Pokémon FireRed Version"
+        }
+        publishOnMain {
+            self.lastUnlock = nil
+            self.lastMastery = RAMastery(title: title, isSubset: subset,
+                                         points: subset ? 120 : 465)
+        }
+    }
     #endif
 
     // MARK: - User-Agent (STABLE — load-bearing for the eventual hardcore listing)
@@ -651,6 +720,32 @@ extension RetroAchievements: RAClientDelegate {
         snapshotMeasuredProgress()
         // Reflect the new softcore score.
         refreshUser()
+    }
+
+    func raClient(_ client: RAClient, didMasterGameTitle masteredTitle: String, points: Int) {
+        presentMastery(RAMastery(title: masteredTitle, isSubset: false, points: points))
+    }
+
+    func raClient(_ client: RAClient, didCompleteSubsetTitle subsetTitle: String, points: Int) {
+        presentMastery(RAMastery(title: subsetTitle, isSubset: true, points: points))
+    }
+
+    /// Shared tail for both mastery events.
+    ///
+    /// No unlock-log entry, no `ra_unlock` signal, no `recordAchievementUnlocked`.
+    /// Those all belong to achievements, and the last achievement of the set has
+    /// already fired every one of them a moment earlier; repeating them here
+    /// would double-count a frozen metric and log an achievement nobody earned.
+    private func presentMastery(_ mastery: RAMastery) {
+        publishOnMain {
+            // Deliberately silent. rc_client sends the mastery immediately after
+            // the final achievement's unlock, which has already played the
+            // unlock sound a fraction of a second earlier, so playing it again
+            // here is one event announced twice. The HUD already sequences the
+            // two cards for the same reason; the sound needed the same
+            // treatment and was the half I missed.
+            self.lastMastery = mastery
+        }
     }
 
     func raClient(_ client: RAClient,

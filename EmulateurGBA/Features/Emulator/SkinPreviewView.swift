@@ -47,7 +47,7 @@ final class SkinPreviewView: UIView {
         self.isLandscape = isLandscape
         self.insets = safeInsets
         self.gameImage = gameImage
-        self.controls = (system == .nds) ? NDSTouchControlsView() : TouchControlsView()
+        self.controls = TouchControlsView.make(for: system)
         super.init(frame: .zero)
 
         backgroundColor = .black
@@ -81,13 +81,9 @@ final class SkinPreviewView: UIView {
     }
 
     /// Rendered game aspect (width / height), matching EmulatorSession / the layout engine.
-    private var gameAspect: CGFloat {
-        switch system {
-        case .gba: return 240.0 / 160.0
-        case .gbc: return 160.0 / 144.0
-        case .nds: return 256.0 / 384.0
-        }
-    }
+    /// The one table lives in `PresetLayoutResolver`, because a preview drawing a different
+    /// shape from the game is a preview that lies.
+    private var gameAspect: CGFloat { PresetLayoutResolver.displayAspect(system) }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -154,7 +150,8 @@ final class SkinPreviewView: UIView {
         controls.frame = containerFrame
         controls.layoutIfNeeded()
         controls.applyDefaultLayout(isLandscape: isLandscape, system: system,
-                                    deviceScale: k, safeLeftInset: insets.left)
+                                    deviceScale: k, safeLeftInset: insets.left,
+                                    safeRightInset: insets.right)
         controls.setDressed(dressed, isLandscape: isLandscape, system: system, variant: variant)
         controls.layoutIfNeeded()
         consoleSkin.buttonFrames = controls.visibleButtonFrames(in: consoleSkin)

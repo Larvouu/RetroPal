@@ -2,18 +2,19 @@
 //  PromptTrackerTests.swift
 //  EmulateurGBATests
 //
-//  Covers the two-path review ask (1.2.3 restructure):
+//  Covers the ONE-path review ask (1.2.5 restructure):
 //
-//  - CARD path (`reviewPromptArm`): the visible warm-up card, ra_unlock
-//    only (a fresh RetroAchievements unlock opens a 30-min celebration
-//    window, gated by >=15 min cumulative play). Rating terminal, two
-//    dismissals terminal, 24h gap.
+//  - A bare SKStoreReviewController request on the quit path, gated by
+//    `directReviewRequestTrigger`. Three triggers, evaluated best-moment
+//    first: ra_unlock (an achievement this run + an engaged sitting),
+//    return_day (first played on an earlier day + an engaged sitting), and
+//    game_30min (30 min on the game just put down, all time).
+//  - Deliberately NO terminal states and no lifetime cap: Apple's display
+//    quota is the limiter. The only local throttle is the 24h gap.
+//  - The warm-up card is gone, and with it every dismissal-counting rule.
 //
-//  - DIRECT path (`directReviewRequestTrigger`): bare SKStoreReviewController
-//    requests on the quit path (loyal_returner / deep_first_timer /
-//    engaged_first_timer). Deliberately NO terminal states — Apple's display
-//    quota is the limiter; the only local throttle is the 24h gap SHARED
-//    with the card.
+//  Also covers the session-counting fix: sessions are separated by IDLE
+//  time, so banking play on a backgrounding no longer invents a session.
 //
 //  Each test injects its own isolated UserDefaults(suiteName:) so nothing
 //  touches real device state or leaks between tests.
@@ -27,8 +28,7 @@ import Foundation
 struct PromptTrackerTests {
 
     /// Fresh, empty UserDefaults backed by a unique suite name so every
-    /// test starts from a clean slate (sessionCount 0, no prompts shown,
-    /// no save state recorded).
+    /// test starts from a clean slate.
     private func makeTracker() -> (PromptTracker, UserDefaults, String) {
         let suite = "PromptTrackerTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -36,202 +36,243 @@ struct PromptTrackerTests {
         return (PromptTracker(defaults: defaults), defaults, suite)
     }
 
-    private let fifteenMinutes: TimeInterval = 900
-    private let oneHour: TimeInterval = 3600
+    private let tenMinutes: TimeInterval = 600
+    private let thirtyMinutes: TimeInterval = 1800
+    private let game = "Pokemon Emerald (Europe)"
 
-    // MARK: - Direct path: engaged_first_timer
+    // MARK: - game_30min, the baseline trigger
 
     @Test
-    func test_engagedFirstTimer_firesWhenAllConditionsMet() {
+    func test_game30min_firesAtThirtyMinutesOnThatGame() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        pt.recordSaveStateCreated()
-        // First session (sessionCount == 0), exactly 15 min, save state made.
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes) == "engaged_first_timer")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
     }
 
     @Test
-    func test_engagedFirstTimer_doesNotFireWithoutSaveState() {
+    func test_game30min_doesNotFireBelowThirtyMinutes() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        // 15 min in session 1 but no manual save state: the engaged arm is
-        // gated off, and 15 min is far below the 2h deep-first-timer bar.
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes - 1) == nil)
+    }
+
+    /// The bar is CUMULATIVE on the game, so two sittings add up. This is the
+    /// difference from the old app-wide hour: it counts the game you stayed
+    /// with, not minutes summed across games you abandoned.
+    @Test
+    func test_game30min_accumulatesAcrossSittings() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordGamePlayTime(romName: game, seconds: 20 * 60)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 9 * 60) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 10 * 60) == "game_30min")
+    }
+
+    /// Time on OTHER games must not qualify this one. A dabbler with five
+    /// abandoned games is exactly who the old app-wide bar asked and this one
+    /// does not.
+    @Test
+    func test_game30min_isPerGame_notAppWide() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordGamePlayTime(romName: "Another Game", seconds: 2 * 3600)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 5 * 60) == nil)
+    }
+
+    // MARK: - return_day
+
+    @Test
+    func test_returnDay_firesOnALaterDayWithAnEngagedSitting() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // First play, two days ago.
+        let twoDaysAgo = Date().addingTimeInterval(-2 * 24 * 3600)
+        defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
+
+        #expect(pt.isReturningDay == true)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "return_day")
+    }
+
+    /// Coming back for two minutes is not a satisfaction signal.
+    @Test
+    func test_returnDay_needsAnEngagedSitting() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let twoDaysAgo = Date().addingTimeInterval(-2 * 24 * 3600)
+        defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
+
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1) == nil)
     }
 
     @Test
-    func test_engagedFirstTimer_doesNotFireBelow15min() {
+    func test_returnDay_doesNotFireOnTheFirstDay() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        pt.recordSaveStateCreated()
-        // One second short of the threshold.
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes - 1) == nil)
+        pt.recordSessionEnd(playSeconds: tenMinutes)   // stamps today as the first play day
+        #expect(pt.isReturningDay == false)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == nil)
+    }
+
+    // MARK: - ra_unlock, and trigger precedence
+
+    @Test
+    func test_raUnlock_firesAndOutranksTheOtherTriggers() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // Both other triggers would also qualify here.
+        let twoDaysAgo = Date().addingTimeInterval(-2 * 24 * 3600)
+        defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
+        pt.recordAchievementUnlocked()
+
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "ra_unlock")
     }
 
     @Test
-    func test_engagedFirstTimer_doesNotFireAfterFirstSession() {
+    func test_raUnlock_needsAnEngagedSitting() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        pt.recordSaveStateCreated()
-        // End the first session: sessionCount becomes 1, so the
-        // first-session-only triggers (engaged + deep) no longer apply, and
-        // loyal_returner needs 3rd session + 1h cumulative.
-        pt.recordSessionEnd(playSeconds: fifteenMinutes)
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes) == nil)
+        pt.recordAchievementUnlocked()
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1) == nil)
     }
 
-    // MARK: - Direct path: loyal_returner
-
+    /// One unlock must not keep qualifying every later quit.
     @Test
-    func test_loyalReturner_firesOnThirdSessionWithOneHourBanked() {
+    func test_raUnlock_isConsumedByTheAsk() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        // Two completed sessions -> this is the 3rd. 1h cumulative reached
-        // counting the live session's minutes.
-        pt.recordSessionEnd(playSeconds: 1800)
-        pt.recordSessionEnd(playSeconds: 1500)
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: 300) == "loyal_returner")
-    }
-
-    @Test
-    func test_loyalReturner_needsThirdSession() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // 1h+ banked but only one completed session: not yet a returner.
-        pt.recordSessionEnd(playSeconds: oneHour)
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes) == nil)
-    }
-
-    // MARK: - Direct path: no terminal states (the 1.2.3 philosophy)
-
-    @Test
-    func test_directPath_keepsFiringAfterRated() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // The card's rated flag is terminal for the CARD only. The direct
-        // request stays armed: it is silent once Apple's quota is spent, so
-        // there is nothing to protect the user from.
-        pt.recordReviewPromptRated()
-        pt.recordSessionEnd(playSeconds: 1800)
-        pt.recordSessionEnd(playSeconds: 1800)
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: 300) == "loyal_returner")
-    }
-
-    @Test
-    func test_directPath_respectsSharedDailyGap() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        pt.recordSessionEnd(playSeconds: 1800)
-        pt.recordSessionEnd(playSeconds: 1800)
-        // A direct request just fired: the 24h gap suppresses the next one.
+        pt.recordAchievementUnlocked()
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "ra_unlock")
         pt.recordDirectReviewRequested()
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: 300) == nil)
+
+        // Clear the 24h gap to isolate the flag from the throttle.
+        defaults.set(Date().addingTimeInterval(-25 * 3600), forKey: "reviewPromptLastShownDate")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == nil)
     }
 
     @Test
-    func test_cardPresentation_blocksDirectPathForADay() {
+    func test_returnDay_outranksGame30min() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        pt.recordSessionEnd(playSeconds: 1800)
-        pt.recordSessionEnd(playSeconds: 1800)
-        // The ra_unlock CARD was shown today: the shared gap must silence
-        // the direct ask too — never two review asks in one day.
-        pt.recordReviewPromptPresented()
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: 300) == nil)
+        let twoDaysAgo = Date().addingTimeInterval(-2 * 24 * 3600)
+        defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
+        pt.recordGamePlayTime(romName: game, seconds: 2 * 3600)
+
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "return_day")
     }
 
-    // MARK: - Save state gate
+    // MARK: - The 24h gap, and the absence of terminal states
+
+    @Test
+    func test_gap_suppressesASecondAskWithin24h() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
+        pt.recordDirectReviewRequested()
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == nil)
+    }
+
+    /// The design choice most likely to be "tidied up" by a future reader:
+    /// there is NO lifetime cap and NO terminal state. Apple's display quota
+    /// is the limiter, a suppressed request costs nothing, and this is the
+    /// shape the most-rated emulator on the store uses. Locked by a test.
+    @Test
+    func test_noLifetimeCap_theAskKeepsQualifyingForever() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        for _ in 0..<20 {
+            #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
+            pt.recordDirectReviewRequested()
+            defaults.set(Date().addingTimeInterval(-25 * 3600), forKey: "reviewPromptLastShownDate")
+        }
+    }
+
+    // MARK: - Session counting: idle time, not banking events
+
+    /// The 1.2.5 fix. Banking play on a backgrounding, then resuming a minute
+    /// later, is ONE session. Before the fix this counted two, which inflated
+    /// a user-visible stat and silently disabled both first-session triggers.
+    @Test
+    func test_sessionCount_backgroundingMidSittingIsOneSession() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordSessionEnd(playSeconds: 10 * 60)   // first banking: session 1
+        #expect(pt.sessionCount == 1)
+
+        // A notification pulled down: banked again almost immediately.
+        pt.recordSessionEnd(playSeconds: 30)
+        #expect(pt.sessionCount == 1)
+    }
+
+    @Test
+    func test_sessionCount_countsASessionAfterAnIdleGap() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordSessionEnd(playSeconds: 10 * 60)
+        #expect(pt.sessionCount == 1)
+
+        // Pretend the last banking was 40 minutes ago and nothing was played
+        // since: that is a real gap, so the next banking opens session 2.
+        defaults.set(Date().addingTimeInterval(-40 * 60), forKey: "pt_lastPlayBankDate")
+        pt.recordSessionEnd(playSeconds: 5 * 60)
+        #expect(pt.sessionCount == 2)
+    }
+
+    /// Long CONTINUOUS play must not be split into sessions just because the
+    /// wall-clock gap between bankings exceeds the idle threshold — the gap
+    /// has to discount the time that was spent playing.
+    @Test
+    func test_sessionCount_longContinuousPlayIsOneSession() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordSessionEnd(playSeconds: 10 * 60)
+        #expect(pt.sessionCount == 1)
+
+        // Banked 90 minutes later, but 90 minutes of it was play.
+        defaults.set(Date().addingTimeInterval(-90 * 60), forKey: "pt_lastPlayBankDate")
+        pt.recordSessionEnd(playSeconds: 90 * 60)
+        #expect(pt.sessionCount == 1)
+    }
+
+    @Test
+    func test_firstPlayDay_isStampedOnceAndDrivesIsReturningDay() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        pt.recordSessionEnd(playSeconds: 60)
+        let stamped = defaults.object(forKey: "pt_firstPlayDay") as? Date
+        #expect(stamped != nil)
+        #expect(pt.isReturningDay == false)
+
+        pt.recordSessionEnd(playSeconds: 60)
+        #expect((defaults.object(forKey: "pt_firstPlayDay") as? Date) == stamped)
+    }
+
+    // MARK: - Save-state signal (retained, no longer a review gate)
 
     @Test
     func test_recordSaveStateCreated_idempotent() {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
+        #expect(pt.hasCreatedSaveState == false)
         pt.recordSaveStateCreated()
         pt.recordSaveStateCreated() // second call must be a harmless no-op
-
         #expect(pt.hasCreatedSaveState == true)
-        #expect(pt.directReviewRequestTrigger(currentSessionSeconds: fifteenMinutes) == "engaged_first_timer")
-    }
-
-    // MARK: - Card path: ra_unlock only
-
-    @Test
-    func test_raUnlock_firesAt15minWithFreshUnlock() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // A fresh RA unlock + 15 min cumulative: the celebration card fires.
-        pt.recordAchievementUnlocked()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == "ra_unlock")
-    }
-
-    @Test
-    func test_raUnlock_doesNotFireBelow15min() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // The time bar keeps a 2-minute drive-by unlock from prompting.
-        pt.recordAchievementUnlocked()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes - 1) == nil)
-    }
-
-    @Test
-    func test_card_isRaUnlockOnly() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // Conditions that used to fire the card's engaged_first_timer arm
-        // (15 min + save state, no unlock) must now leave the card silent:
-        // those users are served by the direct quit-path request instead.
-        pt.recordSaveStateCreated()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == nil)
-    }
-
-    @Test
-    func test_raUnlock_worksBeyondTheFirstSession() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // ra_unlock counts CUMULATIVE play: a returning user (session 2,
-        // 10 min banked + 5 min live) qualifies.
-        pt.recordSessionEnd(playSeconds: 600)
-        pt.recordAchievementUnlocked()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: 300) == "ra_unlock")
-    }
-
-    @Test
-    func test_card_ratedIsTerminal() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        pt.recordReviewPromptRated()
-        pt.recordAchievementUnlocked()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == nil)
-    }
-
-    @Test
-    func test_card_twoDismissalsAreTerminal() {
-        let (pt, defaults, suite) = makeTracker()
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        // Two presentations without a Rate tap = two pessimistic dismissals.
-        // Backdate the shared ask stamp past the 24h gap so the only thing
-        // left blocking the card is the dismissal count — the terminal rule
-        // this test pins.
-        pt.recordReviewPromptPresented()
-        pt.recordReviewPromptPresented()
-        defaults.set(Date(timeIntervalSinceNow: -172_800), forKey: "reviewPromptLastShownDate")
-        pt.recordAchievementUnlocked()
-        #expect(pt.reviewPromptArm(currentSessionSeconds: fifteenMinutes) == nil)
     }
 }

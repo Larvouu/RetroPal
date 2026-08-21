@@ -107,4 +107,74 @@ struct CheatCodeFormatterTests {
     func emptyIsNotAProblem() {
         #expect(CheatCodeFormatter.problem(in: "   \n ", isNDS: true) == nil)
     }
+
+    // MARK: - Advisories
+
+    // The advisory exists because a saved entry becomes its own cheat set in
+    // the core, and a seed directive only ever serves lines stored beside it.
+    // These tests pin the narrowness on purpose: the failure that would matter
+    // is firing on ordinary codes until people stop reading it.
+
+    @Test("A lone seed directive is called out")
+    func flagsLoneSeedDirective() {
+        #expect(CheatCodeFormatter.advisory(in: "DEADFACE 00000000", system: "gba") == .seedLineAlone)
+    }
+
+    @Test("The seed directive is recognised unformatted and in lower case")
+    func flagsSeedDirectiveWhateverItsShape() {
+        #expect(CheatCodeFormatter.advisory(in: "deadface00000000", system: "gba") == .seedLineAlone)
+        #expect(CheatCodeFormatter.advisory(in: "  DEADFACE 1234ABCD  ", system: "gba") == .seedLineAlone)
+    }
+
+    @Test("A seed directive with its code beside it is exactly right, so it is silent")
+    func staysSilentWhenTheCodeIsWhole() {
+        let whole = "DEADFACE 00000000\n82003884 0001\n82003886 0002"
+        #expect(CheatCodeFormatter.advisory(in: whole, system: "gba") == nil)
+    }
+
+    @Test("Blank lines around the code do not make it look lone")
+    func ignoresBlankLines() {
+        #expect(CheatCodeFormatter.advisory(in: "DEADFACE 00000000\n\n82003884 0001",
+                                            system: "gba") == nil)
+    }
+
+    @Test("Ordinary codes never raise an advisory")
+    func staysSilentOnOrdinaryCodes() {
+        #expect(CheatCodeFormatter.advisory(in: "82003884 0001", system: "gba") == nil)
+        #expect(CheatCodeFormatter.advisory(in: "", system: "gba") == nil)
+        #expect(CheatCodeFormatter.advisory(in: "   \n ", system: "gba") == nil)
+    }
+
+    @Test("The directive is a GBA-family thing, so DS input is never flagged")
+    func neverFlagsDS() {
+        #expect(CheatCodeFormatter.advisory(in: "DEADFACE 00000000", system: "nds") == nil)
+    }
+
+    // MARK: - The 1.2.5 consoles
+
+    /// NES cheats are written as Game Genie codes, whose alphabet is NOT hex:
+    /// A P Z L G I T Y E O X U K S V N. SXIOPO is infinite lives in Super Mario
+    /// Bros. and contains four characters the hex rule rejects, so without the
+    /// console key the commonest NES cheat there is would be refused before the
+    /// core ever saw it.
+    @Test func nesGameGenieCodesAreAccepted() {
+        #expect(CheatCodeFormatter.problem(in: "SXIOPO", isNDS: false, system: "nes") == nil)
+        #expect(CheatCodeFormatter.problem(in: "GXNTLZEX", isNDS: false, system: "nes") == nil)
+        #expect(CheatCodeFormatter.problem(in: "AEUZUGZA", isNDS: false, system: "nes") == nil)
+    }
+
+    /// The same letters on a console that does not use them stay an error, so
+    /// the check keeps its precision everywhere else.
+    @Test func gameGenieLettersStayInvalidOnOtherConsoles() {
+        #expect(CheatCodeFormatter.problem(in: "SXIOPO", isNDS: false, system: "gba") == .invalidCharacter)
+        #expect(CheatCodeFormatter.problem(in: "SXIOPO", isNDS: false) == .invalidCharacter)
+    }
+
+    /// SNES Game Genie needs no widening at all: its own alphabet
+    /// (DF4709156BC8A23E) is a subset of hex, so the existing rule already
+    /// passes a real code like DD82-64DC.
+    @Test func snesGameGenieCodesPassTheHexRule() {
+        #expect(CheatCodeFormatter.problem(in: "DD82-64DC", isNDS: false, system: "snes") == nil)
+        #expect(CheatCodeFormatter.problem(in: "7E0DBE:63", isNDS: false, system: "snes") == .invalidCharacter)
+    }
 }

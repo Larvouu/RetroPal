@@ -44,6 +44,8 @@ SYSTEMS = {
     "gbc": "Nintendo - Game Boy Color",
     "gba": "Nintendo - Game Boy Advance",
     "nds": "Nintendo - Nintendo DS",
+    "snes": "Nintendo - Super Nintendo Entertainment System",
+    "nes": "Nintendo - Nintendo Entertainment System",
 }
 
 FORMAT_VERSION = 1

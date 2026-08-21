@@ -41,6 +41,8 @@ enum RAConsoleCardRenderer {
         switch system {
         case .gbc: native = CGSize(width: 160, height: 144)
         case .nds: native = CGSize(width: 256, height: 384)
+        // 4:3, the shape these two were drawn for — not their buffer's own ratio.
+        case .snes, .nes: native = CGSize(width: 4, height: 3)
         default:   native = CGSize(width: 240, height: 160)
         }
         let aspect = CGSize(width: native.width / native.height, height: 1)

@@ -71,6 +71,45 @@ enum EmulatorLayoutGeometry {
         }
     }
 
+    /// Elements the SNES sizes like a DS rather than like a Game Boy.
+    ///
+    /// The console's pad is the DS's shape — a D-pad and four face buttons in a
+    /// diamond — so those five take the DS's measurements. Everything else keeps
+    /// the Game Boy family's, which is why this is a SET of elements and not a
+    /// per-console table: the difference really is element by element.
+    ///
+    /// The D-pad is in the set for PORTRAIT ONLY (2026-08-17). In landscape this console's pad
+    /// is the GBA's, in position and in size, because that page is the GBA's page: one panel
+    /// with a gutter each side, and the gutter is where a pad goes. `snesLandscapeUsesGBAPad`
+    /// names the exception so the two places that must agree — this size table and the layout
+    /// in `ControlLayoutDefaults.snes` — cannot answer differently.
+    static let snesUsesNDSSizing: Set<ControlElement> = [.dpad, .btnA, .btnB, .btnX, .btnY]
+    static let snesLandscapeUsesGBAPad = true
+
+    /// Reference size, chosen per element for the console being laid out.
+    ///
+    /// The `isNDS:` overload above is kept exactly as it was and still answers
+    /// for every console that shipped before 1.2.5, so their sizes cannot move
+    /// through this change. Only the SNES asks a different question.
+    static func referenceSize(_ element: ControlElement, system: PresetSystem,
+                              isLandscape: Bool) -> CGSize {
+        if system == .snes && snesUsesNDSSizing.contains(element) {
+            let padIsGBAs = snesLandscapeUsesGBAPad && isLandscape && element == .dpad
+            if !padIsGBAs {
+                return referenceSize(element, isNDS: true, isLandscape: isLandscape)
+            }
+        }
+        return referenceSize(element, isNDS: system == .nds, isLandscape: isLandscape)
+    }
+
+    /// Device-scaled size, chosen per element for the console being laid out.
+    static func buttonSize(_ element: ControlElement, system: PresetSystem,
+                           isLandscape: Bool, deviceScale: CGFloat) -> CGSize {
+        let base = referenceSize(element, system: system, isLandscape: isLandscape)
+        return CGSize(width: flooredDimension(base.width, scale: deviceScale),
+                      height: flooredDimension(base.height, scale: deviceScale))
+    }
+
     /// Device-scaled button size with the comfortable-minimum floor applied.
     /// At deviceScale == 1 this equals the reference size exactly.
     static func buttonSize(_ element: ControlElement, isNDS: Bool, isLandscape: Bool,
@@ -100,6 +139,21 @@ enum EmulatorLayoutGeometry {
     static let gbaPortraitScreenRatio: CGFloat = 0.45
     /// Fraction of the view height given to the two screens in NDS landscape.
     static let ndsLandscapeScreenRatio: CGFloat = 0.60
+
+    /// SNES landscape only: the gap above the picture, so the dress's inlaid panel has a top
+    /// edge to draw, and the height reserved below it for the SELECT · MENU · START row (that
+    /// row's gap, its height, and the panel's bottom margin). The device's bottom safe inset is
+    /// added to the reserve at use, so the row clears the home indicator too.
+    static let snesLandscapeTopMargin: CGFloat = 12
+    static let snesLandscapeBottomReserve: CGFloat = 56
+    /// The landscape home-indicator inset, counted into that reserve as a FLAT value rather
+    /// than read from the device or scaled. Read from the device it would not be available
+    /// where the layout needs it: `ControlLayoutDefaults.snes` recomputes this same screen
+    /// frame with zero insets to place the row against it, and a picture whose height depended
+    /// on an inset the layout does not have is a picture the row is positioned against wrongly.
+    /// Flat rather than scaled because the indicator is 21pt on every phone that has one; the
+    /// phones that do not are width-bound here and lose nothing to it.
+    static let snesLandscapeIndicatorReserve: CGFloat = 21
 
     // MARK: - GB/GBC screen (decoupled from GBA)
 
@@ -172,14 +226,32 @@ enum EmulatorLayoutGeometry {
                 // its aspect (GBA keeps 3:2, GB/GBC its 10:9). Both top-aligned.
                 let panelWidth: CGFloat = controllerConnected ? 0 : gbcLandscapePanel * k
                 let availW = deviceSize.width - panelWidth * 2
-                let availH = deviceSize.height
+                // The SNES gives up a little height at BOTH ends, and only this console does.
+                // Its dress frames the picture in an inlaid panel, and a picture flush with
+                // y = 0 leaves that panel nowhere to be: the surround's top edge rendered off
+                // the device and the game stood proud of its own frame. Below, the
+                // SELECT · MENU · START row is stuck to the picture's bottom, so a taller
+                // picture pushes the row into the home indicator. Reserving both ends here is
+                // what lets the panel be a frame.
+                // The SNES reserves at BOTH ends, the NES only at the bottom: both stick their
+                // SELECT · MENU · START row under the picture, so both need room for it, and
+                // only the SNES's dress needs a top edge to draw (the NES's panel grows from the
+                // picture instead). Without the bottom reserve the row lands ON the game, which
+                // is what the landscape sweep caught.
+                let snesInset = (system == .snes && !controllerConnected)
+                let nesInset = (system == .nes && !controllerConnected)
+                let topInset = snesInset ? snesLandscapeTopMargin * k : 0
+                let bottomReserve = (snesInset || nesInset)
+                    ? snesLandscapeBottomReserve * k + snesLandscapeIndicatorReserve : 0
+                let availH = deviceSize.height - topInset - bottomReserve
                 let commonWidth = (availW / gbcScreenHeightAspect) * gbcDisplayAspect
                 var fitW = commonWidth
                 var fitH = fitW / gameAspect
                 if fitH > availH { fitH = availH; fitW = fitH * gameAspect }
                 let x = panelWidth + (availW - fitW) / 2
-                // GBA is vertically centered; GB/GBC stays top-aligned.
-                let y: CGFloat = (system == .gba) ? (availH - fitH) / 2 : 0
+                // GBA is vertically centered; GB/GBC stays top-aligned; the SNES sits under
+                // its own top margin.
+                let y: CGFloat = (system == .gba) ? (availH - fitH) / 2 : topInset
                 return CGRect(x: x, y: y, width: fitW, height: fitH)
             }
         } else {
@@ -195,11 +267,32 @@ enum EmulatorLayoutGeometry {
                 : deviceSize.height * portraitRatio
             var fitH = availW / heightAspect
             if fitH > maxH { fitH = maxH }
-            let fitW = fitH * gameAspect
-            let x = (availW - fitW) / 2
+            var fitW = fitH * gameAspect
+            var x = (availW - fitW) / 2
             let portraitPad = (system == .gbc) ? gbcPortraitTopPadding : gbaPortraitTopPadding
             let extraPadding: CGFloat = hasTouchScreen ? 0 : portraitPad * k
-            let y = safeInsets.top + extraPadding
+            var y = safeInsets.top + extraPadding
+            // The NES fills the WIDTH, always, and grows upward to do it.
+            //
+            // The height cap above exists to protect the controls, and it protects them by
+            // taking width away from the picture, which on a short phone left this console's
+            // game floating in a band of body with a margin each side. So it takes back the
+            // width and pays for it from the top of the page instead: same bottom edge, so the
+            // controls container is untouched and the cap keeps the room it was defending, and
+            // a taller picture above it. Every other console is unchanged, and so is the NES
+            // wherever the cap never bound (a 14 Pro reaches full width on its own).
+            if system == .nes, !hasTouchScreen, fitW < availW {
+                let bottom = y + fitH
+                fitW = availW
+                fitH = fitW / gameAspect
+                x = 0
+                // Grow upward from the bottom edge the cap chose — but not off the page. On an
+                // SE the full-width picture is taller than the room above that edge, and the
+                // overflow is the TOP of the picture, which would simply not be drawn. Pinning
+                // the top instead spends the difference downward, where it costs the controls
+                // container a few points it can absorb, rather than costing the player pixels.
+                y = max(0, bottom - fitH)
+            }
             return CGRect(x: x, y: y, width: fitW, height: fitH)
         }
     }

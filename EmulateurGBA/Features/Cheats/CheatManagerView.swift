@@ -12,10 +12,15 @@ import SwiftUI
 struct CheatManagerView: View {
     let romName: String
     let isNDS: Bool
-    /// Real console key for the cheat index ("gb" / "gbc" / "gba" / "nds").
-    /// Separate from `isNDS`, which only describes the input layout: GB and
-    /// GBC have their own cheat sets and must not be searched as GBA.
+    /// Real console key for the cheat index ("gb" / "gbc" / "gba" / "nds" /
+    /// "snes" / "nes"). Separate from `isNDS`, which only describes the input
+    /// layout: GB and GBC have their own cheat sets and must not be searched as
+    /// GBA, and the two 1.2.5 consoles have their own code formats entirely.
     let systemKey: String
+    /// Cartridge game code from the ROM header, when there is one (GBA and
+    /// DS only). Lets the browser reach another region's codes for the same
+    /// cartridge when this release's own title has no cheat file.
+    let gameCode: String?
     let onAddCheat: (String) -> Bool
     let onClearCheats: () -> Void
     let onReapplyCheats: ([StoredCheat]) -> Void
@@ -35,6 +40,10 @@ struct CheatManagerView: View {
     /// Set when the shape check names the mistake; nil falls back to the
     /// core's generic "not recognised" message.
     @State private var codeProblem: CheatCodeFormatter.Problem?
+    /// A note about the code as typed. Not an error: it never blocks Add, and
+    /// it is recomputed live rather than on submit, because the point is to
+    /// catch the mistake before the code is saved wrong.
+    @State private var codeAdvisory: CheatCodeFormatter.Advisory?
     /// Previous field contents, so formatting can tell an append (safe to
     /// reformat) from a mid-string edit (never reformat, the caret would jump).
     @State private var lastCodeInput: String = ""
@@ -61,16 +70,33 @@ struct CheatManagerView: View {
         }
     }
 
+    /// Which console's code shapes the field should describe.
+    ///
+    /// Keyed on `systemKey` rather than on `isNDS`: that flag describes the INPUT
+    /// layout, so it answers "not a DS" for the Super Nintendo and the NES and they
+    /// were both being told to type GameShark codes. The shapes below are read off
+    /// the bridges, not recalled: mGBA takes GameShark / CodeBreaker / Action Replay,
+    /// melonDS takes Action Replay DS pairs, and MesenCE takes Game Genie plus one
+    /// raw format per console (`MesenBridge.addCheatCode`, and the converters it
+    /// calls). GB and GBC keep the Game Boy family's answer, which is the default.
+    private var formatKey: String {
+        switch systemKey {
+        case "nds", "snes", "nes": return systemKey
+        default: return "gba"
+        }
+    }
+
     private var placeholderText: String {
-        isNDS
-            ? "e.g. 94000130 FCFF0000\n    62101D40 00000000"
-            : "e.g. 82003884 0001"
+        switch formatKey {
+        case "nds":  return "e.g. 94000130 FCFF0000\n    62101D40 00000000"
+        case "snes": return "e.g. DD82-64DC"
+        case "nes":  return "e.g. SXIOPO"
+        default:     return "e.g. 82003884 0001"
+        }
     }
 
     private var formatHint: String {
-        isNDS
-            ? NSLocalizedString("cheats.hint.nds", comment: "")
-            : NSLocalizedString("cheats.hint.gba", comment: "")
+        NSLocalizedString("cheats.hint." + formatKey, comment: "")
     }
 
     var body: some View {
@@ -118,6 +144,7 @@ struct CheatManagerView: View {
                                 // Typing is how you fix a mistake, so clear the
                                 // complaint as soon as the text changes.
                                 if showError { showError = false; codeProblem = nil }
+                                codeAdvisory = CheatCodeFormatter.advisory(in: tidied, system: systemKey)
                             }
                     }
                     .frame(minHeight: 70, maxHeight: 100)
@@ -127,6 +154,37 @@ struct CheatManagerView: View {
                             .stroke(Color(.systemGray4), lineWidth: 1)
                     )
                     .cornerRadius(10)
+
+                    // The trap this closes: a code printed on four lines must
+                    // be saved as ONE entry. Each saved entry becomes its own
+                    // cheat set in the core, and a set carries the state that
+                    // makes multi-line codes work (the decryption seeds, the
+                    // CodeBreaker master, the address continuations, the
+                    // conditional blocks). Split across four entries, a code
+                    // silently decodes to nonsense: a corrupted Pokémon or
+                    // nothing at all, never an error message. Nothing in the
+                    // app said so, and the editor accepting several lines is
+                    // not a hint anyone reads. Always visible, sitting where
+                    // the mistake is made, per the explain-non-obvious rule.
+                    Text(NSLocalizedString("cheats.multiline.caption", comment: ""))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // The one case the core's own source makes certain. Not an
+                    // error, so Add stays enabled: the text may be exactly what
+                    // was intended, it just cannot work by itself.
+                    if codeAdvisory == .seedLineAlone {
+                        Label(
+                            NSLocalizedString("cheats.multiline.seedAlone", comment: ""),
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     // Add button
                     Button {
@@ -250,7 +308,7 @@ struct CheatManagerView: View {
                 focusedField = nil
             }
             .sheet(isPresented: $showBrowser) {
-                CheatBrowserSheet(romName: romName, system: systemKey) { code, name in
+                CheatBrowserSheet(romName: romName, system: systemKey, gameCode: gameCode) { code, name in
                     // Straight into the fields rather than applied blind: the
                     // player still sees it and still taps Add. The name comes
                     // along so the saved cheat reads "Infinite Health" instead
@@ -260,6 +318,11 @@ struct CheatManagerView: View {
                     if !name.isEmpty { nameInput = name }
                     showError = false
                     codeProblem = nil
+                    // Database codes arrive with their lines already joined
+                    // into one entry, which is the correct shape, so this
+                    // normally resolves to nothing. Computed anyway rather
+                    // than assumed: the field is being filled from outside.
+                    codeAdvisory = CheatCodeFormatter.advisory(in: code, system: systemKey)
                 }
             }
             .sheet(isPresented: $showHowTo) {
@@ -362,7 +425,7 @@ struct CheatManagerView: View {
                 cheat.wrappedValue.enabled.toggle()
                 saveCheats()
                 reapplyAll()
-                Analytics.signal("cheat", ["action": "toggled", "enabled": cheat.wrappedValue.enabled ? "true" : "false", "system": isNDS ? "nds" : "gba"])
+                Analytics.signal("cheat", ["action": "toggled", "enabled": cheat.wrappedValue.enabled ? "true" : "false", "system": systemKey])
             } label: {
                 Image(systemName: cheat.wrappedValue.enabled ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(cheat.wrappedValue.enabled ? .green : .gray)
@@ -416,13 +479,17 @@ struct CheatManagerView: View {
     private var errorMessage: String {
         switch codeProblem {
         case .invalidCharacter:
-            return NSLocalizedString("cheats.invalid.characters", comment: "")
+            // The NES is the one console whose alphabet is not hexadecimal, so
+            // it is the one console the generic sentence would mislead: Game
+            // Genie is the common format there and half its letters are not hex.
+            // `CheatCodeFormatter` already accepts them; this is the message
+            // catching up with the validator.
+            return NSLocalizedString(formatKey == "nes" ? "cheats.invalid.characters.nes"
+                                                        : "cheats.invalid.characters", comment: "")
         case .unpairedLine:
             return NSLocalizedString("cheats.invalid.pairs", comment: "")
         case nil:
-            return isNDS
-                ? NSLocalizedString("cheats.invalid.nds", comment: "")
-                : NSLocalizedString("cheats.invalid.gba", comment: "")
+            return NSLocalizedString("cheats.invalid." + formatKey, comment: "")
         }
     }
 
@@ -432,7 +499,7 @@ struct CheatManagerView: View {
 
         // Say why, when we can. The core still has the last word on everything
         // this check lets through.
-        if let problem = CheatCodeFormatter.problem(in: code, isNDS: isNDS) {
+        if let problem = CheatCodeFormatter.problem(in: code, isNDS: isNDS, system: systemKey) {
             codeProblem = problem
             showError = true
             return
@@ -445,7 +512,7 @@ struct CheatManagerView: View {
 
         let success = onAddCheat(code)
         if success {
-            Analytics.signal("cheat", ["action": "added", "system": isNDS ? "nds" : "gba"])
+            Analytics.signal("cheat", ["action": "added", "system": systemKey])
             Analytics.signal("pro_feature_used", ["feature": "cheats"])
             let name = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
             cheats.append(StoredCheat(code: code, name: name))
@@ -454,6 +521,7 @@ struct CheatManagerView: View {
             nameInput = ""
             showError = false
             codeProblem = nil
+            codeAdvisory = nil
             focusedField = nil
             saveCheats()
         } else {

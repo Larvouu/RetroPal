@@ -18,6 +18,19 @@ struct WhatsNewContent {
     struct ContentSection {
         let titleKey: String
         let bulletKeys: [String]
+        /// Asset names drawn side by side under this section's bullets, in the
+        /// order the bullet names them. Empty for every section but one.
+        ///
+        /// These are the drawings the Appearance button already wears, so the
+        /// console in the notes, the console in the picker and the console you
+        /// hold are all the same machine.
+        let artNames: [String]
+
+        init(titleKey: String, bulletKeys: [String], artNames: [String] = []) {
+            self.titleKey = titleKey
+            self.bulletKeys = bulletKeys
+            self.artNames = artNames
+        }
     }
 
     /// The version these notes describe. The once-per-update gate compares
@@ -25,18 +38,42 @@ struct WhatsNewContent {
     /// version — so shipping a release without updating the notes fails
     /// silent (no sheet) instead of re-showing stale notes.
     let version: String
+    /// A notice that sits ABOVE the sections, when a release has one.
+    ///
+    /// Not a section, and deliberately not dressed as one: a section says what
+    /// the player just gained, and this says something about what the app is
+    /// going to charge. Giving it its own slot means it can carry its own
+    /// treatment, and can leave next release without renumbering six sections.
+    ///
+    /// Declared BEFORE `sections` on purpose: the memberwise initialiser takes
+    /// its arguments in declaration order, so this is also the order the call
+    /// site reads in, which is the order the sheet draws in.
+    let noticeKey: String?
     let sections: [ContentSection]
 
-    /// The CURRENT release's notes (the open 1.2.4 train).
+    /// The CURRENT release's notes (the open 1.2.5 train).
     ///
     /// Ordered by what a player actually gains, not by what was hard to build:
-    /// the television first because it changes where you play, then how the
-    /// games look, then the friction we removed, then the smaller things.
+    /// the two new consoles first because they are the release, then what they
+    /// look like, then the thing most asked for (rewind on DS), then the two
+    /// areas that were quietly broken, then the Pro layout.
+    ///
+    /// It also carries a notice, which is why that slot exists: the lifetime
+    /// price rises in a coming release, and saying so BEFORE it happens is the
+    /// entire point of announcing it. It is paired with what does NOT change,
+    /// because "the price is going up" on its own is the half of the sentence
+    /// that worries the people who will never pay anything.
     static let current = WhatsNewContent(
-        version: "1.2.4",
+        version: "1.2.5",
+        noticeKey: "whatsnew.notice.pro",
         sections: [
+            // The two machines, under the sentence that announces them and in
+            // the same order it names them: Super Nintendo first, NES second.
+            // This is the one section that carries art, because it is the one
+            // whose news is a THING rather than a behaviour.
             ContentSection(titleKey: "whatsnew.s1.title",
-                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2"]),
+                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2"],
+                           artNames: ["console-snes", "console-nes"]),
             ContentSection(titleKey: "whatsnew.s2.title",
                            bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2"]),
             ContentSection(titleKey: "whatsnew.s3.title",
@@ -86,7 +123,23 @@ enum WhatsNew {
 
 struct WhatsNewSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
+    /// The bullet type size, scaled by the reader's Dynamic Type setting. Drives
+    /// the inline tag's own size, and its presence is also what makes the tag
+    /// re-render when that setting changes.
+    @ScaledMetric(relativeTo: .subheadline) private var tagPointSize: CGFloat = 15
     private let content = WhatsNewContent.current
+
+    /// What the localized bullets carry where the Pro tag belongs.
+    ///
+    /// A token rather than a trailing word, because the tag is not a word: it can
+    /// sit at the end of a sentence (the skin and controller-layout bullets) or in
+    /// the middle of one (the rewind bullet says "thirty with X, on all six
+    /// consoles"), and only the string knows which.
+    private static let proToken = "{PRO}"
+    /// The product's full name, deliberately not localized: it is a proper noun,
+    /// and it is the same three words on every store in the world.
+    static let proTagName = "Retro Pal Pro"
 
     var body: some View {
         ScrollView {
@@ -99,6 +152,10 @@ struct WhatsNewSheet: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.top, 28)
+
+                if let noticeKey = content.noticeKey {
+                    noticeView(noticeKey)
+                }
 
                 ForEach(content.sections.indices, id: \.self) { index in
                     sectionView(content.sections[index])
@@ -133,20 +190,144 @@ struct WhatsNewSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    /// The notice: quiet, not a banner. It is information the reader is owed,
+    /// not an announcement competing with the release, so it takes a soft filled
+    /// card and secondary text rather than a tint or a badge. Deliberately no
+    /// price and no button: this sheet is release notes, and the Pro sheet is
+    /// where an offer belongs.
+    ///
+    /// No icon either, since 2026-08-19. An info glyph in front of a sentence
+    /// that is already quiet and already in a card was the one part of this
+    /// treatment that pointed AT itself, which is the opposite of what the
+    /// restraint above is for.
+    private func noticeView(_ key: String) -> some View {
+        Text(NSLocalizedString(key, comment: ""))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
     private func sectionView(_ section: WhatsNewContent.ContentSection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(NSLocalizedString(section.titleKey, comment: ""))
                 .font(.headline)
             ForEach(section.bulletKeys, id: \.self) { key in
+                let raw = NSLocalizedString(key, comment: "")
                 HStack(alignment: .top, spacing: 10) {
                     Text("•")
                         .font(.body.weight(.semibold))
                         .foregroundColor(.accentColor)
-                    Text(NSLocalizedString(key, comment: ""))
+                    bulletText(raw)
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
+                        // The tag is an image, so VoiceOver would skip it and read
+                        // a sentence with a hole where the product name was.
+                        .accessibilityLabel(Self.plainText(raw))
                 }
             }
+            if !section.artNames.isEmpty {
+                artRow(section.artNames)
+            }
         }
+    }
+
+    /// One bullet, with the Pro tag dropped in wherever the string carries the
+    /// token.
+    ///
+    /// The tag arrives as an IMAGE inside the `Text` run, and that is the point:
+    /// a padded, rounded tag can only take part in the paragraph's own line
+    /// breaking if it is part of the run. A sibling view in a stack could sit
+    /// before the whole block or after it, never inside the sentence, and the
+    /// rewind bullet needs it inside.
+    ///
+    /// Falls back to the words alone if the render fails, so the sentence is
+    /// never left with a hole in it.
+    private func bulletText(_ raw: String) -> Text {
+        let parts = raw.components(separatedBy: Self.proToken)
+        guard parts.count > 1, let tag = proTagImage else {
+            return Text(Self.plainText(raw))
+        }
+        var result = Text(parts[0])
+        for part in parts.dropFirst() {
+            // If the tag ever reads as sitting too high on the line, the knob is
+            // `.baselineOffset(_:)` on THIS Text and nothing else: an image
+            // interpolated into a run hangs its bottom edge on the baseline, so a
+            // capsule taller than the cap height rides above it by design. Left at
+            // the natural default rather than nudged by a number nobody measured.
+            result = result + Text("\(tag)") + Text(part)
+        }
+        return result
+    }
+
+    /// The bullet as words only: the VoiceOver reading, and the fallback.
+    private static func plainText(_ raw: String) -> String {
+        raw.replacingOccurrences(of: proToken, with: proTagName)
+    }
+
+    /// The tag, rendered at the bullet's own type size so it grows with the
+    /// reader's Dynamic Type setting instead of staying a fixed sticker.
+    ///
+    /// Every colour in it is a literal rather than a semantic one, deliberately:
+    /// `ImageRenderer` draws into a fresh environment that does not inherit the
+    /// sheet's colour scheme, so a semantic colour here would render its light
+    /// appearance and then sit on a dark sheet.
+    private var proTagImage: Image? {
+        let renderer = ImageRenderer(content: ProInlineTag(pointSize: tagPointSize))
+        renderer.scale = displayScale
+        guard let rendered = renderer.uiImage else { return nil }
+        return Image(uiImage: rendered).renderingMode(.original)
+    }
+
+    /// The section's machines, sharing the width evenly and aligned on their
+    /// BOTTOM edge, because the two drawings are different heights and hanging
+    /// them from the top would leave one floating.
+    ///
+    /// Hidden from VoiceOver on purpose: the bullet above already names both
+    /// consoles, so announcing them again is repetition, not information.
+    private func artRow(_ names: [String]) -> some View {
+        HStack(alignment: .bottom, spacing: 16) {
+            ForEach(names, id: \.self) { name in
+                Image(name)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 92)
+            }
+        }
+        .padding(.top, 6)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The inline "Retro Pal Pro" tag: the crown the app uses for Pro everywhere,
+/// and the product's full name, inside one capsule.
+///
+/// It replaces a bare trailing "Pro." that assumed the reader already knew what
+/// Pro was. The crown and the words carry the same recipe as the Settings
+/// premium rows (gold wash, gold border, gold gradient on the content), so the
+/// tag reads as the same product mark rather than a new one invented for this
+/// sheet.
+///
+/// Sized entirely in multiples of the surrounding text's point size, because it
+/// is rendered to an image at whatever size that text currently is.
+private struct ProInlineTag: View {
+    let pointSize: CGFloat
+
+    var body: some View {
+        HStack(spacing: pointSize * 0.22) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: pointSize * 0.70, weight: .semibold))
+            Text(WhatsNewSheet.proTagName)
+                .font(.system(size: pointSize * 0.82, weight: .semibold))
+        }
+        .foregroundStyle(ProPalette.crownGradient)
+        .padding(.horizontal, pointSize * 0.40)
+        .padding(.vertical, pointSize * 0.18)
+        .background(Capsule().fill(ProPalette.gold.opacity(0.14)))
+        .overlay(Capsule().strokeBorder(ProPalette.gold.opacity(0.45), lineWidth: 1))
     }
 }

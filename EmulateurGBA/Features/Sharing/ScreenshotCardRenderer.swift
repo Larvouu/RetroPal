@@ -335,6 +335,44 @@ struct ScreenshotCardRenderer {
         }
     }
 
+    /// THE mapping from a console to its console card: the rendered card and the layout whose
+    /// `screen` rect the game occupies. nil for a console with no dress, which then falls through
+    /// to the branded card.
+    ///
+    /// Pass `gameFrame` to get the finished card (the screenshot path); pass nil to get the
+    /// chrome alone, which is what both clip paths want — they composite a moving picture into
+    /// `layout.screen` themselves.
+    ///
+    /// It is one function because it was three, written as three ternary chains that each ended
+    /// in "or else the Game Boy". A console added after them was therefore a Game Boy in all
+    /// three until each was found: the Super Nintendo shipped correct in the screenshot card and
+    /// wrong in the clip renderer, then correct there and still wrong in the clip PREVIEW. A
+    /// switch over the console cannot silently acquire a wrong default, and there is now one
+    /// switch rather than three.
+    static func consoleCard(system: PresetSystem, gameFrame: CGImage?, gameAspect: CGFloat,
+                            info: GameInfo, variant: DressVariant,
+                            side: CGFloat = 1080) -> (image: UIImage?, layout: GBCardLayout)? {
+        let gameSize = CGSize(width: gameAspect, height: 1)
+        switch system {
+        case .gbc:
+            return (gbConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.make(side: side, gameNativeSize: gameSize))
+        case .gba:
+            return (gbaConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.gba(side: side, gameNativeSize: gameSize))
+        case .nds:
+            return (ndsConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info,
+                                   separatedScreens: true, variant: variant),
+                    GBCardLayout.nds(side: side, gameNativeSize: gameSize, separatedScreens: true))
+        case .snes:
+            return (snesConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.snes(side: side, gameNativeSize: gameSize))
+        case .nes:
+            return (nesConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.nes(side: side, gameNativeSize: gameSize))
+        }
+    }
+
     static func render(gameFrame: CGImage, info: GameInfo, style: ShareCardStyle,
                        system: PresetSystem = .gba, skinVariant: DressVariant? = nil) -> UIImage? {
         // The Nostalgia and "current skin" styles render as the actual console (body,
@@ -342,14 +380,9 @@ struct ScreenshotCardRenderer {
         // the screenshot in the console screen. Classic keeps the branded card below.
         if let variant = consoleVariant(style: style, skinVariant: skinVariant) {
             let aspect = CGFloat(gameFrame.width) / CGFloat(max(gameFrame.height, 1))
-            switch system {
-            case .gbc:
-                return gbConsoleCard(gameFrame: gameFrame, gameAspect: aspect, info: info, variant: variant)
-            case .gba:
-                return gbaConsoleCard(gameFrame: gameFrame, gameAspect: aspect, info: info, variant: variant)
-            case .nds:
-                return ndsConsoleCard(gameFrame: gameFrame, gameAspect: aspect, info: info,
-                                      separatedScreens: true, variant: variant)
+            if let card = consoleCard(system: system, gameFrame: gameFrame, gameAspect: aspect,
+                                      info: info, variant: variant) {
+                return card.image
             }
         }
 
@@ -635,6 +668,112 @@ struct ScreenshotCardRenderer {
         let result = UIGraphicsGetImageFromCurrentImageContext()
         UIGraphicsEndImageContext()
         return result
+    }
+
+    /// The NES console card. The same structure as every other console card: the console image,
+    /// the game in its screen rect, the info block inked for the body, and the dress's own edge.
+    static func nesConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                               variant: DressVariant = .nostalgia) -> UIImage? {
+        let cardW: CGFloat = 1080, cardH: CGFloat = 1080
+        let cardCorner: CGFloat = 48
+        let size = CGSize(width: cardW, height: cardH)
+
+        let layout = GBCardLayout.nes(side: cardW, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: .nes, variant: variant)
+
+        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
+        UIColor.black.setFill()
+        ctx.fill(CGRect(origin: .zero, size: size))
+        ctx.saveGState()
+        UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cardCorner).addClip()
+
+        console.draw(in: CGRect(origin: .zero, size: size))
+
+        if let gameFrame {
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            ctx.saveGState()
+            UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
+            game.draw(in: layout.screen)
+            ctx.restoreGState()
+        }
+
+        // Dark ink on the pale Nostalgia shell, light ink on Retro Pal's near-black one.
+        if variant.bodyColor(for: .nes).rpLuminance > 0.5 {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info)
+        } else {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info,
+                            titleColor: .white, playTimeColor: gold,
+                            labelColor: UIColor.white.withAlphaComponent(0.55))
+        }
+
+        ctx.restoreGState()
+
+        let inset: CGFloat = 2
+        let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
+        let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
+        variant.cardEdgeColor(for: .nes).setStroke()
+        edgePath.lineWidth = 3
+        edgePath.stroke()
+
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image
+    }
+
+    /// The Super Nintendo console card. The GBA card's structure exactly — console image, game
+    /// in the screen rect, info block, dress-coloured edge — with this console's layout and its
+    /// own body deciding which ink the info block gets. Kept separate rather than folded into
+    /// `gbaConsoleCard` with a system parameter, because that function's constants (the layout
+    /// call, the ink threshold's system) are what differ, and one shared function with two
+    /// branches would be the same code with a worse name.
+    static func snesConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                                variant: DressVariant = .nostalgia) -> UIImage? {
+        let cardW: CGFloat = 1080, cardH: CGFloat = 1080
+        let cardCorner: CGFloat = 48
+        let size = CGSize(width: cardW, height: cardH)
+
+        let layout = GBCardLayout.snes(side: cardW, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: .snes, variant: variant)
+
+        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
+        UIColor.black.setFill()
+        ctx.fill(CGRect(origin: .zero, size: size))
+        ctx.saveGState()
+        UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cardCorner).addClip()
+
+        console.draw(in: CGRect(origin: .zero, size: size))
+
+        if let gameFrame {
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            ctx.saveGState()
+            UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
+            game.draw(in: layout.screen)
+            ctx.restoreGState()
+        }
+
+        // Dark ink on the pale Nostalgia shell, light ink on Retro Pal's near-black one.
+        if variant.bodyColor(for: .snes).rpLuminance > 0.5 {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info)
+        } else {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info,
+                            titleColor: .white, playTimeColor: gold,
+                            labelColor: UIColor.white.withAlphaComponent(0.55))
+        }
+
+        ctx.restoreGState()
+
+        let inset: CGFloat = 2
+        let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
+        let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
+        variant.cardEdgeColor(for: .snes).setStroke()
+        edgePath.lineWidth = 3
+        edgePath.stroke()
+
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image
     }
 
     // MARK: - NDS console card (Nostalgia)

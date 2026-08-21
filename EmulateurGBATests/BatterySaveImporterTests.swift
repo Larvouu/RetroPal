@@ -95,21 +95,21 @@ struct BatterySaveImporterTests {
     @Test
     func test_classify_gbaSave128KB_routesToGBA() {
         let data = Self.makeValidGen3Save()
-        let result = BatterySaveImporter.classify(data: data, system: .gbaFamily)
-        #expect(result == .savable(system: .gbaFamily, byteCount: 131072))
+        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
+        #expect(result == .savable(system: .savFamily, byteCount: 131072))
     }
 
     @Test
     func test_classify_dsSave512KB_routesToNDS() {
         let data = Self.makeBlankDSSave()
-        let result = BatterySaveImporter.classify(data: data, system: .nds)
-        #expect(result == .savable(system: .nds, byteCount: 524288))
+        let result = BatterySaveImporter.classify(data: data, system: .srmFamily)
+        #expect(result == .savable(system: .srmFamily, byteCount: 524288))
     }
 
     @Test
     func test_reject_gbaRom_byNintendoLogo() {
         let data = Self.makeRomSizedFile()
-        let result = BatterySaveImporter.classify(data: data, system: .gbaFamily)
+        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
         #expect(result == .unsupported(reason: .invalidFormat))
     }
 
@@ -118,7 +118,7 @@ struct BatterySaveImporterTests {
         // 100,000 bytes matches no known GBA / GB / GBC battery save size,
         // so the file is rejected even though its declared extension is .sav.
         let data = Data(repeating: 0xAB, count: 100_000)
-        let result = BatterySaveImporter.classify(data: data, system: .gbaFamily)
+        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
         #expect(result == .unsupported(reason: .invalidFormat))
     }
 
@@ -129,10 +129,10 @@ struct BatterySaveImporterTests {
         let validSave = Self.makeValidGen3Save()
         let blankSave = Self.makeBlank128KBSave()
 
-        let validResult = BatterySaveImporter.classify(data: validSave, system: .gbaFamily)
-        let blankResult = BatterySaveImporter.classify(data: blankSave, system: .gbaFamily)
+        let validResult = BatterySaveImporter.classify(data: validSave, system: .savFamily)
+        let blankResult = BatterySaveImporter.classify(data: blankSave, system: .savFamily)
 
-        #expect(validResult == .savable(system: .gbaFamily, byteCount: 131072))
+        #expect(validResult == .savable(system: .savFamily, byteCount: 131072))
         #expect(blankResult == .unsupported(reason: .invalidFormat))
     }
 
@@ -198,5 +198,46 @@ struct BatterySaveImporterTests {
                                             overwriting: true)
         let writtenAfterOverwrite = try Data(contentsOf: dest)
         #expect(writtenAfterOverwrite == secondPayload)
+    }
+
+    // MARK: - The 1.2.5 consoles join the existing two families
+
+    /// The families are named after the EXTENSION, not after a console, because
+    /// that is what a file arriving from another emulator actually declares.
+    /// MesenCE writes `.srm` for a SNES cart and `.sav` for a NES one, which is
+    /// also what every other emulator exports, so each console lands in the
+    /// family whose extension its saves really carry.
+    @Test
+    func test_saveFamilies_acceptTheRightConsoles() {
+        #expect(BatterySaveSystem.from(fileExtension: "sav") == .savFamily)
+        #expect(BatterySaveSystem.from(fileExtension: "srm") == .srmFamily)
+        #expect(BatterySaveSystem.from(fileExtension: "state") == nil)
+
+        #expect(BatterySaveSystem.savFamily.compatibleSystemTypes.contains("nes"))
+        #expect(BatterySaveSystem.srmFamily.compatibleSystemTypes.contains("snes"))
+        // And the pairing is exclusive: a SNES save must not be offered to a NES
+        // game, which is the mistake a single shared family would allow.
+        #expect(!BatterySaveSystem.savFamily.compatibleSystemTypes.contains("snes"))
+        #expect(!BatterySaveSystem.srmFamily.compatibleSystemTypes.contains("nes"))
+    }
+
+    /// An 8 KB NES battery save is the commonest cart save there is (Zelda,
+    /// Final Fantasy, Dragon Warrior) and must classify, while the Gen 3
+    /// signature rule stays confined to 128 KB.
+    @Test
+    func test_classify_nesSave8KB_isAccepted() {
+        let save = Data(repeating: 0x42, count: 8192)
+        #expect(BatterySaveImporter.classify(data: save, system: .savFamily)
+                == .savable(system: .savFamily, byteCount: 8192))
+    }
+
+    /// A 32 KB SNES save (Chrono Trigger, Zelda: A Link to the Past) arriving as
+    /// `.srm` must classify too: the srm family's size set was written for the DS
+    /// alone and would have rejected every SNES save had it not been widened.
+    @Test
+    func test_classify_snesSave32KB_isAccepted() {
+        let save = Data(repeating: 0x17, count: 32768)
+        #expect(BatterySaveImporter.classify(data: save, system: .srmFamily)
+                == .savable(system: .srmFamily, byteCount: 32768))
     }
 }

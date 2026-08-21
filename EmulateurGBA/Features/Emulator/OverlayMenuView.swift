@@ -81,7 +81,11 @@ final class OverlayMenuView: UIView {
         return l
     }()
 
-    /// Set to true to hide the rewind button (e.g., NDS games)
+    /// Set to true to hide the rewind button.
+    ///
+    /// Nothing sets it any more: rewind covers every console since 1.2.5, the DS
+    /// included. Kept as the one switch that would hide the button if a console
+    /// ever arrives without rewind, rather than deleted and reinvented.
     var rewindHidden = false {
         didSet { rewindButton.isHidden = rewindHidden }
     }
@@ -131,8 +135,10 @@ final class OverlayMenuView: UIView {
         title: NSLocalizedString("overlay.appearance", comment: "Pause-menu button opening the skin/palette/filter sheet"),
         icon: "paintpalette.fill")
     /// Which face buttons the hold-to-lock gesture affects, mirrored into the
-    /// toggle icon and the caption. A/B for GBA/GB/GBC; the VC widens it to
-    /// A/B/X/Y for NDS via `setLockableButtons(forNDS:)` (matches `lockableMask`).
+    /// toggle icon and the caption. Set from the running console's own
+    /// `TouchControlsView.lockableLetters`, so it cannot name a different set
+    /// from the one the gesture acts on. A/B on GBA/GB/GBC/NES, A/B/X/Y on
+    /// NDS and SNES.
     private var lockableLetters: [String] = ["A", "B"]
     /// One-line explanation of the non-obvious hold-to-lock gesture, shown under
     /// the toggle pair (the label alone can't convey what it does). Built as an
@@ -390,7 +396,8 @@ final class OverlayMenuView: UIView {
         contentStack.addArrangedSubview(resumeButton)
         contentStack.addArrangedSubview(quitButton)
 
-        // Secondary actions in one compact row; Rewind collapses out for NDS.
+        // Secondary actions in one compact row; Rewind would collapse out if
+        // `rewindHidden` were ever set, which nothing does since 1.2.5.
         actionRow.addArrangedSubview(rewindButton)
         actionRow.addArrangedSubview(screenshotButton)
         actionRow.addArrangedSubview(clipButton)
@@ -443,8 +450,9 @@ final class OverlayMenuView: UIView {
         slotsWidthConstraint?.constant = 280
     }
 
-    /// Secondary actions in one compact row (Rewind / Screenshot / Cheats).
-    /// Rewind is hidden for NDS, which collapses it in this fill-equally row.
+    /// Secondary actions in one compact row (Rewind / Screenshot / Clip / Cheats).
+    /// Every console shows all four since 1.2.5; `rewindHidden` would collapse
+    /// Rewind out of this fill-equally row, and nothing sets it.
     private let actionRow: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
@@ -481,7 +489,7 @@ final class OverlayMenuView: UIView {
         // Left column mirrors portrait: header, primary actions, then the
         // per-game settings (Speed pills, Orientation pills, the toggles).
         // Resume is always the full-width primary; the action row holds the
-        // secondary actions, with Rewind collapsing out for NDS.
+        // secondary actions, with Rewind collapsing out only if `rewindHidden`.
         leftColumn.addArrangedSubview(titleLabel)
         leftColumn.addArrangedSubview(resumeButton)
         leftColumn.addArrangedSubview(quitButton)
@@ -603,9 +611,12 @@ final class OverlayMenuView: UIView {
 
     /// Tell the menu which face buttons hold-to-lock affects, so the toggle icon
     /// and caption show the right set. A/B for GBA/GB/GBC; A/B/X/Y for NDS.
-    /// Mirrors `TouchControlsView.lockableMask` (widened in NDSTouchControlsView).
-    func setLockableButtons(forNDS isNDS: Bool) {
-        lockableLetters = isNDS ? ["A", "B", "X", "Y"] : ["A", "B"]
+    /// The letters come from `TouchControlsView.lockableLetters`, which derives
+    /// them from the mask the gesture actually uses. Pass them; do not recompute
+    /// them here, or the menu can once again describe a lock the console does
+    /// not have (or omit one it does).
+    func setLockableButtons(_ letters: [String]) {
+        lockableLetters = letters.isEmpty ? ["A", "B"] : letters
         updateButtonLockButton()
         updateButtonLockCaption()
     }
@@ -904,7 +915,7 @@ final class OverlayMenuView: UIView {
     private func updateButtonLockButton() {
         // Match the mini buttons inlined in the caption below the row (diameter 16,
         // spacing 3) so the in-button A/B(/X/Y) glyphs are not oversized — for every
-        // console (A/B for GBA/GB/GBC, A/B/X/Y for NDS).
+        // console (A/B on GBA/GB/GBC/NES, A/B/X/Y on NDS and SNES).
         let row = miniButtonRowImage(letters: lockableLetters, pressed: buttonLockEnabled,
                                      diameter: 16, spacing: 3)
         buttonLockButton.configuration?.image = row.withRenderingMode(.alwaysOriginal)

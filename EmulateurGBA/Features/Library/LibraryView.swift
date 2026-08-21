@@ -166,7 +166,7 @@ struct LibraryView: View {
 
     /// Canonical console ordering, used only as a stable tiebreak when two
     /// consoles have identical play time (e.g. none played yet).
-    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds"]
+    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -445,8 +445,18 @@ struct LibraryView: View {
         }
     }
 
+    /// The core that runs a given console. mGBA stays the default so a library
+    /// row whose systemType is somehow unset still launches where it always did.
+    private static func makeBridge(systemType: String?) -> any EmulatorBridge {
+        switch systemType {
+        case "nds":            return MelonDSBridge()
+        case "snes", "nes":    return MesenBridge()
+        default:               return MGBABridge()
+        }
+    }
+
     private func emulatorScreen(for request: LaunchRequest) -> some View {
-        let bridge: any EmulatorBridge = request.systemType == "nds" ? MelonDSBridge() : MGBABridge()
+        let bridge = Self.makeBridge(systemType: request.systemType)
         return EmulatorScreen(
             romURL: request.url,
             session: EmulatorSession(bridge: bridge),
@@ -1343,16 +1353,18 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     /// `.sav`/`.srm` stay selectable so they aren't greyed out, but the
     /// library routes a picked save to an explanatory redirect rather than
     /// importing it (the actual import lives on the per-game screen).
-    static let romAndSaveTypes: [UTType] = [
-        UTType(filenameExtension: "gba") ?? .data,
-        UTType(filenameExtension: "gb") ?? .data,
-        UTType(filenameExtension: "gbc") ?? .data,
-        UTType(filenameExtension: "nds") ?? .data,
+    static let romAndSaveTypes: [UTType] = romTypesWithoutZip + [
         UTType(filenameExtension: "sav") ?? .data,
         UTType(filenameExtension: "srm") ?? .data,
         UTType(filenameExtension: "retropalskin") ?? .data,   // silently accepted; routed to skin import
         .zip,
     ]
+
+    /// One list, built from the parser's own extensions, so a console can never
+    /// be importable in code while greyed out in the picker.
+    private static let romTypesWithoutZip: [UTType] =
+        ROMSystemType.allFileExtensions.map { UTType(filenameExtension: $0) ?? .data }
+
     /// Battery saves only, used by the per-game "Import a save" button where
     /// the target game is already known.
     static let saveTypes: [UTType] = [
@@ -1361,13 +1373,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     ]
     /// ROM files only (no saves), used by the per-game "Replace game file"
     /// recovery on the Game Details screen.
-    static let romTypes: [UTType] = [
-        UTType(filenameExtension: "gba") ?? .data,
-        UTType(filenameExtension: "gb") ?? .data,
-        UTType(filenameExtension: "gbc") ?? .data,
-        UTType(filenameExtension: "nds") ?? .data,
-        .zip,
-    ]
+    static let romTypes: [UTType] = romTypesWithoutZip + [.zip]
 
     var contentTypes: [UTType] = DocumentPickerView.romAndSaveTypes
     /// Multi-select is only for the library `+` (importing a collection in one

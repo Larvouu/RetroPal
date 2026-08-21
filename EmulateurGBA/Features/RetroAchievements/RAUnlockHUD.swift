@@ -51,11 +51,75 @@ struct RAUnlockHUD: View {
                         withAnimation { ra.lastUnlock = nil }
                     }
             }
+            // Mastery waits for the unlock banner to clear rather than shouting
+            // over it. rc_client sends GAME_COMPLETED immediately after the
+            // final achievement's TRIGGERED, so without this the two would
+            // occupy the same position in the same instant and the bigger of
+            // the two moments would be the one that got lost.
+            if ra.lastUnlock == nil, let mastery = ra.lastMastery {
+                masteryCard(mastery)
+                    .padding(.horizontal, 20)
+                    .padding(.top, max(topInset, 12))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .task(id: mastery.id) {
+                        // Longer than an unlock's 4.2s: it is the rarer moment
+                        // and there is no next banner queued behind it.
+                        try? await Task.sleep(nanoseconds: 6_000_000_000)
+                        withAnimation { ra.lastMastery = nil }
+                    }
+            }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ignoresSafeArea()
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: ra.lastUnlock)
+        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: ra.lastMastery)
+    }
+
+    /// Deliberately NOT tappable, unlike the unlock card. There is no share
+    /// card for a mastery yet, and a tap that does nothing reads as broken.
+    ///
+    /// The banner says COMPLETED, not mastered, and the difference is the RA
+    /// community's own: `rc_client` writes "mastered" for a hardcore finish and
+    /// "completed" for a softcore one (`rc_client.c`, the achievement summary).
+    /// Retro Pal is softcore only until hardcore ships, so "mastered" would
+    /// credit the player with something they did not do, in the exact vocabulary
+    /// they would notice. **When hardcore ships, this branches rather than
+    /// reverts:** hardcore earns the other word.
+    @ViewBuilder
+    private func masteryCard(_ mastery: RAMastery) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: mastery.isSubset ? "rosette" : "crown.fill")
+                .resizable().scaledToFit().padding(9)
+                .foregroundStyle(Self.gold)
+                .frame(width: 46, height: 46)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mastery.isSubset
+                     ? NSLocalizedString("ra.hud.subsetCompleted", comment: "")
+                     : NSLocalizedString("ra.hud.gameCompleted", comment: ""))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Self.gold)
+                Text(mastery.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 4)
+            if mastery.points > 0 {
+                Text("\(mastery.points)")
+                    .font(.headline.weight(.heavy))
+                    .foregroundStyle(Self.gold)
+                    .monospacedDigit()
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Self.gold, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
+        .frame(maxWidth: 420)
     }
 
     @ViewBuilder

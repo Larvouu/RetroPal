@@ -60,13 +60,40 @@ struct SaveStateCompatibilityTests {
         }
     }
 
+    /// MesenCE covers SNES and NES with one save-state format, written through
+    /// its own SaveStateManager, which stamps a version and a console type in
+    /// the header. A core bump that changes either is exactly what this catches.
+    ///
+    /// Worth knowing when a fixture is captured for it: this core is pinned to
+    /// upstream plus one patch of ours, so "the shipped core" means the pinned
+    /// SHA with Vendor/mesen-ios/patches applied, which is what build.sh
+    /// produces. The patch touches the frame limiter and nothing serialised.
+    @Test("MesenCE: a save state from the shipped core still loads")
+    func mesenStateStillLoads() throws {
+        try runCompatCase(coreDir: "mesen", romExtensions: ["sfc", "smc", "nes"]) {
+            MesenBridge()
+        }
+    }
+
     // MARK: - Harness
 
     private func runCompatCase(coreDir: String,
                                romExtensions: [String],
                                makeBridge: () -> any EmulatorBridge) throws {
         guard let fx = Self.locateFixture(coreDir: coreDir, romExtensions: romExtensions) else {
-            // No fixture captured yet: no-op (green) on purpose. See file header.
+            // Nothing on disk. Which of the two things that means is decided by the manifest:
+            //
+            //   EXPECTED.txt present -> a fixture WAS captured for this core and is now gone.
+            //     The binaries are game content and stay out of git, so a fresh clone or a
+            //     wiped Mac loses them. Fail, loudly. A guard that quietly returns to green
+            //     when its evidence disappears is worse than no guard: green then reads as
+            //     "the format is fine" while meaning "nothing was checked".
+            //
+            //   no manifest -> never captured for this core. No-op, as before.
+            if Self.manifestExists(coreDir: coreDir) {
+                Issue.record("Fixtures/SaveStateCompat/\(coreDir) has an EXPECTED.txt but no fixture beside it, so that core's save-state guard is NOT running. Restore the files the manifest names, or delete it if the fixture is retired on purpose. See CAPTURE.md.")
+                return
+            }
             print("[SaveStateCompat] No fixture in Fixtures/SaveStateCompat/\(coreDir) yet. "
                   + "Skipping. This test covers nothing until you capture one (see CAPTURE.md).")
             return
@@ -124,6 +151,16 @@ struct SaveStateCompatibilityTests {
     /// physical device (a device cannot read the Mac source tree). To run on a
     /// device instead, add the fixtures to the test target's Copy Bundle
     /// Resources and load them from `Bundle(for:)`.
+    /// Whether a capture was ever committed for this core. The manifest is the only part of a
+    /// fixture that CAN be committed, so it is what tells a MISSING capture apart from one that
+    /// was never taken.
+    private static func manifestExists(coreDir: String) -> Bool {
+        let manifest = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)/EXPECTED.txt")
+        return FileManager.default.fileExists(atPath: manifest.path)
+    }
+
     private static func locateFixture(coreDir: String, romExtensions: [String]) -> Fixture? {
         let dir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

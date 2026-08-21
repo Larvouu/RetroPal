@@ -31,7 +31,7 @@ import SwiftUI
 /// touch layout exactly — there is no per-console button gating in the app — so
 /// they differ from GBA only in screen aspect (160×144 vs 240×160).
 enum PreviewSystem: String {
-    case gba, gbc, nds   // gbc = GB + GBC (identical controls + screen)
+    case gba, gbc, nds, snes, nes   // gbc = GB + GBC (identical controls + screen)
 
     var isNDS: Bool { self == .nds }
 
@@ -41,6 +41,8 @@ enum PreviewSystem: String {
         case .gba: return .gba
         case .gbc: return .gbc
         case .nds: return .nds
+        case .snes: return .snes
+        case .nes: return .nes
         }
     }
 
@@ -50,6 +52,9 @@ enum PreviewSystem: String {
         case .gba: return 240.0 / 160.0
         case .gbc: return 160.0 / 144.0
         case .nds: return 256.0 / 384.0   // both screens stacked
+        // Straight from the layout engine's own table, so this gallery cannot
+        // show a shape the game does not draw.
+        case .snes, .nes: return PresetLayoutResolver.displayAspect(layoutSystem)
         }
     }
 
@@ -58,6 +63,8 @@ enum PreviewSystem: String {
         case .gba: return "GBA screen"
         case .gbc: return "GB/GBC screen"
         case .nds: return "NDS screen(s)"
+        case .snes: return "SNES screen"
+        case .nes: return "NES screen"
         }
     }
 }
@@ -82,7 +89,9 @@ final class InGameLayoutPreviewView: UIView {
         self.isNDS = system.isNDS
         self.isLandscape = isLandscape
         self.insets = safeInsets
-        self.controls = system.isNDS ? NDSTouchControlsView() : TouchControlsView()
+        // The same choice EmulatorViewController makes, from the same factory: the
+        // X and Y views exist only on the subclasses that have those buttons.
+        self.controls = TouchControlsView.make(for: system.layoutSystem)
         super.init(frame: .zero)
 
         backgroundColor = .black
@@ -190,7 +199,8 @@ final class InGameLayoutPreviewView: UIView {
         controls.frame = containerFrame
         controls.layoutIfNeeded()
         controls.applyDefaultLayout(isLandscape: isLandscape, system: system.layoutSystem,
-                                    deviceScale: k, safeLeftInset: insets.left)
+                                    deviceScale: k, safeLeftInset: insets.left,
+                                    safeRightInset: insets.right)
         // Dress the buttons for the systems whose buttons have a dress, matching the skin.
         // NDS shows its body/screen dress before its buttons are dressed (later slice).
         controls.setDressed(ConsoleSkinView.hasDressedControls(for: system.layoutSystem),
@@ -285,6 +295,10 @@ struct LayoutPreviewGallery: View {
         Config(label: "GB/GBC · landscape", system: .gbc, isLandscape: true),
         Config(label: "NDS · portrait", system: .nds, isLandscape: false),
         Config(label: "NDS · landscape", system: .nds, isLandscape: true),
+        Config(label: "SNES · portrait", system: .snes, isLandscape: false),
+        Config(label: "SNES · landscape", system: .snes, isLandscape: true),
+        Config(label: "NES · portrait", system: .nes, isLandscape: false),
+        Config(label: "NES · landscape", system: .nes, isLandscape: true),
     ]
 
     var body: some View {

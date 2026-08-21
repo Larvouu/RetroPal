@@ -10,9 +10,9 @@ import UIKit
 
 struct ControlPresetsView: View {
     @State private var presets: [ControlPreset] = []
-    @State private var activeGBAID: UUID?
-    @State private var activeGBCID: UUID?
-    @State private var activeNDSID: UUID?
+    /// The active preset per console, keyed by console rather than one @State each: the three
+    /// hardcoded properties are what limited the rows above to three consoles.
+    @State private var activeIDs: [PresetSystem: UUID?] = [:]
     @State private var showNewPresetSheet = false
     @State private var editingPreset: ControlPreset?
     @State private var newPresetName = ""
@@ -54,12 +54,14 @@ struct ControlPresetsView: View {
 
     private var activeLayoutSection: some View {
         Section {
-            activeRow(label: "GBA", system: .gba,
-                      get: { activeGBAID }, set: { activeGBAID = $0 })
-            activeRow(label: "GB / GBC", system: .gbc,
-                      get: { activeGBCID }, set: { activeGBCID = $0 })
-            activeRow(label: "Nintendo DS", system: .nds,
-                      get: { activeNDSID }, set: { activeNDSID = $0 })
+            // One row per console, from the same list the new-preset sheet offers. It was three
+            // hardcoded rows, so a preset could be MADE for the Super Nintendo (the sheet has
+            // always offered it) and then never activated: the row that switches it on did not
+            // exist. The same hole existed for the NES.
+            ForEach(ConsoleChoiceList.all, id: \.self) { system in
+                activeRow(label: system.shareLabel, system: system,
+                          get: { activeIDs[system] ?? nil }, set: { activeIDs[system] = $0 })
+            }
         } header: {
             Text(NSLocalizedString("layout.activeLayout", comment: ""))
         }
@@ -102,7 +104,7 @@ struct ControlPresetsView: View {
                             Text(preset.name)
                                 .foregroundColor(.primary)
                                 .font(.body)
-                            systemTag(Self.systemLabel(preset.systems.system))
+                            systemTag(preset.systems.system)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -143,12 +145,10 @@ struct ControlPresetsView: View {
                 }
 
                 Section(NSLocalizedString("layout.newPreset.systems", comment: "")) {
-                    ColoredSegmentedPicker(
-                        segments: [("GBA", PresetSystem.gba),
-                                   ("GB / GBC", PresetSystem.gbc),
-                                   ("Nintendo DS", PresetSystem.nds)],
+                    ConsoleChoiceList(
+                        systems: ConsoleChoiceList.all,
                         selection: $newPresetSystem,
-                        selectedColor: UIColor(red: 0.45, green: 0.2, blue: 0.85, alpha: 1)
+                        tint: Color(red: 0.45, green: 0.2, blue: 0.85)
                     )
                 }
             }
@@ -180,25 +180,33 @@ struct ControlPresetsView: View {
         case .gba: return "GBA"
         case .gbc: return "GB / GBC"
         case .nds: return "NDS"
+        case .snes: return "SNES"
+        case .nes: return "NES"
         }
     }
 
-    private func systemTag(_ text: String) -> some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(.medium)
-            .foregroundColor(.secondary)
-            .padding(.horizontal, 6)
+    /// The console tag, in the LIBRARY's badge: same type, same padding, same corner, and the
+    /// same per-console colour from `SystemColor`. It was a grey semi-transparent pill, which
+    /// made every preset's console look alike in a list whose whole job is telling them apart —
+    /// and the library had already solved that, one screen away.
+    ///
+    /// The label stays this screen's ("GB / GBC" rather than the library's per-game "GB" or
+    /// "GBC"), because a preset really does cover both, and the colour is `.gbc`'s either way.
+    private func systemTag(_ system: PresetSystem) -> some View {
+        Text(Self.systemLabel(system))
+            .font(.system(size: 9, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(Color.secondary.opacity(0.15))
+            .background(SystemColor.color(system.rawValue))
             .cornerRadius(4)
     }
 
     private func reload() {
         presets = store.loadPresets()
-        activeGBAID = store.activePresetID(system: .gba)
-        activeGBCID = store.activePresetID(system: .gbc)
-        activeNDSID = store.activePresetID(system: .nds)
+        for system in ConsoleChoiceList.all {
+            activeIDs[system] = store.activePresetID(system: system)
+        }
     }
 
     private func createPreset() {
@@ -222,6 +230,53 @@ struct ControlPresetsView: View {
 
         // Open editor immediately for the new preset
         editingPreset = store.loadPresets().first { $0.id == preset.id }
+    }
+}
+
+// MARK: - Console chooser
+
+/// Pick one console from the full list.
+///
+/// This replaced a segmented control when the fifth and sixth consoles arrived.
+/// Six segments cannot hold "Game Boy Advance" and "Super Nintendo" side by side,
+/// and the answer to text that does not fit is a different control, never a
+/// shorter name: these rows say each console in full and grow with the list.
+struct ConsoleChoiceList: View {
+    let systems: [PresetSystem]
+    @Binding var selection: PresetSystem
+    let tint: Color
+
+    /// Every console, in the order the library already orders them.
+    static let all: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes]
+
+    /// Proper nouns, deliberately not localized, matching the names the rest of
+    /// the app shows.
+    static func name(_ system: PresetSystem) -> String {
+        switch system {
+        case .gba:  return "Game Boy Advance"
+        case .gbc:  return "Game Boy / Color"
+        case .nds:  return "Nintendo DS"
+        case .snes: return "Super Nintendo"
+        case .nes:  return "NES"
+        }
+    }
+
+    var body: some View {
+        ForEach(systems, id: \.self) { system in
+            Button {
+                selection = system
+            } label: {
+                HStack {
+                    Text(Self.name(system)).foregroundColor(.primary)
+                    Spacer()
+                    if system == selection {
+                        Image(systemName: "checkmark").foregroundColor(tint)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 

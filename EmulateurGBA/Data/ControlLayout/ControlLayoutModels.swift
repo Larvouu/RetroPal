@@ -24,6 +24,11 @@ enum ControlElement: String, Codable, CaseIterable {
     /// Elements present on NDS (all GBA + X/Y/Mic).
     static let ndsElements: [ControlElement] = allCases
 
+    /// Elements present on the SNES: the DS set without the microphone. The pad is
+    /// the same shape — four face buttons in a diamond plus two shoulders — which
+    /// is why no new element had to be invented for it.
+    static let snesElements: [ControlElement] = allCases.filter { $0 != .btnMic }
+
     /// The element set for a given system — the single source of truth used by the
     /// store, the in-game controls, and the editor so they never drift apart.
     static func elements(for system: PresetSystem) -> [ControlElement] {
@@ -31,6 +36,10 @@ enum ControlElement: String, Codable, CaseIterable {
         case .nds: return ndsElements
         case .gba: return gbaElements
         case .gbc: return gbcElements
+        case .snes: return snesElements
+        // The NES pad is the Game Boy's exactly: D-pad, two buttons, Start and
+        // Select. It shares the set rather than declaring an identical one.
+        case .nes: return gbcElements
         }
     }
 
@@ -229,10 +238,56 @@ struct OrientationLayout: Codable, Equatable {
 }
 
 /// Which system a preset applies to (one system per preset).
+/// Screens + Menu layout used ONLY while a physical controller is connected.
+///
+/// Deliberately a separate object from `ControlPreset`, not a flag on one: a
+/// touch preset places the screens to leave room for the on-screen buttons,
+/// whereas with a controller the screens want the whole display. One object
+/// serving both goals would always be a compromise for at least one of them.
+///
+/// Nothing here can be hidden, and no code enforces that because nothing has
+/// to: `ScreenLayout` screens are never hideable (a game must stay visible),
+/// and `ButtonLayout.isHidden` is already ignored for Menu at resolve time.
+/// The editor simply offers no hide affordance.
+///
+/// An empty layout means "never customised", which resolves to exactly the
+/// geometry the app renders today. That is what makes the feature zero-
+/// regression for anyone who never opens it.
+struct ControllerLayout: Codable, Equatable {
+    var portrait: OrientationLayout
+    var landscape: OrientationLayout
+
+    init(portrait: OrientationLayout = OrientationLayout(),
+         landscape: OrientationLayout = OrientationLayout()) {
+        self.portrait = portrait
+        self.landscape = landscape
+    }
+
+    /// True when the user has not moved anything yet, in either orientation.
+    var isPristine: Bool {
+        portrait.screens.isEmpty && portrait.buttons.isEmpty
+            && landscape.screens.isEmpty && landscape.buttons.isEmpty
+    }
+
+    func layout(isLandscape: Bool) -> OrientationLayout { isLandscape ? landscape : portrait }
+
+    mutating func setLayout(_ layout: OrientationLayout, isLandscape: Bool) {
+        if isLandscape { landscape = layout } else { portrait = layout }
+    }
+
+    /// The only components this layout ever carries.
+    static func components(for system: PresetSystem) -> [ScreenComponent] {
+        ScreenComponent.components(for: system)
+    }
+    static let element: ControlElement = .btnMenu
+}
+
 enum PresetSystem: String, Codable, Equatable {
     case gba   // Game Boy Advance
     case gbc   // Game Boy + Game Boy Color (one shared layout family)
     case nds   // Nintendo DS
+    case snes  // Super Nintendo
+    case nes   // NES
 }
 
 /// Per-system applicability flags for a preset (one system per preset in the UI,
@@ -242,38 +297,49 @@ struct SystemApplicability: Codable, Equatable {
     var gba: Bool
     var gbc: Bool
     var nds: Bool
+    var snes: Bool
+    var nes: Bool
 
-    init(gba: Bool = false, gbc: Bool = false, nds: Bool = false) {
+    init(gba: Bool = false, gbc: Bool = false, nds: Bool = false,
+         snes: Bool = false, nes: Bool = false) {
         self.gba = gba
         self.gbc = gbc
         self.nds = nds
+        self.snes = snes
+        self.nes = nes
     }
 
     init(system: PresetSystem) {
         self.gba = (system == .gba)
         self.gbc = (system == .gbc)
         self.nds = (system == .nds)
+        self.snes = (system == .snes)
+        self.nes = (system == .nes)
     }
 
-    /// Resolution order is NDS, then GBC, then GBA (the default). A preset saved
-    /// before GBC existed has no `gbc` flag, so it keeps resolving to GBA/NDS.
+    /// Resolution order is NES, SNES, NDS, then GBC, then GBA (the default). A
+    /// preset saved before a flag existed simply does not carry it, so it keeps
+    /// resolving exactly where it did before.
     var system: PresetSystem {
+        if nes { return .nes }
+        if snes { return .snes }
         if nds { return .nds }
         if gbc { return .gbc }
         return .gba
     }
 
-    private enum CodingKeys: String, CodingKey { case gba, gbc, nds }
+    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes }
 
-    /// Decode each flag independently so a preset stored before `gbc` existed
-    /// (only `gba`/`nds` keys) still loads instead of failing the whole array
-    /// decode, which would silently wipe every saved preset. Encoding stays
-    /// synthesized and writes all three keys.
+    /// Decode each flag independently so a preset stored before `gbc`, `snes` or
+    /// `nes` existed still loads instead of failing the whole array decode, which
+    /// would silently wipe every saved preset. Encoding stays synthesized.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         gba = try c.decodeIfPresent(Bool.self, forKey: .gba) ?? false
         gbc = try c.decodeIfPresent(Bool.self, forKey: .gbc) ?? false
         nds = try c.decodeIfPresent(Bool.self, forKey: .nds) ?? false
+        snes = try c.decodeIfPresent(Bool.self, forKey: .snes) ?? false
+        nes = try c.decodeIfPresent(Bool.self, forKey: .nes) ?? false
     }
 }
 

@@ -42,6 +42,21 @@ final class ExternalDisplayManager {
     /// The connected TV's scene, if any. Kept so the window can still be built
     /// later, e.g. when Pro is purchased while the TV is already plugged in.
     private weak var connectedScene: UIWindowScene?
+
+    /// True while a television is connected to the app at all, by AirPlay or by
+    /// cable.
+    ///
+    /// Deliberately NOT the same question as `isShowingGame`, which also demands
+    /// Pro and a game already handed over. This is the plain "is there a screen
+    /// there", which is the only one a settings screen can usefully ask: no game
+    /// is running while Settings is open, so `isShowingGame` is false there even
+    /// with a television plugged in and working.
+    ///
+    /// The scene reference is weak, so if it ever went away without its
+    /// disconnect callback this reads false. That is the safe direction: the app
+    /// offers the connection guide for a television that IS there, rather than a
+    /// screen-arrangement picker for one that is not.
+    var isTVConnected: Bool { connectedScene != nil }
     private var window: UIWindow?
     private var screenVC: ExternalScreenViewController?
     /// The live game view. Weak: the emulator view controller owns it and its
@@ -76,14 +91,27 @@ final class ExternalDisplayManager {
     // MARK: - Scene lifecycle
 
     func sceneDidConnect(_ scene: UIWindowScene) {
+        let wasConnected = isTVConnected
         connectedScene = scene
         update()
+        // `isShowingGame` does not move on a bare connection (no game is handed
+        // over yet), so its own didSet posts nothing. Settings watches this
+        // notification to swap its row between the connection guide and the
+        // screen-arrangement picker, and that swap has to happen the moment the
+        // television appears.
+        if !wasConnected { notifyChanged() }
     }
 
     func sceneDidDisconnect(_ scene: UIWindowScene) {
         guard connectedScene === scene || window?.windowScene === scene else { return }
+        let wasConnected = isTVConnected
         connectedScene = nil
         teardownWindow()
+        if wasConnected { notifyChanged() }
+    }
+
+    private func notifyChanged() {
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
     }
 
     // MARK: - Game lifecycle

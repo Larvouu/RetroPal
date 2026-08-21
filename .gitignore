@@ -20,7 +20,24 @@ Packages/
 *.gbc
 *.gb
 *.nds
+*.sfc
+*.smc
+*.nes
 *.zip
+
+# Save-state compatibility fixtures. A save state is a dump of the running
+# game's memory, so it carries the same content as the ROM above it and follows
+# the same rule. The fixtures therefore stay LOCAL: whoever has them gets the
+# guard, everyone else (and the public GPL repo) gets the test's own no-op.
+# See EmulateurGBATests/Fixtures/SaveStateCompat/CAPTURE.md.
+EmulateurGBATests/Fixtures/SaveStateCompat/**/*.state
+EmulateurGBATests/Fixtures/SaveStateCompat/**/*.sav
+EmulateurGBATests/Fixtures/SaveStateCompat/*.state
+
+# Compiled emulator cores (built on the Mac by Vendor/*-ios/build.sh, never
+# committed: they are large, host-specific, and the public repo must ship the
+# core SOURCE as a submodule rather than a prebuilt binary).
+Vendor/*-ios/lib/
 
 # Personal / non-project files (kept locally, never committed)
 ressources/

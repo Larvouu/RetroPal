@@ -9,7 +9,7 @@
 "library.empty.title" = "Welkom bij Retro Pal";
 "library.empty.subtitle" = "Speel je retrogames op je iPhone. Geen advertenties, geen persoonlijke tracking.";
 "library.empty.button" = "Spel toevoegen";
-"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc of .nds) op je iPhone, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc of .nes) op je iPhone, via Safari, AirDrop of iCloud Drive.";
 "library.empty.step2" = "Tik op %@ en kies het bestand in de Bestanden-app.";
 "library.empty.step3" = "Spelen. Je voortgang wordt automatisch opgeslagen";
 "library.empty.romHint" = "Nog geen ROMs? Er bestaan veel gratis, legale spellen. Zoek online naar \"GBA homebrew\".";
@@ -103,7 +103,7 @@
 "pro.welcome" = "Welkom bij Pro!";
 "pro.benefit.speed" = "Alle snelheden: 0,25x tot 4x";
 "pro.benefit.slots" = "5 opslagslots (in plaats van 2)";
-"pro.benefit.rewind" = "30 seconden terugspoelen (GBA/GB/GBC)";
+"pro.benefit.rewind" = "30 seconden terugspoelen";
 "pro.benefit.cheats" = "Cheatcodes (GameShark / Action Replay)";
 "pro.benefit.controls" = "Eigen lay-outs en controllerknoppen";
 "pro.benefit.speed.short" = "Alle snelheden";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Bluetooth-controllers";
 "pro.compare.row.slots" = "Opslagslots";
 "pro.compare.row.speeds" = "Snelheden";
-"pro.compare.row.rewind" = "Terugspoelen (GBA/GB/GBC)";
+"pro.compare.row.rewind" = "Terugspoelen";
 "pro.compare.row.cheats" = "Cheatcodes";
 "pro.compare.row.controls" = "Aangepaste bediening";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "Je hebt %@ minuten retrogames gespeeld";
 "prompt.milestone.subtitle" = "Je houdt er duidelijk van. Ontgrendel de volledige ervaring.";
 "prompt.rewind.title" = "Moet je verder terug?";
-"prompt.rewind.subtitle" = "Pro geeft je 30 seconden terugspoeltijd op GBA/GB/GBC. Verlies nooit meer een baasgevecht.";
+"prompt.rewind.subtitle" = "Pro geeft je 30 seconden terugspoeltijd, op elke console. Verlies nooit meer een baasgevecht.";
 "prompt.cheats.title" = "Je hebt 4 uur %@ gespeeld. Klaar om zonder grenzen te spelen?";
 "prompt.cheats.subtitle" = "Ontgrendel cheatcodes, maximale snelheid en meer. Eenmalige aankoop, klaar. Voor altijd.";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "Ontgrendel alle snelheden, 5 opslagslots, 30s terugspoelen (GBA/GB/GBC) en meer.";
+"prompt.generic.subtitle" = "Ontgrendel alle snelheden, 5 opslagslots, 30s terugspoelen en meer.";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "Nostalgia";
@@ -179,7 +179,7 @@
 "legal.melonds" = "melonDS-licentie";
 "legal.importantNotice.title" = "Belangrijke mededeling";
 "legal.aboutApp.title" = "Over deze app";
-"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color- en Nintendo DS-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
+"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo- en NES-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
 "legal.aboutApp.description2" = "Deze app biedt geen spellencatalogus, verspreidt geen spelinhoud en faciliteert het downloaden van auteursrechtelijk beschermd materiaal niet.";
 "legal.privacy.title" = "Privacy";
 "legal.privacy.description" = "Je games en savegames blijven op je apparaat. Om de app te verbeteren stuurt Retro Pal alleen anonieme gebruiksstatistieken, zonder persoonlijke gegevens en zonder advertentie-id's.";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA is een Game Boy Advance-emulator die in deze app wordt gebruikt als de kern-emulator-engine. De broncode van mGBA is beschikbaar op [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
 "legal.melonds.description" = "melonDS is een Nintendo DS-emulator die in deze app wordt gebruikt als emulator-engine voor DS-spellen. De broncode van melonDS is beschikbaar op [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "MesenCE-licentie";
+"legal.mesen.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
+"legal.mesen.description" = "MesenCE is een Super Nintendo- en NES-emulator die in deze app wordt gebruikt als emulator-engine voor SNES- en NES-spellen. De broncode van MesenCE is beschikbaar op [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Retro Pal-licentie";
 "legal.retropal.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "De volledige broncode van Retro Pal is beschikbaar op [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). De software wordt geleverd zonder enige garantie.";
-"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en melonDS (GPL-3.0), die ongewijzigd worden gebruikt. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
+"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en melonDS (GPL-3.0), die ongewijzigd worden gebruikt, en op MesenCE (GPL-3.0), dat met één kleine wijziging wordt gebruikt; die wijziging wordt als patchbestand bij de broncode gepubliceerd. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
 
 "details.noSaves" = "Nog geen snelle saves. Maak er een tijdens het spelen via de menuknop.";
 "library.importing" = "ROM importeren...";
@@ -214,10 +217,14 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark-, CodeBreaker- of Action Replay-formaat";
 "cheats.hint.nds" = "Action Replay DS-formaat (XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Pro Action Replay- of Game Genie-formaat (XXXX-XXXX)";
+"cheats.hint.nes" = "Pro Action Rocky- of Game Genie-formaat (letters)";
 "cheats.namePlaceholder" = "Naam (optioneel)";
 "cheats.add" = "Code toevoegen";
 "cheats.invalid.gba" = "Code niet herkend. Verwacht: GameShark-, CodeBreaker- of Action Replay-formaat.";
 "cheats.invalid.nds" = "Code niet herkend. Verwacht: Action Replay DS-formaat (XXXXXXXX YYYYYYYY, één paar per regel).";
+"cheats.invalid.snes" = "Code niet herkend. Verwacht: Game Genie (XXXX-XXXX) of Pro Action Replay (acht tekens).";
+"cheats.invalid.nes" = "Code niet herkend. Verwacht: Game Genie (zes of acht letters) of Pro Action Rocky (acht tekens).";
 "cheats.empty" = "Geen actieve cheats";
 "cheats.findHint" = "Codes zijn makkelijk online te vinden. Zoek naar de cheat codes van je spel.";
 "cheats.clearAll" = "Alles wissen";
@@ -243,10 +250,6 @@
 "prompt.slotsTapped.subtitle" = "Ontgrendel 5 opslagslots zodat een save altijd plek heeft. Eenmalige aankoop, voor altijd.";
 "settings.appLabel" = "App";
 
-"review.headline" = "Bevalt het?";
-"review.body" = "Recensies houden kleine apps levend in de App Store. Eén zin helpt enorm.";
-"review.cta" = "Geef 5 sterren";
-"review.later" = "Niet nu";
 "cheats.type" = "Codetype";
 "cheats.restore" = "Herstel opslag voor cheats";
 "cheats.restore.confirm.title" = "Opslag van voor de cheats herstellen?";
@@ -256,6 +259,13 @@
 /* Control Layout */
 "settings.customizeControls" = "Bediening aanpassen";
 "settings.remapController" = "Controllerknoppen opnieuw toewijzen";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "Schermindeling met controller";
+"controllerLayout.customised" = "Aangepast";
+"controllerLayout.footer" = "Kies waar het spelscherm staat, en hoe groot het is, terwijl er een controller is aangesloten. Handig als de controller zelf een deel van het scherm bedekt. Elke console houdt zijn eigen indeling, staand en liggend.";
+"controllerLayout.resetAll" = "Oorspronkelijke indelingen herstellen";
+"controllerLayout.reset.footer" = "Zet elke console terug op de indeling die de app standaard met een controller gebruikt.";
 "remap.press" = "Druk op een knop…";
 "remap.reset" = "Standaardwaarden herstellen";
 "remap.footer" = "Tik op een knop en druk daarna op de controllerknop die je wilt toewijzen. De D-pad en stick besturen altijd de D-pad.";
@@ -324,11 +334,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Spel toevoegen";
 "guide.importRom.intro" = "Retro Pal bevat geen games. Je levert je eigen ROM-bestanden aan, waarvan je de rechten bezit (je eigen cartridges of gratis, legale homebrew-games).";
-"guide.importRom.step1" = "Zet het spelbestand (.gba, .gb, .gbc of .nds) op je iPhone: download het in Safari, via AirDrop vanaf een computer, of via iCloud Drive.";
+"guide.importRom.step1" = "Zet het spelbestand (.gba, .gb, .gbc, .nds, .sfc, .smc of .nes) op je iPhone: download het in Safari, via AirDrop vanaf een computer, of via iCloud Drive.";
 "guide.importRom.step2" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPhone of iCloud Drive).";
 "guide.importRom.step3" = "Tik in Retro Pal op de knop + bovenaan de bibliotheek.";
 "guide.importRom.step4" = "Kies het bestand. De game verschijnt meteen in je bibliotheek, klaar om te spelen.";
-"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds en .zip-bestanden met één game. .7z en archieven met meerdere games worden niet ondersteund; pak eerst één bestand uit. Importeer alleen bestanden waarvan je de rechten bezit.";
+"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes en .zip-bestanden met één game. .7z en archieven met meerdere games worden niet ondersteund; pak eerst één bestand uit. Importeer alleen bestanden waarvan je de rechten bezit.";
 "settings.guides.section" = "Handleidingen";
 "settings.controller.row" = "Controller";
 "common.done" = "Klaar";
@@ -421,6 +431,10 @@
 "skin.editor.surround" = "Rand";
 "skin.editor.dpad" = "D-pad";
 "skin.editor.abButtons" = "A/B-knoppen";
+"skin.editor.faceA" = "A-knop";
+"skin.editor.faceB" = "B-knop";
+"skin.editor.faceX" = "X-knop";
+"skin.editor.faceY" = "Y-knop";
 "skin.editor.abLetters" = "A/B-letters";
 "skin.editor.smallButtons" = "Kleine knoppen";
 "skin.editor.menuIcons" = "Menu-iconen";
@@ -470,6 +484,10 @@
 "ra.dashboard.title" = "Prestaties";
 "ra.dashboard.unlocked" = "Ontgrendeld";
 "ra.dashboard.locked" = "Resterend";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "Spel voltooid";
+"ra.hud.subsetCompleted" = "Reeks voltooid";
 "ra.dashboard.empty" = "Deze game heeft geen prestaties, of er zijn er nog geen geladen.";
 "ra.dashboard.summary" = "%lld van %lld ontgrendeld";
 "ra.dashboard.rarity" = "%@ van de spelers";
@@ -505,8 +523,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Geen toegang tot het geselecteerde bestand. Probeer het te importeren via de Bestanden-app.";
 "import.error.copyFailed" = "De game kon niet naar Retro Pal worden gekopieerd. Maak opslagruimte vrij en probeer het opnieuw.";
-"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc en .nds.";
-"import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc- en .nds-games; andere consoles worden niet ondersteund.";
+"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc, .nds, .sfc, .smc en .nes.";
+"import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc-, .nds-, .sfc-, .smc- en .nes-games; andere consoles worden niet ondersteund.";
 "import.error.zipExtractionFailed" = "Deze ZIP kon niet worden geopend. Pak hem uit in de Bestanden-app en importeer het gamebestand direct.";
 "import.error.alreadyImported" = "Deze game staat al in je bibliotheek.";
 "import.error.saveFailed" = "De game kon niet aan je bibliotheek worden toegevoegd. Probeer het opnieuw.";
@@ -523,12 +541,15 @@
 "whatsnew.title" = "Wat is er nieuw";
 "whatsnew.version" = "Versie %@";
 "whatsnew.footer" = "Je kunt dit later altijd teruglezen in Instellingen.";
+"whatsnew.notice.pro" = "Over Pro: de eenmalige levenslange prijs gaat omhoog in een komende update. Er is nog geen datum. Alles wat nu gratis is, blijft gratis, altijd: geen advertenties, en je hoeft nooit te betalen om te spelen.";
 "whatsnew.dismiss" = "Begrepen!";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "Extern scherm";
 "settings.externalDisplay.row" = "Op een tv spelen";
 "settings.externalDisplay.ndsLayout" = "DS-schermen op de tv";
+"settings.externalDisplay.noTV" = "Geen tv verbonden";
+"settings.externalDisplay.noTV.caption" = "Tik om te zien hoe je op een tv speelt.";
 "settings.externalDisplay.sideBySide" = "Naast elkaar";
 "settings.externalDisplay.stacked" = "Boven elkaar";
 "settings.externalDisplay.footer" = "Verbind een tv via AirPlay of een kabel en de game vult het scherm terwijl je iPhone de bediening houdt. De DS toont beide schermen; het touchscreen blijft op de telefoon.";
@@ -544,7 +565,7 @@
 "guide.airplay.step3" = "Start een game. Die vult de tv, en je iPhone houdt de bediening.";
 "guide.airplay.step4" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPhone.";
 "guide.airplay.step5" = "Sluit een controller aan en de schermknoppen verdwijnen. Alleen het DS-touchscreen wordt nog op de telefoon gebruikt.";
-"guide.airplay.step6" = "Hoe de twee DS-schermen op de tv staan, kies je bij Instellingen, Extern scherm.";
+"guide.airplay.step6" = "Zodra je tv verbonden is, kies je bij Instellingen, Extern scherm, hoe de twee DS-schermen staan.";
 "guide.airplay.footer" = "Het geluid gaat met het beeld mee naar de tv via AirPlay. Met een controller open je het pauzemenu met de menuknop van de controller, dus je hoeft de telefoon nooit aan te raken.";
 "guide.airplay.proNotice" = "Op een tv spelen hoort bij Retro Pal Pro.";
 "guide.airplay.proButton" = "Op mijn tv spelen";
@@ -561,7 +582,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Deze code bevat onverwachte tekens. Cheatcodes gebruiken alleen 0-9, A-F, spaties en streepjes.";
+"cheats.invalid.characters.nes" = "Deze code bevat onverwachte tekens. NES-codes gebruiken de Game Genie-letters A P Z L G I T Y E O X U K S V N, of 0-9 en A-F, plus spaties en streepjes.";
 "cheats.invalid.pairs" = "Action Replay DS-codes gaan per paar: elke regel heeft twee blokken van acht tekens nodig, bijvoorbeeld 94000130 FCFF0000.";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "Een code van meerdere regels voeg je toe als ÉÉN invoer. Plak alle regels samen, niet een voor een.";
+"cheats.multiline.seedAlone" = "Deze regel ontgrendelt alleen de andere regels van zijn code. Op zichzelf doet hij niets. Plak hem samen met de rest.";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "Cheatcodes bekijken";
@@ -573,6 +599,8 @@
 "cheats.browse.offline" = "Geen verbinding. Codes worden één keer per game opgehaald en daarna op je apparaat bewaard.";
 "cheats.browse.failed" = "De codes konden niet worden geladen. Probeer het opnieuw.";
 "cheats.browse.credit" = "Codes uit de libretro-communitydatabase (CC BY-SA 4.0).";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "Deze codes komen uit een andere uitgave van hetzelfde spel: %@. Ze werken vaak, maar niet altijd.";
 "settings.cheatDB.section" = "Cheatcodes";
 "settings.cheatDB.download" = "Codes voor mijn games downloaden";
 "settings.cheatDB.progress" = "Bezig, %d van %d";
@@ -600,21 +628,24 @@
 "externalDisplay.idle.hint" = "Start een game op je iPhone";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Speel op je tv";
-"whatsnew.s1.b1" = "Stuur de game via AirPlay of een kabel naar een tv, terwijl je iPhone de bediening houdt. Pro.";
-"whatsnew.s1.b2" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPhone.";
-"whatsnew.s2.title" = "De look van de originele hardware";
-"whatsnew.s2.b1" = "Zes videofilters, van CRT tot LCD-raster, live en vastgelegd in je opnamen en clips. Pro.";
-"whatsnew.s2.b2" = "Vierentwintig Game Boy-paletten, per game te kiezen, gratis voor iedereen.";
-"whatsnew.s3.title" = "Cheatcodes zonder te typen";
-"whatsnew.s3.b1" = "Blader door de communitydatabase van je huidige game en tik een code aan. Pro.";
-"whatsnew.s3.b2" = "Codes maken zichzelf netjes op, en een geweigerde code zegt eindelijk wat er mis is.";
-"whatsnew.s4.title" = "Controllers en toetsenborden";
-"whatsnew.s4.b1" = "Wijs elke knop opnieuw toe, per console, en zet vooruitspoelen, schermafbeelding of clip op een vrije knop. Pro.";
-"whatsnew.s4.b2" = "Fysieke toetsenborden werken nu, gratis. De stick en de DS-knoppen zijn hersteld.";
-"whatsnew.s5.title" = "Je games op het beginscherm";
-"whatsnew.s5.b1" = "Widgets tonen je games als hoes. Eén tik opent een game waar je gebleven was.";
-"whatsnew.s5.b2" = "Kies per widget de game en het opgeslagen spel, of laat hem je laatste partij volgen.";
-"whatsnew.s6.title" = "Opgeslagen spellen en Nintendo DS";
-"whatsnew.s6.b1" = "Exporteer een opgeslagen spel om te delen of te bewaren, en ze volgen je nu via iCloud.";
-"whatsnew.s6.b2" = "Stop een Game Boy Advance-game in het tweede DS-slot, net als op de echte console.";
+"whatsnew.s1.title" = "Twee consoles erbij";
+"whatsnew.s1.b1" = "Super Nintendo- en NES-games draaien nu in Retro Pal, en beide consoles zijn gratis voor iedereen.";
+"whatsnew.s1.b2" = "Opgeslagen spellen, snelheid, terugspoelen, cheats en prestaties werken er vanaf dag één.";
+"whatsnew.s2.title" = "Ze zien eruit als het echte werk";
+"whatsnew.s2.b1" = "Elke nieuwe console draagt zijn eigen behuizing om het spel heen, staand en liggend.";
+"whatsnew.s2.b2" = "Maak je eigen skin en geef elke knop zijn eigen kleur, en deel er een kaart van. {PRO}";
+"whatsnew.s3.title" = "Terugspoelen op elke console";
+"whatsnew.s3.b1" = "Terugspoelen bereikt de Nintendo DS, die een veel zuinigere manier nodig had om zijn veel grotere momentopnames te bewaren.";
+"whatsnew.s3.b2" = "Vijf seconden voor iedereen, dertig met {PRO}, op alle zes de consoles.";
+"whatsnew.s4.title" = "Cheatcodes, gerepareerd";
+"whatsnew.s4.b1" = "Een code van meerdere regels gaat er als één invoer in, en de app zegt het voordat je het fout doet.";
+"whatsnew.s4.b2" = "Een game waarvan de eigen uitgave geen codes heeft, kan die van een andere regio van dezelfde cartridge lenen.";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "Een game met meerdere prestatiereeksen toont nu elke reeks met een eigen telling en badge.";
+"whatsnew.s5.b2" = "Een reeks afronden, of een hele game, krijgt zijn eigen moment op het scherm.";
+"whatsnew.s6.title" = "Met een controller aangesloten";
+"whatsnew.s6.b1" = "Verplaats het spelscherm en pas de grootte aan als een klemcontroller een deel bedekt. {PRO}";
+"whatsnew.s6.b2" = "Elke console onthoudt zijn eigen indeling, staand en liggend.";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "Er zijn geen prestaties uit deze reeks geladen.";

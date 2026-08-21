@@ -42,8 +42,7 @@ enum Analytics {
             "cardType", "completed", "skinVariant",       // share
             "variant", "action", "speed", "enabled",      // second-wave adoption/quality
             "feature",                                     // pro_feature_used ranking
-            "minutes",                                     // play_session depth bucket
-            "outcome"                                      // review_prompt_outcome (rated|dismissed)
+            "minutes"                                      // play_session depth bucket
         ]
         return params.filter { allowed.contains($0.key) }
     }

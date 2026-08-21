@@ -17,10 +17,13 @@ enum ZIPExtractorError: Error {
 }
 
 enum ZIPExtractor {
-    private static let romExtensions: Set<String> = ["gba", "gb", "gbc", "nds"]
+    /// Read from the parser's own list so a new console cannot be importable
+    /// loose but invisible inside a zip.
+    private static let romExtensions: Set<String> = Set(ROMSystemType.allFileExtensions)
 
     /// Full entry names (including any folder prefix) of the ROM files
-    /// (.gba, .gb, .gbc, .nds) inside the archive, in archive order.
+    /// (every extension in `ROMSystemType.allFileExtensions`) inside the
+    /// archive, in archive order.
     /// Duplicate names are dropped: extraction is by name, so a malformed
     /// archive with two identical entry names could only ever yield the
     /// first one anyway.

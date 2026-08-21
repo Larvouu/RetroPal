@@ -8,7 +8,8 @@
 //
 //  Reachable from Settings ▸ Debug ▸ Pause menu preview. It renders the menu at
 //  the smallest and largest current iPhones (SE / 16 Pro Max), portrait and
-//  landscape, for both GBA (Rewind shown) and NDS (Rewind hidden), each scaled
+//  landscape, for both the two-lockable-button and four-lockable-button shapes
+//  of the menu (Rewind shows on every console since 1.2.5), each scaled
 //  to fit. The menu is hosted in a view controller with the device's real
 //  safe-area insets so the "does everything fit?" question is faithful (the Pro
 //  Max insets alone eat ~90pt of height).
@@ -54,8 +55,11 @@ private final class OverlayMenuPreviewController: UIViewController {
             menu.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
 
-        menu.rewindHidden = isNDS
-        menu.setLockableButtons(forNDS: isNDS)
+        menu.rewindHidden = false   // rewind covers every console since 1.2.5
+        // The real menu is handed `TouchControlsView.lockableLetters`; this
+        // preview stands in for the two shapes it can take (the SNES matches
+        // the DS's four).
+        menu.setLockableButtons(isNDS ? ["A", "B", "X", "Y"] : ["A", "B"])
         menu.isHidden = false
         menu.setSoundEnabled(true)
         menu.setButtonLockEnabled(false)

@@ -24,6 +24,17 @@ final class EmulatorSession: ObservableObject {
     var totalBufferHeight: Int { Int(bridge.totalBufferHeight) }
     /// Whether the current system has a touch screen (NDS bottom screen)
     var hasTouchScreen: Bool { bridge.hasTouchScreen }
+    /// Shape the game should be DISPLAYED in, which is the buffer's own ratio
+    /// for the first four consoles and 4:3 for SNES/NES (see `EmulatorBridge`).
+    var displayAspect: CGFloat { bridge.displayAspect }
+    /// Byte order of the frame buffer, which decides the renderer's pixel format.
+    var usesBGRAPixelOrder: Bool { bridge.usesBGRAPixelOrder }
+    /// How long one emulated frame should take. Constant for the first four
+    /// consoles; a PAL SNES or NES cartridge runs at 50, so the core answers.
+    var frameDuration: CFTimeInterval {
+        let fps = bridge.framesPerSecond
+        return fps > 1 ? 1.0 / fps : 280896.0 / 16777216.0
+    }
 
     private let bridge: any EmulatorBridge
     private var audioEngine: EmulatorAudioEngine?
@@ -54,7 +65,21 @@ final class EmulatorSession: ObservableObject {
         gbaSlot2Basename = saveBasename
     }
 
+    /// Console label for analytics, read from the ROM this session loaded.
+    ///
+    /// The existing values are deliberately unchanged: GB and GBC still report
+    /// "gba" as they always have, because the signal set is frozen and altering
+    /// a dimension's existing values would rewrite history on the dashboards.
+    /// The two new consoles simply add two new values.
+    private var analyticsSystem: String = "gba"
+
     func loadROM(at url: URL) -> Bool {
+        switch url.pathExtension.lowercased() {
+        case "nds":         analyticsSystem = "nds"
+        case "sfc", "smc":  analyticsSystem = "snes"
+        case "nes":         analyticsSystem = "nes"
+        default:            analyticsSystem = "gba"
+        }
         let success = bridge.loadROM(atPath: url.path)
         if success {
             // Set battery save path BEFORE reset so existing .sav is loaded.
@@ -104,6 +129,16 @@ final class EmulatorSession: ObservableObject {
     /// emulation thread. RetroAchievements installs this to drive
     /// `rc_client_do_frame`; nil (zero cost) when no RA session is active.
     var onFrameAdvance: (() -> Void)?
+
+    /// Block until the LAST `runFrame`'s picture is readable through `frameBuffer`.
+    ///
+    /// Called ONCE per drawn frame, immediately before the upload — never once per emulated
+    /// frame. Only MesenCE implements it (its picture arrives on a decode thread); for mGBA and
+    /// melonDS the selector is absent and this is nothing at all.
+    func awaitDisplayFrame() {
+        guard isROMLoaded else { return }
+        bridge.awaitDisplayFrame?()
+    }
 
     func runFrame() {
         guard isROMLoaded else { return }
@@ -295,7 +330,7 @@ final class EmulatorSession: ObservableObject {
         if !success {
             Analytics.signal("save_failure", [
                 "kind": slot == SaveStateManager.autoSaveSlotIndex ? "auto_save" : "state_write",
-                "system": bridge is MelonDSBridge ? "nds" : "gba"
+                "system": analyticsSystem
             ])
         }
         return success
@@ -331,7 +366,7 @@ final class EmulatorSession: ObservableObject {
         if !success {
             Analytics.signal("save_failure", [
                 "kind": "state_load",
-                "system": bridge is MelonDSBridge ? "nds" : "gba"
+                "system": analyticsSystem
             ])
         }
         return success
@@ -434,10 +469,6 @@ final class EmulatorSession: ObservableObject {
 
     func clearCheats() {
         bridge.clearCheats()
-    }
-
-    func setCheatsEnabled(_ enabled: Bool) {
-        bridge.setCheatsEnabled(enabled)
     }
 
     // MARK: - Lifecycle

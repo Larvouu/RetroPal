@@ -39,6 +39,11 @@ struct SettingsView: View {
     @State private var showControllerGuide = false
     @State private var showAirPlayGuide = false
     @State private var showWidgetGuide = false
+    /// Whether a television is connected right now, seeded from the manager so
+    /// the row is right on the FIRST render (a TV plugged in before Settings
+    /// opened posts nothing while it is open) and kept current by the manager's
+    /// change notification.
+    @State private var tvConnected = ExternalDisplayManager.shared.isTVConnected
     @State private var cheatCacheBytes: Int64 = 0
     @State private var cheatPrefetch: (done: Int, total: Int)?
     @State private var cheatPrefetchFailed = false
@@ -47,9 +52,6 @@ struct SettingsView: View {
     /// never offered when tapping it would do nothing — that dead tap read as
     /// a bug on device.
     @State private var cheatCoverage: (cached: Int, total: Int)?
-    #if DEBUG
-    @State private var showReviewPreview = false
-    #endif
     #if DEBUG
     @State private var debugTapCount = 0
     #endif
@@ -390,6 +392,23 @@ struct SettingsView: View {
                                          icon: "arrow.triangle.swap",
                                          context: .customizeControls)
                     }
+
+                    // Screen + Menu layout for controller play (Pro). Shown only
+                    // while a pad is attached, like the remap row above: it is
+                    // the only moment the setting means anything, and the editor
+                    // previews the game as it renders WITH a controller.
+                    if proManager.isPro {
+                        NavigationLink {
+                            ControllerLayoutView()
+                        } label: {
+                            Label(NSLocalizedString("settings.controllerLayout", comment: ""),
+                                  systemImage: "rectangle.inset.filled")
+                        }
+                    } else {
+                        premiumLockedRow(label: NSLocalizedString("settings.controllerLayout", comment: ""),
+                                         icon: "rectangle.inset.filled",
+                                         context: .customizeControls)
+                    }
                 }
             }
 
@@ -399,14 +418,47 @@ struct SettingsView: View {
             Section(header: Text(NSLocalizedString("settings.externalDisplay.section", comment: "")),
                     footer: Text(NSLocalizedString("settings.externalDisplay.footer", comment: ""))) {
                 if proManager.isPro {
-                    Picker(NSLocalizedString("settings.externalDisplay.ndsLayout", comment: ""),
-                           selection: $externalNDSSideBySide) {
-                        Text(NSLocalizedString("settings.externalDisplay.sideBySide", comment: "")).tag(true)
-                        Text(NSLocalizedString("settings.externalDisplay.stacked", comment: "")).tag(false)
-                    }
-                    .onChange(of: externalNDSSideBySide) { newValue in
-                        // Push to a television that is already connected.
-                        ExternalDisplayManager.shared.ndsSideBySide = newValue
+                    // The DS screen arrangement is a choice ABOUT a television,
+                    // so it only appears while there is one. With nothing
+                    // connected the row answered a question nobody had asked and
+                    // gave no hint that a TV was the missing part; it now says so
+                    // and opens the guide that explains how to connect one.
+                    if tvConnected {
+                        Picker(NSLocalizedString("settings.externalDisplay.ndsLayout", comment: ""),
+                               selection: $externalNDSSideBySide) {
+                            Text(NSLocalizedString("settings.externalDisplay.sideBySide", comment: "")).tag(true)
+                            Text(NSLocalizedString("settings.externalDisplay.stacked", comment: "")).tag(false)
+                        }
+                        .onChange(of: externalNDSSideBySide) { newValue in
+                            // Push to a television that is already connected.
+                            ExternalDisplayManager.shared.ndsSideBySide = newValue
+                        }
+                    } else {
+                        Button {
+                            showAirPlayGuide = true
+                        } label: {
+                            HStack {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(NSLocalizedString("settings.externalDisplay.noTV", comment: ""))
+                                            .foregroundColor(.primary)
+                                        // What the tap does. The state alone
+                                        // reads as a dead status line.
+                                        Text(NSLocalizedString("settings.externalDisplay.noTV.caption", comment: ""))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: "airplayvideo")
+                                }
+                                Spacer(minLength: 8)
+                                // The row does something, so it says so. Without
+                                // this it reads as a disabled status line.
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                 } else {
                     premiumLockedRow(label: NSLocalizedString("settings.externalDisplay.row", comment: ""),
@@ -599,7 +651,9 @@ struct SettingsView: View {
                 HStack {
                     Text(NSLocalizedString("settings.core", comment: ""))
                     Spacer()
-                    Text("mGBA / melonDS")
+                    // Every core the app links, named in the order the consoles
+                    // arrived. Not localized: these are project names.
+                    Text("mGBA / melonDS / MesenCE")
                         .foregroundStyle(.secondary)
                 }
                 // Straight to the App Store review composer. Unlike the
@@ -615,9 +669,6 @@ struct SettingsView: View {
 
             #if DEBUG
             Section("Debug") {
-                Button("Preview Review Card") {
-                    showReviewPreview = true
-                }
                 Button("What's New: reset seen version (re-arms the launch sheet)") {
                     WhatsNew.debugResetSeen()
                 }
@@ -653,6 +704,15 @@ struct SettingsView: View {
                 Button("Simulate RA progress (preview pill)") {
                     RetroAchievements.shared.debugSimulateProgress()
                 }
+                // The banner "Terminer une série, ou un jeu entier, a droit à son
+                // propre moment à l'écran" describes. Tap twice: the second tap
+                // uses a long title, which is the case the card's two lines are for.
+                Button("Simulate RA game completed (banner, tap twice)") {
+                    RetroAchievements.shared.debugSimulateCompletion(subset: false)
+                }
+                Button("Simulate RA set completed (banner, tap twice)") {
+                    RetroAchievements.shared.debugSimulateCompletion(subset: true)
+                }
                 Button("RA game card (157 badges, Fire-Red-sized)") {
                     showRAGameCardPreview = true
                 }
@@ -686,6 +746,12 @@ struct SettingsView: View {
 
         }
         .navigationTitle(NSLocalizedString("settings.title", comment: ""))
+        // A television can arrive or leave while this screen is open, and the
+        // external-display row is a different row in each case.
+        .onReceive(NotificationCenter.default.publisher(
+            for: ExternalDisplayManager.didChangeNotification)) { _ in
+            tvConnected = ExternalDisplayManager.shared.isTVConnected
+        }
         .task {
             cheatCacheBytes = CheatLibrary.shared.cacheSize()
             cheatCoverage = countCheatCoverage()
@@ -702,10 +768,6 @@ struct SettingsView: View {
         // Same for "Simulate RA progress": without this overlay the pill has
         // no host outside gameplay and the button looks dead.
         .overlay(alignment: .top) { RAProgressHUD() }
-        .sheet(isPresented: $showReviewPreview) {
-            ReviewPromptView(onRate: { showReviewPreview = false }, onDismiss: { showReviewPreview = false })
-                .presentationDetents([.medium])
-        }
         .sheet(isPresented: $showClipHintPreview) {
             // Presented exactly like the real card (the view now self-configures its
             // fill, opaque background, and adaptive detents) — so this previews the

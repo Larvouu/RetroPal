@@ -65,6 +65,12 @@ enum ShareCardStyle: String {
                 case .nds:
                     // The NDS main body grey (#C4C4C4), so the extruded 3D edge reads as the console body.
                     return [Color(red: 0.820, green: 0.820, blue: 0.820), Color(red: 0.680, green: 0.680, blue: 0.680)]
+                case .snes:
+                    // The Super Nintendo's warm grey shell (#D7D3CF).
+                    return [Color(red: 0.843, green: 0.827, blue: 0.812), Color(red: 0.700, green: 0.685, blue: 0.672)]
+                case .nes:
+                    // The NES's light grey shell (#D2D5DC).
+                    return [Color(red: 0.824, green: 0.835, blue: 0.863), Color(red: 0.690, green: 0.700, blue: 0.727)]
                 }
             }
         }
@@ -121,8 +127,10 @@ extension PresetSystem {
         switch (filename as NSString).pathExtension.lowercased() {
         case "gb", "gbc": return .gbc
         case "gba":       return .gba
-        case "nds":       return .nds
-        default:          return nil
+        case "nds":        return .nds
+        case "sfc", "smc": return .snes
+        case "nes":        return .nes
+        default:           return nil
         }
     }
 }
@@ -149,16 +157,22 @@ extension DressVariant {
             case .gbc: return GBCSkinPalette.nostalgia.body
             case .gba: return GBASkinPalette.nostalgia.body
             case .nds: return NDSSkinPalette.nostalgia.body
+            case .snes: return SNESSkinPalette.nostalgia.body
+            case .nes: return NESSkinPalette.nostalgia.body
             }
         case .retroPal:
             switch system {
             case .gbc: return RetroPalPalette.gbcBody
             case .gba: return RetroPalPalette.gbaBody
             case .nds: return RetroPalPalette.ndsBody
+            case .snes: return RetroPalPalette.snesBody
+            case .nes: return RetroPalPalette.nesBody
             }
         case .custom(.gbc(let p)): return p.body
         case .custom(.gba(let p)): return p.body
         case .custom(.nds(let p)): return p.body
+        case .custom(.snes(let p)): return p.body
+        case .custom(.nes(let p)): return p.body
         }
     }
 
@@ -168,6 +182,20 @@ extension DressVariant {
     /// NDS ink untouched), body −39% luma for a custom body (NintendoDSSkin.ink).
     func cardEdgeColor(for system: PresetSystem) -> UIColor {
         switch system {
+        case .nes:
+            switch self {
+            case .nostalgia:           return NESSkinPalette.nostalgia.surround
+            case .retroPal:            return RetroPalPalette.nesSurround
+            case .custom(.nes(let p)): return p.surround
+            case .custom:              return NESSkinPalette.nostalgia.surround
+            }
+        case .snes:
+            switch self {
+            case .nostalgia:            return SNESSkinPalette.nostalgia.surround
+            case .retroPal:             return RetroPalPalette.snesSurround
+            case .custom(.snes(let p)): return p.surround
+            case .custom:               return SNESSkinPalette.nostalgia.surround
+            }
         case .gbc:
             switch self {
             case .nostalgia:           return GBCSkinPalette.nostalgia.surround
@@ -217,6 +245,11 @@ extension DressVariant {
                                       p.menuButtonsHex, p.menuIconsHex, p.ledHex])
         case .custom(.nds(let p)):
             return "custom-" + hexes([p.bodyHex, p.buttonsHex, p.lettersHex, p.iconsHex, p.ledHex])
+        case .custom(.snes(let p)):
+            return "custom-snes-" + hexes([p.bodyHex, p.surroundHex, p.padHex,
+                                           p.faceAHex, p.faceBHex, p.faceXHex, p.faceYHex])
+        case .custom(.nes(let p)):
+            return "custom-nes-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex])
         }
     }
 }

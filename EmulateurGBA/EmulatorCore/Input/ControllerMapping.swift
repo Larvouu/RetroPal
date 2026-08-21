@@ -50,6 +50,8 @@ enum RemappableInput: String, Codable, CaseIterable {
         case .gbc: return [.a, .b, .select, .start]
         case .gba: return [.a, .b, .l, .r, .select, .start]
         case .nds: return [.a, .b, .x, .y, .l, .r, .select, .start]
+        case .snes: return [.a, .b, .x, .y, .l, .r, .select, .start]
+        case .nes: return [.a, .b, .select, .start]
         }
     }
 }

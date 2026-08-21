@@ -24,27 +24,52 @@ extension DressVariant {
     var gbcPalette: GBCSkinPalette? { if case .custom(.gbc(let p)) = self { return p }; return nil }
     var gbaPalette: GBASkinPalette? { if case .custom(.gba(let p)) = self { return p }; return nil }
     var ndsPalette: NDSSkinPalette? { if case .custom(.nds(let p)) = self { return p }; return nil }
+    var snesPalette: SNESSkinPalette? { if case .custom(.snes(let p)) = self { return p }; return nil }
+    var nesPalette: NESSkinPalette? { if case .custom(.nes(let p)) = self { return p }; return nil }
 
     /// Per-control dressed face fill, or nil to keep the built-in Nostalgia colour. Retro Pal keeps
     /// its unified recolour (every GB/GBC face → gbcDark; NDS → ndsAccent; GBA untouched). A custom
     /// skin reads the matching slot: GB/GBC splits per control, GBA/NDS share one `buttons` colour.
-    private func customFace(_ kind: DressKind, gbc: (GBCSkinPalette) -> UIColor) -> UIColor? {
+    private func customFace(_ kind: DressKind, gbc: (GBCSkinPalette) -> UIColor,
+                            snes: (SNESSkinPalette) -> UIColor = { $0.pad },
+                            nes: (NESSkinPalette) -> UIColor = { $0.face }) -> UIColor? {
         switch self {
         case .nostalgia:            return nil
+        //Retro Pal answers PER CONTROL on the NES by feeding its own values through the very
+        //closures a custom skin uses. `buttonFill` gives one colour per console, which is right
+        //for the three that have one and wrong here: it would paint A and B with the pad.
+        case .retroPal where kind == .nes: return nes(NESSkinPalette.retroPal)
         case .retroPal:             return RetroPalPalette.buttonFill(kind)
         case .custom(.gbc(let p)):  return gbc(p)
         case .custom(.gba(let p)):  return p.buttons
         case .custom(.nds(let p)):  return p.buttons
+        //The SNES answers with its PAD colour, which is what everything reaching this
+        //asks about on that console: the cross, the SELECT/START pills, MENU, CLIP and
+        //the shoulders. Its four faces never come through here — they are per button,
+        //set in `SNESTouchControlsView`, and `ActionButton.dressFace` outranks this.
+        case .custom(.snes(let p)): return snes(p)
+        //The NES answers with its FACE colour, because the only thing that reaches this on that
+        //console is A and B. Its cross and pills ask `dpadFace` / `smallButtonFace`, which take
+        //the pad slot through the closures below.
+        case .custom(.nes(let p)): return nes(p)
         }
     }
     /// The D-pad cross face (+ its under-discs).
-    func dpadFace(_ kind: DressKind) -> UIColor? { customFace(kind) { $0.dpad } }
+    func dpadFace(_ kind: DressKind) -> UIColor? {
+        customFace(kind, gbc: { $0.dpad }, nes: { $0.pad })
+    }
     /// The A/B button faces.
     func abFace(_ kind: DressKind) -> UIColor? { customFace(kind) { $0.abButtons } }
     /// The SELECT / START / MENU / CLIP button faces.
-    func smallButtonFace(_ kind: DressKind) -> UIColor? { customFace(kind) { $0.smallButtons } }
-    /// The L/R shoulder faces (GBA / NDS only; GB/GBC has no shoulders).
-    func shoulderFace(_ kind: DressKind) -> UIColor? { customFace(kind) { _ in .clear } }
+    func smallButtonFace(_ kind: DressKind) -> UIColor? {
+        customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad })
+    }
+    /// The L/R shoulder faces (GB/GBC has none). The SNES's are the BODY colour with dark
+    /// letters, exactly like the real pad, which is why this one asks for a different slot than
+    /// every other control on that console.
+    func shoulderFace(_ kind: DressKind) -> UIColor? {
+        customFace(kind, gbc: { _ in .clear }, snes: { $0.body })
+    }
 }
 
 enum RetroPalPalette {
@@ -59,6 +84,33 @@ enum RetroPalPalette {
     static let gbaBody     = UIColor(rpHex: 0x050505)   // fond
     static let gbaSurround = UIColor(rpHex: 0x2C2E2D)   // screen surround
     static let gbaCreuse   = UIColor(rpHex: 0x191A19)   // creusé: between surround and body
+
+    // SNES. SPECIFIED 2026-08-17, replacing the provisional pair: the body and the surround are
+    // the GBA's own Retro Pal values, so the two consoles read as one brand, and the four faces
+    // collapse to TWO — X/Y light, A/B deep — instead of the Nostalgia dress's four. That is the
+    // one place a Retro Pal recolour touches a face colour: the GBA's buttons are untouched
+    // because it has no face colour to speak of, while here the four colours would fight a
+    // two-tone shell.
+    static let snesBody     = gbaBody                    // fond, the GBA's
+    static let snesSurround = gbaSurround                // screen surround, the GBA's
+    static let snesCreuse   = gbaCreuse                  // carved seats, the GBA's
+    static let snesXY       = UIColor(rpHex: 0xC3C3EE)   // X and Y faces
+    static let snesAB       = UIColor(rpHex: 0x3D3392)   // A and B faces
+
+    // NES. Same construction as the SNES's above: the GBA's shell so the two read as one brand,
+    // and ONE face colour because this console has one. The light lilac is the SNES's X/Y, which
+    // is the pair that reads on a near-black body; the deep one would disappear into it.
+    //
+    // ONE colour for every control, 2026-08-18. The cross, the two pills, the printed SELECT and
+    // START, the MENU/CLIP discs and the A and B faces are all `nesFace`, so this dress reads as
+    // one light layer on a near-black shell instead of a light pair on deep-indigo everything
+    // else. The indigo stays as the INK that goes on top of it (the MENU and CLIP glyphs), where
+    // it has a light ground to sit on.
+    static let nesBody     = gbaBody                     // fond, the GBA's
+    static let nesSurround = gbaSurround                 // screen panel, the GBA's
+    static let nesCreuse   = gbaCreuse                   // carved seats, the GBA's
+    static let nesFace     = UIColor(rpHex: 0xC3C3EE)    // every control, and the band
+    static let nesInk      = UIColor(rpHex: 0x3D3392)    // MENU / CLIP glyphs, on the above
 
     // NDS
     static let ndsBody     = UIColor(rpHex: 0x595A76)   // fond
@@ -92,6 +144,19 @@ enum RetroPalPalette {
         case .gbc: return gbcDark
         case .nds: return ndsAccent
         case .gba: return nil          // GBA buttons untouched
+        //Everything on the SNES that is NOT a face button: the cross, the SELECT/START pills,
+        //MENU, CLIP and the shoulders. The body is the GBA's near-black under Retro Pal, so the
+        //Nostalgia dress's near-black pad would disappear into it; these take the GBA's own
+        //light button colour, which is what "the GBA's Retro Pal" looks like. The four FACES do
+        //not come through here: they are per button, set in SNESTouchControlsView, and
+        //`ActionButton.dressFace` outranks this.
+        case .snes: return DressKind.gbaButton
+        //Unreachable for the NES: `customFace` answers that console through
+        //`NESSkinPalette.retroPal` before it ever gets here, because this function gives ONE
+        //colour per console and the NES needed a per-control answer. Kept exhaustive (and
+        //correct: since the 08-18 unification every control on it wears the face colour) rather
+        //than fatalError-ing on a case the compiler can still reach.
+        case .nes: return RetroPalPalette.nesFace
         }
     }
 
@@ -124,6 +189,16 @@ extension UIColor {
     /// Slightly darker (pressed) / darker still (edge), derived from a fill.
     var rpPressed: UIColor { rpMixed(with: .black, 0.18) }
     var rpEdge: UIColor    { rpMixed(with: .black, 0.30) }
+
+    /// Whether this colour is light enough that a mark drawn ON it should be dark. Perceived
+    /// luminance, the same weights `rpContrastingMark` uses. Exists because a derivation that is
+    /// right on a pale shell inverts on a near-black one: "the body, darkened" is a legible
+    /// printed word on the Super Nintendo's grey and an invisible one on Retro Pal's black.
+    var rpIsLight: Bool {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.299 * r + 0.587 * g + 0.114 * b > 0.5
+    }
 
     /// A high-contrast, SAME-HUE tint for a mark drawn ON this colour — a dark shade of the hue on
     /// a light background, a light shade on a dark one — so it stays clearly legible yet harmonious

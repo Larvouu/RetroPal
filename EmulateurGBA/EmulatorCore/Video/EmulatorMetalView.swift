@@ -55,8 +55,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         var gameSize: SIMD2<Float>
     }
 
-    // GBA frame timing: 16,777,216 Hz CPU / 280,896 cycles per frame ≈ 59.7275 fps
-    private static let gbaFrameDuration: CFTimeInterval = 280896.0 / 16777216.0
+    // Frame timing now comes from the core (`session.frameDuration`). The GBA
+    // figure it replaced, 16,777,216 Hz / 280,896 cycles = 59.7275 fps, is what
+    // MGBABridge and MelonDSBridge still return, so their pacing is unchanged.
     private var timeAccumulator: CFTimeInterval = 0
     private var lastDrawTime: CFTimeInterval = 0
 
@@ -201,7 +202,10 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         isDualScreen = session.hasTouchScreen
 
         guard let device = self.device else { return }
-        let pixelFormat: MTLPixelFormat = session.hasTouchScreen ? .bgra8Unorm : .rgba8Unorm
+        // The core declares its own byte order. This used to read
+        // `session.hasTouchScreen`, which gave the same answer only because the
+        // DS was the single BGRA core; Mesen is BGRA and has no touch screen.
+        let pixelFormat: MTLPixelFormat = session.usesBGRAPixelOrder ? .bgra8Unorm : .rgba8Unorm
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
             width: session.screenWidth,
@@ -220,14 +224,77 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     func startRendering() {
         isEmulatorRunning = true
         lastDrawTime = CACurrentMediaTime()
-        timeAccumulator = EmulatorMetalView.gbaFrameDuration
-        isPaused = false
+        // `session` is weak here, unlike in draw() where it is already unwrapped.
+        // The fallback is the GBA figure the accumulator was seeded with before.
+        let duration = session?.frameDuration ?? (280896.0 / 16777216.0)
+        timeAccumulator = duration
+        startClock(fps: duration > 0 ? 1.0 / duration : 60)
     }
 
     func stopRendering() {
         isEmulatorRunning = false
         isPaused = true
+        stopOwnClock()
     }
+
+    // MARK: - The frame clock
+    //
+    // MTKView's own display link runs at `preferredFramesPerSecond`, which the system rounds to
+    // a whole division of the display's refresh rate. That is right for every console we shipped
+    // before 1.2.5, because all of them run at 59.7275 fps and a 60 Hz refresh carries one
+    // emulated frame per tick.
+    //
+    // A PAL cartridge does not. A European Super Nintendo or NES runs at 50.007 fps, and against
+    // a 60 Hz clock the pacing accumulator can only produce five new frames in every six ticks:
+    // one refresh in six shows the picture again. The speed is exactly right and the motion is
+    // not, which is what "laggy" means when a scrolling game stutters six times a second. It
+    // gets worse, not better, when the screen is made larger.
+    //
+    // So a game whose rate is nowhere near 60 gets a clock of its own: a CADisplayLink asking
+    // for the cartridge's own rate. On a variable-refresh display that is delivered, every tick
+    // carries exactly one frame, and the repeats disappear. On a fixed 60 Hz display the system
+    // cannot honour it and runs at 60, which is precisely today's behaviour, so nothing is worse
+    // anywhere. The four consoles that shipped before this never take the path at all.
+
+    /// How far a game's rate must be from 60 before it gets its own clock. 59.7275 (GBA, GB/GBC,
+    /// NDS) and 60.0988 (NTSC SNES/NES) stay on MTKView's; 50.007 (PAL) does not.
+    private static let ownClockThreshold: Double = 2
+
+    /// Retains the view weakly, because a CADisplayLink retains its target and the view owns the
+    /// link. Without it the pair keeps each other alive and the clock outlives the game.
+    private final class ClockProxy: NSObject {
+        weak var view: EmulatorMetalView?
+        init(_ view: EmulatorMetalView) { self.view = view; super.init() }
+        @objc func tick() { view?.ownClockTick() }
+    }
+
+    private var ownClock: CADisplayLink?
+
+    private func startClock(fps: Double) {
+        stopOwnClock()
+        guard abs(fps - 60) > Self.ownClockThreshold else {
+            isPaused = false          // MTKView's own link, exactly as before
+            return
+        }
+        let link = CADisplayLink(target: ClockProxy(self), selector: #selector(ClockProxy.tick))
+        let rate = Float(fps)
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: rate, maximum: rate, preferred: rate)
+        link.add(to: .main, forMode: .common)
+        ownClock = link
+        isPaused = true               // MTKView's link stays off; ours drives instead
+    }
+
+    private func stopOwnClock() {
+        ownClock?.invalidate()
+        ownClock = nil
+    }
+
+    fileprivate func ownClockTick() {
+        guard isEmulatorRunning else { return }
+        draw()
+    }
+
+    deinit { ownClock?.invalidate() }
 
     // MARK: - External-display mirror
     //
@@ -462,7 +529,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         lastDrawTime = now
         timeAccumulator += elapsed
 
-        let frameDuration = EmulatorMetalView.gbaFrameDuration
+        // The core says how long its frame is. For GBA, GB/GBC and the DS that is
+        // still 59.7275 fps, byte for byte, because those bridges return the
+        // constant this line used to hardcode; a PAL SNES or NES cartridge runs
+        // at 50, and pacing it at 59.7275 plays it a fifth too fast.
+        let frameDuration = session.frameDuration
         let effectiveDuration = frameDuration / max(0.25, speedMultiplier)
 
         let capThreshold = max(frameDuration * 3, effectiveDuration * 1.5)
@@ -489,6 +560,13 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         // Only upload and flip texture when a new frame was produced.
         // At sub-1x speeds, draw() fires more often than frames run;
         // flipping without new data causes shaking between stale textures.
+        // One wait per DRAWN frame, for the core that needs one (see EmulatorBridge.h). It sits
+        // here rather than inside runFrame because the loop above can run up to 8 emulated frames
+        // and only the last one's picture is ever uploaded: waiting inside the loop would have
+        // paid the decode thread's cost for seven pictures nobody sees, which is exactly the kind
+        // of throughput a fast-forward has none of to spare.
+        if didRunFrame { session.awaitDisplayFrame() }
+
         if didRunFrame, let frameBuffer = session.frameBuffer() {
             let texture = textures[currentTextureIndex]
             let w = session.screenWidth

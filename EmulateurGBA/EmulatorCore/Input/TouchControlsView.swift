@@ -49,6 +49,22 @@ class TouchControlsView: UIView {
     /// Buttons eligible for long-press lock. GBA: A, B. NDS subclass widens to A, B, X, Y.
     var lockableMask: UInt32 { GBAInput.a.rawValue | GBAInput.b.rawValue }
 
+    /// The letters the pause menu names for the hold-to-lock gesture, in the
+    /// order a player reads them off the pad.
+    ///
+    /// DERIVED from `lockableMask` rather than chosen beside it. The menu used to
+    /// pick them from `hasTouchScreen`, which is a fact about the DS touchscreen
+    /// and not about which buttons lock, so the Super Nintendo — whose subclass
+    /// widens the mask to X and Y exactly like the DS does — was told its lock
+    /// covered A and B. The gesture is the non-obvious kind that only works if
+    /// the caption is right, so the caption now reads the mask.
+    var lockableLetters: [String] {
+        let pairs: [(GBAInput, String)] = [(.a, "A"), (.b, "B"), (.x, "X"), (.y, "Y")]
+        return pairs.compactMap { pair -> String? in
+            (lockableMask & pair.0.rawValue) != 0 ? pair.1 : nil
+        }
+    }
+
     /// Whether the hold-to-lock gesture is active. Set PER-GAME by the emulator
     /// VC (off by default) — it's an assist for hold-heavy games and noise in
     /// most others. Turning it off clears any active lock so the player is never
@@ -274,19 +290,44 @@ class TouchControlsView: UIView {
     /// The dressed palette variant in force (Nostalgia or the Retro Pal recolour). The NDS
     /// override reads this to dress its extra buttons with the same variant.
     private(set) var dressVariant: DressVariant = .nostalgia
+
+    /// The control view that owns the buttons a console has: the DS adds X, Y and Mic, the SNES
+    /// adds X and Y, everything else uses the base set. One factory, because four call sites were
+    /// each answering it separately and the skin picker's answer had already gone stale.
+    static func make(for system: PresetSystem) -> TouchControlsView {
+        switch system {
+        case .nds:  return NDSTouchControlsView()
+        case .snes: return SNESTouchControlsView()
+        case .gba, .gbc, .nes: return TouchControlsView()
+        }
+    }
+
+    /// Which palette a console's dressed buttons wear. One place, because the two subclasses
+    /// answered it separately and a fourth console would have had to be added three times.
+    static func dressKind(for system: PresetSystem) -> DressKind {
+        switch system {
+        case .gba:  return .gba
+        case .nds:  return .nds
+        case .snes: return .snes
+        case .nes:  return .nes
+        case .gbc:  return .gbc
+        }
+    }
+
     func setDressed(_ on: Bool, isLandscape: Bool, system: PresetSystem,
                     variant: DressVariant = .nostalgia) {
         dressed = on
         dressVariant = variant
-        // GB/GBC wear the DMG palette; GBA + NDS recolor the same shapes to their own palettes.
-        let kind: DressKind = (system == .gba) ? .gba : (system == .nds) ? .nds : .gbc
+        // GB/GBC wear the DMG palette; GBA + NDS recolor the same shapes to their own palettes;
+        // the SNES has its own (light body, dark pad, four coloured faces).
+        let kind: DressKind = TouchControlsView.dressKind(for: system)
         btnA.dressVariant = variant; btnA.dressKind = kind; btnA.dressed = on
         btnB.dressVariant = variant; btnB.dressKind = kind; btnB.dressed = on
         // L/R shoulders (GBA + NDS — GB/GBC has none; theirs stay hidden so this is a no-op there).
         btnL.dressVariant = variant; btnL.dressKind = kind; btnL.dressed = on
         btnR.dressVariant = variant; btnR.dressKind = kind; btnR.dressed = on
         // SELECT/START: a diagonal pill in portrait, a horizontal top-stuck pill in landscape.
-        let pillStyle: SmallButton.DressStyle = isLandscape ? .pillTop : .pill
+        let pillStyle: SmallButton.DressStyle = (isLandscape || kind.pillIsHorizontal) ? .pillTop : .pill
         btnStart.dressVariant = variant; btnStart.dressKind = kind; btnStart.dressStyle = on ? pillStyle : .none
         btnSelect.dressVariant = variant; btnSelect.dressKind = kind; btnSelect.dressStyle = on ? pillStyle : .none
         // MENU + CLIP both wear the round-backed .circle dress in BOTH orientations, for BOTH
@@ -303,7 +344,13 @@ class TouchControlsView: UIView {
     /// device-scaling each button's size and applying the given opacity/scale.
     /// This is the single apply path for BOTH the built-in default and custom
     /// presets — the caller decides which `layout`/`opacity`/`scale` to pass.
+    /// - Parameter system: the console being laid out. `isNDS` still drives the
+    ///   behaviours that really are about the DS page (clipping, the landscape
+    ///   gutter fixes); `system` drives SIZING, which since the SNES arrived is a
+    ///   per-element question: that console wears the DS's D-pad and diamond and
+    ///   the Game Boy's SELECT/START.
     func applyLayout(_ layout: OrientationLayout, isLandscape: Bool, isNDS: Bool,
+                     system: PresetSystem = .gba,
                      deviceScale: CGFloat, opacity: CGFloat, scale: CGFloat, useJoystick: Bool,
                      wideSelectStart: Bool = false, wideShoulders: Bool = false,
                      ndsBigSelectStart: Bool = false) {
@@ -336,7 +383,7 @@ class TouchControlsView: UIView {
             view.isHidden = (element != .btnMenu) && (bl.isHidden || controllerModeActive)
 
             let baseSize = EmulatorLayoutGeometry.buttonSize(
-                element, isNDS: isNDS, isLandscape: isLandscape, deviceScale: deviceScale)
+                element, system: system, isLandscape: isLandscape, deviceScale: deviceScale)
 
             // NDS landscape: keep the L/R bars in the gutter beside the screens and
             // lift Mic clear of the bottom row (the iPhone-SE overlaps). No-op on
@@ -403,6 +450,7 @@ class TouchControlsView: UIView {
                 if !a.isPressed { a.transform = a.restingTransform }   // GBA-dressed A/B rest at 98%
             }
             (view as? SmallButton)?.baseTransform = scaleTransform
+            (view as? SmallButton)?.dressScale = deviceScale
             (view as? ShoulderButton)?.baseTransform = scaleTransform
             view.alpha = (element == .btnMenu) ? max(0.5, effectiveAlpha) : effectiveAlpha
         }
@@ -460,11 +508,11 @@ class TouchControlsView: UIView {
     /// the global (no-preset) opacity and scale. Reads the container from `bounds`,
     /// so the caller must size the view first.
     func applyDefaultLayout(isLandscape: Bool, system: PresetSystem, deviceScale: CGFloat,
-                            safeLeftInset: CGFloat = 0) {
+                            safeLeftInset: CGFloat = 0, safeRightInset: CGFloat = 0) {
         let isNDS = (system == .nds)
         var layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: bounds.size,
-            scale: deviceScale, safeLeftInset: safeLeftInset)
+            scale: deviceScale, safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
         let globals = Self.globalOpacityScale()
         // The built-in default layout uses the global Settings choices.
         let useJoystick = UserDefaults.standard.bool(forKey: "useJoystick")
@@ -474,7 +522,7 @@ class TouchControlsView: UIView {
         if !showClip {
             layout.buttons[ControlElement.btnClip.rawValue]?.isHidden = true
         }
-        applyLayout(layout, isLandscape: isLandscape, isNDS: isNDS,
+        applyLayout(layout, isLandscape: isLandscape, isNDS: isNDS, system: system,
                     deviceScale: deviceScale, opacity: globals.opacity, scale: globals.scale,
                     useJoystick: useJoystick, wideSelectStart: system == .gba,
                     wideShoulders: isNDS && !isLandscape, ndsBigSelectStart: isNDS)
@@ -564,10 +612,25 @@ class TouchControlsView: UIView {
     /// (touchHits' 20% expansion / inscribed circles, the D-pad's -20pt claim,
     /// Menu/Clip's -10pt, Mic's 20%).
     private func controlClaims(_ point: CGPoint) -> Bool {
-        if !dpad.isHidden, dpad.alpha > 0.01,
-           dpad.bounds.insetBy(dx: -20, dy: -20).contains(convert(point, to: dpad)) {
-            return true
-        }
+        if padClaims(point) { return true }
+        return anotherControlClaims(point)
+    }
+
+    /// The pad's own claim: its bounds grown by 20pt, which is what makes a thumb that lands
+    /// just off the cross still steer.
+    private func padClaims(_ point: CGPoint) -> Bool {
+        guard !dpad.isHidden, dpad.alpha > 0.01 else { return false }
+        return dpad.bounds.insetBy(dx: -20, dy: -20).contains(convert(point, to: dpad))
+    }
+
+    /// Every control EXCEPT the pad, with the same forgiving hitboxes the input layer uses.
+    ///
+    /// Split out because the pad's 20pt margin has to yield to it. Inside the pad's own bounds
+    /// nothing else can be hit — controls do not overlap — so the only place the two answers
+    /// differ is that margin, and there a real button must win: a touch claimed by the pad is
+    /// excluded from every button test for as long as it lasts, so the margin swallowing a
+    /// corner of MENU does not merely add a direction, it makes MENU stop responding.
+    private func anotherControlClaims(_ point: CGPoint) -> Bool {
         for (view, _) in buttonMap where !view.isHidden && view.alpha > 0.01 {
             if touchHits(convert(point, to: view), in: view) { return true }
         }
@@ -614,8 +677,14 @@ class TouchControlsView: UIView {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         // Track which touch is on the joystick for thumb visual
         for touch in touches {
-            let local = convert(touch.location(in: self), to: dpad)
-            if dpadTouch == nil && dpad.bounds.insetBy(dx: -20, dy: -20).contains(local) {
+            // The pad's 20pt margin yields to a control the touch actually lands on. Reported on
+            // the NES, whose taller picture brings MENU down close to the pad: tapping MENU's
+            // bottom-left corner steered instead, and because a claimed finger is excluded from
+            // every button test for its whole life, MENU did not merely also fire — it stopped
+            // working. Inside the pad's own bounds no other control can be hit, so this changes
+            // nothing except where the margin was taking something that was not its own.
+            let point = touch.location(in: self)
+            if dpadTouch == nil, padClaims(point), !anotherControlClaims(point) {
                 dpadTouch = touch
             }
         }
@@ -1064,7 +1133,7 @@ protocol HighlightableButton: UIView {
 /// #C4BFCF buttons + D-pad). Only consulted while `dressed` is on — the undressed path is
 /// untouched. `gbaButton` shades are derived from #C4BFCF.
 enum DressKind {
-    case gbc, gba, nds
+    case gbc, gba, nds, snes, nes
 
     static let gbaButton        = UIColor(red: 0.769, green: 0.749, blue: 0.812, alpha: 1) // #C4BFCF
     static let gbaButtonPressed = UIColor(red: 0.640, green: 0.620, blue: 0.680, alpha: 1)
@@ -1077,12 +1146,258 @@ enum DressKind {
     static let ndsButtonEdge    = UIColor(red: 0.760, green: 0.760, blue: 0.760, alpha: 1)
     static let ndsInk           = UIColor(red: 0.467, green: 0.467, blue: 0.467, alpha: 1) // #777777
 
+    // SNES palette (spec of 2026-08-12). The console is the first one whose four face
+    // buttons are four DIFFERENT colours, so those live per button (see ActionButton.dressFace)
+    // rather than in a single `faceFill`: what `faceFill` answers here is the SHOULDERS, which
+    // are the body colour with dark letters, exactly like the real pad.
+    static let snesBody   = UIColor(red: 0.843, green: 0.827, blue: 0.812, alpha: 1) // #D7D3CF
+    static let snesDark   = UIColor(red: 0.149, green: 0.149, blue: 0.157, alpha: 1) // #262628
+    static let snesA      = UIColor(red: 0.812, green: 0.208, blue: 0.180, alpha: 1) // #CF352E
+    static let snesB      = UIColor(red: 0.937, green: 0.769, blue: 0.275, alpha: 1) // #EFC446
+    static let snesX      = UIColor(red: 0.161, green: 0.251, blue: 0.569, alpha: 1) // #294091
+    static let snesY      = UIColor(red: 0.212, green: 0.408, blue: 0.251, alpha: 1) // #366840
+
+    // NES palette, taken from the console art this app already ships (the Appearance button's
+    // icon, Store/components/console-nes.svg) so the drawing and the dress cannot describe the
+    // same machine differently. Body is the pad's light grey, the cross and the two pills are
+    // the same near-black the Super Nintendo uses (both consoles really do print them black),
+    // A and B are the red the stripe uses, and the WELL is the darker panel those buttons are
+    // recessed into — the detail that makes this pad unmistakable at a glance.
+    static let nesBody = UIColor(red: 0.098, green: 0.102, blue: 0.110, alpha: 1) // #191A1C
+    static let nesFace = UIColor(red: 0.522, green: 0.149, blue: 0.129, alpha: 1) // #852621
+    static let nesPad  = UIColor(red: 0.039, green: 0.039, blue: 0.039, alpha: 1) // #0A0A0A
+    static let nesWell = UIColor(red: 0.651, green: 0.631, blue: 0.659, alpha: 1) // #A6A1A8
+    static let nesSurround = UIColor(red: 0.804, green: 0.800, blue: 0.820, alpha: 1) // #CDCCD1
+
+    /// The "modern recolor" family: a light face with a dark ink accent (GBA, NDS). This used to
+    /// be written inline as `dressKind != .gbc` in every button view; it is named here because the
+    /// SNES is neither family — light shoulders like the GBA, a dark pad and dark SELECT/START
+    /// like the Game Boy, and four coloured faces that are like nothing else. Every `!= .gbc` in
+    /// the views now asks this instead, which is the same answer for gbc / gba / nds.
+    var usesLightFaces: Bool { self == .gba || self == .nds }
+
+    /// Whether SELECT/START render as the tiny circle beside a skin-drawn pill (GBA, NDS) or as
+    /// the pill itself (GB/GBC, SNES).
+    var selectIsTinyCircle: Bool { usesLightFaces }
+
+    /// How much of the hitbox the visible SELECT/START pill spans. The Super Nintendo's pair are
+    /// short studs rather than the Game Boy's long capsules, so they draw at half the length
+    /// (2026-08-17) while the hitbox, the tilt and the printed word are untouched.
+    var pillLengthRatio: CGFloat { self == .snes ? 0.5 : 1 }
+
+    /// Whether SELECT and START are drawn straight in PORTRAIT too. The Game Boy family prints
+    /// them on a diagonal and this console does not: its pair are two straight black pills side
+    /// by side in one well, which is also why they keep their full length.
+    var pillIsHorizontal: Bool { self == .nes }
+
+    /// The NES prints SELECT and START ABOVE their pills, so what the eye reads is the PAIR —
+    /// word, gap, pill — and it is the pair, not the pill, that has to sit in the middle of the
+    /// well the dress carves around the two hitboxes. Centring the pill alone left the pair
+    /// hanging in the top of its panel, which is what it looked like on device.
+    ///
+    /// These three numbers are the printed word's own metrics, in reference points, and they live
+    /// here because the BUTTON draws the pill while the DRESS prints the word and carves the
+    /// well: neither side can tell alone that they have stopped agreeing.
+    static let nesPrintedSize: CGFloat = 8
+    static let nesPrintedKern: CGFloat = 0.6
+    /// The gap between the printed word and the pill, which is the well's own padding.
+    static let nesPrintedGap: CGFloat = 9
+
+    static func nesPrintedHeight(scale: CGFloat) -> CGFloat {
+        NSAttributedString(string: "SELECT", attributes: [
+            .font: UIFont.systemFont(ofSize: nesPrintedSize * scale, weight: .semibold),
+            .kern: nesPrintedKern * scale,
+        ]).size().height
+    }
+
+    /// Where the horizontal pill's centre goes inside its hitbox: the upper third on the Game Boy
+    /// family (its landscape stud, unchanged), and on the NES the y that leaves word + gap + pill
+    /// centred on the hitbox — which is the well's centre, since the well is that hitbox padded
+    /// evenly. `scale` is the device scale, because the printed word scales with it.
+    func pillCenterY(in bounds: CGRect, scale: CGFloat) -> CGFloat {
+        guard self == .nes else { return bounds.minY + bounds.height / 3 }
+        return bounds.midY
+            + (DressKind.nesPrintedHeight(scale: scale) + DressKind.nesPrintedGap * scale) / 2
+    }
+
+    /// The NES's screen panel keeps this much body above AND below the picture, and the two are
+    /// equal because the panel is symmetric about it. Shared with the LAYOUT, not just the dress:
+    /// in portrait the controls container starts exactly at the picture's bottom edge, so this
+    /// skirt is also the distance from the top of that container down to the panel's lower edge —
+    /// which is the top of the band MENU and CLIP sit in.
+    static let nesPanelSkirt: CGFloat = 18
+
+    /// Half the padding the NES's sunken wells add around the buttons they hold. The well around
+    /// A and B is a capsule stroked along the segment between their centres, so this is what
+    /// stands between the buttons and the well's own edge.
+    static let nesWellPad: CGFloat = 9
+
+    /// The thickness of the capsule well the NES draws around A and B: the larger of the two
+    /// buttons, padded on both sides.
+    static func nesFaceWellThickness(a: CGRect, b: CGRect, scale: CGFloat) -> CGFloat {
+        max(min(a.width, a.height), min(b.width, b.height)) + 2 * nesWellPad * scale
+    }
+
+    /// The top edge of that well. The capsule has round caps on the two button centres, so its
+    /// highest point is the higher centre raised by half the thickness — the buttons sit on a
+    /// diagonal, and it is the WELL's edge the eye reads, never the buttons'.
+    ///
+    /// Lives here because the DRESS draws the well and the LAYOUT places MENU and CLIP against
+    /// it, and neither side can tell on its own that they have stopped agreeing.
+    static func nesFaceWellTop(a: CGRect, b: CGRect, scale: CGFloat) -> CGFloat {
+        Swift.min(a.midY, b.midY) - nesFaceWellThickness(a: a, b: b, scale: scale) / 2
+    }
+
+    /// The line the Retro Pal plaque and CLIP share on the SNES's landscape page: centred in the
+    /// band between the shoulder's bottom edge and the top of the pad's up arm.
+    ///
+    /// Named rather than written twice for the same reason as `pillCenterY`: the plaque is drawn
+    /// by the DRESS and CLIP is placed by the LAYOUT, and "the same vertical position" is a
+    /// promise only a shared formula can keep.
+    static func snesLandscapeUtilityCenterY(shoulderBottom: CGFloat, padTop: CGFloat) -> CGFloat {
+        (shoulderBottom + padTop) / 2
+    }
+
+    /// The pill's two endpoints inside a hitbox, shared by the BUTTON (which draws the pill) and
+    /// the DRESS (which carves its seat), because the two have to line up and there is no way to
+    /// notice they stopped from either side alone.
+    ///
+    /// Portrait runs the hitbox's bottom-left to top-right diagonal, landscape a horizontal line
+    /// across `centerY` (see `pillCenterY`). Both are inset by half the thickness so the round
+    /// caps land inside the box, then shortened about their own midpoint, which keeps the centre
+    /// and the angle.
+    static func pillEndpoints(in bounds: CGRect, thickness t: CGFloat, isLandscape: Bool,
+                              lengthRatio: CGFloat, centerY: CGFloat? = nil) -> (CGPoint, CGPoint) {
+        let p1: CGPoint, p2: CGPoint
+        if isLandscape {
+            let y = centerY ?? (bounds.minY + bounds.height / 3)
+            p1 = CGPoint(x: bounds.minX + t / 2, y: y)
+            p2 = CGPoint(x: bounds.maxX - t / 2, y: y)
+        } else {
+            let dx = bounds.width, dy = -bounds.height
+            let len = max(1, hypot(dx, dy))
+            let inset = t / 2
+            p1 = CGPoint(x: bounds.minX + dx / len * inset, y: bounds.maxY + dy / len * inset)
+            p2 = CGPoint(x: bounds.maxX - dx / len * inset, y: bounds.minY - dy / len * inset)
+        }
+        guard lengthRatio < 1 else { return (p1, p2) }
+        let mid = CGPoint(x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2)
+        func pull(_ p: CGPoint) -> CGPoint {
+            CGPoint(x: mid.x + (p.x - mid.x) * lengthRatio, y: mid.y + (p.y - mid.y) * lengthRatio)
+        }
+        return (pull(p1), pull(p2))
+    }
+
+    /// The dressed directional pad's fill when it is NOT a light cross: charcoal on the Game Boy,
+    /// the SNES's near-black. (Read only in the dark branch, so the light consoles never see it.)
+    var darkPadFill: UIColor {
+        switch self {
+        case .snes: return DressKind.snesDark
+        case .nes:  return DressKind.nesPad
+        default: return UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
+        }
+    }
+    var darkPadEdge: UIColor {
+        switch self {
+        case .snes: return DressKind.snesDark.rpEdge
+        // The cross is near-black on a near-black shell, so its edge is the STROKE colour: the
+        // outline is what separates the two, and it is a specified colour rather than a derived
+        // one for exactly that reason.
+        case .nes:  return DressKind.nesWell
+        default: return UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
+        }
+    }
+
+    /// SELECT / START (and the GB/GBC MENU/CLIP background): the Game Boy's grey, the SNES's
+    /// near-black pills, or the light face for the modern pair. Pressed and edge are given
+    /// explicitly rather than derived, because the Game Boy's three greys were hand-picked and
+    /// deriving them would have shifted a shipped console by a few percent.
+    var smallButtonFill: UIColor {
+        switch self {
+        case .gbc:  return DressKind.gbcSmall
+        case .snes: return DressKind.snesDark
+        case .nes:  return DressKind.nesPad
+        case .gba, .nds: return faceFill
+        }
+    }
+    var smallButtonPressed: UIColor {
+        switch self {
+        case .gbc:  return DressKind.gbcSmallPressed
+        case .snes: return DressKind.snesDark.rpPressed
+        case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.18)
+        case .gba, .nds: return facePressed
+        }
+    }
+    var smallButtonEdge: UIColor {
+        switch self {
+        case .gbc:  return DressKind.gbcSmallEdge
+        case .snes: return DressKind.snesDark.rpEdge
+        case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.10)
+        case .gba, .nds: return faceEdge
+        }
+    }
+
+    // The Game Boy's SELECT/START greys, moved here verbatim from SmallButton so every console
+    // answers the same question in the same place.
+    static let gbcSmall        = UIColor(red: 0.30, green: 0.30, blue: 0.31, alpha: 1)
+    static let gbcSmallPressed = UIColor(red: 0.22, green: 0.22, blue: 0.23, alpha: 1)
+    static let gbcSmallEdge    = UIColor(red: 0.18, green: 0.18, blue: 0.19, alpha: 1)
+
+    /// The MENU / CLIP glyph inside its round background. The SNES's is the body lavender on the
+    /// near-black circle: the same colour on both would be an invisible icon.
+    var circleGlyph: UIColor {
+        switch self {
+        case .gbc:  return UIColor.white.withAlphaComponent(0.85)
+        case .snes: return DressKind.snesBody
+        // The NES's MENU/CLIP sit on its near-black pill colour, so the glyph is the light
+        // grey its wells and its cross outline use.
+        case .nes:  return DressKind.nesWell
+        case .gba, .nds: return faceInk
+        }
+    }
+
+    /// The SNES's screen surround, and the ring the four face buttons sit in. Lives here rather
+    /// than only in the dress because the MENU and CLIP glyphs borrow it: it is the darkest tone
+    /// on the console that is not the pad, so it reads on a light button without looking like a
+    /// fifth face colour.
+    static let snesSurround = UIColor(red: 0.427, green: 0.427, blue: 0.427, alpha: 1) // #6D6D6D
+
     /// The "modern recolor" dresses (GBA, NDS) share button shapes + a light fill with a dark ink
     /// accent; only the tokens differ. Not meaningful for `.gbc` (its views keep maroon/charcoal/grey).
-    var faceFill: UIColor    { self == .nds ? DressKind.ndsButton        : DressKind.gbaButton }
-    var facePressed: UIColor { self == .nds ? DressKind.ndsButtonPressed : DressKind.gbaButtonPressed }
-    var faceEdge: UIColor    { self == .nds ? DressKind.ndsButtonEdge    : DressKind.gbaButtonEdge }
-    var faceInk: UIColor     { self == .nds ? DressKind.ndsInk           : DressKind.gbaSurround }
+    var faceFill: UIColor {
+        switch self {
+        case .nds:  return DressKind.ndsButton
+        case .snes: return DressKind.snesBody
+        // The NES's A and B ARE one colour, so unlike the Super Nintendo it needs no per-button
+        // override: the console's own face fill answers for both.
+        case .nes:  return DressKind.nesFace
+        case .gbc, .gba: return DressKind.gbaButton
+        }
+    }
+    var facePressed: UIColor {
+        switch self {
+        case .nds:  return DressKind.ndsButtonPressed
+        case .snes: return DressKind.snesBody.rpPressed
+        case .nes:  return DressKind.nesFace.rpPressed
+        case .gbc, .gba: return DressKind.gbaButtonPressed
+        }
+    }
+    var faceEdge: UIColor {
+        switch self {
+        case .nds:  return DressKind.ndsButtonEdge
+        case .snes: return DressKind.snesBody.rpEdge
+        case .nes:  return DressKind.nesFace.rpEdge
+        case .gbc, .gba: return DressKind.gbaButtonEdge
+        }
+    }
+    var faceInk: UIColor {
+        switch self {
+        case .nds:  return DressKind.ndsInk
+        case .snes: return DressKind.snesDark
+        case .nes:  return DressKind.nesWell
+        case .gbc, .gba: return DressKind.gbaSurround
+        }
+    }
 }
 
 // MARK: - CADisplayLink weak proxy (breaks the link → target → self → link retain cycle)
@@ -1107,9 +1422,8 @@ final class DPadView: UIView {
 
     private var thumbOffset: CGPoint = .zero
 
-    // GB/GBC dressed palette: a dark recessed dish + a charcoal raised thumb (matches the
-    // dressed cross). Applied only when `dressed` is on.
-    private static let dpadFill = UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
+    // The dark thumb colour (GB/GBC charcoal, SNES near-black) comes from DressKind, so the
+    // joystick and the cross cannot drift apart.
 
     /// When on, the joystick wears the GB/GBC console-dress look (dark dish + charcoal thumb)
     /// instead of the default translucent white. Set by TouchControlsView for the GB/GBC
@@ -1132,11 +1446,11 @@ final class DPadView: UIView {
             // No outer ring — the dress always draws a recessed well behind the joystick.
             baseLayer.isHidden = true
             let rp = dressVariant.dpadFace(dressKind)
-            if dressKind != .gbc {
+            if dressKind.usesLightFaces {
                 thumbLayer.fillColor = (rp ?? dressKind.faceFill).cgColor
                 thumbLayer.strokeColor = (rp?.rpEdge ?? dressKind.faceEdge).cgColor
             } else {
-                thumbLayer.fillColor = (rp ?? Self.dpadFill).cgColor
+                thumbLayer.fillColor = (rp ?? dressKind.darkPadFill).cgColor
                 thumbLayer.strokeColor = UIColor.white.withAlphaComponent(0.25).cgColor
             }
         } else {
@@ -1248,17 +1562,31 @@ final class ActionButton: UIView, HighlightableButton {
 
     /// Which console palette to use when dressed (GB/GBC maroon vs GBA #C4BFCF).
     var dressKind: DressKind = .gbc { didSet { applyResting() } }
+    /// A face colour for THIS button, overriding the console's shared one. The SNES is the first
+    /// console here whose four faces are four different colours, so the colour cannot live on the
+    /// console: A is red, B and X two blues, Y green. nil (every other console) = unchanged.
+    var dressFace: UIColor? { didSet { applyResting() } }
+    /// The letter's colour when `dressFace` is set (the SNES prints A/B/X/Y in the body lavender).
+    var dressFaceLabel: UIColor? { didSet { applyResting() } }
     /// Nostalgia vs the Retro Pal recolour (set by setDressed).
     var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
+    // `dressFace` is asked FIRST, and the order is load-bearing. It is the per-BUTTON answer and
+    // `abFace` is the per-CONSOLE one, so the specific has to win: the SNES's Retro Pal recolour
+    // gives the console a fill for everything that is not a face button, and with the general
+    // answer first that fill was painting over all four face colours. Every other console leaves
+    // `dressFace` nil, so this order changes nothing for them.
     private var fillColor: UIColor {
+        if let c = dressFace { return c }
         if let c = dressVariant.abFace(dressKind) { return c }
         return dressKind == .gbc ? Self.maroon : dressKind.faceFill
     }
     private var pressedColor: UIColor {
+        if let c = dressFace { return c.rpPressed }
         if let c = dressVariant.abFace(dressKind) { return c.rpPressed }
         return dressKind == .gbc ? Self.maroonPressed : dressKind.facePressed
     }
     private var edgeColor: UIColor {
+        if let c = dressFace { return c.rpEdge }
         if let c = dressVariant.abFace(dressKind) { return c.rpEdge }
         return dressKind == .gbc ? Self.maroonEdge : dressKind.faceEdge
     }
@@ -1277,7 +1605,21 @@ final class ActionButton: UIView, HighlightableButton {
                     self.transform = self.baseTransform.scaledBy(x: s, y: s)
                     self.layer.shadowOpacity = 0
                 } else {
-                    self.applyResting()
+                    // COLOURS ONLY. This used to call `applyResting()`, which rebuilds the
+                    // letter's attributed string — and setting `attributedText` invalidates the
+                    // label's intrinsic content size, which marks the layout engine dirty, which
+                    // runs a window layout pass, which reaches the view controller's
+                    // viewDidLayoutSubviews and re-lays the whole game view. On every button
+                    // release. With a preset active that pass re-resolves the entire scene, so
+                    // the release of a face button was buying a full layout of the game on the
+                    // same thread the emulator runs on.
+                    //
+                    // Reported as SNES lag "after releasing B, only with a preset, never on the
+                    // D-pad", and each clause is this bug: the D-pad has no label to invalidate,
+                    // only the release branch called applyResting, and only a preset makes the
+                    // resulting layout pass expensive. The letter cannot have changed between a
+                    // press and a release, so rebuilding it there was always waste.
+                    self.applyRestingColors()
                     self.transform = self.restingTransform
                     self.layer.shadowOpacity = 0.3
                 }
@@ -1286,23 +1628,37 @@ final class ActionButton: UIView, HighlightableButton {
     }
 
     /// GBA-dressed A/B rest a touch smaller (98%, centred); every other state rests at full size.
-    private var restingScale: CGFloat { (dressed && dressKind != .gbc) ? 0.98 : 1.0 }
+    private var restingScale: CGFloat { (dressed && dressKind.usesLightFaces) ? 0.98 : 1.0 }
     var restingTransform: CGAffineTransform { baseTransform.scaledBy(x: restingScale, y: restingScale) }
 
-    /// Resting (un-pressed) fill + border for the current `dressed` mode.
+    /// Resting (un-pressed) fill + border for the current `dressed` mode, plus the letter.
+    /// Called when the DRESS changes; a press/release uses `applyRestingColors` instead, because
+    /// the letter cannot have changed and rebuilding it is what dirties layout.
     private func applyResting() {
+        applyRestingColors()
+        applyLabelStyle()
+        if !isPressed { transform = restingTransform }
+    }
+
+    /// The half of `applyResting` that a press or a release actually needs: fill and border.
+    /// Nothing here touches the label, so nothing here invalidates an intrinsic content size.
+    private func applyRestingColors() {
         backgroundColor = dressed ? fillColor : UIColor.white.withAlphaComponent(0.2)
         layer.borderColor = (dressed ? edgeColor : UIColor.white.withAlphaComponent(0.45)).cgColor
         sheen.isHidden = true   // A/B keep ONE flat background behind the letter (no top sheen)
-        applyLabelStyle()
-        if !isPressed { transform = restingTransform }
     }
 
     /// The A/B letter. GBA dress = "creusé" (engraved): a darker glyph of the button's own family
     /// with a light catch directly beneath, so it reads as incised into the plastic. Otherwise the
     /// plain white label (GB/GBC keeps its DONE look; the undressed default is untouched).
+    ///
+    /// The SNES joins the engraved branch even though its faces are not light: its letter is its
+    /// OWN button's colour darkened, so the same incised treatment is what the four coloured
+    /// buttons want. `dressFaceLabel` carries that per-button ink (see `SNESTouchControlsView`).
     private func applyLabelStyle() {
-        if dressed && dressKind != .gbc {
+        if dressed && (dressKind.usesLightFaces
+                       || (dressKind == .snes && dressFaceLabel != nil)
+                       || dressKind == .nes) {
             let shadow = NSShadow()
             shadow.shadowColor = UIColor.white.withAlphaComponent(0.5)
             shadow.shadowOffset = CGSize(width: 0, height: 1)
@@ -1310,7 +1666,16 @@ final class ActionButton: UIView, HighlightableButton {
             // GBA engraves in its edge tone (custom: the letters slot); NDS in the #777777 ink
             // (custom: the ink slot; Retro Pal: also #777777).
             let labelInk: UIColor
-            if dressKind == .nds {
+            if dressKind == .snes, let perButton = dressFaceLabel {
+                labelInk = perButton
+            } else if dressKind == .nes {
+                // One face colour, so the ink derives from it here rather than per button — and
+                // it has to invert with it. Nostalgia's face is a deep red, where a darkened red
+                // would be invisible and the light grey the rest of this console uses reads;
+                // Retro Pal's is a pale lilac, where the opposite is true.
+                let face = dressVariant.abFace(dressKind) ?? DressKind.nesFace
+                labelInk = face.rpIsLight ? face.rpMixed(with: .black, 0.55) : DressKind.nesWell
+            } else if dressKind == .nds {
                 labelInk = dressVariant.ndsPalette?.letters
                     ?? (dressVariant == .retroPal ? RetroPalPalette.ndsInk : DressKind.ndsInk)
             } else {
@@ -1326,7 +1691,7 @@ final class ActionButton: UIView, HighlightableButton {
             // keep plain white.
             label.attributedText = nil
             label.text = titleText
-            label.textColor = (dressed ? dressVariant.gbcPalette?.abLetters : nil) ?? .white
+            label.textColor = (dressed ? (dressVariant.gbcPalette?.abLetters ?? dressFaceLabel) : nil) ?? .white
             label.font = .systemFont(ofSize: 20, weight: .bold)
         }
     }
@@ -1414,6 +1779,20 @@ final class ActionButton: UIView, HighlightableButton {
         sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
         sheen.cornerRadius = bounds.width / 2
         sheen.masksToBounds = true
+        // THE SHADOW NEEDS ITS PATH, and this is not a micro-optimisation.
+        //
+        // Without one, Core Animation has to derive the silhouette itself: it rasterises the
+        // layer and its sublayers OFFSCREEN, blurs the alpha, then composites — and it redoes
+        // that whenever the layer changes. `isPressed` animates the fill, the border, the
+        // transform AND shadowOpacity over 0.06s, so every frame of every press and every
+        // release paid for an offscreen pass, on the thread the emulator is drawing from.
+        //
+        // Reported as SNES lag felt "only when I release B after a jump, never on left/right",
+        // which is exactly the shape of this bug: the D-pad draws its shadow as a filled
+        // CAShapeLayer and has never had a layer shadow at all, and the release edge is the one
+        // that animates the shadow back ON. The circle is the button, so the path is exact and
+        // nothing changes on screen.
+        layer.shadowPath = UIBezierPath(ovalIn: bounds).cgPath
     }
 }
 
@@ -1540,6 +1919,10 @@ final class ShoulderButton: UIView, HighlightableButton {
         sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
         sheen.cornerRadius = radius
         sheen.masksToBounds = true
+        // Same reason as ActionButton's: a shadow with no path is an offscreen render pass, and
+        // this one is redone every time the dress toggles it. The radius is the one computed
+        // just above, so the path is the shape that is actually drawn.
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
     }
 }
 
@@ -1557,17 +1940,20 @@ final class SmallButton: UIView, HighlightableButton {
     ///  - decal: the button draws nothing; the skin draws the decoration over it (NDS Mic).
     enum DressStyle { case none, pill, pillTop, iconOnly, circle, decal }
 
-    // GB/GBC dressed palette.
-    private static let grey         = UIColor(red: 0.30, green: 0.30, blue: 0.31, alpha: 1)
-    private static let greyPressed  = UIColor(red: 0.22, green: 0.22, blue: 0.23, alpha: 1)
-    private static let greyEdge     = UIColor(red: 0.18, green: 0.18, blue: 0.19, alpha: 1)
+    // GB/GBC dressed palette (the three SELECT/START greys now live on DressKind, unchanged).
     private static let iconBody = UIColor(red: 0.753, green: 0.741, blue: 0.737, alpha: 1) // #C0BDBC (matches PHONES icon)
     // The landscape MENU icon colour — the .pillTop pills match it (per request).
     private static let menuIcon        = UIColor.white.withAlphaComponent(0.85)
     private static let menuIconPressed = UIColor.white.withAlphaComponent(0.6)
 
     /// Which console palette to use when dressed (GB/GBC grey/white vs GBA #C4BFCF).
-    var dressKind: DressKind = .gbc { didSet { applyResting() } }
+    var dressKind: DressKind = .gbc { didSet { applyResting(); setNeedsLayout() } }
+    /// The device scale the layout was built at. Only the NES reads it (its pill sits where the
+    /// printed word above it says it should, and that word scales with the device), but it is set
+    /// for every console so the two can never be out of step.
+    var dressScale: CGFloat = 1 {
+        didSet { guard dressScale != oldValue else { return }; setNeedsLayout() }
+    }
     /// Nostalgia vs the Retro Pal recolour (set by setDressed).
     var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
     /// GB/GBC SELECT/START/MENU/CLIP go near-black under Retro Pal and to the user's small-buttons
@@ -1576,21 +1962,21 @@ final class SmallButton: UIView, HighlightableButton {
     // (GBC → smallButtons; GBA/NDS → buttons), to the Retro Pal recolour, or the built-in default.
     private var pillBase: UIColor {
         if let c = dressVariant.smallButtonFace(dressKind) { return c }
-        return dressKind == .gbc ? Self.grey : dressKind.faceFill }
+        return dressKind.smallButtonFill }
     private var pillPressedC: UIColor {
         if let c = dressVariant.smallButtonFace(dressKind) { return c.rpPressed }
-        return dressKind == .gbc ? Self.greyPressed : dressKind.facePressed }
+        return dressKind.smallButtonPressed }
     private var pillEdgeC: UIColor {
         if let c = dressVariant.smallButtonFace(dressKind) { return c.rpEdge }
-        return dressKind == .gbc ? Self.greyEdge : dressKind.faceEdge }
+        return dressKind.smallButtonEdge }
     // Landscape SELECT/START (.pillTop): GB/GBC keeps white for the BUILT-INS (custom uses the slot);
     // GBA/NDS follow their button face.
     private var pillTopBase: UIColor {
         if dressKind == .gbc { return dressVariant.gbcPalette?.smallButtons ?? Self.menuIcon }
-        return dressVariant.smallButtonFace(dressKind) ?? dressKind.faceFill }
+        return dressVariant.smallButtonFace(dressKind) ?? dressKind.smallButtonFill }
     private var pillTopPressedC: UIColor {
         if dressKind == .gbc { return dressVariant.gbcPalette?.smallButtons.rpPressed ?? Self.menuIconPressed }
-        return dressVariant.smallButtonFace(dressKind)?.rpPressed ?? dressKind.facePressed }
+        return dressVariant.smallButtonFace(dressKind)?.rpPressed ?? dressKind.smallButtonPressed }
     // MENU/CLIP icon-only glyph (GBA portrait): the menu-icons slot under custom, else the face.
     private var iconColorC: UIColor {
         if let p = dressVariant.gbaPalette { return p.menuIcons }
@@ -1607,7 +1993,24 @@ final class SmallButton: UIView, HighlightableButton {
         if let p = dressVariant.gbaPalette { return p.menuIcons }
         if let p = dressVariant.ndsPalette { return p.icons }
         if dressVariant == .retroPal, dressKind == .nds { return RetroPalPalette.ndsInk }
-        return dressKind == .gbc ? UIColor.white.withAlphaComponent(0.85) : dressKind.faceInk
+        // The SNES's glyph follows its own button. Nostalgia fills MENU and CLIP with the pad's
+        // near-black and the pale body colour reads on it; Retro Pal fills them with the GBA's
+        // pale button, where that same glyph disappeared. Dark then, and specifically the ring
+        // the face buttons sit in, which is the console's own dark grey.
+        if dressKind == .snes, circleBgColor.rpIsLight {
+            if let p = dressVariant.snesPalette { return p.surround }
+            return dressVariant == .retroPal ? RetroPalPalette.snesSurround : DressKind.snesSurround
+        }
+        if dressKind == .snes, let p = dressVariant.snesPalette { return p.body }
+        // The NES's is the same problem the other way up: Nostalgia fills MENU and CLIP with a
+        // near-black pill and the light grey glyph reads on it, while Retro Pal (and any custom
+        // skin with a light pad) fills them with a light one, where that same glyph disappears.
+        // The ink is then the shell's own colour, which is the darkest thing on this console.
+        if dressKind == .nes, circleBgColor.rpIsLight {
+            if let p = dressVariant.nesPalette { return p.body }
+            return dressVariant == .retroPal ? RetroPalPalette.nesInk : DressKind.nesBody
+        }
+        return dressKind.circleGlyph
     }
 
     var dressStyle: DressStyle = .none {
@@ -1684,7 +2087,7 @@ final class SmallButton: UIView, HighlightableButton {
             CATransaction.begin(); CATransaction.setDisableActions(true)
             pillBg.fillColor = pillFill(pressed: isPressed)
             CATransaction.commit()
-            if dressKind != .gbc {
+            if dressKind.selectIsTinyCircle {
                 // GBA/NDS tiny "button": shrink around ITS OWN center (mirror A — no sink, same
                 // center), instead of the view-level shrink below.
                 let cc = CGPoint(x: selectCircleRect().midX, y: selectCircleRect().midY)
@@ -1741,8 +2144,8 @@ final class SmallButton: UIView, HighlightableButton {
             backgroundColor = .clear
             layer.borderWidth = 0
             pillBg.fillColor = pillFill(pressed: false)
-            pillBg.strokeColor = (dressKind != .gbc) ? UIColor.clear.cgColor : pillEdgeC.cgColor
-            pillBg.lineWidth = (dressKind != .gbc) ? 0 : 1
+            pillBg.strokeColor = dressKind.selectIsTinyCircle ? UIColor.clear.cgColor : pillEdgeC.cgColor
+            pillBg.lineWidth = dressKind.selectIsTinyCircle ? 0 : 1
             iconHighlight?.isHidden = true
             iconShadow?.isHidden = true
         case .pillTop:
@@ -1785,28 +2188,20 @@ final class SmallButton: UIView, HighlightableButton {
             let d = min(bounds.width, bounds.height)
             let rect = CGRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
             circleBg.path = UIBezierPath(ovalIn: rect).cgPath
-        case .pill where dressKind != .gbc, .pillTop where dressKind != .gbc:
+        case .pill where dressKind.selectIsTinyCircle, .pillTop where dressKind.selectIsTinyCircle:
             // GBA/NDS: the visible "button" is a tiny circle at the right of the pill (the dress
             // draws the creusé pill bg + the label).
             pillBg.path = UIBezierPath(ovalIn: selectCircleRect()).cgPath
-        case .pill:
-            // GB/GBC: a thin diagonal capsule from the hitbox bottom-left to its top-right, so
-            // the bare pill "draws the diagonal". The dress draws a matching seat + rotated label.
-            let dx = bounds.width, dy = -bounds.height
-            let len = max(1, hypot(dx, dy))
+        case .pill, .pillTop:
+            // GB/GBC and SNES: the visible button IS the pill. Portrait draws the hitbox's
+            // bottom-left to top-right diagonal, landscape a thin horizontal one across its
+            // upper third, and the SNES draws either at half length. The dress carves its seat
+            // from the same two endpoints.
             let t = min(bounds.width, bounds.height) * Self.pillThicknessRatio
-            let inset = t / 2
-            let q1 = CGPoint(x: bounds.minX + dx / len * inset, y: bounds.maxY + dy / len * inset)
-            let q2 = CGPoint(x: bounds.maxX - dx / len * inset, y: bounds.minY - dy / len * inset)
-            let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
-            pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
-                                    lineJoin: .round, miterLimit: 0)
-        case .pillTop:
-            // GB/GBC: a thin horizontal pill at the upper third of the hitbox.
-            let t = min(bounds.width, bounds.height) * Self.pillThicknessRatio
-            let y = bounds.minY + bounds.height / 3
-            let q1 = CGPoint(x: bounds.minX + t / 2, y: y)
-            let q2 = CGPoint(x: bounds.maxX - t / 2, y: y)
+            let (q1, q2) = DressKind.pillEndpoints(
+                in: bounds, thickness: t, isLandscape: dressStyle == .pillTop,
+                lengthRatio: dressKind.pillLengthRatio,
+                centerY: dressKind.pillCenterY(in: bounds, scale: dressScale))
             let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
             pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
                                     lineJoin: .round, miterLimit: 0)

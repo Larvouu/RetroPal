@@ -42,15 +42,15 @@ import Foundation
 /// which library games are valid import targets and which save sizes are
 /// accepted.
 enum BatterySaveSystem {
-    /// .sav file — accepts GBA, GB and GBC targets.
-    case gbaFamily
-    /// .srm file — accepts NDS targets only.
-    case nds
+    /// .sav file — accepts GBA, GB, GBC and NES targets.
+    case savFamily
+    /// .srm file — accepts NDS and SNES targets.
+    case srmFamily
 
     static func from(fileExtension ext: String) -> BatterySaveSystem? {
         switch ext.lowercased() {
-        case "sav": return .gbaFamily
-        case "srm": return .nds
+        case "sav": return .savFamily
+        case "srm": return .srmFamily
         default:    return nil
         }
     }
@@ -58,10 +58,15 @@ enum BatterySaveSystem {
     /// `GameEntity.systemType` raw values that accept a save from this family.
     /// Matches the strings written by `ROMImporter.createGameEntry` via
     /// `ROMSystemType.rawValue`.
+    ///
+    /// The two new consoles join the families their own emulators use: MesenCE
+    /// writes `.srm` for a SNES cart and `.sav` for a NES one, which is also
+    /// what every other emulator exports, so a save arriving from elsewhere
+    /// carries the extension this expects.
     var compatibleSystemTypes: Set<String> {
         switch self {
-        case .gbaFamily: return ["gba", "gb", "gbc"]
-        case .nds:       return ["nds"]
+        case .savFamily: return ["gba", "gb", "gbc", "nes"]
+        case .srmFamily: return ["nds", "snes"]
         }
     }
 
@@ -71,15 +76,22 @@ enum BatterySaveSystem {
     /// exactly on a known battery-save size).
     var knownSaveSizes: Set<Int> {
         switch self {
-        case .gbaFamily:
+        case .savFamily:
             // GBA: 512 B EEPROM4K, 8 KB EEPROM64K, 32 KB SRAM, 64 KB Flash512,
             //      128 KB Flash1M (Gen 3 Pokémon).
             // GB / GBC: 2 KB, 8 KB, 32 KB, 128 KB (some MBC5 carts).
+            // NES: 8 KB is the whole story for battery carts (Zelda, Final
+            //      Fantasy, Dragon Warrior); a few boards wire 2 KB or 32 KB.
             return [512, 2048, 8192, 32768, 65536, 131072]
-        case .nds:
+        case .srmFamily:
             // NDS: 512 B EEPROM, 8 KB, 64 KB, 256 KB, 512 KB (HG/SS, B/W),
             //      1 MB (Dragon Quest IX), 8 MB (the largest commercial saves).
-            return [512, 8192, 65536, 262144, 524288, 1048576, 8388608]
+            // SNES: 2 KB, 8 KB, 32 KB (the common one: Chrono Trigger, A Link
+            //      to the Past), 64 KB, 128 KB (SA-1 and the big RPGs). Without
+            //      these three additions every ordinary SNES save would have been
+            //      rejected as "not a battery save" on import, which is why the
+            //      size set is a property of the FAMILY and not of one console.
+            return [512, 2048, 8192, 32768, 65536, 131072, 262144, 524288, 1048576, 8388608]
         }
     }
 }
@@ -129,7 +141,9 @@ enum BatterySaveImporter {
         guard system.knownSaveSizes.contains(data.count) else {
             return .unsupported(reason: .invalidFormat)
         }
-        if system == .gbaFamily, data.count == 131072,
+        // 128 KB in this family is a Gen 3 Pokémon save and nothing else: no GB,
+        // GBC or NES cart wires that much battery RAM.
+        if system == .savFamily, data.count == 131072,
            !hasGen3SectionSignature(data: data) {
             return .unsupported(reason: .invalidFormat)
         }

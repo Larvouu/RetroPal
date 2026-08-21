@@ -443,7 +443,8 @@ enum ControlLayoutDefaults {
     /// to keep the D-pad clear of the Dynamic Island); 0 elsewhere has no effect.
     static func defaultLayout(system: PresetSystem, isLandscape: Bool,
                               containerSize: CGSize, scale: CGFloat,
-                              safeLeftInset: CGFloat = 0) -> OrientationLayout {
+                              safeLeftInset: CGFloat = 0,
+                              safeRightInset: CGFloat = 0) -> OrientationLayout {
         switch system {
         case .nds:
             return isLandscape ? ndsLandscape(containerSize: containerSize, scale: scale)
@@ -457,6 +458,319 @@ enum ControlLayoutDefaults {
             return isLandscape ? gbcLandscape(containerSize: containerSize, scale: scale,
                                               safeLeftInset: safeLeftInset)
                                : gbcPortrait(containerSize: containerSize, scale: scale)
+        case .snes:
+            return snes(containerSize: containerSize, scale: scale,
+                        isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                        safeRightInset: safeRightInset)
+        case .nes:
+            return nes(containerSize: containerSize, scale: scale,
+                       isLandscape: isLandscape, safeLeftInset: safeLeftInset)
         }
+    }
+
+    // MARK: - SNES
+
+    /// How far each face PAIR steps away from the other along the perpendicular to their shared
+    /// diagonal, in reference points, so the dress's two capsules stop overlapping. See the
+    /// portrait block in `snes` for the arithmetic.
+    static let facePairSeparation: CGFloat = 5
+
+    /// The SNES layout, in either orientation.
+    ///
+    /// Composed to the spec rather than invented: the D-pad and the four
+    /// face buttons take the DS's positions, because the SNES pad is that shape,
+    /// and SELECT/START take the Game Boy's, because they are that pair. The
+    /// shoulders come from the GBA, which is the only other console here that has
+    /// them, and Menu and Clip follow the GBA too.
+    ///
+    /// Sizes follow the same split through
+    /// `EmulatorLayoutGeometry.referenceSize(_:system:isLandscape:)`, so what is
+    /// drawn matches what is positioned.
+    static func snes(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                     safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+
+        // The GBA layout is the base: it already places L/R, Menu and Clip around
+        // a single screen, which is the shape of this console's page.
+        var layout = isLandscape
+            ? gbaLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+            : gbaPortrait(containerSize: containerSize, scale: k)
+
+        // The pad: D-pad and diamond, straight from the DS. In LANDSCAPE the D-pad is the
+        // exception and stays the GBA's, position and size both, because that page is the
+        // GBA's page and the GBA already parks a pad in its left gutter. The size table makes
+        // the same exception (`snesLandscapeUsesGBAPad`), and it has to: a position from one
+        // console and a size from another is how a pad ends up overlapping the picture.
+        let ds = isLandscape
+            ? ndsLandscape(containerSize: containerSize, scale: k)
+            : ndsPortrait(containerSize: containerSize, scale: k)
+        for element in EmulatorLayoutGeometry.snesUsesNDSSizing {
+            if isLandscape && element == .dpad && EmulatorLayoutGeometry.snesLandscapeUsesGBAPad {
+                continue
+            }
+            if let placed = ds.buttons[element.rawValue] {
+                layout.buttons[element.rawValue] = placed
+            }
+        }
+
+        // SELECT and START: the Game Boy's pair, in the Game Boy's place.
+        let gb = isLandscape
+            ? gbcLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+            : gbcPortrait(containerSize: containerSize, scale: k)
+        for element in [ControlElement.btnSelect, .btnStart] {
+            if let placed = gb.buttons[element.rawValue] {
+                layout.buttons[element.rawValue] = placed
+            }
+        }
+
+        // LANDSCAPE. In portrait the screen is full-width at the top and the whole page below
+        // it belongs to the controls, so the DS's positions transfer as they are. Landscape is
+        // a different page: one panel in the middle with a gutter each side, and the controls
+        // are drawn OVER it. The DS's landscape positions assume its own page (screens above,
+        // controls below, full width), so used literally they put the D-pad and the X/Y buttons
+        // on top of the game. The SHAPE stays the DS's, as specified; what moves is where the
+        // two blocks sit, which is the Game Boy's rule on this page: each in its own gutter.
+        if isLandscape {
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.snes),
+                system: .snes, controllerConnected: false, deviceScale: k)
+            let sidePad = 8 * k        // matches the dress's landscape panel margin
+
+            // The D-pad is untouched here: it is the GBA's, and gbcLandscape already centred it
+            // in the SAFE left gutter, which is the same rule this used to apply by hand.
+
+            // The diamond: moved as ONE block into the right gutter, so the four buttons keep
+            // the DS's exact arrangement relative to each other.
+            let faces: [ControlElement] = [.btnA, .btnB, .btnX, .btnY]
+            var minX = CGFloat.greatestFiniteMagnitude
+            var maxX = -CGFloat.greatestFiniteMagnitude
+            for element in faces {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                let size = EmulatorLayoutGeometry.buttonSize(element, system: .snes,
+                                                             isLandscape: true, deviceScale: k)
+                minX = Swift.min(minX, b.centerX * w - size.width / 2)
+                maxX = Swift.max(maxX, b.centerX * w + size.width / 2)
+            }
+            if minX < maxX {
+                // The SAFE right gutter, not the raw one. In the other landscape rotation the
+                // Dynamic Island is on THIS side, and centring on the full width put the block
+                // under it: on a 14 Pro the island covers 59pt of a gutter the four buttons
+                // very nearly fill. Nothing is resized to fix that — the picture giving up a
+                // little width (see `snesLandscapeTopMargin`) is what made the gutter wide
+                // enough to hold the block clear of both the island and the game.
+                let gutterCentre = (screen.maxX + sidePad + (w - safeRightInset)) / 2
+                let shift = gutterCentre - (minX + maxX) / 2
+                for element in faces {
+                    guard let b = layout.buttons[element.rawValue] else { continue }
+                    layout.buttons[element.rawValue] = ButtonLayout(
+                        centerX: b.centerX + shift / w, centerY: b.centerY, isHidden: b.isHidden)
+                }
+            }
+
+            // SELECT · MENU · START: one line, under THIS console's screen. They arrive from two
+            // different consoles (SELECT/START the Game Boy's, MENU the GBA's), each stuck to its
+            // own console's screen bottom, so left alone they render as a staggered row.
+            let rowH = EmulatorLayoutGeometry.buttonSize(.btnStart, system: .snes,
+                                                         isLandscape: true, deviceScale: k).height
+            let rowY = (screen.maxY + EmulatorLayoutGeometry.gbcLandscapeRowGap * k + rowH / 2) / h
+            for element in [ControlElement.btnSelect, .btnMenu, .btnStart] {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                layout.buttons[element.rawValue] =
+                    ButtonLayout(centerX: b.centerX, centerY: rowY, isHidden: b.isHidden)
+            }
+
+            // CLIP: the RIGHT gutter, in R's column, on the line the Retro Pal plaque takes.
+            //
+            // It used to sit under L in the left gutter, and that gutter is also where the dress
+            // prints the plaque, so the two shared one band. Crossing CLIP to the right empties
+            // that band for the plaque and puts the lesser action on the side away from the pad,
+            // which is the hand that is not steering.
+            //
+            // The line itself is `DressKind.snesLandscapeUtilityCenterY`, the SAME call the dress
+            // makes for the plaque, so "the same vertical position" is one formula rather than two
+            // that happen to agree today. Both shoulders feed it: they are one row, and taking the
+            // lower of the two edges means the line clears whichever side it is measured from.
+            if let clip = layout.buttons[ControlElement.btnClip.rawValue],
+               let r = layout.buttons[ControlElement.btnR.rawValue],
+               let l = layout.buttons[ControlElement.btnL.rawValue],
+               let pad = layout.buttons[ControlElement.dpad.rawValue] {
+                func bottom(_ e: ControlElement, _ b: ButtonLayout) -> CGFloat {
+                    b.centerY * h + EmulatorLayoutGeometry.buttonSize(
+                        e, system: .snes, isLandscape: true, deviceScale: k).height / 2
+                }
+                let padTop = pad.centerY * h - EmulatorLayoutGeometry.buttonSize(
+                    .dpad, system: .snes, isLandscape: true, deviceScale: k).height / 2
+                let y = DressKind.snesLandscapeUtilityCenterY(
+                    shoulderBottom: Swift.max(bottom(.btnL, l), bottom(.btnR, r)), padTop: padTop)
+                layout.buttons[ControlElement.btnClip.rawValue] =
+                    ButtonLayout(centerX: r.centerX, centerY: y / h, isHidden: clip.isHidden)
+            }
+            alignFacesToPad(&layout)
+            return layout
+        }
+
+        // PORTRAIT, the two face PAIRS pull apart, and the four buttons travel with them.
+        //
+        // The dress draws one capsule over B and A and another over X and Y, which is the real
+        // pad's pair of plateaus. Taken straight from the DS those two overlap: the diamond puts
+        // their centre lines 70.7pt apart (50 · √2) while each capsule is 75.8pt thick, so they
+        // cross in the middle. Each pair therefore steps `facePairSeparation` along the
+        // perpendicular, X and Y up-left, A and B down-right, which opens about 5pt of body
+        // between them and leaves both inside the ring (the ring is derived from the buttons, so
+        // it follows them out).
+        //
+        // Symmetric on purpose: equal and opposite steps leave the bloc's centre exactly where
+        // it was, which is the D-pad's line, and `theFaceBlocSharesThePadsLine` holds that.
+        if !isLandscape {
+            let step = Self.facePairSeparation * k / CGFloat(2).squareRoot()   // along (±1, ±1)/√2
+            let moves: [(ControlElement, CGFloat)] = [(.btnX, -1), (.btnY, -1), (.btnA, 1), (.btnB, 1)]
+            for (element, direction) in moves {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                layout.buttons[element.rawValue] = ButtonLayout(
+                    centerX: b.centerX + direction * step / w,
+                    centerY: b.centerY + direction * step / h,
+                    isHidden: b.isHidden)
+            }
+        }
+
+        alignFacesToPad(&layout)
+
+        // CLIP, portrait. The GBA parks it just under the A button, which on that console
+        // is a lone face button with empty case above it. Here A is the RIGHT vertex of a
+        // diamond, and the X button occupies exactly that empty case: measured on the real
+        // page (safe-area insets included, which is what shortens the controls container),
+        // the inherited spot lands 8pt inside X on a 14 Pro and 16pt on an SE. So Clip
+        // joins the bottom row instead, on SELECT and START's line and in A's column,
+        // which is also where the DS puts its own.
+        if !isLandscape,
+           let clip = layout.buttons[ControlElement.btnClip.rawValue],
+           let a = layout.buttons[ControlElement.btnA.rawValue],
+           let row = layout.buttons[ControlElement.btnSelect.rawValue] {
+            layout.buttons[ControlElement.btnClip.rawValue] =
+                ButtonLayout(centerX: a.centerX, centerY: row.centerY, isHidden: clip.isHidden)
+        }
+
+        return layout
+    }
+
+    /// Put the four face buttons' vertical centre on the D-pad's, wherever the pad is.
+    ///
+    /// PORTRAIT it changes nothing and is there so it cannot start to: the pad and the diamond
+    /// both come from the DS, both at `h/2 − 6`, so the two lines coincided by accident of
+    /// shared parentage rather than by design.
+    ///
+    /// LANDSCAPE it is a real move of 39 reference points. The pad is the GBA's, which sits
+    /// BELOW the mid-line (`h/2 + 39`) because that console's page is a picture with a gutter
+    /// each side and the pad is placed for a thumb; the four faces are the DS's, centred on the
+    /// mid-line. Composed, they came out staggered — the pad low, the buttons high — which is
+    /// exactly the seam you get for free when a layout is assembled from two consoles.
+    private static func alignFacesToPad(_ layout: inout OrientationLayout) {
+        guard let pad = layout.buttons[ControlElement.dpad.rawValue] else { return }
+        let faces: [ControlElement] = [.btnA, .btnB, .btnX, .btnY]
+        let ys = faces.compactMap { layout.buttons[$0.rawValue]?.centerY }
+        guard let lo = ys.min(), let hi = ys.max() else { return }
+        let shift = pad.centerY - (lo + hi) / 2
+        guard abs(shift) > 0.0001 else { return }
+        for element in faces {
+            guard let b = layout.buttons[element.rawValue] else { continue }
+            layout.buttons[element.rawValue] = ButtonLayout(
+                centerX: b.centerX, centerY: b.centerY + shift, isHidden: b.isHidden)
+        }
+    }
+
+    // MARK: - NES
+
+    /// The NES layout: the Game Boy's, with one clamp.
+    ///
+    /// The button set IS the Game Boy's, so the layout is the Game Boy's rather than a copy
+    /// of it. What differs is the SCREEN above it: the NES draws 4:3 where GB/GBC draw their
+    /// squarer shape, so on a given phone the picture is taller and the controls container is
+    /// shorter. Clip is anchored to the top of that container and A to its bottom, so the two
+    /// close on each other as it shrinks — on an iPhone SE, by 4pt too much. The clamp keeps
+    /// Clip a clear gap above A and does nothing at all where there is room, so the layout
+    /// stays the Game Boy's on every other device.
+    static func nes(containerSize: CGSize, scale k: CGFloat,
+                    isLandscape: Bool, safeLeftInset: CGFloat) -> OrientationLayout {
+        var layout = isLandscape
+            ? gbcLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+            : gbcPortrait(containerSize: containerSize, scale: k)
+        let h = containerSize.height
+        guard h > 0 else { return layout }
+
+        // LANDSCAPE: re-stick SELECT · MENU · START to THIS console's screen, CENTRED in the strip
+        // the picture leaves below itself.
+        //
+        // `gbcLandscape` computes that row against the GAME BOY's screen, which is a different
+        // height, so inherited unchanged the row sat 14pt too high and the sweep caught it
+        // sitting ON the picture. The Super Nintendo needed the same correction for the same
+        // reason. The screen frame also reserves room for the row (see
+        // `snesLandscapeBottomReserve`), so this places it in a gap that exists.
+        //
+        // Centred rather than stuck under the picture with a fixed gap: on this console the row
+        // is the ONLY thing in that strip, so a fixed gap left it high with an empty band under
+        // it. Every mark in the row centres on its own hitbox (the printed SELECT/START block
+        // included — see `DressKind.pillCenterY`), so centring the hitboxes centres what is seen.
+        if isLandscape {
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.nes),
+                system: .nes, controllerConnected: false, deviceScale: k)
+            // Centred between the picture's bottom edge and the top of the home indicator, not
+            // the bottom of the glass: the indicator owns that strip and takes the swipe that
+            // starts in it. The reserve is the same flat 21 the screen frame counts (see
+            // `snesLandscapeIndicatorReserve`), for the same reason — the layout cannot read the
+            // device's insets here, and the two have to agree about where the page ends.
+            let rowY = (screen.maxY + h - EmulatorLayoutGeometry.snesLandscapeIndicatorReserve)
+                / 2 / h
+            for element in [ControlElement.btnSelect, .btnMenu, .btnStart] {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                layout.buttons[element.rawValue] =
+                    ButtonLayout(centerX: b.centerX, centerY: rowY, isHidden: b.isHidden)
+            }
+            return layout
+        }
+
+        // PORTRAIT: MENU and CLIP take the band the dress leaves between the screen panel and the
+        // A/B well, ON ONE LINE. Only their vertical position changes; each keeps the column the
+        // Game Boy layout gave it (MENU centred, CLIP top-right).
+        //
+        // The band is bounded by two things the DRESS draws, which is why both bounds come from
+        // `DressKind` rather than from a number chosen here:
+        //  - its top is the lower edge of the screen panel. In portrait the controls container
+        //    starts exactly at the picture's bottom edge (see `EmulatorLayoutGeometry`.
+        //    `controlsFrame`), and the panel keeps a symmetric skirt of body below the picture, so
+        //    container-relative that edge is simply the skirt. No safe-area inset enters here,
+        //    which matters because this function cannot read one.
+        //  - its bottom is the top of the sunken well around A and B. The well, not the buttons:
+        //    it is the well's rim the eye measures against, and it stands `nesWellPad` proud of
+        //    the larger button on every side.
+        //
+        // This REPLACES two clamps that only pushed each button up far enough not to collide
+        // (CLIP off A, MENU off the pad). They kept the page legal on a short device and left it
+        // unbalanced everywhere: a control hard against the thing below it, with the band's whole
+        // height empty above.
+        let w = containerSize.width
+        guard w > 0 else { return layout }
+        func rect(_ e: ControlElement, _ b: ButtonLayout) -> CGRect {
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: .nes, isLandscape: false,
+                                                      deviceScale: k)
+            return CGRect(x: b.centerX * w - s.width / 2, y: b.centerY * h - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        if let a = layout.buttons[ControlElement.btnA.rawValue],
+           let b = layout.buttons[ControlElement.btnB.rawValue] {
+            let wellTop = DressKind.nesFaceWellTop(a: rect(.btnA, a), b: rect(.btnB, b), scale: k)
+            let panelBottom = DressKind.nesPanelSkirt * k
+            let y = (panelBottom + wellTop) / 2 / h
+            for e in [ControlElement.btnMenu, .btnClip] {
+                guard let button = layout.buttons[e.rawValue] else { continue }
+                layout.buttons[e.rawValue] =
+                    ButtonLayout(centerX: button.centerX, centerY: y, isHidden: button.isHidden)
+            }
+        }
+        return layout
     }
 }

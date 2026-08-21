@@ -44,6 +44,8 @@ SYSTEMS = {
     "gbc": "Nintendo - Game Boy Color",
     "gba": "Nintendo - Game Boy Advance",
     "nds": "Nintendo - Nintendo DS",
+    "snes": "Nintendo - Super Nintendo Entertainment System",
+    "nes": "Nintendo - Nintendo Entertainment System",
 }
 
 # libretro thumbnail filename substitution (documented set, '&' verified live).

@@ -35,6 +35,9 @@
 @implementation RAAchievementInfo
 @end
 
+@implementation RASubsetInfo
+@end
+
 @implementation RAProgressEntry
 @end
 
@@ -120,6 +123,11 @@ static void RALogMessage(const char *message, const rc_client_t *client);
                 ? @(ach->measured_progress) : nil;
             info.measuredPercent = (double)ach->measured_percent;
             info.rarity = ach->rarity;  // % of players who earned it (softcore)
+            // Grouping only, and free: rc_client already walks subset by subset
+            // to build these buckets, so this identity was always here and we
+            // were simply dropping it on the floor. 0 for single-set games, by
+            // rc_client's own convention, which is why nothing changes for them.
+            info.subsetID = bucket->subset_id;
             char url[256] = {0};
             int state = info.unlocked ? RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED
                                       : RC_CLIENT_ACHIEVEMENT_STATE_ACTIVE;
@@ -139,6 +147,57 @@ static void RALogMessage(const char *message, const rc_client_t *client);
                (gameForLog && gameForLog->title) ? gameForLog->title : "(none)",
                (unsigned long)result.count);
 #endif
+    return result;
+}
+
+- (NSArray<RASubsetInfo *> *)currentGameSubsets {
+    NSMutableArray<RASubsetInfo *> *result = [NSMutableArray array];
+    if (!_client || !_gameLoaded) return result;
+
+    // Ask rc_client for the sets DIRECTLY rather than inferring them from the
+    // achievement buckets, which is what the first version of this did and why
+    // it under-reported.
+    //
+    // Deriving the sets from buckets can only ever see a set that contributed
+    // at least one bucket to the CORE list, so a set that is attached but
+    // produced no bucket in that category simply vanished. FireRed carries two
+    // subsets (Professor Oak Challenge, Shiny Pokemon+) and only one of them
+    // showed. This API walks `client->game->subsets` and returns every ACTIVE
+    // one, base set included, which is the actual question being asked.
+    rc_client_subset_list_t *list = rc_client_create_subset_list(_client);
+    if (!list) return result;
+
+    // One set is not a set list: it is an ordinary game, and the contract with
+    // the dashboard is that empty means "render exactly what you always did".
+    if (list->num_subsets <= 1) {
+        rc_client_destroy_subset_list(list);
+        return result;
+    }
+
+    for (uint32_t i = 0; i < list->num_subsets; i++) {
+        const rc_client_subset_t *subset = list->subsets[i];
+        if (!subset) continue;
+        rc_client_user_game_summary_t summary;
+        memset(&summary, 0, sizeof(summary));
+        rc_client_get_user_subset_summary(_client, subset->id, &summary);
+
+        RASubsetInfo *info = [RASubsetInfo new];
+        info.subsetID = subset->id;
+        info.title = subset->title ? @(subset->title) : @"";
+        info.badgeURL = (subset->badge_url && subset->badge_url[0]) ? @(subset->badge_url) : nil;
+        info.unlocked = (NSInteger)summary.num_unlocked_achievements;
+        info.total = (NSInteger)summary.num_core_achievements;
+        [result addObject:info];
+
+        // The line that answers "why is a set missing?" without guessing. A set
+        // the server never sent cannot appear here at all; a set that IS here
+        // but shows 0 achievements was attached and then filtered out further
+        // down. Those are different problems and this distinguishes them.
+        RADebugLog("[RA] subset %u \"%{public}s\" -> %ld/%ld achievements",
+                   subset->id, subset->title ? subset->title : "(none)",
+                   (long)info.unlocked, (long)info.total);
+    }
+    rc_client_destroy_subset_list(list);
     return result;
 }
 
@@ -386,6 +445,12 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     if ([ext isEqualToString:@"gbc"]) return RC_CONSOLE_GAMEBOY_COLOR;
     if ([ext isEqualToString:@"gb"])  return RC_CONSOLE_GAMEBOY;
     if ([ext isEqualToString:@"nds"]) return RC_CONSOLE_NINTENDO_DS;
+    // Both SNES extensions are the same console to RetroAchievements. rc_hash
+    // strips a .smc copier header itself, so the two hash identically, which is
+    // what lets one dump and the other resolve to the same set.
+    if ([ext isEqualToString:@"sfc"] || [ext isEqualToString:@"smc"]) return RC_CONSOLE_SUPER_NINTENDO;
+    // rc_hash also skips the 16-byte iNES header, for the same reason.
+    if ([ext isEqualToString:@"nes"]) return RC_CONSOLE_NINTENDO;
     return 0;  // everything else has no RA support here.
 }
 
@@ -571,6 +636,42 @@ static void RALogMessage(const char *message, const rc_client_t *client);
                            badgeURL:badge
                              points:(NSInteger)ach->points
                              rarity:ach->rarity];
+            break;
+        }
+        case RC_CLIENT_EVENT_GAME_COMPLETED: {
+            // The moment the whole feature builds toward, and until now it
+            // arrived as silence: this event was never handled, so finishing
+            // every achievement in a game looked exactly like earning the
+            // ordinary last one.
+            //
+            // Points come from the game summary rather than being accumulated
+            // by us, so the number cannot drift from what the dashboard shows.
+            if (![self.delegate respondsToSelector:@selector(raClient:didMasterGameTitle:points:)]) break;
+            const rc_client_game_t *game = rc_client_get_game_info(_client);
+            if (!game) break;
+            rc_client_user_game_summary_t summary;
+            memset(&summary, 0, sizeof(summary));
+            rc_client_get_user_game_summary(_client, &summary);
+            [self.delegate raClient:self
+                 didMasterGameTitle:(game->title ? @(game->title) : @"")
+                             points:(NSInteger)summary.points_unlocked];
+            break;
+        }
+        case RC_CLIENT_EVENT_SUBSET_COMPLETED: {
+            // Only fires for games that HAVE several sets, so this cannot
+            // double-announce a single-set game alongside GAME_COMPLETED.
+            // For a multi-set game it is the more useful of the two: finishing
+            // the main game is worth saying so, without requiring the bonus
+            // sets to be finished as well.
+            if (![self.delegate respondsToSelector:@selector(raClient:didCompleteSubsetTitle:points:)]) break;
+            const rc_client_subset_t *subset = event->subset;
+            if (!subset) break;
+            rc_client_user_game_summary_t summary;
+            memset(&summary, 0, sizeof(summary));
+            rc_client_get_user_subset_summary(_client, subset->id, &summary);
+            [self.delegate raClient:self
+             didCompleteSubsetTitle:(subset->title ? @(subset->title) : @"")
+                             points:(NSInteger)summary.points_unlocked];
             break;
         }
         case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:

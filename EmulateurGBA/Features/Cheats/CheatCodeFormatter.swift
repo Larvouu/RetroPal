@@ -30,9 +30,30 @@ enum CheatCodeFormatter {
         case unpairedLine
     }
 
+    /// A note worth showing that is NOT a rejection. The text may be perfectly
+    /// valid; what is missing is context the person typing cannot be expected
+    /// to have. Never blocks the Add button.
+    enum Advisory: Equatable {
+        /// A reseed directive on its own. It unlocks the lines that follow it
+        /// IN THE SAME ENTRY and adds no cheat of its own, so saved alone it
+        /// does nothing whatsoever, silently.
+        case seedLineAlone
+    }
+
     /// Characters a cheat code may legitimately contain. Dashes are allowed
     /// because Game Boy Game Genie codes are written `XXX-XXX-XXX`.
     private static let allowed = Set("0123456789ABCDEFabcdef -\n")
+
+    /// The NES Game Genie alphabet, which is NOT hexadecimal: its sixteen
+    /// letters are A P Z L G I T Y E O X U K S V N, so a perfectly good code
+    /// like SXIOPO (infinite lives in Super Mario Bros.) contains four
+    /// characters the hex rule above would reject out of hand. Game Genie is
+    /// the format NES cheats are written in almost everywhere, so this is the
+    /// common case on that console, not an exotic one.
+    ///
+    /// The SNES needs nothing extra: its own Game Genie alphabet
+    /// (DF4709156BC8A23E) happens to be a subset of hex.
+    private static let nesGameGenieLetters = Set("APZLGITYEOXUKSVNapzlgityeoxuksvn")
 
     // MARK: - Formatting
 
@@ -77,9 +98,14 @@ enum CheatCodeFormatter {
 
     /// The shape problem, if there is one we can name. `nil` means "hand it to
     /// the core", not "this code is valid".
-    static func problem(in code: String, isNDS: Bool) -> Problem? {
+    /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
+    ///   `"nds"` / `"snes"` / `"nes"`, for the same reason `advisory` takes one:
+    ///   the alphabet a code may use is a fact about the console, and the view's
+    ///   `isNDS` flag describes a keyboard layout.
+    static func problem(in code: String, isNDS: Bool, system: String = "") -> Problem? {
         guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        if code.contains(where: { !allowed.contains($0) }) { return .invalidCharacter }
+        let permitted = system == "nes" ? allowed.union(nesGameGenieLetters) : allowed
+        if code.contains(where: { !permitted.contains($0) }) { return .invalidCharacter }
 
         // Only the DS format is unambiguous enough to check block by block. GBA
         // and Game Boy accept several shapes (GameShark, CodeBreaker, Action
@@ -93,5 +119,40 @@ enum CheatCodeFormatter {
             }
         }
         return nil
+    }
+
+    // MARK: - Advisories
+
+    /// The GameShark / Pro Action Replay reseed directive.
+    ///
+    /// Verified in the core rather than assumed: `gba/cheats/gameshark.c` and
+    /// `gba/cheats/parv3.c` both special-case this exact first word, reseed
+    /// `gsaSeeds` **on the current cheat set**, and return WITHOUT adding a
+    /// cheat. Those seeds are per-set state, and the app creates one set per
+    /// saved entry, so the directive can only ever serve lines stored beside
+    /// it. On its own it is a no-op that still reports success.
+    private static let seedDirective = "DEADFACE"
+
+    /// A note to show, or `nil` for "nothing to say". Never a rejection: the
+    /// caller keeps the Add button enabled either way.
+    ///
+    /// Deliberately narrow. The only case reported is the one that is certain
+    /// from the core's own source, because an advisory that cries wolf on
+    /// valid single-line codes would teach people to ignore it, and the single
+    /// line is the overwhelmingly common shape.
+    /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
+    ///   `"nds"`. Deliberately NOT the view's `isNDS` flag, which only
+    ///   describes the input layout and is false for Game Boy as well as for
+    ///   GBA. `DEADFACE` is a GBA directive; on a Game Boy an eight-character
+    ///   run of hex is just an ordinary GameShark code, so keying off `isNDS`
+    ///   would have let this fire on a console the directive does not exist on.
+    static func advisory(in code: String, system: String) -> Advisory? {
+        guard system == "gba" else { return nil }
+        let lines = code
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard lines.count == 1, let only = lines.first else { return nil }
+        return only.uppercased().hasPrefix(seedDirective) ? .seedLineAlone : nil
     }
 }

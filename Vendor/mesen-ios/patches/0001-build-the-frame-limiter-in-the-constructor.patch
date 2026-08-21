@@ -1,0 +1,33 @@
+Build the frame limiter in the Emulator constructor, not only in Run()
+
+Emulator::ProcessEndOfFrame() dereferences _frameLimiter unconditionally, and
+that object is created in exactly one place: Emulator::Run(). A frontend that
+drives the core one frame at a time never calls Run(), yet it cannot avoid
+ProcessEndOfFrame() either, because the consoles call it themselves at the end of
+every frame (SnesPpu::SendFrame by way of SnesConsole::ProcessEndOfFrame, and
+NesPpu directly). The result is a null dereference on the first frame.
+
+Constructing the limiter with a zero delay costs nothing and changes no
+behaviour for Mesen's own frontends: Run() still replaces it with one built from
+the real frame delay, and a zero delay never waits.
+
+Retro Pal applies this patch at build time (Vendor/mesen-ios/build.sh) rather
+than forking the core, so the submodule stays pinned to upstream and this file is
+the whole of our modification. It is worth sending upstream; if it lands, this
+patch and the step in build.sh both go away.
+
+--- a/Core/Shared/Emulator.cpp
++++ b/Core/Shared/Emulator.cpp
+@@ -77,5 +77,12 @@
+ 	_debugRequestCount = 0;
+ 	_blockDebuggerRequestCount = 0;
+ 
++	//The frame limiter is otherwise built only by Run(). A frontend that steps
++	//frames itself never calls Run(), while the consoles call
++	//Emulator::ProcessEndOfFrame() on their own every frame, which dereferences
++	//it. Building it here costs nothing: Run() replaces it with the real delay,
++	//and a zero delay never waits.
++	_frameLimiter.reset(new FrameLimiter(0));
++
+ 	_videoDecoder->Init();
+ }

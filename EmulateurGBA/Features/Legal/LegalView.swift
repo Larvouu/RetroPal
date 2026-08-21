@@ -54,6 +54,14 @@ struct LegalView: View {
                     licenseKey: "legal.melonds.licenseLine",
                     descriptionKey: "legal.melonds.description"
                 )
+                licenseRow(
+                    titleKey: "legal.mesen",
+                    // Verbatim from the project's own README, not paraphrased:
+                    // an attribution is the one line that must be theirs.
+                    copyright: "Copyright (C) 2014-2026 Sour, 2026 contributors",
+                    licenseKey: "legal.mesen.licenseLine",
+                    descriptionKey: "legal.mesen.description"
+                )
                 Text(NSLocalizedString("legal.compliance", comment: ""))
                     .font(.caption)
                     .foregroundColor(.secondary)

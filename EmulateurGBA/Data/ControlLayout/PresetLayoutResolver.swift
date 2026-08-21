@@ -124,7 +124,7 @@ enum PresetLayoutResolver {
     static func presetBaseSize(element: ControlElement, system: PresetSystem,
                                isLandscape: Bool, deviceScale k: CGFloat) -> CGSize {
         polishedSize(
-            EmulatorLayoutGeometry.buttonSize(element, isNDS: system == .nds,
+            EmulatorLayoutGeometry.buttonSize(element, system: system,
                                               isLandscape: isLandscape, deviceScale: k),
             element: element, system: system, isLandscape: isLandscape, deviceScale: k)
     }
@@ -163,7 +163,13 @@ enum PresetLayoutResolver {
                 default: return 0
                 }
             }
-        case .gbc:
+        case .snes:
+            // Same Start/Select row as the GBA, so the same nudge.
+            let extra = rawSize.width * 0.3
+            if element == .btnSelect { return -extra / 2 }
+            if element == .btnStart { return extra / 2 }
+            return 0
+        case .gbc, .nes:
             return 0
         }
     }
@@ -190,6 +196,131 @@ enum PresetLayoutResolver {
         let halfH = min(size.height, viewSize.height) / 2
         return CGPoint(x: min(max(center.x, halfW), viewSize.width - halfW),
                        y: min(max(center.y, halfH), viewSize.height - halfH))
+    }
+
+    // MARK: - Controller layout
+
+    /// Menu's floor while a controller is connected: it is the ONLY on-screen
+    /// way back to the pause menu there, so it may be moved and resized but
+    /// never shrunk below a comfortable tap target. Mirrors the engine's own
+    /// `minButtonDimension` rather than inventing a second number.
+    static let minControllerMenuDimension: CGFloat = EmulatorLayoutGeometry.minButtonDimension
+
+    /// Resolves a controller layout into absolute view-space frames.
+    ///
+    /// Only the screens and Menu exist here. A pristine layout (nothing stored)
+    /// resolves to exactly `defaultGeometry(controllerConnected: true)`, i.e.
+    /// byte-for-byte what the app renders today — that identity is what the
+    /// regression test locks, and it is why enabling the feature cannot affect
+    /// anyone who never customises it.
+    static func resolveController(layout: ControllerLayout, system: PresetSystem,
+                                  isLandscape: Bool, viewSize: CGSize,
+                                  safeInsets: UIEdgeInsets) -> ResolvedScene {
+        let stored = layout.layout(isLandscape: isLandscape)
+        let defaults = defaultGeometry(system: system, isLandscape: isLandscape,
+                                       viewSize: viewSize, safeInsets: safeInsets,
+                                       controllerConnected: true)
+
+        var screens: [ScreenComponent: ResolvedScreen] = [:]
+        for component in ScreenComponent.components(for: system) {
+            guard let defaultRect = defaults.screens[component] else { continue }
+            guard stored.space == OrientationLayout.fullViewSpace,
+                  let s = stored.screens[component.rawValue] else {
+                screens[component] = ResolvedScreen(frame: defaultRect, opacity: 1)
+                continue
+            }
+            let scale = clamp(s.scale, minScreenScale,
+                              maxFittingScreenScale(defaultSize: defaultRect.size,
+                                                    viewSize: viewSize))
+            let size = CGSize(width: defaultRect.width * scale,
+                              height: defaultRect.height * scale)
+            let center = clampedCenter(CGPoint(x: s.centerX * viewSize.width,
+                                               y: s.centerY * viewSize.height),
+                                       size: size, viewSize: viewSize)
+            screens[component] = ResolvedScreen(frame: rect(center: center, size: size),
+                                                opacity: clamp(s.opacity, minOpacity, maxOpacity))
+        }
+
+        // Menu only. Never hidden: `isHidden` is not even read here, so a value
+        // arriving from hand-edited storage cannot lock the player out.
+        var buttons: [ControlElement: ResolvedControl] = [:]
+        let element = ControllerLayout.element
+        if let def = defaults.buttons[element] {
+            let baseSize = def.baseSize
+            let stored2 = stored.buttons[element.rawValue]
+            let rawScale = clamp(stored2?.scale ?? 1, minControlScale, maxControlScale)
+            // Floor the RENDERED size, not the stored scale, so the guarantee
+            // holds on every device rather than only on the reference one.
+            //
+            // The floor per axis is `min(44, thatAxis'\''s own base)`, mirroring the
+            // engine's `buttonSize` semantics exactly. A flat 44 would INFLATE
+            // Menu on NDS, whose reference size is a deliberate 36, and the
+            // pristine layout would then stop matching what the app renders
+            // today. In practice this means Menu can be enlarged and moved but
+            // not shrunk below its default: it is the only on-screen way back
+            // to the pause menu with a controller attached.
+            let floorW = min(minControllerMenuDimension, baseSize.width)
+            let floorH = min(minControllerMenuDimension, baseSize.height)
+            let floorScale = max(floorW / max(baseSize.width, 1),
+                                 floorH / max(baseSize.height, 1))
+            let scale = max(rawScale, min(floorScale, maxControlScale))
+            let rendered = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
+            let center: CGPoint
+            if let stored2, stored.space == OrientationLayout.fullViewSpace {
+                center = clampedCenter(CGPoint(x: stored2.centerX * viewSize.width,
+                                               y: stored2.centerY * viewSize.height),
+                                       size: rendered, viewSize: viewSize)
+            } else {
+                center = def.center
+            }
+            buttons[element] = ResolvedControl(
+                center: center, baseSize: baseSize, scale: scale,
+                opacity: clamp(stored2?.opacity ?? 1, minOpacity, maxOpacity),
+                isHidden: false)
+        }
+        return ResolvedScene(screens: screens, buttons: buttons, useJoystick: false)
+    }
+
+    /// Seeds a controller layout from the current default geometry, so the
+    /// editor opens on exactly what the player already sees instead of on an
+    /// arbitrary arrangement.
+    ///
+    /// EACH ORIENTATION BRINGS ITS OWN VIEWPORT, and that is the whole reason
+    /// this takes four arguments instead of two. A stored layout is normalized
+    /// against the viewport it was seeded in, and the two orientations do not
+    /// share one: seeding both from whichever viewport happened to be on screen
+    /// would write a landscape layout measured inside a portrait box, then
+    /// denormalize it against the real landscape viewport on the first rotation
+    /// and put the screen somewhere nobody chose. The insets differ per
+    /// orientation too, so they are passed in pairs as well.
+    static func seededControllerLayout(system: PresetSystem,
+                                       portraitSize: CGSize, portraitInsets: UIEdgeInsets,
+                                       landscapeSize: CGSize,
+                                       landscapeInsets: UIEdgeInsets) -> ControllerLayout {
+        func orientation(_ isLandscape: Bool) -> OrientationLayout {
+            let viewSize = isLandscape ? landscapeSize : portraitSize
+            let safeInsets = isLandscape ? landscapeInsets : portraitInsets
+            let d = defaultGeometry(system: system, isLandscape: isLandscape,
+                                    viewSize: viewSize, safeInsets: safeInsets,
+                                    controllerConnected: true)
+            var screens: [String: ScreenLayout] = [:]
+            for c in ScreenComponent.components(for: system) {
+                guard let r = d.screens[c] else { continue }
+                screens[c.rawValue] = ScreenLayout(centerX: r.midX / viewSize.width,
+                                                  centerY: r.midY / viewSize.height,
+                                                  scale: 1, opacity: 1)
+            }
+            var buttons: [String: ButtonLayout] = [:]
+            if let m = d.buttons[ControllerLayout.element] {
+                buttons[ControllerLayout.element.rawValue] = ButtonLayout(
+                    centerX: m.center.x / viewSize.width,
+                    centerY: m.center.y / viewSize.height,
+                    isHidden: false, scale: 1, opacity: 1)
+            }
+            return OrientationLayout(buttons: buttons, screens: screens,
+                                     space: OrientationLayout.fullViewSpace)
+        }
+        return ControllerLayout(portrait: orientation(false), landscape: orientation(true))
     }
 
     // MARK: - Resolve
@@ -231,7 +362,7 @@ enum PresetLayoutResolver {
         var buttons: [ControlElement: ResolvedControl] = [:]
         for element in ControlElement.elements(for: system) {
             let baseSize = EmulatorLayoutGeometry.buttonSize(
-                element, isNDS: isNDS, isLandscape: isLandscape, deviceScale: k)
+                element, system: system, isLandscape: isLandscape, deviceScale: k)
 
             if let stored = layout.buttons[element.rawValue] {
                 let resolved: ResolvedControl
@@ -313,8 +444,15 @@ enum PresetLayoutResolver {
         let buttons: [ControlElement: (center: CGPoint, baseSize: CGSize)]
     }
 
+    /// `controllerConnected` selects which geometry family to describe: the
+    /// touch layout (screens leave room for the on-screen controls) or the
+    /// controller layout (controls hide, screens fill the reclaimed space and
+    /// only Menu remains, in its strip). Passed straight through to the engine
+    /// rather than reimplemented, so the controller default cannot drift from
+    /// what the game actually renders.
     static func defaultGeometry(system: PresetSystem, isLandscape: Bool,
                                 viewSize: CGSize, safeInsets: UIEdgeInsets,
+                                controllerConnected: Bool = false,
                                 polished: Bool = true) -> DefaultGeometry {
         let k = EmulatorLayoutGeometry.deviceScale(for: viewSize)
         let isNDS = (system == .nds)
@@ -322,7 +460,7 @@ enum PresetLayoutResolver {
             deviceSize: viewSize, safeInsets: safeInsets,
             hasTouchScreen: isNDS, isLandscape: isLandscape,
             gameAspect: displayAspect(system), system: system,
-            controllerConnected: false, deviceScale: k)
+            controllerConnected: controllerConnected, deviceScale: k)
         let controlsFrame = EmulatorLayoutGeometry.controlsFrame(
             deviceSize: viewSize, screenFrame: metalFrame,
             hasTouchScreen: isNDS, isLandscape: isLandscape)
@@ -338,13 +476,14 @@ enum PresetLayoutResolver {
 
         let defaultLayout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape,
-            containerSize: controlsFrame.size, scale: k, safeLeftInset: safeInsets.left)
+            containerSize: controlsFrame.size, scale: k,
+            safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right)
 
         var buttons: [ControlElement: (center: CGPoint, baseSize: CGSize)] = [:]
         for element in ControlElement.elements(for: system) {
             guard let bl = defaultLayout.buttons[element.rawValue] else { continue }
             let baseSize = EmulatorLayoutGeometry.buttonSize(
-                element, isNDS: isNDS, isLandscape: isLandscape, deviceScale: k)
+                element, system: system, isLandscape: isLandscape, deviceScale: k)
             let containerCenter = CGPoint(x: bl.centerX * controlsFrame.width,
                                           y: bl.centerY * controlsFrame.height)
             let adj = EmulatorLayoutGeometry.ndsLandscapeAdjusted(
@@ -422,7 +561,7 @@ enum PresetLayoutResolver {
         for element in ControlElement.elements(for: system) {
             guard let stored = layout.buttons[element.rawValue] else { continue }
             let baseSize = EmulatorLayoutGeometry.buttonSize(
-                element, isNDS: isNDS, isLandscape: isLandscape, deviceScale: k)
+                element, system: system, isLandscape: isLandscape, deviceScale: k)
             let containerCenter = CGPoint(
                 x: stored.centerX * defaults.controlsFrame.width,
                 y: stored.centerY * defaults.controlsFrame.height)
@@ -459,6 +598,14 @@ enum PresetLayoutResolver {
         case .gba: return 240.0 / 160.0
         case .gbc: return 160.0 / 144.0
         case .nds: return 256.0 / 384.0
+        // Both match `MesenBridge.displayAspect`, which is where the reasoning lives: each
+        // shows its OWN frame with square pixels rather than the 4:3 a television stretched it
+        // to. If one moves, they both move, or the picture and the space reserved for it stop
+        // agreeing.
+        case .snes: return 8.0 / 7.0
+        // 248 wide, not 256: the NES's leftmost 8 columns are cropped in the core (most games
+        // blank them themselves, which drew a flat band down the left edge of the picture).
+        case .nes: return 248.0 / 240.0
         }
     }
 

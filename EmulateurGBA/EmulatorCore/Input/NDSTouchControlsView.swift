@@ -61,7 +61,7 @@ final class NDSTouchControlsView: TouchControlsView {
     override func setDressed(_ on: Bool, isLandscape: Bool, system: PresetSystem,
                              variant: DressVariant = .nostalgia) {
         super.setDressed(on, isLandscape: isLandscape, system: system, variant: variant)
-        let kind: DressKind = (system == .gba) ? .gba : (system == .nds) ? .nds : .gbc
+        let kind = TouchControlsView.dressKind(for: system)
         btnX.dressVariant = variant; btnX.dressKind = kind; btnX.dressed = on
         btnY.dressVariant = variant; btnY.dressKind = kind; btnY.dressed = on
         // SELECT/START keep the shared pill dress (the skin draws the creusé pill + label; the

@@ -84,15 +84,26 @@ struct RetroAchievementsView: View {
             }
     }
 
-    /// Games with nothing to earn: no RA set (resolved ineligible) or an RA
-    /// set with ZERO achievements. Listed below the eligible ones so it's
-    /// obvious which games can earn achievements.
+    /// Games with nothing to earn: no RA set at all, or a set we have actually
+    /// seen to be empty. Listed below the eligible ones so it's obvious which
+    /// games can earn achievements.
+    ///
+    /// "We have actually seen" is the whole point of `countsFromLoad`. A record
+    /// can be eligible — RA resolved its hash to a real game — while its totals
+    /// are still zero, because the counts arrive either from playing it once or
+    /// from the all-user-progress refresh, and neither is guaranteed to have
+    /// happened yet. Treating that zero as "no achievements" states a fact we do
+    /// not have, and it is wrong exactly when it is most visible: a famous game
+    /// whose set anyone can look up. Reported on Super Mario World, whose hash
+    /// resolves fine.
     private var unsupportedEntries: [RALibraryEntry] {
         raIndex.libraryEntries.values
             .filter { entry in
                 if !entry.raSupportedConsole { return true }
                 if let record = raIndex.records[entry.romHash] {
-                    return !record.isEligible || record.total == 0
+                    if !record.isEligible { return true }
+                    // Eligible: only an actual load can tell us the set is empty.
+                    return record.hasKnownEmptySet
                 }
                 return false   // still resolving: not known to be unsupported
             }

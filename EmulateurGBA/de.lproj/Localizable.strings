@@ -9,7 +9,7 @@
 "library.empty.title" = "Willkommen bei Retro Pal";
 "library.empty.subtitle" = "Spiele deine Retro-Games auf dem iPhone. Keine Werbung, kein persönliches Tracking.";
 "library.empty.button" = "Spiel hinzufügen";
-"library.empty.step1" = "Bring ein Spiel (.gba, .gb, .gbc oder .nds) auf dein iPhone, per Safari, AirDrop oder iCloud Drive.";
+"library.empty.step1" = "Bring ein Spiel (.gba, .gb, .gbc, .nds, .sfc, .smc oder .nes) auf dein iPhone, per Safari, AirDrop oder iCloud Drive.";
 "library.empty.step2" = "Tippe auf %@ und wähle die Datei in der Dateien-App aus.";
 "library.empty.step3" = "Spielen. Dein Fortschritt wird automatisch gespeichert";
 "library.empty.romHint" = "Noch keine ROMs? Es gibt viele kostenlose, legale Spiele. Suche online nach \"GBA homebrew\".";
@@ -103,7 +103,7 @@
 "pro.welcome" = "Willkommen bei Pro!";
 "pro.benefit.speed" = "Alle Geschwindigkeiten: 0,25x bis 4x";
 "pro.benefit.slots" = "5 Speicherplätze (statt 2)";
-"pro.benefit.rewind" = "30 Sekunden zurückspulen (GBA/GB/GBC)";
+"pro.benefit.rewind" = "30 Sekunden zurückspulen";
 "pro.benefit.cheats" = "Cheat-Codes (GameShark / Action Replay)";
 "pro.benefit.controls" = "Eigene Layouts und Controller-Belegung";
 "pro.benefit.speed.short" = "Alle Geschwindigkeiten";
@@ -129,7 +129,7 @@
 "pro.compare.row.controllers" = "Bluetooth-Controller";
 "pro.compare.row.slots" = "Speicherplätze";
 "pro.compare.row.speeds" = "Geschwindigkeit";
-"pro.compare.row.rewind" = "Rückspulen (GBA/GB/GBC)";
+"pro.compare.row.rewind" = "Rückspulen";
 "pro.compare.row.cheats" = "Cheat-Codes";
 "pro.compare.row.controls" = "Eigene Steuerung";
 "pro.compare.values.freeSpeeds" = "1×, 1,5×";
@@ -145,11 +145,11 @@
 "prompt.milestone.title" = "Du hast %@ Minuten Retro-Spiele gespielt";
 "prompt.milestone.subtitle" = "Du liebst es offensichtlich. Schalte das volle Erlebnis frei.";
 "prompt.rewind.title" = "Musst du weiter zurück?";
-"prompt.rewind.subtitle" = "Pro gibt dir 30 Sekunden Rückspulzeit auf GBA/GB/GBC. Verliere nie wieder einen Bosskampf.";
+"prompt.rewind.subtitle" = "Pro gibt dir 30 Sekunden Rückspulzeit, auf jeder Konsole. Verliere nie wieder einen Bosskampf.";
 "prompt.cheats.title" = "Du hast %@ schon 4 Stunden gespielt. Bereit, ohne Grenzen zu spielen?";
 "prompt.cheats.subtitle" = "Schalte Cheat-Codes, maximale Geschwindigkeit und mehr frei. Ein Kauf, das war's. Für immer.";
 "prompt.generic.title" = "Retro Pal Pro";
-"prompt.generic.subtitle" = "Schalte alle Geschwindigkeiten, 5 Speicherplätze, 30 Sek. Rückspulen (GBA/GB/GBC) und mehr frei.";
+"prompt.generic.subtitle" = "Schalte alle Geschwindigkeiten, 5 Speicherplätze, 30 Sek. Rückspulen und mehr frei.";
 
 /* Share card style picker (1.0.1) */
 "card.style.nostalgia" = "Nostalgia";
@@ -179,7 +179,7 @@
 "legal.melonds" = "melonDS-Lizenz";
 "legal.importantNotice.title" = "Wichtiger Hinweis";
 "legal.aboutApp.title" = "Über diese App";
-"legal.aboutApp.description1" = "Retro Pal ist ein lokales Emulator-Frontend für Game Boy Advance-, Game Boy-, Game Boy Color- und Nintendo DS-Spiele. Die App lädt keine Spiele herunter, verteilt sie nicht und bietet keinen Zugriff auf Spielinhalte. Alle ROM-Dateien müssen vom Nutzer aus dem eigenen Gerätespeicher über die Dateien-App importiert werden.";
+"legal.aboutApp.description1" = "Retro Pal ist ein lokales Emulator-Frontend für Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo- und NES-Spiele. Die App lädt keine Spiele herunter, verteilt sie nicht und bietet keinen Zugriff auf Spielinhalte. Alle ROM-Dateien müssen vom Nutzer aus dem eigenen Gerätespeicher über die Dateien-App importiert werden.";
 "legal.aboutApp.description2" = "Diese App bietet keinen Spielekatalog, verteilt keine Spielinhalte und erleichtert nicht das Herunterladen urheberrechtlich geschützter Inhalte.";
 "legal.privacy.title" = "Datenschutz";
 "legal.privacy.description" = "Deine Spiele und Spielstände bleiben auf deinem Gerät. Zur Verbesserung der App sendet Retro Pal ausschließlich anonyme Nutzungsstatistiken, ohne personenbezogene Daten und ohne Werbe-IDs.";
@@ -188,10 +188,13 @@
 "legal.mgba.description" = "mGBA ist ein Game Boy Advance-Emulator, der in dieser App als zentrales Emulator-Engine verwendet wird. Der Quellcode von mGBA ist verfügbar unter [https://mgba.io](https://mgba.io)";
 "legal.melonds.licenseLine" = "Lizenziert unter der GNU General Public License v3.0 (GPL-3.0)";
 "legal.melonds.description" = "melonDS ist ein Nintendo DS-Emulator, der in dieser App als Emulator-Engine für DS-Spiele verwendet wird. Der Quellcode von melonDS ist verfügbar unter [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
+"legal.mesen" = "MesenCE-Lizenz";
+"legal.mesen.licenseLine" = "Lizenziert unter der GNU General Public License v3.0 (GPL-3.0)";
+"legal.mesen.description" = "MesenCE ist ein Super-Nintendo- und NES-Emulator, der in dieser App als Emulator-Engine für SNES- und NES-Spiele verwendet wird. Der Quellcode von MesenCE ist verfügbar unter [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.retropal" = "Retro Pal-Lizenz";
 "legal.retropal.licenseLine" = "Lizenziert unter der GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Der vollständige Quellcode von Retro Pal ist verfügbar unter [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Die Software wird ohne jegliche Gewährleistung bereitgestellt.";
-"legal.compliance" = "Retro Pal wird unter der GNU General Public License v3.0 vertrieben. Die App baut auf mGBA (Mozilla Public License 2.0) und melonDS (GPL-3.0) auf, die unverändert verwendet werden. Der vollständige zugehörige Quellcode ist im oben verlinkten Repository verfügbar, und die Software wird ohne jegliche Gewährleistung bereitgestellt.";
+"legal.compliance" = "Retro Pal wird unter der GNU General Public License v3.0 vertrieben. Die App baut auf mGBA (Mozilla Public License 2.0) und melonDS (GPL-3.0) auf, die unverändert verwendet werden, sowie auf MesenCE (GPL-3.0), das mit einer kleinen Änderung verwendet wird; diese liegt dem Quellcode als Patch-Datei bei. Der vollständige zugehörige Quellcode ist im oben verlinkten Repository verfügbar, und die Software wird ohne jegliche Gewährleistung bereitgestellt.";
 
 "details.noSaves" = "Noch keine Schnellspeicher. Erstelle einen im Spiel über die Menütaste.";
 "library.importing" = "ROM wird importiert...";
@@ -214,10 +217,14 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark-, CodeBreaker- oder Action Replay-Format";
 "cheats.hint.nds" = "Action Replay DS-Format (XXXXXXXX YYYYYYYY)";
+"cheats.hint.snes" = "Pro-Action-Replay- oder Game-Genie-Format (XXXX-XXXX)";
+"cheats.hint.nes" = "Pro-Action-Rocky- oder Game-Genie-Format (Buchstaben)";
 "cheats.namePlaceholder" = "Name (optional)";
 "cheats.add" = "Code hinzufügen";
 "cheats.invalid.gba" = "Code nicht erkannt. Erwartet: GameShark-, CodeBreaker- oder Action Replay-Format.";
 "cheats.invalid.nds" = "Code nicht erkannt. Erwartet: Action Replay DS-Format (XXXXXXXX YYYYYYYY, ein Paar pro Zeile).";
+"cheats.invalid.snes" = "Code nicht erkannt. Erwartet wird Game Genie (XXXX-XXXX) oder Pro Action Replay (acht Zeichen).";
+"cheats.invalid.nes" = "Code nicht erkannt. Erwartet wird Game Genie (sechs oder acht Buchstaben) oder Pro Action Rocky (acht Zeichen).";
 "cheats.empty" = "Keine aktiven Cheats";
 "cheats.findHint" = "Codes findest du online. Suche einfach nach den Cheat-Codes deines Spiels.";
 "cheats.clearAll" = "Alle löschen";
@@ -243,10 +250,6 @@
 "prompt.slotsTapped.subtitle" = "Schalte 5 Speicherplätze frei, damit immer Platz für einen Speicherstand ist. Ein Kauf, für immer.";
 "settings.appLabel" = "App";
 
-"review.headline" = "Macht's Spaß?";
-"review.body" = "Bewertungen sind das, wovon kleine Apps im App Store leben. Ein Satz hilft schon sehr.";
-"review.cta" = "5 Sterne geben";
-"review.later" = "Nicht jetzt";
 "cheats.type" = "Code-Typ";
 "cheats.restore" = "Speicherstand vor Cheats wiederherstellen";
 "cheats.restore.confirm.title" = "Speicherstand vor Cheats wiederherstellen?";
@@ -256,6 +259,13 @@
 /* Control Layout */
 "settings.customizeControls" = "Steuerung anpassen";
 "settings.remapController" = "Controller-Tasten neu belegen";
+
+/* Controller-connected screen + Menu layout (1.2.5) */
+"settings.controllerLayout" = "Bildschirmanordnung mit Controller";
+"controllerLayout.customised" = "Angepasst";
+"controllerLayout.footer" = "Lege fest, wo der Spielbildschirm sitzt und wie groß er ist, während ein Controller angeschlossen ist. Praktisch, wenn der Controller selbst einen Teil des Displays verdeckt. Jede Konsole behält ihre eigene Anordnung, im Hoch- und im Querformat.";
+"controllerLayout.resetAll" = "Ursprüngliche Anordnungen wiederherstellen";
+"controllerLayout.reset.footer" = "Setzt jede Konsole auf die Anordnung zurück, die die App mit Controller standardmäßig verwendet.";
 "remap.press" = "Taste drücken…";
 "remap.reset" = "Auf Standard zurücksetzen";
 "remap.footer" = "Tippe auf eine Taste und drücke dann die Controller-Taste, die du zuweisen möchtest. Steuerkreuz und Stick steuern immer das Steuerkreuz.";
@@ -324,11 +334,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Spiel hinzufügen";
 "guide.importRom.intro" = "Retro Pal enthält keine Spiele. Du stellst deine eigenen ROM-Dateien bereit, für die du die Rechte besitzt (deine eigenen Module oder kostenlose, legale Homebrew-Spiele).";
-"guide.importRom.step1" = "Bring die Spieldatei (.gba, .gb, .gbc oder .nds) auf dein iPhone: Download in Safari, per AirDrop von einem Computer oder über iCloud Drive.";
+"guide.importRom.step1" = "Bring die Spieldatei (.gba, .gb, .gbc, .nds, .sfc, .smc oder .nes) auf dein iPhone: Download in Safari, per AirDrop von einem Computer oder über iCloud Drive.";
 "guide.importRom.step2" = "Prüfe, dass sie in der Dateien-App auftaucht (unter „Downloads“, „Auf meinem iPhone“ oder iCloud Drive).";
 "guide.importRom.step3" = "Tippe in Retro Pal oben in der Bibliothek auf die Schaltfläche +.";
 "guide.importRom.step4" = "Wähle die Datei. Das Spiel erscheint sofort in deiner Bibliothek, bereit zum Spielen.";
-"guide.importRom.footer" = "Unterstützte Formate: .gba, .gb, .gbc, .nds und .zip-Dateien mit nur einem Spiel. .7z und Archive mit mehreren Spielen werden nicht unterstützt; entpacke zuerst eine einzelne Datei. Importiere nur Dateien, für die du die Rechte besitzt.";
+"guide.importRom.footer" = "Unterstützte Formate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes und .zip-Dateien mit nur einem Spiel. .7z und Archive mit mehreren Spielen werden nicht unterstützt; entpacke zuerst eine einzelne Datei. Importiere nur Dateien, für die du die Rechte besitzt.";
 "settings.guides.section" = "Anleitungen";
 "settings.controller.row" = "Controller";
 "common.done" = "Fertig";
@@ -421,6 +431,10 @@
 "skin.editor.surround" = "Rahmen";
 "skin.editor.dpad" = "Steuerkreuz";
 "skin.editor.abButtons" = "A/B-Tasten";
+"skin.editor.faceA" = "Taste A";
+"skin.editor.faceB" = "Taste B";
+"skin.editor.faceX" = "Taste X";
+"skin.editor.faceY" = "Taste Y";
 "skin.editor.abLetters" = "A/B-Beschriftung";
 "skin.editor.smallButtons" = "Kleine Tasten";
 "skin.editor.menuIcons" = "Menü-Symbole";
@@ -470,6 +484,10 @@
 "ra.dashboard.title" = "Erfolge";
 "ra.dashboard.unlocked" = "Freigeschaltet";
 "ra.dashboard.locked" = "Verbleibend";
+
+/* RetroAchievements - mastery moments + the per-set breakdown */
+"ra.hud.gameCompleted" = "Spiel abgeschlossen";
+"ra.hud.subsetCompleted" = "Serie abgeschlossen";
 "ra.dashboard.empty" = "Dieses Spiel hat keine Erfolge oder es sind noch keine geladen.";
 "ra.dashboard.summary" = "%lld von %lld freigeschaltet";
 "ra.dashboard.rarity" = "%@ der Spieler";
@@ -505,8 +523,8 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Auf die ausgewählte Datei kann nicht zugegriffen werden. Versuche, sie über die Dateien-App zu importieren.";
 "import.error.copyFailed" = "Das Spiel konnte nicht in Retro Pal kopiert werden. Gib Speicherplatz frei und versuche es erneut.";
-"import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc und .nds.";
-"import.error.zipNoROM" = "In diesem ZIP wurde keine Spieldatei gefunden. Retro Pal liest Spiele in .gba, .gb, .gbc und .nds; andere Konsolen werden nicht unterstützt.";
+"import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc, .nds, .sfc, .smc und .nes.";
+"import.error.zipNoROM" = "In diesem ZIP wurde keine Spieldatei gefunden. Retro Pal liest Spiele in .gba, .gb, .gbc, .nds, .sfc, .smc und .nes; andere Konsolen werden nicht unterstützt.";
 "import.error.zipExtractionFailed" = "Dieses ZIP konnte nicht geöffnet werden. Entpacke es in der Dateien-App und importiere die Spieldatei direkt.";
 "import.error.alreadyImported" = "Dieses Spiel ist bereits in deiner Bibliothek.";
 "import.error.saveFailed" = "Das Spiel konnte nicht zur Bibliothek hinzugefügt werden. Versuche es erneut.";
@@ -523,12 +541,15 @@
 "whatsnew.title" = "Neuigkeiten";
 "whatsnew.version" = "Version %@";
 "whatsnew.footer" = "Du findest diese Neuigkeiten jederzeit in den Einstellungen.";
+"whatsnew.notice.pro" = "Zu Pro: der einmalige Lifetime-Preis steigt in einem kommenden Update. Ein Datum gibt es noch nicht. Alles, was heute kostenlos ist, bleibt es für immer: keine Werbung, und du musst nie bezahlen, um zu spielen.";
 "whatsnew.dismiss" = "Alles klar!";
 
 /* --- External display (AirPlay / cable), Pro --- */
 "settings.externalDisplay.section" = "Externer Bildschirm";
 "settings.externalDisplay.row" = "Auf dem TV spielen";
 "settings.externalDisplay.ndsLayout" = "DS-Bildschirme am TV";
+"settings.externalDisplay.noTV" = "Kein Fernseher verbunden";
+"settings.externalDisplay.noTV.caption" = "Tippe, um zu sehen, wie du am Fernseher spielst.";
 "settings.externalDisplay.sideBySide" = "Nebeneinander";
 "settings.externalDisplay.stacked" = "Übereinander";
 "settings.externalDisplay.footer" = "Verbinde einen Fernseher per AirPlay oder Kabel und das Spiel füllt den Bildschirm, während dein iPhone die Steuerung behält. Der DS zeigt beide Bildschirme; der Touchscreen bleibt auf dem Telefon.";
@@ -544,7 +565,7 @@
 "guide.airplay.step3" = "Starte ein Spiel. Es füllt den Fernseher, und dein iPhone behält die Steuerung.";
 "guide.airplay.step4" = "Beim DS erscheinen beide Bildschirme am TV, der Touchscreen bleibt auf dem iPhone.";
 "guide.airplay.step5" = "Verbinde einen Controller und die Bildschirmtasten verschwinden. Nur der DS-Touchscreen wird am Telefon noch gebraucht.";
-"guide.airplay.step6" = "Wie die beiden DS-Bildschirme am TV liegen, wählst du unter Einstellungen, Externer Bildschirm.";
+"guide.airplay.step6" = "Sobald dein Fernseher verbunden ist, wählst du unter Einstellungen, Externer Bildschirm, wie die beiden DS-Bildschirme liegen.";
 "guide.airplay.footer" = "Der Ton folgt dem Bild per AirPlay zum Fernseher. Mit einem Controller öffnest du das Pausenmenü über dessen eigene Menütaste, du musst das Telefon also nie anfassen.";
 "guide.airplay.proNotice" = "Am TV spielen gehört zu Retro Pal Pro.";
 "guide.airplay.proButton" = "Am TV spielen";
@@ -561,7 +582,12 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Dieser Code enthält unerwartete Zeichen. Cheat-Codes verwenden nur 0-9, A-F, Leerzeichen und Bindestriche.";
+"cheats.invalid.characters.nes" = "Dieser Code enthält unerwartete Zeichen. NES-Codes verwenden die Game-Genie-Buchstaben A P Z L G I T Y E O X U K S V N oder 0-9 und A-F, dazu Leerzeichen und Bindestriche.";
 "cheats.invalid.pairs" = "Action-Replay-DS-Codes kommen paarweise: Jede Zeile braucht zwei Blöcke mit acht Zeichen, zum Beispiel 94000130 FCFF0000.";
+
+/* Cheats - a code on several lines is ONE entry (the split-entry trap) */
+"cheats.multiline.caption" = "Ein Code, der über mehrere Zeilen geht, kommt als EIN Eintrag hinein. Füge alle Zeilen zusammen ein, nicht einzeln.";
+"cheats.multiline.seedAlone" = "Diese Zeile schaltet nur die übrigen Zeilen ihres Codes frei. Allein bewirkt sie nichts. Füge sie zusammen mit dem Rest ein.";
 
 /* --- Cheat database (libretro, fetched per game) --- */
 "cheats.browse.button" = "Cheat-Codes durchsuchen";
@@ -573,6 +599,8 @@
 "cheats.browse.offline" = "Keine Verbindung. Codes werden einmal pro Spiel geladen und danach auf deinem Gerät behalten.";
 "cheats.browse.failed" = "Die Codes konnten nicht geladen werden. Versuch es erneut.";
 "cheats.browse.credit" = "Codes aus der libretro-Community-Datenbank (CC BY-SA 4.0).";
+/* Cheat browser - codes borrowed from another regional release */
+"cheats.browse.otherRegion" = "Diese Codes stammen aus einer anderen Fassung desselben Spiels: %@. Sie funktionieren oft, aber nicht immer.";
 "settings.cheatDB.section" = "Cheat-Codes";
 "settings.cheatDB.download" = "Codes für meine Spiele laden";
 "settings.cheatDB.progress" = "Wird geladen, %d von %d";
@@ -600,21 +628,24 @@
 "externalDisplay.idle.hint" = "Starte ein Spiel auf deinem iPhone";
 
 /* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Am Fernseher spielen";
-"whatsnew.s1.b1" = "Schick das Spiel per AirPlay oder Kabel auf einen Fernseher, während dein iPhone die Steuerung behält. Pro.";
-"whatsnew.s1.b2" = "Beim DS erscheinen beide Bildschirme am TV, der Touchscreen bleibt auf dem iPhone.";
-"whatsnew.s2.title" = "Der Look der Originalhardware";
-"whatsnew.s2.b1" = "Sechs Videofilter, von CRT bis LCD-Raster, live und fest in deinen Aufnahmen und Clips. Pro.";
-"whatsnew.s2.b2" = "Vierundzwanzig Game-Boy-Paletten, pro Spiel wählbar, für alle kostenlos.";
-"whatsnew.s3.title" = "Cheat-Codes, ohne sie zu tippen";
-"whatsnew.s3.b1" = "Durchsuche die Community-Datenbank für dein laufendes Spiel und tippe einen Code an. Pro.";
-"whatsnew.s3.b2" = "Codes formatieren sich selbst, und ein abgelehnter Code sagt endlich, was nicht stimmt.";
-"whatsnew.s4.title" = "Controller und Tastaturen";
-"whatsnew.s4.b1" = "Belege jede Taste neu, pro Konsole, und leg Vorspulen, Screenshot oder Clip auf eine freie Taste. Pro.";
-"whatsnew.s4.b2" = "Hardware-Tastaturen funktionieren jetzt, kostenlos. Stick-Richtung und DS-Tasten sind korrigiert.";
-"whatsnew.s5.title" = "Deine Spiele auf dem Home-Bildschirm";
-"whatsnew.s5.b1" = "Widgets zeigen deine Spiele als Cover. Ein Tippen öffnet ein Spiel dort, wo du aufgehört hast.";
-"whatsnew.s5.b2" = "Wähle Spiel und Spielstand pro Widget, oder lass es deinem zuletzt gespielten folgen.";
-"whatsnew.s6.title" = "Spielstände und Nintendo DS";
-"whatsnew.s6.b1" = "Exportiere den Spielstand zum Teilen oder Sichern, und Spielstände folgen dir jetzt über iCloud.";
-"whatsnew.s6.b2" = "Steck ein Game-Boy-Advance-Spiel in den zweiten DS-Slot, wie auf der echten Konsole.";
+"whatsnew.s1.title" = "Zwei Konsolen mehr";
+"whatsnew.s1.b1" = "Super-Nintendo- und NES-Spiele laufen jetzt in Retro Pal, und beide Konsolen sind für alle kostenlos.";
+"whatsnew.s1.b2" = "Spielstände, Geschwindigkeit, Rückspulen, Cheats und Erfolge funktionieren dort ab dem ersten Tag.";
+"whatsnew.s2.title" = "Sie sehen aus wie das Original";
+"whatsnew.s2.b1" = "Jede neue Konsole trägt ihr eigenes Gehäuse rund ums Spiel, im Hoch- und im Querformat.";
+"whatsnew.s2.b2" = "Bau dir dein eigenes Design und gib jeder Taste ihre Farbe, dann teile eine Karte davon. {PRO}";
+"whatsnew.s3.title" = "Rückspulen auf jeder Konsole";
+"whatsnew.s3.b1" = "Rückspulen erreicht den Nintendo DS, der dafür einen viel sparsameren Weg für seine viel größeren Schnappschüsse brauchte.";
+"whatsnew.s3.b2" = "Fünf Sekunden für alle, dreißig mit {PRO}, auf allen sechs Konsolen.";
+"whatsnew.s4.title" = "Cheat-Codes, repariert";
+"whatsnew.s4.b1" = "Ein Code über mehrere Zeilen kommt als ein Eintrag hinein, und die App sagt es dir, bevor du es falsch machst.";
+"whatsnew.s4.b2" = "Ein Spiel, dessen eigene Fassung keine Codes hat, kann sich die einer anderen Region derselben Cartridge leihen.";
+"whatsnew.s5.title" = "RetroAchievements";
+"whatsnew.s5.b1" = "Ein Spiel mit mehreren Erfolgsserien zeigt jede Serie jetzt mit eigener Zählung und eigenem Abzeichen.";
+"whatsnew.s5.b2" = "Eine Serie abzuschließen, oder ein ganzes Spiel, bekommt seinen eigenen Moment auf dem Bildschirm.";
+"whatsnew.s6.title" = "Mit angeschlossenem Controller";
+"whatsnew.s6.b1" = "Verschiebe den Spielbildschirm und ändere seine Größe, wenn ein Aufsteck-Controller einen Teil verdeckt. {PRO}";
+"whatsnew.s6.b2" = "Jede Konsole merkt sich ihre eigene Anordnung, im Hoch- und im Querformat.";
+
+/* RetroAchievements - a set that is attached but contributed no rows */
+"ra.dashboard.set.empty" = "Aus dieser Serie sind keine Erfolge geladen.";

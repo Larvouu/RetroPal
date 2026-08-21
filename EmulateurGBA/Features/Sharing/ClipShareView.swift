@@ -500,13 +500,15 @@ struct ClipCardView: View {
         GeometryReader { geo in
             let k = geo.size.width / 1080
             let info = ScreenshotCardRenderer.GameInfo(name: title, playTimeSeconds: playTime, isPro: isPro)
-            let gameSize = CGSize(width: frameAspect, height: 1)
-            let layout = system == .gba ? GBCardLayout.gba(side: 1080, gameNativeSize: gameSize)
-                       : system == .nds ? GBCardLayout.nds(side: 1080, gameNativeSize: gameSize, separatedScreens: true)
-                       : GBCardLayout.make(side: 1080, gameNativeSize: gameSize)
-            let chrome = system == .gba ? ScreenshotCardRenderer.gbaConsoleCard(gameFrame: nil, gameAspect: frameAspect, info: info, variant: variant)
-                       : system == .nds ? ScreenshotCardRenderer.ndsConsoleCard(gameFrame: nil, gameAspect: frameAspect, info: info, separatedScreens: true, variant: variant)
-                       : ScreenshotCardRenderer.gbConsoleCard(gameFrame: nil, gameAspect: frameAspect, info: info, variant: variant)
+            // Same console pair as the exported clip and the screenshot card, from the one
+            // place that maps a console to its card. This view had its OWN copy of that mapping,
+            // ending in "or else the Game Boy", which is why the Super Nintendo's clip PREVIEW
+            // still wore a Game Boy after the exporter was fixed: there were three copies and
+            // fixing one is indistinguishable from fixing the bug until you find the next.
+            let pair = ScreenshotCardRenderer.consoleCard(
+                system: system, gameFrame: nil, gameAspect: frameAspect, info: info, variant: variant)
+            let layout = pair?.layout ?? GBCardLayout.make(side: 1080, gameNativeSize: CGSize(width: frameAspect, height: 1))
+            let chrome = pair?.image
             ZStack(alignment: .topLeading) {
                 if let chrome {
                     Image(uiImage: chrome).resizable()

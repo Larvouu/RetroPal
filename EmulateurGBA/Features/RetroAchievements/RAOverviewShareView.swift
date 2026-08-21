@@ -288,9 +288,11 @@ struct RAOverviewCardView: View {
     /// RA console names for the ids RA support covers here (rcheevos ids).
     private static func consoleName(_ id: UInt32) -> String? {
         switch id {
+        case 3: return "Super Nintendo"
         case 4: return "Game Boy"
         case 5: return "Game Boy Advance"
         case 6: return "Game Boy Color"
+        case 7: return "NES"
         case 18: return "Nintendo DS"
         default: return nil
         }

@@ -60,6 +60,23 @@ struct RAGameRecord: Codable, Equatable {
     /// total then cover ALL subsets and must not be overwritten by the
     /// base-set-only all-user-progress refresh.
     var countsFromLoad: Bool { pointsTotal != nil }
+
+    /// Identified on RA, on a console we bridge, and KNOWN to carry no achievements at all.
+    ///
+    /// `countsFromLoad` is what makes the zero trustworthy. `total` is 0 before any load has
+    /// happened, so reading a bare zero as "no achievements" states a fact we do not have, and it
+    /// is wrong exactly when it is most visible: a famous game whose set anyone can look up.
+    /// Reported on Super Mario World, whose hash resolves fine.
+    ///
+    /// The case this describes is real and not rare: RA answers for a hash it knows, with an
+    /// entry that carries nothing — its "Unsupported Game Version" placeholders are exactly that
+    /// (SMW Europe Rev 1 resolves to game 1100000228, zero achievements). Such a game is eligible
+    /// by identity and useless by content, so every surface should treat it as uncovered.
+    ///
+    /// Lives here rather than in either view because BOTH need it and they must agree: the
+    /// profile listed such a game under "Not on RetroAchievements" while the game's own page
+    /// offered a dashboard that opens on nothing.
+    var hasKnownEmptySet: Bool { countsFromLoad && total == 0 }
 }
 
 /// One still-locked measured achievement's progress, snapshotted from the live
@@ -244,8 +261,17 @@ final class RAGameIndex: ObservableObject {
         var changed = false
         for (key, var record) in records where record.isEligible {
             guard let entry = byGameID[record.gameID] else { continue }
-            if record.countsFromLoad {
+            if record.countsFromLoad && record.total > 0 {
                 record.unlocked = max(record.unlocked, min(entry.unlocked, record.total))
+            } else if record.countsFromLoad {
+                // A record already poisoned by an empty load, on a device that
+                // has one now. The guard above stops new ones; this repairs the
+                // existing ones instead of leaving people to reinstall. The
+                // server total is the only thing that can restore it, and the
+                // branch above cannot, because it deliberately never lowers or
+                // sets a merged total.
+                record.unlocked = entry.unlocked
+                record.total = entry.total
             } else {
                 record.unlocked = entry.unlocked
                 record.total = entry.total
@@ -276,10 +302,26 @@ final class RAGameIndex: ObservableObject {
         record.consoleID = consoleID
         if let title { record.title = title }
         if let boxArtURL { record.boxArtURL = boxArtURL }
-        record.unlocked = unlocked
-        record.total = total
-        record.pointsEarned = pointsEarned
-        record.pointsTotal = pointsTotal
+        // `total == 0` is NOT the statement "this game has no achievements".
+        // It is indistinguishable from "the list was not fetched": rc_client
+        // identifies a game from its hash alone, so a load can return a real
+        // gameID, a real title and real box art while the achievement list
+        // comes back empty (signed out, token refreshing, a request that
+        // failed). That is exactly the reasoning the `gameID != 0` guard above
+        // already applies, one field over.
+        //
+        // Writing the zero was PERMANENT damage, not a stale value. It also
+        // wrote `pointsTotal`, which is what `countsFromLoad` is derived from,
+        // and `applyProgress`'s load branch never restores `total` — it only
+        // raises `unlocked`, clamped by `min(entry.unlocked, record.total)`,
+        // which is 0 when the total is 0. So one empty load pinned a game at
+        // 0 of 0 forever and moved it into "no achievements" with no way back.
+        if total > 0 {
+            record.unlocked = unlocked
+            record.total = total
+            record.pointsEarned = pointsEarned
+            record.pointsTotal = pointsTotal
+        }
         record.refreshedAt = Date()
         records[romHash] = record
         scheduleSave()

@@ -32,6 +32,10 @@ struct RAAchievementsView: View {
     @ObservedObject private var ra = RetroAchievements.shared
     @Environment(\.dismiss) private var dismiss
     @State private var achievements: [RAAchievementInfo] = []
+    /// The game's sets, EMPTY for the ordinary single-set game. Non-empty is
+    /// the only thing that makes the per-set block appear, so a game without
+    /// subsets renders byte-for-byte the dashboard it always rendered.
+    @State private var subsets: [RASubsetInfo] = []
     @State private var shareTarget: RAShareTarget?
     @State private var showAbout = false
     /// Drives the per-game progress share card (everything unlocked here).
@@ -56,6 +60,18 @@ struct RAAchievementsView: View {
         achievements.filter { $0.unlocked }.sorted { $0.rarity > $1.rarity }
     }
     private var lockedList: [RAAchievementInfo] { achievements.filter { !$0.unlocked } }
+
+    /// The dashboard renders one block per set instead of one flat list when
+    /// the game HAS several sets. `subsets` is empty for an ordinary game, so
+    /// this is false almost everywhere and nothing changes there.
+    private var isSplitBySet: Bool { subsets.count > 1 }
+
+    /// The achievements belonging to one set. Matched on rc_client's own
+    /// `subset_id`, which it stamps on every bucket while building the list, so
+    /// this cannot disagree with the set headers above it.
+    private func achievements(inSet subsetID: UInt32) -> [RAAchievementInfo] {
+        achievements.filter { $0.subsetID == subsetID }
+    }
 
     private var earnedPoints: Int { unlockedList.reduce(0) { $0 + $1.points } }
     private var totalPoints: Int { achievements.reduce(0) { $0 + $1.points } }
@@ -125,6 +141,7 @@ struct RAAchievementsView: View {
     private func load() {
         guard let romURL else {
             achievements = ra.achievements()
+            subsets = ra.subsets()
             loadState = .loaded
             return
         }
@@ -132,6 +149,7 @@ struct RAAchievementsView: View {
         ra.loadAchievementsForDisplay(romURL: romURL) { success in
             let list = ra.achievements()
             achievements = list
+            subsets = ra.subsets()
             loadState = (success || !list.isEmpty) ? .loaded : .failed
         }
     }
@@ -195,6 +213,32 @@ struct RAAchievementsView: View {
         if wallLayout {
             // Compact badge wall: unlocked first (rarest last), then locked.
             // Tap unlocked = share card, tap locked = full-text detail sheet.
+            // One grid per set when the game has several, so a bonus set is
+            // visibly a bonus set rather than 30 more badges in the same wall.
+            if isSplitBySet {
+                ForEach(subsets, id: \.subsetID) { subset in
+                    let inSet = achievements(inSet: subset.subsetID)
+                    Section {
+                        if inSet.isEmpty {
+                            emptySetRow
+                        } else {
+                            RABadgeWall(achievements: inSet.filter(\.unlocked).sorted { $0.rarity > $1.rarity }
+                                        + inSet.filter { !$0.unlocked }) { ach in
+                                if ach.unlocked {
+                                    shareTarget = RAShareTarget(achievement: ach,
+                                                                gameName: ra.currentGame?.title ?? "",
+                                                                boxArtURL: ra.currentGameBoxArtURL(),
+                                                                romFilename: romURL?.lastPathComponent)
+                                } else {
+                                    badgeDetail = BadgeDetail(ach: ach)
+                                }
+                            }
+                        }
+                    } header: {
+                        setHeader(subset)
+                    }
+                }
+            } else {
             Section {
                 RABadgeWall(achievements: unlockedList + lockedList) { ach in
                     if ach.unlocked {
@@ -213,6 +257,36 @@ struct RAAchievementsView: View {
                 } else if !unlockedList.isEmpty {
                     Text(String(localized: "ra.dashboard.shareHint",
                                 defaultValue: "Tap an unlocked achievement to share it."))
+                }
+            }
+            }
+        } else if isSplitBySet {
+            // One list per set, earned first inside each, same order the flat
+            // list uses so the reading habit carries over.
+            ForEach(subsets, id: \.subsetID) { subset in
+                let inSet = achievements(inSet: subset.subsetID)
+                Section {
+                    if inSet.isEmpty {
+                        emptySetRow
+                    }
+                    ForEach(Array((inSet.filter(\.unlocked).sorted { $0.rarity > $1.rarity }
+                                   + inSet.filter { !$0.unlocked }).enumerated()), id: \.offset) { _, ach in
+                        if ach.unlocked {
+                            Button {
+                                shareTarget = RAShareTarget(achievement: ach,
+                                                            gameName: ra.currentGame?.title ?? "",
+                                                            boxArtURL: ra.currentGameBoxArtURL(),
+                                                            romFilename: romURL?.lastPathComponent)
+                            } label: {
+                                RAAchievementRow(ach: ach)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            RAAchievementRow(ach: ach)
+                        }
+                    }
+                } header: {
+                    setHeader(subset)
                 }
             }
         } else {
@@ -253,6 +327,52 @@ struct RAAchievementsView: View {
                                 defaultValue: "This game has no achievements, or none are loaded yet."))
                 }
             }
+        }
+    }
+
+    /// A set's header: its name, and the count that belongs to IT alone.
+    ///
+    /// That number is deliberately not the one at the top of the sheet. The
+    /// headline total merges every set, because that is what the player earns
+    /// from and what `af0c185` had to make all our surfaces agree on. These
+    /// per-set numbers are what retroachievements.org shows, because the site
+    /// does not let a bonus set dilute main completion. Both are correct, and
+    /// showing each at its own altitude is what lets them coexist without
+    /// changing anything we persist.
+    /// Shown when a set IS attached but contributed nothing to the list.
+    ///
+    /// It used to be dropped silently, which is the worst of the options: the
+    /// set simply was not there and nothing said why. A set with no rows is
+    /// information, and hiding it is exactly the silent failure the project
+    /// forbids elsewhere.
+    private var emptySetRow: some View {
+        Text(NSLocalizedString("ra.dashboard.set.empty", comment: ""))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func setHeader(_ subset: RASubsetInfo) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            // Each set has its own badge on retroachievements.org, and it is
+            // the fastest way to tell a challenge run from a bonus set without
+            // reading either title.
+            if let badge = subset.badgeURL.flatMap(URL.init(string:)) {
+                AsyncImage(url: badge) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.secondary.opacity(0.15)
+                }
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            Text(subset.title)
+                .lineLimit(2)
+            Spacer(minLength: 8)
+            Text("\(subset.unlocked)/\(subset.total)")
+                .monospacedDigit()
+                .foregroundStyle(subset.unlocked == subset.total && subset.total > 0
+                                 ? Color.orange : Color.secondary)
         }
     }
 

@@ -516,16 +516,33 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
     // Parse each line (codes may have multiple lines separated by newlines or +)
     NSArray *lines = [code componentsSeparatedByCharactersInSet:
                       [NSCharacterSet characterSetWithCharactersInString:@"\n+"]];
-    BOOL anyAdded = NO;
+
+    // EVERY line must parse under this type, or this is the wrong type.
+    //
+    // This used to accept a partial parse, which was worse than it looks. The
+    // caller tries types 0...4 in turn and stops at the first YES, so a type
+    // that happened to swallow line 1 of a four-line code both reported
+    // success AND prevented the type that would have read all four from ever
+    // running. The result was a cheat set holding a quarter of a code, applied
+    // to the game, with no error anywhere: the corrupted-Pokemon symptom.
+    //
+    // Refusing sends the caller on to the next type, and a code that no type
+    // can read in full now fails visibly instead of silently doing something
+    // else. Decided 2026-08-11: reject outright.
+    BOOL allAdded = YES;
+    NSUInteger addedLines = 0;
     for (NSString *line in lines) {
         NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
         if (trimmed.length == 0) continue;
         if (mCheatAddLine(set, [trimmed UTF8String], type)) {
-            anyAdded = YES;
+            ++addedLines;
+        } else {
+            allAdded = NO;
+            break;
         }
     }
 
-    if (anyAdded) {
+    if (allAdded && addedLines > 0) {
         set->enabled = true;
         mCheatAddSet(device, set);
         mCheatRefresh(device, set);
@@ -544,21 +561,29 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
     }
 }
 
-- (void)setCheatsEnabled:(BOOL)enabled {
-    if (!_cheatsInitialized || !_core) return;
-    struct mCheatDevice *device = _core->cheatDevice(_core);
-    if (!device) return;
-    for (size_t i = 0; i < mCheatSetsSize(&device->cheats); i++) {
-        struct mCheatSet *set = *mCheatSetsGetPointer(&device->cheats, i);
-        set->enabled = enabled;
-        mCheatRefresh(device, set);
-    }
-}
-
 // MARK: - EmulatorBridge (NDS stubs)
 
 - (NSInteger)totalBufferHeight {
     return self.screenHeight;
+}
+
+/// GBA pixels are square and so are GB/GBC's, so the display shape is the
+/// buffer's: 240x160 and 160x144. This is the expression the layout used to
+/// compute for itself.
+- (CGFloat)displayAspect {
+    NSInteger h = self.totalBufferHeight;
+    return h > 0 ? (CGFloat)self.screenWidth / (CGFloat)h : 240.0 / 160.0;
+}
+
+/// mGBA writes XBGR8: bytes in memory are R,G,B,X.
+- (BOOL)usesBGRAPixelOrder {
+    return NO;
+}
+
+/// 16,777,216 Hz / 280,896 cycles = 59.7275. The exact value the renderer used
+/// to hardcode for every console, so GBA and GB/GBC pacing is unchanged.
+- (double)framesPerSecond {
+    return 16777216.0 / 280896.0;
 }
 
 - (BOOL)hasTouchScreen {

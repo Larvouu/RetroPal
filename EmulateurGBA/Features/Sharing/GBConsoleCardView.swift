@@ -104,6 +104,37 @@ struct GBCardLayout {
         return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: base.deviceScale)
     }
 
+    /// SNES card layout: the GBA card's, with the A/B pair replaced by the four-button diamond.
+    ///
+    /// The GBA card is the right base because this console wears the GBA's page in the game too:
+    /// one screen, shoulders at the top corners, D-pad left and faces right. What differs is the
+    /// same thing that differs in the game, so it is replaced the same way — as one bloc, in the
+    /// arrangement the hardware has (X above B, Y left of A) rather than the DS's staggered pair.
+    static func snes(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let base = gba(side: S, gameNativeSize: g)
+        let k = base.deviceScale
+        var buttons = base.buttons
+        guard let a = buttons[ControlElement.btnA.rawValue],
+              let b = buttons[ControlElement.btnB.rawValue] else { return base }
+        // The diamond takes the A/B bloc's centre, so nothing else on the card has to move.
+        let cx = (a.centerX + b.centerX) / 2
+        let cy = (a.centerY + b.centerY) / 2
+        let r = ControlElement.btnX.defaultNDSPortraitSize.height * k * 0.92 / S
+        buttons[ControlElement.btnX.rawValue] = ButtonLayout(centerX: cx,     centerY: cy - r)
+        buttons[ControlElement.btnB.rawValue] = ButtonLayout(centerX: cx,     centerY: cy + r)
+        buttons[ControlElement.btnY.rawValue] = ButtonLayout(centerX: cx - r, centerY: cy)
+        buttons[ControlElement.btnA.rawValue] = ButtonLayout(centerX: cx + r, centerY: cy)
+        return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// NES card layout: `make`'s, unchanged. This console wears the Game Boy's page in the game
+    /// too — one screen, no shoulders, D-pad left and A/B right — so it wants the Game Boy card's
+    /// arrangement rather than a shape of its own. Named anyway, so the card mapping has one
+    /// entry per console and nothing falls through to another console's layout by default.
+    static func nes(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        make(side: S, gameNativeSize: g)
+    }
+
     /// NDS card layout: the shared screen + SELECT/START positions from `make`, plus the NDS set —
     /// D-pad at 18%, the A/B/X/Y diamond centred at 82%, L/R top corners, and the MIC in the left
     /// gutter. First-cut positions (the screen is tall + narrow, so there is room in the gutters);
@@ -215,7 +246,7 @@ final class GBConsoleCardView: UIView {
         self.system = system
         self.variant = variant
         // NDS needs the X/Y/MIC buttons, which live on the NDS subclass.
-        self.controls = (system == .nds) ? NDSTouchControlsView() : TouchControlsView()
+        self.controls = TouchControlsView.make(for: system)
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         backgroundColor = .clear
@@ -249,7 +280,7 @@ final class GBConsoleCardView: UIView {
         controls.frame = bounds              // full-card container: button fractions are of the card
         controls.layoutIfNeeded()
         controls.applyLayout(OrientationLayout(buttons: layout.buttons),
-                             isLandscape: false, isNDS: isNDS, deviceScale: k,
+                             isLandscape: false, isNDS: isNDS, system: system, deviceScale: k,
                              opacity: 1.0, scale: 1.0, useJoystick: false)
         controls.setDressed(true, isLandscape: false, system: system, variant: variant)
         controls.layoutIfNeeded()

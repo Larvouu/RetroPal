@@ -84,13 +84,29 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
     /// The resolved scene currently on the canvas (re-resolved after every edit).
     private var scene: PresetLayoutResolver.ResolvedScene?
 
-    init(system: PresetSystem, preset: ControlPreset) {
+    /// Controller mode edits the layout used while a physical controller is
+    /// attached: only the screens and Menu exist, nothing can be hidden, and
+    /// the preview must show the game as it renders WITH a controller (the
+    /// other buttons gone, the screens filling the reclaimed space). The
+    /// preset is a carrier for the two OrientationLayouts here; the caller
+    /// converts back to a ControllerLayout on save.
+    private let controllerMode: Bool
+
+    init(system: PresetSystem, preset: ControlPreset, controllerMode: Bool = false) {
         self.system = system
         self.isNDS = (system == .nds)
         self.preset = preset
         self.useJoystick = preset.useJoystick
+        self.controllerMode = controllerMode
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
+    }
+
+    /// The elements this editor exposes. Controller mode shows Menu alone: it
+    /// is the only control that survives with a pad attached, and it is the
+    /// only on-screen way back to the pause menu.
+    private var editableElements: [ControlElement] {
+        controllerMode ? [ControllerLayout.element] : ControlElement.elements(for: system)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -157,7 +173,7 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
             screenViews.append((component, placeholder))
         }
 
-        for element in ControlElement.elements(for: system) {
+        for element in editableElements {
             let btn: UIView
             switch element {
             case .dpad: btn = useJoystick ? DPadView() : CrossDPadView()
@@ -231,7 +247,11 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
             self?.cancelTapped()
         }
 
-        return UIMenu(children: [done, dpadToggle, reset, cancel])
+        // Controller mode has no D-pad to toggle: only the screens and Menu
+        // exist there, so the choice would be meaningless.
+        return controllerMode
+            ? UIMenu(children: [done, reset, cancel])
+            : UIMenu(children: [done, dpadToggle, reset, cancel])
     }
 
     private func setupOrientationLabel() {
@@ -770,7 +790,8 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
     private func defaultGeometry() -> PresetLayoutResolver.DefaultGeometry {
         PresetLayoutResolver.defaultGeometry(
             system: system, isLandscape: isLandscape,
-            viewSize: view.bounds.size, safeInsets: view.safeAreaInsets)
+            viewSize: view.bounds.size, safeInsets: view.safeAreaInsets,
+            controllerConnected: controllerMode)
     }
 
     /// One-time conversion of a legacy (pre-component) orientation layout to
@@ -787,9 +808,16 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
 
     private func refreshScene() {
         guard view.bounds.width > 0, view.bounds.height > 0 else { return }
-        scene = PresetLayoutResolver.resolve(
-            preset: preset, system: system, isLandscape: isLandscape,
-            viewSize: view.bounds.size, safeInsets: view.safeAreaInsets)
+        // Render through the SAME resolver the game uses, so the preview cannot
+        // drift from what the player will actually see.
+        scene = controllerMode
+            ? PresetLayoutResolver.resolveController(
+                layout: ControllerLayout(portrait: preset.portrait, landscape: preset.landscape),
+                system: system, isLandscape: isLandscape,
+                viewSize: view.bounds.size, safeInsets: view.safeAreaInsets)
+            : PresetLayoutResolver.resolve(
+                preset: preset, system: system, isLandscape: isLandscape,
+                viewSize: view.bounds.size, safeInsets: view.safeAreaInsets)
         positionComponents()
     }
 

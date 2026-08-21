@@ -70,7 +70,7 @@ struct SkinPickerView: View {
         _customSkins = State(initialValue: CustomSkinStore.shared.skins(for: system))
     }
 
-    /// Custom skins are GB/GBC-only today; Create/Import are hidden elsewhere.
+    /// Create/Import are hidden on a console with no dress to recolour (the NES today).
     private var supportsCustom: Bool { system.supportsCustomSkins }
     private var items: [PickerItem] {
         GameSkin.pickerOrder.map { PickerItem.builtin($0) } + customSkins.map { PickerItem.custom($0) }

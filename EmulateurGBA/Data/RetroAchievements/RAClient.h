@@ -60,6 +60,34 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 @property (nonatomic, assign) double measuredPercent;
 /// Percentage of players who have earned this achievement (softcore). 0 if unknown.
 @property (nonatomic, assign) double rarity;
+/// Which set this achievement belongs to, for GROUPING ONLY.
+///
+/// **0 means "this game has one set"**, and that is rc_client's own convention,
+/// not ours: it writes `subset_id = (num_subsets > 1) ? subset->id : 0`. So the
+/// overwhelmingly common case reports 0 and every surface behaves exactly as it
+/// did before subsets existed.
+///
+/// Never persisted. The stored per-game record keeps the MERGED counts, which
+/// is what `af0c185` fixed and must not be undone.
+@property (nonatomic, assign) uint32_t subsetID;
+@end
+
+/// One set inside a multi-set game, with the counts that belong to IT alone.
+///
+/// Exists because two different numbers are both correct and have different
+/// audiences. The merged total (base + bonus sets) is what the player actually
+/// earns from and what every surface of ours must agree on. The per-set total is
+/// what retroachievements.org shows, because the site deliberately does not let
+/// a bonus set dilute main completion. Showing the merged number as the headline
+/// and the per-set numbers as section headers satisfies both at once, and needs
+/// no schema change to do it.
+@interface RASubsetInfo : NSObject
+@property (nonatomic, assign) uint32_t subsetID;
+@property (nonatomic, copy) NSString *title;
+/// The set's own badge on retroachievements.org. Nil when the server sent none.
+@property (nonatomic, copy, nullable) NSString *badgeURL;
+@property (nonatomic, assign) NSInteger unlocked;
+@property (nonatomic, assign) NSInteger total;
 @end
 
 /// One game's progress from the all-user-progress endpoint: how many core
@@ -91,6 +119,20 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
        pointsEarned:(NSInteger)pointsEarned
         pointsTotal:(NSInteger)pointsTotal;
 @optional
+/// Every achievement in the game has been earned. rc_client's
+/// `RC_CLIENT_EVENT_GAME_COMPLETED`, which we listened for nowhere until now,
+/// so the app's single biggest moment passed in silence.
+///
+/// `masteredTitle` is the game's title. Celebration only, never a Pro trigger:
+/// the same rule the unlock HUD already follows.
+- (void)raClient:(RAClient *)client didMasterGameTitle:(NSString *)masteredTitle
+            points:(NSInteger)points;
+/// Every achievement in ONE set has been earned, where the game has several.
+/// rc_client's `RC_CLIENT_EVENT_SUBSET_COMPLETED`. Fires for the base set of a
+/// multi-set game too, so a player finishing the main game hears about it
+/// without having to also finish the bonus sets.
+- (void)raClient:(RAClient *)client didCompleteSubsetTitle:(NSString *)subsetTitle
+            points:(NSInteger)points;
 /// A measured (multi-step) achievement progressed, e.g. "2/151". rc_client
 /// shows the indicator for a couple of seconds then sends the hide event.
 /// Celebration only — mirrors the unlock HUD, never interactive.
@@ -128,6 +170,15 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 /// The loaded game's core achievements for the in-app dashboard (empty if no
 /// game / no set). Built from rc_client; no Web API key required.
 - (NSArray<RAAchievementInfo *> *)currentGameAchievements;
+
+/// The sets making up the loaded game, base set first, EMPTY when the game has
+/// only one set (rc_client reports `subset_id = 0` there, so there is nothing to
+/// group and nothing to label).
+///
+/// Counts come from `rc_client_get_user_subset_summary`, which is the per-set
+/// view retroachievements.org shows. Deliberately NOT a replacement for the
+/// merged totals in the delegate's load callback: see `RASubsetInfo`.
+- (NSArray<RASubsetInfo *> *)currentGameSubsets;
 
 /// Box-art URL for the loaded game (from rc_client; no Web API key). nil if none.
 - (nullable NSString *)currentGameBoxArtURL;

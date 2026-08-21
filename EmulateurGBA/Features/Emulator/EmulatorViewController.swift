@@ -101,15 +101,25 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     init(romURL: URL, session: EmulatorSession) {
         self.romURL = romURL
         self.session = session
-        self.controls = session.hasTouchScreen ? NDSTouchControlsView() : TouchControlsView()
+        // Which control view: the one that owns the buttons this console has.
+        // The DS adds X, Y and Mic; the SNES adds X and Y; everything else uses
+        // the base set. Chosen from the ROM's extension rather than from the
+        // core, because the SNES has no property like `hasTouchScreen` to ask.
+        let isSNES = ROMSystemType.from(fileExtension: romURL.pathExtension) == .snes
+        self.controls = TouchControlsView.make(
+            for: session.hasTouchScreen ? .nds : (isSNES ? .snes : .gba))
         // Resolve the layout family from the ROM extension. NDS is authoritative
         // via the running core (hasTouchScreen); GB/GBC vs GBA comes from the file
         // type, falling back to GBA for anything unrecognized but non-touch.
         if session.hasTouchScreen {
             self.presetSystem = .nds
         } else {
-            let romType = ROMSystemType.from(fileExtension: romURL.pathExtension)
-            self.presetSystem = (romType == .gb || romType == .gbc) ? .gbc : .gba
+            switch ROMSystemType.from(fileExtension: romURL.pathExtension) {
+            case .gb, .gbc: self.presetSystem = .gbc
+            case .snes:     self.presetSystem = .snes
+            case .nes:      self.presetSystem = .nes
+            default:        self.presetSystem = .gba
+            }
         }
         super.init(nibName: nil, bundle: nil)
         currentOrientationMode = GameOrientationMode(
@@ -159,8 +169,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         }
 
         // Pause overlay (hidden initially)
-        overlay.rewindHidden = session.hasTouchScreen  // No rewind for NDS
-        overlay.setLockableButtons(forNDS: session.hasTouchScreen)  // A/B, or A/B/X/Y for NDS
+        // Rewind is now every console's, not just the GBA family. The DS path
+        // samples every five seconds and stores deltas rather than appending a
+        // 19 MB state per frame; see MelonDSBridge's rewind section for the
+        // measurements behind that.
+        overlay.rewindHidden = false
+        // From the controls themselves, not from `hasTouchScreen`: the SNES locks
+        // X and Y as well and that flag cannot say so.
+        overlay.setLockableButtons(controls.lockableLetters)
         overlay.setSkinIcon(UIImage(named: skinIconAssetName))      // console glyph on the Skin button
         overlay.translatesAutoresizingMaskIntoConstraints = false
         overlay.delegate = self
@@ -405,8 +421,27 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        layoutGameView()
+        // A layout pass can be triggered by anything in the tree, not only by something that
+        // moves the game: a label invalidating its intrinsic size is enough. Re-laying the game
+        // then is pure cost on the thread the emulator runs on, and with a preset active it is a
+        // full scene re-resolve plus fifty constraints torn down and rebuilt. So this entry
+        // point does the work only when its inputs actually changed; every DELIBERATE caller
+        // (skin change, controller connect, game start) still forces a full pass.
+        layoutGameView(force: false)
     }
+
+    /// Everything `layoutGameView` reads to decide the geometry. Same values in, same frames out,
+    /// which is what makes skipping safe. Settings that are read inside it (joystick, clip
+    /// visibility, opacity, the active preset) are deliberately absent: none of them can change
+    /// while the game is on screen except through a path that calls `layoutGameView` itself.
+    private struct GameLayoutKey: Equatable {
+        let size: CGSize
+        let insets: UIEdgeInsets
+        let controllerConnected: Bool
+        let gameAspect: CGFloat
+        let hasTouchScreen: Bool
+    }
+    private var lastGameLayoutKey: GameLayoutKey?
 
     /// Whether the system chrome (status bar + home indicator) is currently hidden —
     /// i.e. whether the game is in immersive full-screen mode. Read by the system for
@@ -529,13 +564,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
         lastResumeTime = Date()
 
-        // Check contextual Pro triggers (returns true if a Pro sheet will show)
-        let proWillShow = checkProTriggers()
-
-        // Check App Store review prompt (only if no Pro sheet is coming)
-        if !proWillShow {
-            checkReviewPrompt()
-        }
+        // Check contextual Pro triggers. The return value used to gate the
+        // review card so the two sheets could not collide; the card is gone
+        // since 1.2.5 and the review ask now fires on the quit path, well
+        // after this overlay, so there is nothing left to coordinate.
+        _ = checkProTriggers()
     }
 
     private func hideOverlay() {
@@ -762,49 +795,6 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         return false
     }
 
-    // MARK: - App Store Review Prompt
-
-    private func checkReviewPrompt() {
-        let tracker = PromptTracker.shared
-        guard let arm = tracker.reviewPromptArm(currentSessionSeconds: accumulatedPlaySeconds) else { return }
-
-        tracker.recordReviewPromptPresented()
-
-        // Present the warm-up card after a short delay (same timing as Pro sheets)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.presentReviewCard(arm: arm)
-        }
-    }
-
-    private func presentReviewCard(arm: String) {
-        Analytics.signal("review_prompt_shown", ["trigger": arm])
-        weak var hostRef: ReviewPromptHostController?
-        let reviewView = ReviewPromptView(
-            onRate: { [weak self] in
-                hostRef?.markOutcomeRecorded()
-                Analytics.signal("review_prompt_outcome", ["outcome": "rated", "trigger": arm])
-                PromptTracker.shared.recordReviewPromptRated()
-                self?.dismiss(animated: true) {
-                    // Fire the system review prompt
-                    if let windowScene = self?.view.window?.windowScene {
-                        SKStoreReviewController.requestReview(in: windowScene)
-                    }
-                }
-            },
-            onDismiss: { [weak self] in
-                self?.dismiss(animated: true)
-            }
-        )
-        let host = ReviewPromptHostController(rootView: reviewView)
-        host.arm = arm
-        hostRef = host
-        host.modalPresentationStyle = .pageSheet
-        if let sheet = host.sheetPresentationController {
-            sheet.detents = [.medium()]
-        }
-        present(host, animated: true)
-    }
-
     func overlayDidTapShareScreenshot() {
         // Opened deliberately from the in-game menu: stay up until the user closes it
         // (no auto-dismiss). Only the system-screenshot detection path times out.
@@ -988,10 +978,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     func overlayDidTapCheats() {
         let romName = romURL.deletingPathExtension().lastPathComponent
         let hasBackup = session.saveStateManager?.hasPreCheatBackup ?? false
+        // Read from the header, not the filename: it survives renaming, and it
+        // is the only region-independent identity this game has.
+        let romSystem = ROMSystemType.from(fileExtension: romURL.pathExtension)
         let cheatView = CheatManagerView(
             romName: romName,
             isNDS: session.hasTouchScreen,
-            systemKey: ROMSystemType.from(fileExtension: romURL.pathExtension)?.rawValue ?? "gba",
+            systemKey: romSystem?.rawValue ?? "gba",
+            gameCode: romSystem.flatMap { GBAROMParser.gameCode(url: romURL, system: $0) },
             onAddCheat: { [weak self] code in
                 self?.session.addCheat(code) ?? false
             },
@@ -1077,19 +1071,26 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         SkinSelection.decode(UserDefaults.standard.string(forKey: skinKey))
     }
 
-    /// The selection actually rendered. A custom control preset for this console forces the
+    /// The selection actually rendered. A custom layout for this console forces the
     /// whole console to Invisible: the console-body dress is positioned around the
     /// DEFAULT button frames and can't track a custom layout (matches the picker, which
-    /// disables the dressed skins while a preset is active).
+    /// disables the dressed skins while a custom layout is active).
     private var effectiveSelection: SkinSelection {
-        if ControlLayoutStore.shared.activePreset(system: presetSystem) != nil { return .builtin(.invisible) }
-        return storedSelection
+        skinLockedToInvisible ? .builtin(.invisible) : storedSelection
     }
 
-    /// Whether this console has a custom control preset active, so the dressed skins are
+    /// Whether this console has a custom layout active, so the dressed skins are
     /// unavailable and the picker is restricted to Invisible. Drives the picker sheet.
+    ///
+    /// Two ways in, one reason. A touch preset frees the screens from the default
+    /// geometry the dress is drawn around. A controller layout does exactly the
+    /// same thing, and only while a controller is actually attached — otherwise
+    /// customising the controller layout would silently strip the dress from
+    /// touch play, which the player never asked for.
     var skinLockedToInvisible: Bool {
-        ControlLayoutStore.shared.activePreset(system: presetSystem) != nil
+        if ControlLayoutStore.shared.activePreset(system: presetSystem) != nil { return true }
+        return ControllerManager.shared.isConnected
+            && ControlLayoutStore.shared.activeControllerLayout(system: presetSystem) != nil
     }
 
     /// The dress palette variant for the effective selection: Retro Pal recolour, a user custom
@@ -1134,6 +1135,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case "gb":  return "console-gb"
         case "gbc": return "console-gbc"
         case "nds": return "console-nds"
+        case "sfc", "smc": return "console-snes"
+        case "nes": return "console-nes"
         default:    return "console-gba"
         }
     }
@@ -1249,15 +1252,20 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     func overlayDidTapQuit() {
-        // Direct system review request (1.2.3): decided BEFORE persistPlayTime,
-        // whose recordSessionEnd bumps sessionCount and zeroes the live
-        // seconds — the trigger must see the session as it was played.
+        // Direct system review request: decided BEFORE persistPlayTime, which
+        // banks the live seconds into the per-game total and zeroes them — the
+        // trigger must see the sitting as it was played, and must not
+        // double-count it against the game's stored time.
         var liveSessionSeconds = accumulatedPlaySeconds
         if session.isRunning {
             liveSessionSeconds += Date().timeIntervalSince(lastResumeTime)
         }
+        // Same derivation persistPlayTime uses for the per-game key, or the
+        // 30-minute per-game bar would read a different game's total.
+        let reviewGameName = romURL.deletingPathExtension().lastPathComponent
         let directReviewTrigger = PromptTracker.shared
-            .directReviewRequestTrigger(currentSessionSeconds: liveSessionSeconds)
+            .directReviewRequestTrigger(romName: reviewGameName,
+                                        currentSessionSeconds: liveSessionSeconds)
 
         persistPlayTime()
         // One bucketed signal per ended game session: how much people actually
@@ -1483,35 +1491,60 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     /// Sets metalView frame directly (no Auto Layout) and updates controls.
     /// Called from viewDidLayoutSubviews so bounds are always correct.
-    private func layoutGameView() {
+    private func layoutGameView(force: Bool = true) {
         let viewSize = view.bounds.size
         let safeInsets = view.safeAreaInsets
         let isLandscape = viewSize.width > viewSize.height
 
-        let gameW = CGFloat(session.screenWidth > 0 ? session.screenWidth : EmulatorSession.defaultScreenWidth)
-        // Use totalBufferHeight for the rendered area (384 for NDS, screenHeight for GBA)
-        let gameH = CGFloat(session.totalBufferHeight > 0 ? session.totalBufferHeight : EmulatorSession.defaultScreenHeight)
-        let gameAspect = gameW / gameH
+        // The DISPLAY shape, which the core declares. For the first four consoles
+        // it is the buffer's own ratio (240x160, 160x144, the NDS 256x384 stack),
+        // exactly what this line used to compute; SNES/NES are 4:3 while their
+        // buffers are not, which is why the core answers instead of the layout.
+        let gameAspect = session.displayAspect > 0
+            ? session.displayAspect
+            : CGFloat(EmulatorSession.defaultScreenWidth) / CGFloat(EmulatorSession.defaultScreenHeight)
 
         // NDS portrait keeps the default stacked split (the old per-preset S/M/L
         // screen-size feature was removed; preset-driven free screen layout
         // replaces it).
         let isNDS = session.hasTouchScreen
         let controllerConnected = ControllerManager.shared.isConnected
+
+        let key = GameLayoutKey(size: viewSize, insets: safeInsets,
+                                controllerConnected: controllerConnected,
+                                gameAspect: gameAspect, hasTouchScreen: isNDS)
+        if !force, key == lastGameLayoutKey { return }
+        lastGameLayoutKey = key
+
         if isNDS {
             metalView.ndsTopScreenRatio = 0.495
         }
 
         metalView.ndsSideBySide = isLandscape && session.hasTouchScreen
 
-        // Resolve the active preset into absolute view-space frames for every
-        // component (screens + controls) — the same resolver the editor renders
-        // from, so the two cannot drift. nil = the built-in default layout.
-        // With a controller connected the preset is set aside: the on-screen
-        // controls hide and the screens fill the reclaimed space, as before.
+        // Resolve a layout into absolute view-space frames for every component
+        // (screens + controls) — the same resolver the editor renders from, so
+        // the two cannot drift. nil = the built-in default geometry.
+        //
+        // Two different layouts, chosen by whether a controller is attached,
+        // because they want opposite things: a touch preset places the screens
+        // to leave room for the on-screen buttons, while with a controller the
+        // buttons are gone and the screens want the whole display. A touch
+        // preset is therefore NOT reused in controller mode, and vice versa.
+        //
+        // Both fall back to nil, which is the untouched pre-1.2.5 path: a free
+        // user, a system never customised, or a lapsed Pro subscriber all reach
+        // exactly the geometry the app rendered before this feature existed.
         let presetScene: PresetLayoutResolver.ResolvedScene?
-        if !controllerConnected,
-           let preset = ControlLayoutStore.shared.activePreset(system: presetSystem) {
+        if controllerConnected {
+            if let controllerLayout = ControlLayoutStore.shared.activeControllerLayout(system: presetSystem) {
+                presetScene = PresetLayoutResolver.resolveController(
+                    layout: controllerLayout, system: presetSystem, isLandscape: isLandscape,
+                    viewSize: viewSize, safeInsets: safeInsets)
+            } else {
+                presetScene = nil
+            }
+        } else if let preset = ControlLayoutStore.shared.activePreset(system: presetSystem) {
             presetScene = PresetLayoutResolver.resolve(
                 preset: preset, system: presetSystem, isLandscape: isLandscape,
                 viewSize: viewSize, safeInsets: safeInsets)
@@ -1579,11 +1612,17 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         metalView.isOpaque = true
         metalView.backgroundColor = .black
         if let scene = presetScene {
-            // Preset screens: the NDS metal view spans the whole view, so it
-            // must not paint outside its quads (clears to transparent around
-            // them); the single-screen consoles' frame IS the screen and their
-            // opacity rides on the view alpha set above.
-            metalView.isOpaque = false
+            // Preset screens. The NDS metal view spans the whole view and must not paint outside
+            // its quads, so it clears to transparent and is genuinely non-opaque.
+            //
+            // A single-screen console is NOT: its frame IS the screen, it fills that frame, and
+            // its opacity rides on the view alpha set above. It was marked non-opaque anyway,
+            // which asks the compositor to blend a screen-sized layer against everything behind
+            // it on every frame, for a layer with nothing behind it to show. That is per-frame
+            // GPU work bought for nothing, and it landed on exactly the consoles a preset is
+            // most likely to be used on. It stays non-opaque when the preset really does make
+            // the screen translucent, which is the only case where the blend is the point.
+            metalView.isOpaque = isNDS ? false : (metalView.alpha >= 1)
             if isNDS { metalView.backgroundColor = .clear }
             consoleSkin.ndsScreens = []
             if session.hasTouchScreen, let touchOverlay = ndsTouchOverlay {
@@ -1704,6 +1743,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Leading safe-area inset (Dynamic Island side in landscape) — keeps the GB/GBC
         // landscape D-pad out from under the island.
         let safeLeftInset = view.safeAreaInsets.left
+        // And the TRAILING one, which is the island's side in the other landscape rotation.
+        // The SNES needs it: its face buttons live in the right gutter.
+        let safeRightInset = view.safeAreaInsets.right
         if let scene = presetScene {
             // Active preset: per-component centers/sizes/opacity from the
             // resolved scene, exactly as the editor showed them.
@@ -1711,7 +1753,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         } else {
             // No preset: the built-in default layout with the global opacity/size.
             controls.applyDefaultLayout(isLandscape: isLandscape, system: presetSystem,
-                                        deviceScale: deviceScale, safeLeftInset: safeLeftInset)
+                                        deviceScale: deviceScale, safeLeftInset: safeLeftInset,
+                                        safeRightInset: safeRightInset)
         }
 
         // Dress the buttons (maroon A/B, grey pills, charcoal cross) when the system's buttons
