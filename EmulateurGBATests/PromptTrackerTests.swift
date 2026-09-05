@@ -185,8 +185,8 @@ struct PromptTrackerTests {
 
     /// The design choice most likely to be "tidied up" by a future reader:
     /// there is NO lifetime cap and NO terminal state. Apple's display quota
-    /// is the limiter, a suppressed request costs nothing, and this is the
-    /// shape the most-rated emulator on the store uses. Locked by a test.
+    /// is the limiter and a suppressed request costs nothing. Settled, and
+    /// locked by this test so it is not tidied away.
     @Test
     func test_noLifetimeCap_theAskKeepsQualifyingForever() {
         let (pt, defaults, suite) = makeTracker()

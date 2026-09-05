@@ -7,7 +7,7 @@
 //  onboarding empty state), and stays reachable anytime from Settings →
 //  About → "What's New". Content lives in Localizable.strings under the
 //  stable whatsnew.s* keys, rewritten in place each release together with
-//  the ASC What's New (standing obligation, see TODOS.md).
+//  the App Store release notes, rewritten in place every release.
 //
 
 import SwiftUI
@@ -51,39 +51,61 @@ struct WhatsNewContent {
     let noticeKey: String?
     let sections: [ContentSection]
 
-    /// The CURRENT release's notes (the open 1.2.5 train).
+    /// The CURRENT release's notes, and they are OPEN.
     ///
-    /// Ordered by what a player actually gains, not by what was hard to build:
-    /// the two new consoles first because they are the release, then what they
-    /// look like, then the thing most asked for (rewind on DS), then the two
-    /// areas that were quietly broken, then the Pro layout.
+    /// The 1.3.0 train carries more than the PlayStation, and only the
+    /// PlayStation is built. These three sections are true today and nothing
+    /// here describes anything that is not; the rest of the train appends s4
+    /// onward as it lands. **This release must not submit while these notes
+    /// describe less than it ships** — the once-per-update gate compares
+    /// against `version`, so stale notes fail silent rather than loudly.
     ///
-    /// It also carries a notice, which is why that slot exists: the lifetime
-    /// price rises in a coming release, and saying so BEFORE it happens is the
-    /// entire point of announcing it. It is paired with what does NOT change,
-    /// because "the price is going up" on its own is the half of the sentence
-    /// that worries the people who will never pay anything.
+    /// The 1.2.5 sections were removed rather than left in place. A leftover
+    /// section is copy about a release the player already has, sitting in a
+    /// sheet that only opens to say what is new, and it would ship the moment
+    /// someone forgot to look.
+    ///
+    /// Ordered by what a player actually gains: the console first because it IS
+    /// the release, then getting a game into it (a disc is the first thing this
+    /// console does differently from every other one here), then the pad.
+    ///
+    /// ⚠ THE PRO NOTICE IS GONE, and its absence is a decision (decided on device,
+    /// 2026-08-27). It announced a coming lifetime price rise, and by the time
+    /// this sheet shows, that rise will have happened. The people who needed
+    /// warning were warned in 1.2.5, which is what the notice was for. Telling
+    /// somebody arriving today that it used to be cheaper is not a courtesy to
+    /// them, it is an apology to nobody. Do not reinstate it, and do not
+    /// replace it with a "prices have changed" line.
     static let current = WhatsNewContent(
-        version: "1.2.5",
-        noticeKey: "whatsnew.notice.pro",
+        version: "1.3.0",
+        noticeKey: nil,
         sections: [
-            // The two machines, under the sentence that announces them and in
-            // the same order it names them: Super Nintendo first, NES second.
-            // This is the one section that carries art, because it is the one
-            // whose news is a THING rather than a behaviour.
+            // The machine, carrying its art, for the same reason the two
+            // machines did in 1.2.5: this is the section whose news is a THING
+            // rather than a behaviour.
+            // s1.b4 added 2026-08-30: the console's LOOK had no bullet at all,
+            // and the dress plus the repaintable pad were a large part of this
+            // build. 1.2.5 gave its two new consoles a whole section for the
+            // same thing. It sits here rather than in s5 because it is about
+            // THIS machine, while s5's moulded joystick is a change every
+            // console gets.
             ContentSection(titleKey: "whatsnew.s1.title",
-                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2"],
-                           artNames: ["console-snes", "console-nes"]),
+                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2",
+                                        "whatsnew.s1.b3", "whatsnew.s1.b4"],
+                           artNames: ["console-ps1"]),
             ContentSection(titleKey: "whatsnew.s2.title",
-                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2"]),
+                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2",
+                                        "whatsnew.s2.b3"]),
             ContentSection(titleKey: "whatsnew.s3.title",
                            bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2"]),
+            // The things this train added that are not the PlayStation, in TWO
+            // sections rather than one: cheats and controls were sharing a
+            // heading and they are not the same subject, so a player scanning
+            // for one was reading past the other.
             ContentSection(titleKey: "whatsnew.s4.title",
-                           bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2"]),
+                           bulletKeys: ["whatsnew.s4.b1"]),
             ContentSection(titleKey: "whatsnew.s5.title",
                            bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2"]),
-            ContentSection(titleKey: "whatsnew.s6.title",
-                           bulletKeys: ["whatsnew.s6.b1", "whatsnew.s6.b2"]),
         ]
     )
 }
@@ -136,6 +158,18 @@ struct WhatsNewSheet: View {
     /// sit at the end of a sentence (the skin and controller-layout bullets) or in
     /// the middle of one (the rewind bullet says "thirty with X, on all six
     /// consoles"), and only the string knows which.
+    ///
+    /// ⚠ **EVERY MENTION OF RETRO PAL PRO IN THIS SHEET GOES THROUGH THIS
+    /// TOKEN. Never write the product's name into a bullet as words** (decided on device,
+    /// 2026-08-28). Two reasons, and the second is why it is a rule rather than
+    /// a preference. The tag is how a player TELLS a Pro line from a free one at
+    /// a glance, so a bullet that says the name in prose reads as an ordinary
+    /// sentence and the gate disappears. And the adjustable-rewind bullet had
+    /// already made the subtler mistake this prevents: written as "up to your 30
+    /// with Pro" it sounded like everyone gets the feature and Pro merely gets
+    /// longer, when the choice itself is the Pro part and a free player has no
+    /// row at all. The standing rule is also written into the release checklist, beside the
+    /// per-release obligation to rewrite these strings.
     private static let proToken = "{PRO}"
     /// The product's full name, deliberately not localized: it is a proper noun,
     /// and it is the same three words on every store in the world.

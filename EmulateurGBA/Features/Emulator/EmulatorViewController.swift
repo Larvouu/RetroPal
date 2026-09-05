@@ -43,7 +43,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         get { _currentSpeed }
         set {
             _currentSpeed = newValue
-            let key = "speed_\(romURL.deletingPathExtension().lastPathComponent)"
+            let key = "speed_\(romName)"
             UserDefaults.standard.set(newValue, forKey: key)
         }
     }
@@ -105,22 +105,17 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // The DS adds X, Y and Mic; the SNES adds X and Y; everything else uses
         // the base set. Chosen from the ROM's extension rather than from the
         // core, because the SNES has no property like `hasTouchScreen` to ask.
-        let isSNES = ROMSystemType.from(fileExtension: romURL.pathExtension) == .snes
-        self.controls = TouchControlsView.make(
-            for: session.hasTouchScreen ? .nds : (isSNES ? .snes : .gba))
-        // Resolve the layout family from the ROM extension. NDS is authoritative
-        // via the running core (hasTouchScreen); GB/GBC vs GBA comes from the file
-        // type, falling back to GBA for anything unrecognized but non-touch.
-        if session.hasTouchScreen {
-            self.presetSystem = .nds
-        } else {
-            switch ROMSystemType.from(fileExtension: romURL.pathExtension) {
-            case .gb, .gbc: self.presetSystem = .gbc
-            case .snes:     self.presetSystem = .snes
-            case .nes:      self.presetSystem = .nes
-            default:        self.presetSystem = .gba
-            }
-        }
+        // The control view is chosen from the SAME resolution as the layout
+        // family below, rather than from a separate chain of flags. It used to
+        // ask two questions ("is it the DS?", "is it the SNES?") and a third
+        // console would have needed a third; this asks one.
+        let romSystem = ROMSystemType.from(fileExtension: romURL.pathExtension)
+        let family: PresetSystem = session.hasTouchScreen ? .nds : Self.layoutFamily(romSystem)
+        // NDS stays authoritative via the running core (`hasTouchScreen`);
+        // every other console comes from the file type, falling back to the GBA
+        // for anything unrecognised but non-touch.
+        self.controls = TouchControlsView.make(for: family)
+        self.presetSystem = family
         super.init(nibName: nil, bundle: nil)
         currentOrientationMode = GameOrientationMode(
             rawValue: UserDefaults.standard.string(forKey: orientationKey) ?? "") ?? .auto
@@ -148,6 +143,19 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         controls.translatesAutoresizingMaskIntoConstraints = false
         controls.delegate = self
         controls.onMenuTap = { [weak self] in self?.showOverlay() }
+        // The PlayStation pad's ANALOG switch. Cast rather than added to the
+        // base class, the same way the DS's microphone is reached: no other
+        // console has anything this control corresponds to.
+        (controls as? PS1TouchControlsView)?.onModePressed = { [weak self] in
+            self?.session.pressAnalogModeButton()
+        }
+        // The on-screen sticks. They report y positive DOWN already, which is
+        // what the session passes on, so unlike a physical pad there is nothing
+        // to flip: GameController is the one source that measures the other way.
+        (controls as? PS1TouchControlsView)?.onSticksChanged = { [weak self] left, right in
+            self?.session.setAnalogSticks(leftX: left.x, leftY: left.y,
+                                          rightX: right.x, rightY: right.y)
+        }
         // In-game clip control: same flow as the pause menu's Clip button, one tap.
         // Guard re-entry. the touch handler can fire repeatedly while a finger rests
         // on the button, and presenting twice would stack/​warn.
@@ -540,11 +548,49 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         guard overlay.isHidden else { return }
         session.pause()
         metalView.stopRendering()
+        // ⚠ FLUSH THE BATTERY SAVE HERE, and the PlayStation is why.
+        //
+        // On every other console the core owns the save file and writes it as
+        // the game saves: mGBA holds its VFile open, melonDS rewrites it. The
+        // PlayStation's memory card is a 128 KB block of RAM that ONLY our own
+        // flush ever writes, so between two flushes the card on disk is however
+        // old the last one left it. Until now the only flushes were on
+        // backgrounding and on quit, which is enough for the two ways a session
+        // normally ends and nothing else.
+        //
+        // Opening the pause menu is the cheapest honest moment to add: the
+        // emulation is already stopped, the write is 128 KB, and it is the
+        // action a player takes right after saving in-game more often than any
+        // other. It is a no-op in effect on the three cores that were already
+        // writing their own file, and it costs a few milliseconds on a screen
+        // that is not animating.
+        //
+        // On the IO queue, like every other save this class does, so a slow
+        // filesystem never stalls the menu opening.
+        let flushing = session
+        saveIOQueue.async { flushing.flushBatterySave() }
         overlay.setCurrentSpeed(currentSpeed)
         overlay.setSoundEnabled(!session.isAudioMuted)
         overlay.setButtonLockEnabled(controls.buttonLockEnabled)
         overlay.setOrientationMode(currentOrientationMode)
+        // The rewind button's long-press depths, read HERE rather than held:
+        // both bounds move while the game is played, so a menu built once at
+        // launch would offer thirty seconds to a player who has played four.
+        overlay.setRewindDepths(rewindDepths())
         overlay.refreshProState()
+        // Discs: read from the core rather than remembered, because a state
+        // loaded from a slot can have been saved with a different disc in the
+        // drive. Cheap enough to do on the main thread (a count and a few
+        // labels), unlike the slots below, which touch disk.
+        overlay.updateDiscs(session.discs.map { disc in
+            // A label the player wrote in their .m3u is shown exactly as they
+            // wrote it. The core's fallback is a bare number, and turning that
+            // into "Disc 2" is the caller's job by the bridge's own contract.
+            let text = disc.labelIsFallback
+                ? String(format: NSLocalizedString("overlay.disc.numbered", comment: ""), disc.label)
+                : disc.label
+            return (index: Int(disc.index), label: text)
+        }, current: session.currentDiscIndex)
         overlay.isHidden = false
         updateControlsVisibility()
 
@@ -655,7 +701,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 guard let self = self else { return }
                 // Core-loop engagement: deliberate manual saves only (the
                 // auto-save is machine behavior and would just mirror quits).
-                Analytics.signal("save_state", ["action": "save"])
+                Analytics.signalOnce("save_state", ["action": "save"])
                 self.overlay.updateSlots(slots)
 
                 // Trigger 2: Save slot full — all free slots used
@@ -697,7 +743,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             let success = session.loadState(slot: slot)
             DispatchQueue.main.async {
                 if success {
-                    Analytics.signal("save_state", ["action": "load"])
+                    Analytics.signalOnce("save_state", ["action": "load"])
                     self?.hideOverlay()
                 }
             }
@@ -705,22 +751,83 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
 
+    /// Swap the disc in the drive, then get out of the way: the game is sitting
+    /// on a "please insert disc N" screen and the player's next action is to
+    /// look at it, not at this menu.
+    ///
+    /// A refusal is surfaced rather than swallowed. If the core will not take
+    /// the disc, staying silent would leave the player back in a game still
+    /// asking for something it never received, with nothing to explain it.
+    func overlayDidSelectDisc(index: Int) {
+        guard session.changeToDisc(at: index) else {
+            let alert = UIAlertController(
+                title: NSLocalizedString("overlay.disc.failed.title", comment: ""),
+                message: NSLocalizedString("overlay.disc.failed.message", comment: ""),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: NSLocalizedString("common.ok", comment: ""), style: .default))
+            present(alert, animated: true)
+            return
+        }
+        hideOverlay()
+    }
+
+    /// The tap: rewind as far as this tier allows, which is what the button has
+    /// always done and what its title says. Unchanged.
     func overlayDidTapRewind() {
+        performRewind(seconds: RewindDepths.tapSeconds(maxSeconds: rewindMaxSeconds,
+                                                       playedSeconds: rewindPlayedSeconds))
+    }
+
+    /// The long press: rewind by the depth the player picked from the row under
+    /// the button.
+    func overlayDidSelectRewind(seconds: Int) {
+        performRewind(seconds: RewindDepths.chosenSeconds(seconds,
+                                                          maxSeconds: rewindMaxSeconds,
+                                                          playedSeconds: rewindPlayedSeconds))
+    }
+
+    /// How deep this tier can go. The free five seconds and the Pro thirty are
+    /// the split the rewind ring was built around; the ring itself holds 35 on
+    /// every console, so this is a product line and not a memory limit.
+    private var rewindMaxSeconds: Int {
+        UserDefaults.standard.bool(forKey: "isPro") ? 30 : 5
+    }
+
+    /// How long this sitting has actually run. While the overlay is up,
+    /// `showOverlay` has already banked the live interval and reset the mark, so
+    /// the first term reads about zero and the second carries the total.
+    private var rewindPlayedSeconds: Int {
+        Int(Date().timeIntervalSince(lastResumeTime) + accumulatedPlaySeconds)
+    }
+
+    /// The depths the long-press row offers. The rule and its reasoning live in
+    /// `RewindDepths`, where they can be tested; this only supplies the two
+    /// readings that are the view controller's to know.
+    private func rewindDepths() -> [Int] {
+        RewindDepths.available(maxSeconds: rewindMaxSeconds,
+                               playedSeconds: rewindPlayedSeconds)
+    }
+
+    private func performRewind(seconds: Int) {
         let isPro = UserDefaults.standard.bool(forKey: "isPro")
-        let maxSeconds = isPro ? 30 : 5
-        let playedSeconds = Int(Date().timeIntervalSince(lastResumeTime) + accumulatedPlaySeconds)
-        let actualSeconds = min(maxSeconds, max(1, playedSeconds - 1))
-        let frames = actualSeconds * 60
+        let frames = max(1, seconds) * 60
         let success = session.rewind(frames: frames)
         hideOverlay()
         if isPro && success {
             Analytics.signal("pro_feature_used", ["feature": "rewind_30s"])
         }
 
-        // Trigger 4: Rewind limit — if free user rewound max 5s, hint at 30s.
-        // Only fires after several max-rewinds (tracked in PromptTracker),
-        // not on the first tap, to avoid feeling aggressive.
-        if !isPro && actualSeconds >= 5 && success {
+        // Trigger 4: Rewind limit — if a free user rewound their whole five
+        // seconds, hint at thirty. Only after several max-rewinds (tracked in
+        // PromptTracker), never on the first tap.
+        //
+        // `seconds` is what was asked for and the tap already clamps it to the
+        // tier, so a free player asking for their maximum arrives here as 5 —
+        // the same reading the old `actualSeconds` gave. The long press cannot
+        // reach this branch with a smaller number, because a free tier has only
+        // one depth and therefore no menu.
+        if !isPro && seconds >= 5 && success {
             PromptTracker.shared.recordMaxRewind()
             if PromptTracker.shared.shouldShowRewindLimit() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -738,6 +845,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let vc = ProUpgradeHostingController(context: context) { [weak self] in
             guard let self else { return }
             self.overlay.refreshProState()
+            // Pro bought from inside the pause menu: the depth row was built for
+            // the free tier a moment ago and would otherwise stay that way until
+            // the next pause.
+            self.overlay.setRewindDepths(self.rewindDepths())
             if let manager = self.session.saveStateManager {
                 DispatchQueue.global(qos: .userInitiated).async {
                     let slots = manager.allManualSlotsWithLockState()
@@ -783,7 +894,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         }
 
         // Trigger 5: Cheat codes (4+ hours on the same game)
-        let gameName = romURL.deletingPathExtension().lastPathComponent
+        let gameName = romName
         if tracker.shouldShowCheatCodes(romName: gameName) {
             tracker.markCheatCodesShown(romName: gameName)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -808,9 +919,24 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// Display name + current per-game play time for the share cards (screenshot
     /// + clip), so both show the same title and time. Name is the user's rename
     /// if set, else the cleaned ROM filename ("POKEMON FIRE (USA, Europe)" ->
+    /// What this game is called on disk: the key its save states, play time,
+    /// per-game settings, skin, palette, filter, cheats and previews are all
+    /// filed under.
+    ///
+    /// Read from `BatterySaveImporter`, which the app already calls the single
+    /// source of truth for this, instead of being recomputed. It was recomputed
+    /// eighteen times in this file as "the ROM filename without its extension",
+    /// and that answer was right until a console arrived whose game is a FOLDER:
+    /// a disc's save states are filed under the folder, while every one of those
+    /// eighteen said the boot file. They disagreed, and the first visible symptom
+    /// was a PlayStation game with a save state showing no preview in the
+    /// library, because the library looked under a name nothing had written.
+    private var romName: String {
+        BatterySaveImporter.romBasename(forROMURL: romURL)
+    }
+
     /// "Pokemon Fire"). Play time = stored per-game total plus the live session.
     private func currentShareInfo() -> (name: String, playTime: TimeInterval) {
-        let romName = romURL.deletingPathExtension().lastPathComponent
         let playTime = PromptTracker.shared.gamePlayTime(romName: romName)
             + Date().timeIntervalSince(lastResumeTime) + accumulatedPlaySeconds
         let trimmed = gameTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -976,7 +1102,6 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     func overlayDidTapCheats() {
-        let romName = romURL.deletingPathExtension().lastPathComponent
         let hasBackup = session.saveStateManager?.hasPreCheatBackup ?? false
         // Read from the header, not the filename: it survives renaming, and it
         // is the only region-independent identity this game has.
@@ -1041,7 +1166,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     /// Per-game key for the hold-to-lock preference (off by default).
     private var buttonLockKey: String {
-        "buttonLock_\(romURL.deletingPathExtension().lastPathComponent)"
+        "buttonLock_\(romName)"
     }
 
     func overlayDidSelectOrientation(_ mode: GameOrientationMode) {
@@ -1055,14 +1180,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     /// Per-game key for the screen-orientation preference (auto by default).
     private var orientationKey: String {
-        "orientation_\(romURL.deletingPathExtension().lastPathComponent)"
+        "orientation_\(romName)"
     }
 
     // MARK: - Per-game skin (in-game menu ▸ Skin)
 
     /// Per-game key for the on-screen skin choice (Nostalgia by default).
     private var skinKey: String {
-        "skin_\(romURL.deletingPathExtension().lastPathComponent)"
+        "skin_\(romName)"
     }
 
     /// The skin the player picked for this game (Nostalgia if never set). May be a built-in
@@ -1118,13 +1243,13 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// Per-game key for the screenshot + clip card-style choice. Empty / absent = the card
     /// follows the live in-game skin (see `ShareCardStyle.effective`).
     private var shareCardStyleKey: String {
-        ShareCardStyle.choiceKey(forRom: romURL.deletingPathExtension().lastPathComponent)
+        ShareCardStyle.choiceKey(forRom: romName)
     }
 
     private var shareCardSkinContext: ShareCardSkinContext {
         // The shared resolver (also used by the RA achievement card, which has no
         // live VC): same stored-skin decode, same preset-locks-to-Invisible rule.
-        ShareCardSkinContext.forRom(romName: romURL.deletingPathExtension().lastPathComponent,
+        ShareCardSkinContext.forRom(romName: romName,
                                     system: presetSystem)
     }
 
@@ -1137,7 +1262,27 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case "nds": return "console-nds"
         case "sfc", "smc": return "console-snes"
         case "nes": return "console-nes"
+        // Every disc extension is one console. The note that used to sit here
+        // said this console had no art and shipped undressed; it was dressed on
+        // 2026-08-25 and `ConsoleSkinView.hasSkin` answers yes for all six, so
+        // this row is live like every other.
+        case let ext where ROMSystemType.discFileExtensions.contains(ext):
+            return "console-ps1"
         default:    return "console-gba"
+        }
+    }
+
+    /// The layout family a ROM's system belongs to. GB and GBC share one, and
+    /// anything unrecognised falls back to the GBA, which is what the app has
+    /// always done for a file whose extension it does not know.
+    private static func layoutFamily(_ system: ROMSystemType?) -> PresetSystem {
+        switch system {
+        case .gb, .gbc: return .gbc
+        case .nds:      return .nds
+        case .snes:     return .snes
+        case .nes:      return .nes
+        case .ps1:      return .ps1
+        case .gba, nil: return .gba
         }
     }
 
@@ -1188,7 +1333,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     /// This game's stored DMG palette id (per-game, Classic Green by default).
     private var storedPaletteID: String {
-        GBPalettes.storedID(forRomBasename: romURL.deletingPathExtension().lastPathComponent)
+        GBPalettes.storedID(forRomBasename: romName)
     }
 
     /// Palette pick from the Appearance sheet's Screen tab: persist + apply
@@ -1196,7 +1341,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// colors show from the next emulated frame (resume). The preview cards
     /// carry the recolored look meanwhile.
     private func overlayDidSelectPalette(_ palette: GBPalette) {
-        let key = GBPalettes.storageKey(forRomBasename: romURL.deletingPathExtension().lastPathComponent)
+        let key = GBPalettes.storageKey(forRomBasename: romName)
         UserDefaults.standard.set(palette.id, forKey: key)
         session.applyGBPalette(palette)
     }
@@ -1206,7 +1351,6 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// The Metal loop is paused under the sheet, so the change shows at
     /// resume — the preview cards carry the filtered look meanwhile.
     private func overlayDidSelectFilter(_ filter: VideoFilter) {
-        let romName = romURL.deletingPathExtension().lastPathComponent
         UserDefaults.standard.set(filter.rawValue, forKey: VideoFilter.storageKey(forRomBasename: romName))
         metalView.videoFilter = VideoFilter.effective(forRomBasename: romName)
     }
@@ -1235,7 +1379,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             initialPaletteID: storedPaletteID,
             onSelectPalette: { [weak self] palette in self?.overlayDidSelectPalette(palette) },
             initialFilterID: VideoFilter.effective(
-                forRomBasename: romURL.deletingPathExtension().lastPathComponent).rawValue,
+                forRomBasename: romName).rawValue,
             onSelectFilter: { [weak self] filter in self?.overlayDidSelectFilter(filter) })
 
         let host = UIHostingController(rootView: sheet)
@@ -1262,7 +1406,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         }
         // Same derivation persistPlayTime uses for the per-game key, or the
         // 30-minute per-game bar would read a different game's total.
-        let reviewGameName = romURL.deletingPathExtension().lastPathComponent
+        let reviewGameName = romName
         let directReviewTrigger = PromptTracker.shared
             .directReviewRequestTrigger(romName: reviewGameName,
                                         currentSessionSeconds: liveSessionSeconds)
@@ -1320,7 +1464,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             lastResumeTime = Date()
         }
         guard accumulatedPlaySeconds > 0 else { return }
-        let gameName = romURL.deletingPathExtension().lastPathComponent
+        let gameName = romName
         PromptTracker.shared.recordSessionEnd(playSeconds: accumulatedPlaySeconds)
         PromptTracker.shared.recordGamePlayTime(romName: gameName, seconds: accumulatedPlaySeconds)
         sessionTotalPlaySeconds += accumulatedPlaySeconds
@@ -1359,8 +1503,19 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let manager = ControllerManager.shared
         // This console family's custom button mapping (Pro; nil = built-in).
         manager.activeMapping = ControllerMappingStore.effective(for: presetSystem)
+        manager.activeSystem = presetSystem
         manager.onButtonsChanged = { [weak self] mask in
             self?.session.setKeys(mask)
+        }
+        // Analog is a PHYSICAL-CONTROLLER path only, by decision: the touch
+        // overlay keeps sending the button mask alone, so nothing about playing
+        // on glass changes. The session drops these on every core but the
+        // PlayStation's.
+        manager.onSticksChanged = { [weak self] lx, ly, rx, ry in
+            // GameController is the only source here that measures +1 as UP, so
+            // this is where it is turned the right way up. Everything downstream
+            // speaks y-down, like UIKit and like the console.
+            self?.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry)
         }
         // The pad's spare menu-ish button (DS4/DualSense touchpad click, Xbox
         // Share) opens the pause menu, like the on-screen Menu button.
@@ -1789,7 +1944,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// boots with an empty slot, exactly like removing the cart.
     private func configureGBASlot2IfNeeded() {
         guard romURL.pathExtension.lowercased() == "nds" else { return }
-        let ndsBasename = romURL.deletingPathExtension().lastPathComponent
+        let ndsBasename = romName
         guard let storedFilename = UserDefaults.standard.string(forKey: "gbaSlot2_\(ndsBasename)"),
               !storedFilename.isEmpty else { return }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -1828,12 +1983,25 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // file can go missing or get truncated/corrupted on disk — the cause of
         // the rare "won't load" black screen that only delete + re-import fixes.
         // Catch it here, log the specifics, and show an actionable message.
+        // A disc game is a FOLDER, so "is the game intact" is a question about
+        // every file in it and not about the few kilobytes of text the core is
+        // pointed at. `DiscStorage` answers both cases; for a cartridge it is
+        // the file's own size, exactly as before.
+        //
+        // The size test is EXACT, for a folder as much as for a file. It was
+        // briefly one-sided for discs, on the theory that a disc folder might
+        // legitimately gain a file after import; the case that prompted it
+        // turned out to be a deleted file, so the check had been right all
+        // along and the loosening was protecting against nothing. Nothing in
+        // the app writes into a game's folder after the import, so if a total
+        // ever does move, that is news and should fail loudly.
         let fm = FileManager.default
-        let onDiskSize = ((try? fm.attributesOfItem(atPath: romURL.path))?[.size] as? NSNumber)?.int64Value
+        let onDiskSize = DiscStorage.installedSize(ofROMAt: romURL)
+        let isDisc = DiscStorage.gameFolder(forROMAt: romURL) != nil
         let exists = fm.fileExists(atPath: romURL.path)
         let sizeMismatch = expectedROMSize > 0 && onDiskSize != nil && onDiskSize != expectedROMSize
         if !exists || onDiskSize == nil || onDiskSize == 0 || sizeMismatch {
-            let diag = "exists=\(exists) size=\(onDiskSize ?? -1) expected=\(expectedROMSize) file=\(romURL.lastPathComponent)"
+            let diag = "exists=\(exists) disc=\(isDisc) size=\(onDiskSize ?? -1) expected=\(expectedROMSize) file=\(romURL.lastPathComponent)"
             Self.romLoadLog.error("ROM preflight failed: \(diag, privacy: .public)")
             showLoadFailed()
             return
@@ -1851,7 +2019,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 _ = session.loadState(slot: slot)
             }
             // Restore per-game speed preference (migrates Int→Double)
-            let speedKey = "speed_\(romURL.deletingPathExtension().lastPathComponent)"
+            let speedKey = "speed_\(romName)"
             var savedSpeed = UserDefaults.standard.double(forKey: speedKey)
             if savedSpeed == 0 { savedSpeed = 1.0 }
             // Clamp to free speeds if not Pro (free: 1.0, 1.5)
@@ -1880,7 +2048,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             session.applyGBPalette(GBPalettes.palette(id: storedPaletteID))
             // This game's display filter (Pro; .none otherwise or unset).
             metalView.videoFilter = VideoFilter.effective(
-                forRomBasename: romURL.deletingPathExtension().lastPathComponent)
+                forRomBasename: romName)
             session.isAudioMuted = UserDefaults.standard.bool(forKey: "audioMuted")
             metalView.startRendering()
 
@@ -1906,7 +2074,6 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     private func applySavedCheats() {
-        let romName = romURL.deletingPathExtension().lastPathComponent
         let key = "cheats_\(romName)"
         guard let data = UserDefaults.standard.data(forKey: key),
               let cheats = try? JSONDecoder().decode([CheatManagerView.StoredCheat].self, from: data)

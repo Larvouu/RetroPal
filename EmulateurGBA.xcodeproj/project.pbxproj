@@ -15,6 +15,7 @@
 		AA000011AAAA0011AAAAAAAA /* libmelonds-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */; };
 		AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002AAAA0002AAAAAAAA /* libteakra.a */; };
 		AA000013AAAA0013AAAAAAAA /* libmesen-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000003AAAA0003AAAAAAAA /* libmesen-core.a */; };
+		AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +59,7 @@
 		AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmelonds-core.a"; path = "Vendor/melonds-ios/lib/libmelonds-core.a"; sourceTree = SOURCE_ROOT; };
 		AA000002AAAA0002AAAAAAAA /* libteakra.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libteakra.a; path = "Vendor/melonds-ios/lib/libteakra.a"; sourceTree = SOURCE_ROOT; };
 		AA000003AAAA0003AAAAAAAA /* libmesen-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmesen-core.a"; path = "Vendor/mesen-ios/lib/libmesen-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libpcsx-core.a"; path = "Vendor/pcsx-ios/lib/libpcsx-core.a"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -133,6 +135,7 @@
 				AA000011AAAA0011AAAAAAAA /* libmelonds-core.a in Frameworks */,
 				AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */,
 				AA000013AAAA0013AAAAAAAA /* libmesen-core.a in Frameworks */,
+				AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */,
 				2678BF692FF1A907008F9AC6 /* TelemetryDeck in Frameworks */,
 				264C179A2FF3B21400AB5BFD /* rcheevos in Frameworks */,
 			);
@@ -169,6 +172,7 @@
 				AA000001AAAA0001AAAAAAAA /* libmelonds-core.a */,
 				AA000002AAAA0002AAAAAAAA /* libteakra.a */,
 				AA000003AAAA0003AAAAAAAA /* libmesen-core.a */,
+				AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */,
 				264C1CEC301763B400AB5BFD /* WidgetKit.framework */,
 				264C1CEE301763B400AB5BFD /* SwiftUI.framework */,
 			);
@@ -423,7 +427,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -435,7 +439,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.5;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -455,7 +459,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -467,7 +471,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.5;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -606,7 +610,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -618,6 +622,8 @@
 					"$(SRCROOT)/Vendor/mesence",
 					"$(SRCROOT)/Vendor/mesence/Core",
 					"$(SRCROOT)/Vendor/mesence/Utilities",
+					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
+					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
@@ -630,8 +636,9 @@
 					"$(inherited)",
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
+					"$(SRCROOT)/Vendor/pcsx-ios/lib",
 				);
-				MARKETING_VERSION = 1.2.5;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -648,7 +655,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -660,6 +667,8 @@
 					"$(SRCROOT)/Vendor/mesence",
 					"$(SRCROOT)/Vendor/mesence/Core",
 					"$(SRCROOT)/Vendor/mesence/Utilities",
+					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
+					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
@@ -672,8 +681,9 @@
 					"$(inherited)",
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
+					"$(SRCROOT)/Vendor/pcsx-ios/lib",
 				);
-				MARKETING_VERSION = 1.2.5;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

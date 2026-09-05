@@ -44,13 +44,16 @@ import Foundation
 enum BatterySaveSystem {
     /// .sav file — accepts GBA, GB, GBC and NES targets.
     case savFamily
-    /// .srm file — accepts NDS and SNES targets.
+    /// .srm file — accepts NDS, SNES and PlayStation targets.
     case srmFamily
+    /// .mcd file — a PlayStation memory card, and nothing else uses the name.
+    case mcdFamily
 
     static func from(fileExtension ext: String) -> BatterySaveSystem? {
         switch ext.lowercased() {
         case "sav": return .savFamily
         case "srm": return .srmFamily
+        case "mcd": return .mcdFamily
         default:    return nil
         }
     }
@@ -66,7 +69,13 @@ enum BatterySaveSystem {
     var compatibleSystemTypes: Set<String> {
         switch self {
         case .savFamily: return ["gba", "gb", "gbc", "nes"]
-        case .srmFamily: return ["nds", "snes"]
+        // The PlayStation joins the .srm family as well as owning .mcd, and
+        // that is not a guess: in the frontend-managed card mode we ask for,
+        // libretro frontends write the card out as `.srm`. So the two names a
+        // player is likely to already have both land on the right game, which
+        // matters more than tidiness on a console whose save model is new here.
+        case .srmFamily: return ["nds", "snes", "ps1"]
+        case .mcdFamily: return ["ps1"]
         }
     }
 
@@ -92,6 +101,12 @@ enum BatterySaveSystem {
             //      rejected as "not a battery save" on import, which is why the
             //      size set is a property of the FAMILY and not of one console.
             return [512, 2048, 8192, 32768, 65536, 131072, 262144, 524288, 1048576, 8388608]
+        case .mcdFamily:
+            // A PlayStation memory card is exactly one size, 128 KB: fifteen
+            // blocks of 8 KB plus the directory. Anything else under this name
+            // is one of the wrapped formats (.gme, .vgs, .vmp) that carry a
+            // header, and those are a different file even when renamed.
+            return [131072]
         }
     }
 }
@@ -252,7 +267,27 @@ enum BatterySaveImporter {
     /// path — i.e. silently orphan their saves. Centralised here as the single
     /// source of truth and frozen by `BatterySaveImporterTests`.
     static func romBasename(forStoredFilename romFilePath: String) -> String {
-        URL(fileURLWithPath: romFilePath).deletingPathExtension().lastPathComponent
+        // A disc game is stored as `<folder>/<boot file>`, and the FOLDER is
+        // the game: its boot file can be called anything, two different games
+        // can both boot from a file called `disc1.cue`, and the folder is the
+        // part the importer guarantees unique. Cartridges carry no separator
+        // and are unchanged.
+        let components = romFilePath.split(separator: "/")
+        if components.count > 1, let folder = components.first {
+            return String(folder)
+        }
+        return URL(fileURLWithPath: romFilePath).deletingPathExtension().lastPathComponent
+    }
+
+    /// The same key, from the ROM's location on disk rather than from the
+    /// stored path. `EmulatorSession` has the URL and not the entity, and this
+    /// keeps the two derivations from drifting: whatever names the game here
+    /// names its save, its save states, its per-game filter and its palette.
+    static func romBasename(forROMURL url: URL) -> String {
+        if let folder = DiscStorage.gameFolder(forROMAt: url) {
+            return folder.lastPathComponent
+        }
+        return url.deletingPathExtension().lastPathComponent
     }
 
     /// Copy the imported save into Documents/BatterySaves under the target

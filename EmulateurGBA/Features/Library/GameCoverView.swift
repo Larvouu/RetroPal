@@ -85,8 +85,12 @@ struct GameCoverView: View {
 
     private func loadLatestPreview() -> UIImage? {
         guard let filename = romFilePath else { return nil }
-        // Use URL API to strip any extension (.gba, .gb, .gbc) correctly
-        let romName = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
+        // The game's storage key, from the one function that answers it. It was
+        // "the filename without its extension", which is right for a cartridge
+        // and wrong for a disc: that game lives in a FOLDER and its save states
+        // are filed under the folder, so this looked for previews under a name
+        // nothing had ever written.
+        let romName = BatterySaveImporter.romBasename(forStoredFilename: filename)
         guard !romName.isEmpty else { return nil }
 
         let manager = SaveStateManager(romName: romName)

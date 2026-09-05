@@ -5,7 +5,7 @@
 //  Pure, testable engine that mirrors the LOCAL save-state tree (the source of
 //  truth) with the iCloud container, in BOTH directions and NON-DESTRUCTIVELY.
 //
-//  Design: SAVE_SYNC_LOCAL_FIRST.md. The short version:
+//  Design, in short:
 //   - Local is authoritative; iCloud is a mirror. Whether the user can SEE a save
 //     never depends on iCloud state.
 //   - Reconcile per SLOT, keyed on the `.state` binary; its `.png` preview travels

@@ -162,6 +162,30 @@ struct SkinEditorView: View {
                     ("skin.editor.surround", nesBinding(\.surroundHex)),
                     ("skin.editor.dpad", nesBinding(\.padHex)),
                     ("skin.editor.abButtons", nesBinding(\.faceHex))]
+        // FIVE slots since 2026-08-27, and the list below is the authority: an
+        // older version of this note said three and outlived the change by a
+        // commit. `dpad` still recolours most of this pad at once, which is the
+        // hardware's own doing rather than a shortcut: the cross, the sticks,
+        // all four shoulders, ANALOG, SELECT and START are one plastic on the
+        // real machine. What the two newer slots add is the plastic BEHIND the
+        // four faces and the INK printed on the pad, which are the two things
+        // that were never that plastic.
+        //
+        // `face` is in the palette and is still not offered, for the original
+        // reason: it holds the same value as `pad` and the editor writes it
+        // from `pad`, so a skin cannot drift the two apart into a pad this
+        // console never had.
+        case .ps1:
+            // Five, and no more. The four SYMBOLS are deliberately absent and
+            // must stay absent: square, cross, circle and triangle are how a
+            // player identifies a button. Everything else on this pad, the
+            // seats, the plateaus, the engraved catches, DERIVES from these
+            // five rather than adding a swatch of its own.
+            return [("skin.editor.body", ps1Binding(\.bodyHex)),
+                    ("skin.editor.surround", ps1Binding(\.surroundHex)),
+                    ("skin.editor.dpad", ps1Binding(\.padHex)),
+                    ("skin.editor.faceButtons", ps1Binding(\.diamondHex)),
+                    ("skin.editor.printedText", ps1Binding(\.printHex))]
         case .gbc:
             return [("skin.editor.body", gbcBinding(\.bodyHex)),
                     ("skin.editor.surround", gbcBinding(\.surroundHex)),
@@ -214,6 +238,20 @@ struct SkinEditorView: View {
     private func nesBinding(_ kp: WritableKeyPath<NESSkinPalette, UInt32>) -> Binding<UInt32> {
         Binding(get: { if case .nes(let p) = palette { return p[keyPath: kp] }; return 0 },
                 set: { v in if case .nes(var p) = palette { p[keyPath: kp] = v; palette = .nes(p) } })
+    }
+
+    private func ps1Binding(_ kp: WritableKeyPath<PS1SkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .ps1(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in
+                    if case .ps1(var p) = palette {
+                        p[keyPath: kp] = v
+                        // `face` follows `pad`, always. They are one plastic on
+                        // this pad, and letting a stored skin drift them apart
+                        // would put a console on screen that never existed.
+                        if kp == \PS1SkinPalette.padHex { p.faceHex = v }
+                        palette = .ps1(p)
+                    }
+                })
     }
 
     private var saveButton: some View {

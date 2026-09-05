@@ -409,9 +409,21 @@ struct ProUpgradeView: View {
                 Spacer(minLength: 12)
 
                 Divider().background(Color.white.opacity(0.08))
-                ProCTAStrip(compact: true, onDismiss: { dismiss() })
-                    .padding(.top, 8).padding(.bottom, 4)
-                legalFooter.padding(.bottom, 8)
+                // The purchase block scrolls IF it has to. It fits as designed
+                // at every Dynamic Type size we ship at, but this column has no
+                // scroll of its own and simply clipped when the third plan was
+                // added, which is a purchase button a player cannot reach. The
+                // left column has carried this same treatment since 2026-07-25
+                // for the same reason, and with no bounce modifier either:
+                // `scrollBounceBehavior(.basedOnSize)` is the obvious tidy-up
+                // here and it is iOS 16.4, while this app ships to 16.0.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ProCTAStrip(compact: true, onDismiss: { dismiss() })
+                            .padding(.top, 8).padding(.bottom, 4)
+                        legalFooter.padding(.bottom, 8)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -449,9 +461,21 @@ struct ProUpgradeView: View {
                 Spacer(minLength: 12)
 
                 Divider().background(Color.white.opacity(0.08))
-                ProCTAStrip(compact: true, onDismiss: { dismiss() })
-                    .padding(.top, 8).padding(.bottom, 4)
-                legalFooter.padding(.bottom, 8)
+                // The purchase block scrolls IF it has to. It fits as designed
+                // at every Dynamic Type size we ship at, but this column has no
+                // scroll of its own and simply clipped when the third plan was
+                // added, which is a purchase button a player cannot reach. The
+                // left column has carried this same treatment since 2026-07-25
+                // for the same reason, and with no bounce modifier either:
+                // `scrollBounceBehavior(.basedOnSize)` is the obvious tidy-up
+                // here and it is iOS 16.4, while this app ships to 16.0.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ProCTAStrip(compact: true, onDismiss: { dismiss() })
+                            .padding(.top, 8).padding(.bottom, 4)
+                        legalFooter.padding(.bottom, 8)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -512,9 +536,17 @@ struct ProUpgradeView: View {
 
                     Spacer(minLength: 8)
 
-                    ProCTAStrip(compact: true, onDismiss: { dismiss() })
-
-                    legalLinksStacked
+                    // Same reasoning as the other two landscape columns: the
+                    // flexible spacers absorb the first few points, and this
+                    // takes over rather than clipping the buy button. This is
+                    // the narrowest column in the app (28% of the width), so it
+                    // is the one where a Dynamic Type bump bites first.
+                    ScrollView {
+                        VStack(spacing: 14) {
+                            ProCTAStrip(compact: true, onDismiss: { dismiss() })
+                            legalLinksStacked
+                        }
+                    }
 
                     Spacer(minLength: 8)
                 }

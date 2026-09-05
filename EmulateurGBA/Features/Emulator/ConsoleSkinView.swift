@@ -76,6 +76,10 @@ final class ConsoleSkinView: UIView {
     /// Whether a system has a dress at all — the host uses this to show/hide the view.
     /// (The NES has no dress yet: it would show a Game Boy body around an NES game, which is
     /// worse than the plain page it gets instead.)
+    /// The PlayStation has no dress yet, and this is the sentence the file
+    /// already anticipated: a per-console dress follows as its own release, and
+    /// wrapping a PlayStation game in a Super Nintendo body would be worse than
+    /// the plain page it gets instead.
     static func hasSkin(for system: PresetSystem) -> Bool { true }
 
     /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, and since the NES
@@ -96,6 +100,8 @@ final class ConsoleSkinView: UIView {
                                              controllerConnected: controllerConnected)
         case .nes: return NintendoEntertainmentSystemSkin(variant: variant, cardMode: cardMode,
                                                           controllerConnected: controllerConnected)
+        case .ps1: return PlayStationSkin(variant: variant, cardMode: cardMode,
+                                          controllerConnected: controllerConnected)
         }
     }
 
@@ -3185,7 +3191,7 @@ struct SuperNintendoSkin: ConsoleSkin {
 /// and the deep inlaid panel around the screen. Inspired-by: our own art, the era's colours, no
 /// marks.
 ///
-/// The palette is `Store/components/console-nes.svg`, the drawing this app already ships as the
+/// The palette is the `console-nes` imageset, the drawing this app already ships as the
 /// Appearance button's icon, so the picture of the console and the console you hold cannot
 /// describe the same machine differently. Body #D2D5DC, faces and band #D9412B, cross and pills
 /// #262628, the wells #8A8F9C, screen panel #3A3550.
@@ -3667,4 +3673,637 @@ struct NintendoEntertainmentSystemSkin: ConsoleSkin {
         p.close()
         return p
     }
+}
+
+// MARK: - PlayStation
+
+/// The PlayStation dress.
+///
+/// ONE DARK TONE DOES EVERY CONTROL, and that is this console's colour logic
+/// rather than a simplification. A Super Nintendo colours its four face
+/// buttons; a PlayStation leaves all four the same plastic as the cross, the
+/// shoulders, the sticks and the two little buttons in the middle, and prints a
+/// pale symbol on each. So there is one `control` colour here where the Super
+/// Nintendo's dress needs five, and the four inks are label colours.
+///
+/// THE SKIN OWNS MORE OF THIS PAD THAN OF THE OTHERS. Every engraved label is
+/// drawn here rather than by its button: L1, L2, R1, R2 and ANALOG carry their
+/// name INSIDE the plate, SELECT and START carry theirs BELOW, and the two
+/// stick clicks carry theirs on a plate that is the body's own colour. Those
+/// are three different relationships between a button and its word, and a
+/// button view that had to know which one it was in would be a worse place for
+/// that knowledge than the dress that decides it.
+struct PlayStationSkin: ConsoleSkin {
+
+    var variant: DressVariant = .nostalgia
+    var cardMode: Bool = false
+    var controllerConnected: Bool = false
+
+    // MARK: Palette
+
+    private var custom: PS1SkinPalette? { variant.ps1Palette }
+    private var bodyMid: UIColor {
+        custom?.body ?? (variant == .retroPal ? RetroPalPalette.ps1Body : DressKind.ps1Body) }
+    private var bodyTop: UIColor { RetroPalPalette.bodyGradient(bodyMid).top }
+    private var bodyBottom: UIColor { RetroPalPalette.bodyGradient(bodyMid).bottom }
+    private var surround: UIColor {
+        custom?.surround ?? (variant == .retroPal ? RetroPalPalette.ps1Surround : DressKind.ps1Surround) }
+    /// The one control colour: cross arrows, stick dishes, face plastic, all
+    /// four shoulders, ANALOG, SELECT, START, and the MENU / CLIP seats.
+    private var control: UIColor {
+        custom?.pad ?? (variant == .retroPal ? RetroPalPalette.ps1Face : DressKind.ps1Dark) }
+
+
+    /// An engraved word, always DARKER than the plate it is cut into. Darker and
+    /// not lighter because that is what carving does to a surface: the letter is
+    /// a hole, and a hole in plastic is in shadow. It works on both dresses
+    /// without a special case, since both plates are mid-tones.
+    private func engraved(on plate: UIColor) -> UIColor {
+        plate.rpMixed(with: .black, plate.rpIsLight ? 0.42 : 0.34)
+    }
+
+    private var brandInk: UIColor {
+        bodyMid.rpIsLight ? bodyMid.rpMixed(with: .black, 0.34)
+                          : bodyMid.rpMixed(with: .white, 0.40) }
+    private var brandImage: UIImage? { RetroPalPalette.brandIcon(tinted: brandInk) }
+
+    // MARK: Draw
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        drawBody(ctx, bounds)
+        guard !screen.isEmpty else { return }
+        // BEFORE the panel, not after. In landscape the diamond's plateau reaches
+        // under the picture's frame, and drawn afterwards it printed a grey disc
+        // ON the screen surround. Under it, the surround simply covers what it
+        // overlaps, which is what a raised area behind a screen does.
+        drawRaisedGround(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawScreenPanel(ctx, bounds: bounds, screen: screen, isLandscape: isLandscape, scale: scale)
+        // EVERY CONTROL DRAWS ITSELF on this console, so the skin draws none of
+        // them. It draws what a button cannot: the shell, the panel around the
+        // picture, and the seat each face button sits in.
+        drawSetControls(buttons: buttons, scale: scale)
+        drawPadWedges(buttons: buttons, scale: scale)
+        drawFaceSeats(buttons: buttons, scale: scale)
+        drawBrand(bounds: bounds, screen: screen, buttons: buttons,
+                  isLandscape: isLandscape, scale: scale)
+    }
+
+    /// The two round plateaus, one under the cross and one under the diamond.
+    ///
+    /// A shade lighter than the shell, which is what they are on the hardware and
+    /// one of the very few marks on this pad that is neither a control nor a
+    /// printed word. They are what tells a thumb it has arrived without looking.
+    ///
+    /// Sized from the CONTROLS' own frames rather than from a constant, so a
+    /// custom preset that moves or resizes either cluster keeps its plateau under
+    /// it. Circumscribed plus a lip: the cross's arm tips and the diamond's four
+    /// outer edges then sit just inside the rim rather than crossing it.
+
+
+    /// EVERYTHING ON THIS PAD THAT STANDS PROUD, as ONE shape.
+    ///
+    /// Four raised circles: a plateau under the cross, one under the diamond,
+    /// and a boss under each stick. They overlap, and drawn one after another
+    /// each carried its own rim, so the seams showed exactly where two raised
+    /// areas met — which is the one place a moulded shell has no line at all.
+    /// Unioned first and lit once, the four read as a single piece of plastic
+    /// with four swellings in it, and there is no demarcation left to see.
+    ///
+    /// RAISED, not carved. Every other thing here is set INTO the shell (nine
+    /// wells, two holes) and these are the parts of a DualShock that are not.
+    private func drawRaisedGround(buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                  scale: CGFloat) {
+        let lip = 6 * scale
+        let faceRects = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { buttons[$0] }
+        var blocRect: CGRect?
+        if var union = faceRects.first {
+            for f in faceRects.dropFirst() { union = union.union(f) }
+            blocRect = union
+        }
+        // A FIXED PROPORTION OF THE CLUSTER, on every page and every device.
+        //
+        // It was sized from the DISTANCE BETWEEN the two clusters in portrait, so
+        // that they met in the middle by a set amount. That rule is wrong twice
+        // over. It is not scale-invariant: on a 14 Pro it works out to 1.37 of
+        // the cross, which is the proportion that looks right, but on an SE the
+        // clusters are nearly as far apart while the cross is much smaller, so it
+        // reached 1.91 and the two plateaus swallowed the page. And it means
+        // nothing at all where the clusters are not a page-width apart — in
+        // landscape they sit in opposite gutters, and on the card it worked out
+        // to a 700-point disc on a 1080 canvas.
+        //
+        // What matters is the plateau against the thing it grounds, so that is
+        // what is set. Whether they touch is then a consequence, and on most
+        // phones they do.
+        let paired: CGFloat? = {
+            guard let pad = buttons[.dpad] else { return nil }
+            return max(pad.width, pad.height) * ControlLayoutDefaults.ps1PlateauScale
+        }()
+        func circle(_ centre: CGPoint, _ d: CGFloat) -> UIBezierPath {
+            UIBezierPath(ovalIn: CGRect(x: centre.x - d / 2, y: centre.y - d / 2,
+                                        width: d, height: d))
+        }
+        var ground: [UIBezierPath] = []
+        for cluster in [buttons[.dpad], blocRect].compactMap({ $0 }) {
+            // Never smaller than the cluster it is the ground for.
+            let d = max(paired ?? 0, max(cluster.width, cluster.height) + lip * 2)
+            if d > 0 { ground.append(circle(CGPoint(x: cluster.midX, y: cluster.midY), d)) }
+        }
+        for element in [ControlElement.stickLeft, .stickRight] {
+            guard let f = buttons[element] else { continue }
+            ground.append(circle(CGPoint(x: f.midX, y: f.midY),
+                                 max(f.width, f.height) * ControlLayoutDefaults.ps1StickBossSpan))
+        }
+        // THE TWO TONES ARE SWAPPED from where they started: the raised ground
+        // now wears what the printed marks wore, and the marks wear the shell's
+        // own lighter tone. It reads better because it is the right way round on
+        // the hardware: the swelling is a piece of the CASE, and the mark on it
+        // is ink, so the ink should be the darker of the two.
+        if var merged = ground.first?.cgPath {
+            for piece in ground.dropFirst() { merged = merged.union(piece.cgPath) }
+            drawRaised(UIBezierPath(cgPath: merged), fill: raisedGroundFill, scale: scale)
+        }
+
+        // THE CROSS MARK, printed on each plateau: ONE shape big enough to hold
+        // the four keys and the four wedges together, so the eight read as a
+        // single object rather than as marks scattered over a disc.
+        //
+        // The diamond's is the SAME reach, so the two span the same distance,
+        // but its arms are the width that gives each of its four buttons an
+        // equal margin on every side — a cross inside a cross wants one width, a
+        // diamond inside a cross wants another, and forcing them to share would
+        // pick one of the two clusters to look wrong.
+        //
+        // In the SHELL's raised tone, which the ground used to carry.
+        if let pad = buttons[.dpad] {
+            // HALFWAY BETWEEN the mark's own tone and the ground it is printed
+            // on. At full contrast the mark read as a second object sitting on
+            // the plateau; at the midpoint it reads as a marking IN it, which is
+            // what a moulded line on a shell actually is.
+            groundTone.rpMixed(with: markInk, 0.5).setFill()
+            CrossDPadView.ps1PlateauCross(in: pad).fill()
+            if let bloc = blocRect, let a = buttons[.btnA] {
+                let reach = CrossDPadView.ps1PlateauReach(in: pad)
+                let step = abs(a.midX - bloc.midX)
+                let moved = CrossDPadView.ps1PlateauCross(
+                    in: pad,
+                    armHalf: CrossDPadView.ps1DiamondArmHalf(reach: reach, step: step))
+                moved.apply(CGAffineTransform(translationX: bloc.midX - pad.midX,
+                                              y: bloc.midY - pad.midY))
+                moved.fill()
+            }
+        }
+    }
+
+    // MARK: Body
+
+    private func drawBody(_ ctx: CGContext, _ bounds: CGRect) {
+        let colors = [bodyTop.cgColor, bodyMid.cgColor, bodyBottom.cgColor] as CFArray
+        if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                 colors: colors, locations: [0, 0.55, 1]) {
+            ctx.drawLinearGradient(grad, start: CGPoint(x: bounds.midX, y: bounds.minY),
+                                   end: CGPoint(x: bounds.midX, y: bounds.maxY), options: [])
+        } else {
+            bodyMid.setFill(); ctx.fill(bounds)
+        }
+        ctx.saveGState(); ctx.setAlpha(0.5)
+        GameBoySkin.grain.drawAsPattern(in: bounds)
+        ctx.restoreGState()
+        let centre = CGPoint(x: bounds.midX, y: bounds.midY)
+        let vig = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.12).cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: vig, locations: [0.55, 1]) {
+            ctx.drawRadialGradient(g, startCenter: centre, startRadius: 0, endCenter: centre,
+                                   endRadius: max(bounds.width, bounds.height) * 0.62,
+                                   options: .drawsAfterEndLocation)
+        }
+    }
+
+    private func drawScreenPanel(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                                 isLandscape: Bool, scale: CGFloat) {
+        // The two numbers live on `ControlLayoutDefaults` because the LAYOUT
+        // needs them too: landscape places its SELECT · MENU · START row below
+        // this skirt, not below the picture, and a row measured from one while
+        // the frame is drawn from the other is a row that sits on the frame.
+        let skirt = (isLandscape ? ControlLayoutDefaults.ps1LandscapeSkirt
+                                 : ControlLayoutDefaults.ps1PortraitSkirt) * scale
+        let panel = screen.insetBy(dx: -skirt, dy: -skirt)
+        let path = UIBezierPath(roundedRect: panel, cornerRadius: 10 * scale)
+        surround.setFill(); path.fill()
+        drawRelief(path, inset: 2 * scale, corner: 10 * scale, scale: scale)
+    }
+
+    // MARK: Plates
+
+    /// The seat under each face button: a dark area very slightly larger than
+    /// the button, so at rest it is a hairline and on press it opens up as the
+    /// button shrinks into it. Every other console here has one; this console
+    /// went without and its faces floated on the shell.
+    private func drawFaceSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        let lip = 1.5 * scale
+        // BLACK, not a dark grey. These read as holes the buttons come up
+        // through, and a hole is not a shade of the shell: anything short of
+        // black keeps looking like paint. The cross's seat below stays a
+        // translucent dark, because it is a seat and not a hole.
+        UIColor.black.setFill()
+        for element in [ControlElement.btnA, .btnB, .btnX, .btnY] {
+            guard let f = buttons[element] else { continue }
+            UIBezierPath(ovalIn: f.insetBy(dx: -lip, dy: -lip)).fill()
+        }
+        UIColor.black.withAlphaComponent(0.30).setFill()
+        // The cross gets the same treatment, and its seat is the FOUR KEYS
+        // grown a little rather than a cross-shaped well: this pad's directions
+        // are four separate mouldings, so one well behind all of them would be
+        // a hole where the shell should be. The shape comes from the view that
+        // draws the keys, so the seat cannot drift away from them.
+        if let d = buttons[.dpad] {
+            let keys = CrossDPadView.ps1KeysPath(in: d)
+            let grow = 1 + (lip * 2) / max(d.width, 1)
+            keys.apply(CGAffineTransform(translationX: -d.midX, y: -d.midY))
+            keys.apply(CGAffineTransform(scaleX: grow, y: grow))
+            keys.apply(CGAffineTransform(translationX: d.midX, y: d.midY))
+            keys.fill()
+        }
+    }
+
+    /// The shade a recess is against the shell: darker, because a hollow is in
+    /// shadow. Derived from the body so a custom palette carves correctly too,
+    /// and by more on a dark shell than a light one, since black added to
+    /// near-black moves almost nothing.
+    private var wellFill: UIColor {
+        bodyMid.rpMixed(with: .black, bodyMid.rpIsLight ? 0.16 : 0.30)
+    }
+
+    /// The shell's raised tone: what a swelling in this plastic looks like.
+    private var groundTone: UIColor {
+        bodyMid.rpMixed(with: .white, bodyMid.rpIsLight ? 0.22 : 0.16)
+    }
+
+    /// What the four raised areas are FILLED with.
+    ///
+    /// The Retro Pal recolour takes the body's own colour, so the swellings are
+    /// read entirely by their relief rather than by a change of tone — on a
+    /// near-black shell a lighter disc reads as a separate part, where the point
+    /// of them is that they are the same piece of plastic pushed up. Nostalgia
+    /// keeps the printed tone, which on a pale grey shell it needs to be seen at
+    /// all. A custom palette follows Nostalgia: its body can be any colour, and
+    /// relief alone is not a safe bet on a colour nobody has chosen yet.
+    /// ⚠ A CUSTOM PALETTE FOLLOWS THE BODY, not the ink (fixed 2026-08-27).
+    /// It used to take `markInk`, which is the control colour 55% of the way to
+    /// white, and 55% white washes ANY hue out to something that reads as grey.
+    /// Set the shell to purple and these four discs stayed grey, which is what
+    /// the device showed. They are swellings in the shell, so the shell is what
+    /// they must follow, and `groundTone` already derives that correctly on a
+    /// light body and a dark one.
+    private var raisedGroundFill: UIColor {
+        if custom != nil { return groundTone }
+        return variant == .retroPal ? bodyMid : markInk
+    }
+
+    /// What the four wedges beside the cross are filled with. Lighter than the
+    /// shell on the Retro Pal recolour, where the carved tone the other dress
+    /// uses would be black on black; derived from the body rather than named, so
+    /// it lands on a dark grey without a hex to keep in step.
+    private var wedgeFill: UIColor {
+        variant == .retroPal ? bodyMid.rpMixed(with: .white, 0.16) : wellFill
+    }
+    /// The printed-mark tone, the menu glyph's own, so everything on this pad
+    /// that is INK rather than plastic agrees.
+    /// ⚠ NOT the printed-text slot, despite the name. This fills the raised
+    /// CROSS behind the pad and the diamond, which is plastic. It was wired to
+    /// `custom?.print` for one commit on 2026-08-27 and recoloured those two
+    /// shapes instead of any label, which is what the device showed. Printed text
+    /// lives in `PS1TouchControlsView` and `SmallButton`, on the controls
+    /// themselves, not on the shell.
+    private var markInk: UIColor { control.rpMixed(with: .white, 0.55) }
+
+
+    /// The inverse of `drawWell`: filled a shade LIGHTER than the shell, then a
+    /// light catch falling from the top rim and a dark one rising from the
+    /// bottom. Same two strokes, same clipping, opposite order — which is all
+    /// that separates something raised from something hollow.
+    private func drawRaised(_ shape: UIBezierPath, fill: UIColor, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        fill.setFill(); shape.fill()
+        ctx.saveGState(); shape.addClip(); ctx.setAlpha(0.35)
+        GameBoySkin.grain.drawAsPattern(in: shape.bounds); ctx.restoreGState()
+
+        let outer = grown(shape, by: 2 * scale)
+        ctx.saveGState(); shape.addClip()
+        // TWICE AS PRESENT. Spent on the shadows' alpha AND their reach: doubling
+        // the alpha alone deepens a rim that is already only two points wide, so
+        // the offset and blur go with it and the curve has room to be seen.
+        ctx.setShadow(offset: CGSize(width: 0, height: 3.6 * scale), blur: 4.8 * scale,
+                      color: UIColor.white.withAlphaComponent(0.95).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 3 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); shape.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -3.2 * scale), blur: 4.4 * scale,
+                      color: UIColor.black.withAlphaComponent(0.90).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 3 * scale; outer.stroke()
+        ctx.restoreGState()
+    }
+
+    /// The four marks between the cross's keys and the pad's rim.
+    ///
+    /// Shell, not control: nothing hit-tests them, and they are here for the
+    /// reason the console's own pad has relief around each direction. Carved
+    /// with no lip at all, because a wedge this small grown by even a couple of
+    /// points stops being a wedge.
+    private func drawPadWedges(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let pad = buttons[.dpad] else { return }
+        drawWell(CrossDPadView.ps1SurroundWedges(in: pad), lip: 0, fill: wedgeFill,
+                 scale: scale)
+    }
+
+    /// Every control on this pad that is SET INTO the shell rather than standing
+    /// on it: the four shoulders, SELECT, START, ANALOG, MENU and CLIP.
+    ///
+    /// Each gets two things under it, in this order: a well carved into the
+    /// shell, then the black hole the control comes up through. The well is the
+    /// shell's business and the hole is the gap around the moving part, and
+    /// drawing only one of them was what left these nine looking pasted on while
+    /// the four faces, which have had a hole since the first pass, did not.
+    ///
+    /// EACH FOLLOWS THE CONTROL'S OWN SHAPE. That is the whole point and the
+    /// only hard part: START prints a triangle, so a rounded rectangle behind it
+    /// would read as a mistake rather than as a recess. The shapes come from
+    /// `SmallButton.PS1Shape`, the same call the buttons themselves draw from,
+    /// so a well and the thing in it cannot describe different objects.
+    private func drawSetControls(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        // Both pulled in: the recess was reading as a border around each control
+        // rather than as the shell dipping toward it.
+        let wellLip = 2.5 * scale
+        let holeLip = 1 * scale
+        for shape in setControlShapes(buttons: buttons) {
+            drawWell(shape, lip: wellLip, scale: scale)
+            // Black, like the faces': a hole is not a shade of the shell.
+            UIColor.black.setFill()
+            grown(shape, by: holeLip).fill()
+        }
+    }
+
+    /// The nine shapes, each as the control itself draws it.
+    ///
+    /// The shoulders take the bar's own fixed corner (`ShoulderButton.ps1Corner`,
+    /// in points and not scaled, exactly as the view applies it). MENU and CLIP
+    /// are the two that are not ps1 shapes at all: they wear `.circle` on every
+    /// console, so theirs is the disc the button actually draws, the smaller
+    /// side of its hitbox.
+    private func setControlShapes(buttons: [ControlElement: CGRect]) -> [UIBezierPath] {
+        var shapes: [UIBezierPath] = []
+        for element in [ControlElement.btnL, .btnL2, .btnR, .btnR2] {
+            guard let f = buttons[element] else { continue }
+            shapes.append(UIBezierPath(roundedRect: f,
+                                       cornerRadius: ShoulderButton.ps1Corner))
+        }
+        for element in [ControlElement.btnSelect, .btnStart, .btnMode] {
+            guard let f = buttons[element],
+                  let style = SmallButton.PS1Shape.style(for: element) else { continue }
+            shapes.append(SmallButton.PS1Shape.path(style, in: f))
+        }
+        for element in [ControlElement.btnMenu, .btnClip] {
+            guard let f = buttons[element] else { continue }
+            let d = min(f.width, f.height)
+            shapes.append(UIBezierPath(ovalIn: CGRect(x: f.midX - d / 2, y: f.midY - d / 2,
+                                                      width: d, height: d)))
+        }
+        return shapes
+    }
+
+    /// `shape` grown outward by `lip` on every side, whatever the shape.
+    ///
+    /// Stroking it and unioning the stroke with the fill, rather than insetting
+    /// a rectangle: an inset only means anything for a rect, and two of these
+    /// five are a triangle and a disc.
+    private func grown(_ shape: UIBezierPath, by lip: CGFloat) -> UIBezierPath {
+        // A lip of nothing means the shape itself. The wedges around the cross
+        // ask for that: they are small enough that growing them at all would
+        // round the point off the thing that makes them wedges.
+        guard lip > 0 else { return shape }
+        // Not optional, unlike `copy()` and `copy(using:)`: this overload always
+        // returns a path, so there is nothing here to unwrap.
+        let ring = shape.cgPath.copy(strokingWithWidth: lip * 2, lineCap: .round,
+                                     lineJoin: .round, miterLimit: 10)
+        // A REAL union (iOS 16), not an append. Appended, the ring's inner
+        // contour and the shape are wound opposite ways and cancel under the
+        // non-zero rule, which would leave the well as a hollow outline with the
+        // shell showing through the middle of it.
+        return UIBezierPath(cgPath: shape.cgPath.union(ring))
+    }
+
+    /// The carved well: filled a shade darker than the shell, grained so it is
+    /// the same plastic, then a dark inner shadow falling from the TOP rim and a
+    /// light catch rising from the BOTTOM one. Those two are what make a filled
+    /// area read as cut into a surface rather than laid on it, and they are the
+    /// same pair the Game Boy's own recesses use.
+    private func drawWell(_ shape: UIBezierPath, lip: CGFloat, fill: UIColor? = nil,
+                          scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let well = grown(shape, by: lip)
+        (fill ?? wellFill).setFill(); well.fill()
+        ctx.saveGState(); well.addClip(); ctx.setAlpha(0.35)
+        GameBoySkin.grain.drawAsPattern(in: well.bounds); ctx.restoreGState()
+
+        // Strokes of a slightly LARGER outline, clipped to the well, so only the
+        // shadows bleed inside and the stroke itself never shows.
+        let outer = grown(shape, by: lip + 2 * scale)
+        ctx.saveGState(); well.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.8 * scale), blur: 2.6 * scale,
+                      color: UIColor.black.withAlphaComponent(0.5).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 2 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); well.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.2 * scale), blur: 1.6 * scale,
+                      color: UIColor.white.withAlphaComponent(0.4).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+    }
+
+    // MARK: Pieces
+
+    /// The carved rim: a dark catch along the top edge and a light one along the
+    /// bottom, clipped to the shape, which is what makes a flat fill read as
+    /// something sunk into a surface.
+    private func drawRelief(_ path: UIBezierPath, inset: CGFloat, corner: CGFloat, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState()
+        path.addClip()
+        UIColor.black.withAlphaComponent(0.28).setStroke()
+        let top = UIBezierPath(cgPath: path.cgPath)
+        top.lineWidth = 2 * scale
+        ctx.saveGState(); ctx.translateBy(x: 0, y: inset); top.stroke(); ctx.restoreGState()
+        UIColor.white.withAlphaComponent(0.20).setStroke()
+        let bottom = UIBezierPath(cgPath: path.cgPath)
+        bottom.lineWidth = 2 * scale
+        ctx.saveGState(); ctx.translateBy(x: 0, y: -inset); bottom.stroke(); ctx.restoreGState()
+        ctx.restoreGState()
+    }
+
+    /// An engraved word, centred in `rect` and sized to `fraction` of its width.
+    /// Two passes: the letter in shadow, and a one-point light catch below it,
+    /// which is the whole trick that makes text look cut rather than printed.
+    private func drawEngraved(_ text: String, in rect: CGRect, on plate: UIColor,
+                              weight: UIFont.Weight, fraction: CGFloat, scale: CGFloat) {
+        guard rect.width > 0, rect.height > 0 else { return }
+        let kern = 0.6 * scale
+        var size = 10 * scale
+        func measure(_ s: CGFloat) -> CGSize {
+            NSAttributedString(string: text, attributes: [
+                .font: UIFont.systemFont(ofSize: s, weight: weight), .kern: kern]).size()
+        }
+        var sz = measure(size)
+        if sz.width > 0 { size *= (rect.width * fraction) / sz.width; sz = measure(size) }
+        size = min(size, rect.height * 0.72)
+        sz = measure(size)
+        let origin = CGPoint(x: rect.midX - sz.width / 2, y: rect.midY - sz.height / 2)
+        NSAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: size, weight: weight),
+            .foregroundColor: plate.rpMixed(with: .white, 0.16), .kern: kern,
+        ]).draw(at: CGPoint(x: origin.x, y: origin.y + 1 * scale))
+        NSAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: size, weight: weight),
+            .foregroundColor: engraved(on: plate), .kern: kern,
+        ]).draw(at: origin)
+    }
+
+    /// The plaque's width against its height. The mark is square and the
+    /// wordmark runs about two and a half times its own height, plus the end
+    /// caps: this is what that comes to, and it is the one number both pages
+    /// size themselves from.
+    private static let brandPlaqueAspect: CGFloat = 3.6
+
+    /// The wordmark in one flat pass, sized to its box the way `drawEngraved`
+    /// sizes its own, so the two land identically apart from the ink.
+    private func drawFlatBrandText(_ text: String, in rect: CGRect, ink: UIColor,
+                                   scale: CGFloat) {
+        let kern = 0.6 * scale
+        func measure(_ s: CGFloat) -> CGSize {
+            NSAttributedString(string: text, attributes: [
+                .font: UIFont.systemFont(ofSize: s, weight: .semibold), .kern: kern]).size()
+        }
+        var size = 10 * scale
+        var sz = measure(size)
+        if sz.width > 0 { size *= rect.width / sz.width; sz = measure(size) }
+        size = min(size, rect.height * 0.72)
+        sz = measure(size)
+        NSAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: size, weight: .semibold),
+            .foregroundColor: ink, .kern: kern,
+        ]).draw(at: CGPoint(x: rect.midX - sz.width / 2, y: rect.midY - sz.height / 2))
+    }
+
+    /// The Retro Pal plaque: the mark and the wordmark together in one pill,
+    /// CARVED into the shell like every other flat thing on this pad.
+    ///
+    /// A pill, which no CONTROL here is allowed to be — that rule was about what
+    /// a thumb presses, and this is the one mark on the page that is not a
+    /// control at all. Reaching for the shape the controls are forbidden is what
+    /// keeps it from being mistaken for one.
+    private func drawBrandPlaque(in rect: CGRect, ink: UIColor? = nil, scale: CGFloat) {
+        guard rect.width > 24 * scale, rect.height > 10 * scale else { return }
+        let pill = UIBezierPath(roundedRect: rect, cornerRadius: rect.height / 2)
+        // Filled with the RAISED tone rather than the carved one, even though it
+        // is carved. The wordmark is engraved into whatever it sits on, and
+        // `engraved(on:)` always goes darker than its plate: on the Retro Pal
+        // shell the carved tone is already near-black, so a letter darker still
+        // is a letter nobody can read. The lighter plate is what gives the
+        // engraving somewhere to go.
+        drawWell(pill, lip: 0, fill: groundTone, scale: scale)
+        // Clear of the round end caps and the recess rim.
+        let inset = rect.insetBy(dx: rect.height * 0.34, dy: rect.height * 0.20)
+        guard inset.width > 4 * scale, inset.height > 4 * scale else { return }
+        let side = inset.height
+        if let icon = brandImage {
+            icon.draw(in: CGRect(x: inset.minX, y: inset.minY, width: side, height: side))
+        }
+        let textX = inset.minX + side + side * 0.22
+        let text = CGRect(x: textX, y: inset.minY,
+                          width: inset.maxX - textX, height: inset.height)
+        if text.width > 8 * scale {
+            if let ink {
+                // PRINTED rather than engraved. Landscape hangs the plaque on the
+                // shell above the picture instead of in a lane between controls,
+                // and a groove disappears up there: it wants the ink the MENU
+                // glyph wears, so the mark reads at the distance that band is
+                // seen from.
+                drawFlatBrandText("Retro Pal", in: text, ink: ink, scale: scale)
+            } else {
+                drawEngraved("Retro Pal", in: text, on: groundTone,
+                             weight: .semibold, fraction: 1.0, scale: scale)
+            }
+        }
+    }
+
+    private func drawBrand(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                           isLandscape: Bool, scale: CGFloat) {
+        let aspect = Self.brandPlaqueAspect
+        // ONE INK RULE FOR ALL THREE SURFACES. The Retro Pal shell prints the
+        // wordmark in the MENU glyph's tone rather than engraving it: at that end
+        // of the scale a groove is a letter darker than a near-black plate, which
+        // is a letter nobody reads. Nostalgia keeps the engraving everywhere, its
+        // shell being pale enough that a cut still shows.
+        let ink: UIColor? = variant == .retroPal ? markInk : nil
+        if cardMode {
+            // THE CARD gets it above the picture, centred, like the landscape
+            // page. It cannot take the portrait rule: that one hangs the plaque
+            // on CLIP's line, and the card PARKS Clip three card-heights below
+            // the canvas so it cannot be seen — the plaque would have followed
+            // it off the image. And the card is the one surface where the mark
+            // matters most, so returning early here (as this did) was the wrong
+            // answer twice over.
+            // THE SAME SIZE AND PLACE AS THE GBA CARD'S, formula for formula:
+            // that card is the one every other console's was measured against,
+            // and a plaque two thirds the size of its neighbours reads as a
+            // different product rather than as a smaller machine.
+            let top = screen.minY
+            guard top > 20 * scale else { return }
+            var h = Swift.min(34 * scale, (top - bounds.minY) * 0.4) * 2.5
+            var w = h * aspect
+            let room = bounds.width - 32 * scale
+            if w > room { w = room; h = w / aspect }
+            let cy = Swift.max(h / 2 + 8 * scale, (bounds.minY + top) / 2)
+            drawBrandPlaque(in: CGRect(x: bounds.midX - w / 2, y: cy - h / 2,
+                                       width: w, height: h), ink: ink, scale: scale)
+            return
+        }
+        if isLandscape {
+            // ABOVE THE PICTURE, centred on the page. This page puts the picture
+            // in the middle, so the band above it is empty except for the
+            // shoulder bars, and those live in the gutters — the middle of that
+            // band is the only stretch of shell on either page wide enough for
+            // the wordmark and touched by nothing.
+            let top = screen.minY - ControlLayoutDefaults.ps1LandscapeSkirt * scale
+            let band = top - bounds.minY
+            guard band > 14 * scale else { return }
+            var h = Swift.min(band * 0.62, 30 * scale)
+            var w = h * aspect
+            let room = bounds.width - 32 * scale
+            if w > room { w = room; h = w / aspect }
+            drawBrandPlaque(in: CGRect(x: bounds.midX - w / 2,
+                                       y: (bounds.minY + top) / 2 - h / 2,
+                                       width: w, height: h),
+                            ink: ink, scale: scale)
+            return
+        }
+        // PORTRAIT: the lane left of SELECT, on the line the three marks share.
+        //
+        // That lane exists because SELECT and START sit centred as a pair while
+        // CLIP holds the right-hand end, so the left end of that row is the one
+        // stretch of this page with nothing in it. Sized to the lane rather than
+        // to a constant: it is as large as the space allows, and it disappears
+        // rather than shrinking to a smear if a narrower phone ever leaves less.
+        guard let select = buttons[.btnSelect] else { return }
+        let margin = 10 * scale
+        var w = (select.minX - bounds.minX) - margin * 2
+        var h = w / aspect
+        // Never deeper than the row it sits in.
+        if h > select.height * 0.62 { h = select.height * 0.62; w = h * aspect }
+        // CLIP's centre IS the marks' line: SELECT and START are dropped below it
+        // by their own word's height, and the plaque has no word underneath.
+        let line = buttons[.btnClip]?.midY ?? select.midY
+        drawBrandPlaque(in: CGRect(x: (bounds.minX + select.minX) / 2 - w / 2,
+                                   y: line - h / 2, width: w, height: h), ink: ink, scale: scale)
+    }
+
 }

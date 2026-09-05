@@ -17,6 +17,7 @@
 //
 
 import Combine
+import CoreGraphics
 import GameController
 
 final class ControllerManager: ObservableObject {
@@ -50,6 +51,16 @@ final class ControllerManager: ObservableObject {
     /// no button stays stuck pressed.
     var onButtonsChanged: ((UInt32) -> Void)?
 
+    /// The thumbsticks, as analog, whenever the pad reports a change.
+    ///
+    /// A SEPARATE channel from the button mask on purpose. The mask is what
+    /// every console understands and what the touch controls also produce; the
+    /// sticks exist on no console here but the PlayStation, and on no input
+    /// path but a physical pad. Keeping them apart is what lets the touch
+    /// overlay stay exactly what it is: a producer of buttons.
+    var onSticksChanged: ((_ leftX: CGFloat, _ leftY: CGFloat,
+                           _ rightX: CGFloat, _ rightY: CGFloat) -> Void)?
+
     /// Called on the main thread when a controller connects (true) or the last
     /// one disconnects (false). A hardware keyboard deliberately does NOT
     /// count as "connected": it adds input, but never hides the touch controls.
@@ -59,6 +70,9 @@ final class ControllerManager: ObservableObject {
     /// family, Pro). Set by EmulatorViewController at session start; nil = the
     /// built-in layout, byte-identical to the historical behavior.
     var activeMapping: ControllerMapping?
+    /// The console being played, for the built-in layout only: a custom mapping
+    /// is explicit and needs no console to interpret it.
+    var activeSystem: PresetSystem?
 
     /// Fired on the main thread when the pad's spare "menu-ish" button is
     /// pressed (DualShock/DualSense touchpad click, Xbox Share) — the VC opens
@@ -137,7 +151,8 @@ final class ControllerManager: ObservableObject {
     /// left thumbstick (L3). A custom mapping (Pro) replaces the button
     /// assignments with its explicit ones.
     static func buttonMask(from s: ControllerInputSource,
-                           mapping: ControllerMapping? = nil) -> UInt32 {
+                           mapping: ControllerMapping? = nil,
+                           system: PresetSystem? = nil) -> UInt32 {
         var mask: UInt32 = 0
         if s.up         { mask |= GBAInput.up.rawValue }
         if s.down       { mask |= GBAInput.down.rawValue }
@@ -163,6 +178,31 @@ final class ControllerManager: ObservableObject {
         if s.shoulderL  { mask |= GBAInput.l.rawValue }
         if s.shoulderR  { mask |= GBAInput.r.rawValue }
         if s.menu       { mask |= GBAInput.start.rawValue }
+
+        // THE PLAYSTATION IS THE ONE CONSOLE WHOSE PAD HAS THESE, so it is the
+        // one console where the built-in layout can offer them. Before this,
+        // a physical pad reached ten of the fourteen buttons a DualShock has:
+        // the triggers and both stick clicks had nowhere to go, which made
+        // Gran Turismo's brake and Tomb Raider 3's fire button unreachable
+        // without a Pro custom mapping.
+        if system == .ps1 {
+            if s.leftTrigger     { mask |= GBAInput.l2.rawValue }
+            if s.rightTrigger    { mask |= GBAInput.r2.rawValue }
+            if s.leftStickClick  { mask |= GBAInput.l3.rawValue }
+            if s.rightStickClick { mask |= GBAInput.r3.rawValue }
+            // Select comes from Options, and from L3 ONLY on a pad that has no
+            // Options button. Everywhere else L3 is Select unconditionally,
+            // which is right for a console with no L3 of its own and wrong for
+            // this one: here it would fire Select every time a game asked for a
+            // stick click. The fallback survives because a player on an
+            // Options-less pad would otherwise have no Select at all, and the
+            // custom mapping that would fix it is behind Pro.
+            if s.options || (!s.hasOptions && s.leftStickClick) {
+                mask |= GBAInput.select.rawValue
+            }
+            return mask
+        }
+
         if s.options || s.leftStickClick { mask |= GBAInput.select.rawValue }
         return mask
     }
@@ -188,7 +228,8 @@ final class ControllerManager: ObservableObject {
                 return
             }
             self.controllerMask = ControllerManager.buttonMask(from: snapshot,
-                                                               mapping: self.activeMapping)
+                                                               mapping: self.activeMapping,
+                                                               system: self.activeSystem)
             // The "back" role (east button), edge-detected on fresh presses.
             if snapshot.faceB != self.lastBackPressed {
                 self.lastBackPressed = snapshot.faceB
@@ -205,6 +246,8 @@ final class ControllerManager: ObservableObject {
                 }
             }
             self.emitButtons()
+            self.onSticksChanged?(snapshot.leftStickX, snapshot.leftStickY,
+                                  snapshot.rightStickX, snapshot.rightStickY)
         }
         // The spare menu-ish button some pads carry beyond Start/Select opens
         // the in-game menu directly (press only).
@@ -222,7 +265,7 @@ final class ControllerManager: ObservableObject {
         controllerName = controller.vendorName
         controllerStyle = ControllerStyle.from(productCategory: controller.productCategory)
         isConnected = true
-        Analytics.signal("controller_connected")
+        Analytics.signalOnce("controller_connected")
     }
 
     /// Emit the OR of both input sources (controller + hardware keyboard).

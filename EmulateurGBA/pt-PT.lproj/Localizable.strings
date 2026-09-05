@@ -9,7 +9,7 @@
 "library.empty.title" = "Bem-vindo ao Retro Pal";
 "library.empty.subtitle" = "Joga os teus jogos retro no iPhone. Sem anúncios, sem rastreio pessoal.";
 "library.empty.button" = "Adicionar um jogo";
-"library.empty.step1" = "Coloca um jogo (.gba, .gb, .gbc, .nds, .sfc, .smc ou .nes) no teu iPhone, através do Safari, AirDrop ou iCloud Drive.";
+"library.empty.step1" = "Coloca um jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes ou .chd) no teu iPhone, através do Safari, AirDrop ou iCloud Drive.";
 "library.empty.step2" = "Toca em %@ e escolhe o ficheiro na app Ficheiros.";
 "library.empty.step3" = "Joga. O teu progresso é gravado automaticamente";
 "library.empty.romHint" = "Ainda sem ROMs? Existem muitos jogos gratuitos e legais. Pesquisa \"GBA homebrew\" online.";
@@ -50,10 +50,17 @@
 "overlay.paused" = "EM PAUSA";
 "overlay.resume" = "Retomar";
 "overlay.rewind" = "%@s";
+"overlay.rewind.pick" = "Rebobinar";
 "overlay.screenshot" = "Captura";
 "overlay.quit" = "Sair do jogo";
 "overlay.speed" = "VELOCIDADE";
 "overlay.saveSlots" = "ESPAÇOS DE GRAVAÇÃO RÁPIDA";
+// PlayStation disc picker (pause menu, multi-disc games only)
+"overlay.discs" = "Discos";
+"overlay.disc.numbered" = "Disco %@";
+"overlay.disc.inDrive" = "No leitor";
+"overlay.disc.failed.title" = "O disco não foi trocado";
+"overlay.disc.failed.message" = "A consola recusou a troca de disco. Abre o menu e tenta novamente.";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Vazio";
 "overlay.save" = "Gravar";
@@ -82,6 +89,8 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versão";
 "settings.core" = "Núcleo do emulador";
+"settings.engines.footer" = "Licença: %@.";
+"settings.engines.footer.patched" = "Licença: %@. Usado com uma pequena alteração, publicada como ficheiro de patch junto ao código-fonte.";
 "settings.rateApp" = "Avaliar o Retro Pal";
 "settings.disclaimer" = "Retro Pal é um emulador local. Não inclui jogos. Importa apenas ficheiros que possuas legalmente.";
 "settings.restore" = "Restaurar compras";
@@ -90,7 +99,12 @@
 "pro.title" = "Retro Pal Pro";
 "pro.purchased" = "Comprado";
 "pro.forever" = "%@, para sempre";
-"pro.monthly" = "ou %@/mês";
+"pro.monthly" = "%@ / mês";
+// pro.lifetime / pro.yearly CARRY THEIR OWN LEADING PUNCTUATION. They follow
+// the price on one line ("9,99 EUR, a vie"), and the comma is not shared: ja and
+// zh-Hant take the ideographic comma. Keep the separator inside the value.
+"pro.lifetime" = ", para sempre";
+"pro.yearly" = ", 1 ano";
 "pro.notNow" = "Agora não";
 "pro.restore" = "Restaurar compras";
 "pro.unavailable" = "Pro indisponível. Verifica a tua ligação.";
@@ -179,7 +193,7 @@
 "legal.melonds" = "Licença melonDS";
 "legal.importantNotice.title" = "Aviso importante";
 "legal.aboutApp.title" = "Sobre esta app";
-"legal.aboutApp.description1" = "Retro Pal é um emulador local para jogos Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo e NES. Não transfere, distribui nem fornece acesso a qualquer conteúdo de jogos. Todos os ficheiros ROM devem ser importados pelo utilizador a partir do armazenamento do seu próprio dispositivo através da app Ficheiros.";
+"legal.aboutApp.description1" = "Retro Pal é um emulador local para jogos Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES e PlayStation. Não transfere, distribui nem fornece acesso a qualquer conteúdo de jogos. Todos os ficheiros ROM devem ser importados pelo utilizador a partir do armazenamento do seu próprio dispositivo através da app Ficheiros.";
 "legal.aboutApp.description2" = "Esta app não fornece um catálogo de jogos, não distribui conteúdo de jogos nem facilita o descarregamento de material protegido por direitos de autor.";
 "legal.privacy.title" = "Privacidade";
 "legal.privacy.description" = "Os teus jogos e gravações ficam no teu dispositivo. Para melhorar a app, o Retro Pal envia apenas estatísticas de utilização anónimas, sem dados pessoais nem identificadores publicitários.";
@@ -191,10 +205,13 @@
 "legal.mesen" = "Licença MesenCE";
 "legal.mesen.licenseLine" = "Licenciado sob a GNU General Public License v3.0 (GPL-3.0)";
 "legal.mesen.description" = "MesenCE é um emulador de Super Nintendo e NES utilizado como motor de emulação para jogos SNES e NES nesta app. O código-fonte do MesenCE está disponível em [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.pcsx" = "Licença PCSX-ReARMed";
+"legal.pcsx.licenseLine" = "Licenciado sob a GNU General Public License v2.0 ou posterior (GPL-2.0-or-later)";
+"legal.pcsx.description" = "O PCSX-ReARMed é um emulador de PlayStation usado como motor de emulação para os jogos de PlayStation nesta aplicação. O código-fonte do PCSX-ReARMed está disponível em [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.retropal" = "Licença Retro Pal";
 "legal.retropal.licenseLine" = "Licenciado sob a GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "O código-fonte completo do Retro Pal está disponível em [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). O software é fornecido sem qualquer garantia.";
-"legal.compliance" = "O Retro Pal é distribuído sob a GNU General Public License v3.0. Baseia-se no mGBA (Mozilla Public License 2.0) e no melonDS (GPL-3.0), utilizados sem modificações, e no MesenCE (GPL-3.0), utilizado com uma pequena alteração publicada como ficheiro de patch junto ao código-fonte. O código-fonte correspondente completo está disponível no repositório ligado acima, e o software é fornecido sem qualquer garantia.";
+"legal.compliance" = "O Retro Pal é distribuído sob a GNU General Public License v3.0. Baseia-se no mGBA (Mozilla Public License 2.0), no melonDS (GPL-3.0) e no PCSX-ReARMed (GPL-2.0 ou posterior), utilizados sem modificações, e no MesenCE (GPL-3.0), utilizado com uma pequena alteração publicada como ficheiro de patch junto ao código-fonte. O código-fonte correspondente completo está disponível no repositório ligado acima, e o software é fornecido sem qualquer garantia.";
 
 "details.noSaves" = "Ainda sem gravações rápidas. Cria uma durante o jogo com o botão de menu.";
 "library.importing" = "A importar ROM...";
@@ -219,12 +236,16 @@
 "cheats.hint.nds" = "Formato Action Replay DS (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Formato Game Genie (XXXX-XXXX) ou Pro Action Replay";
 "cheats.hint.nes" = "Formato Game Genie (letras) ou Pro Action Rocky";
+"cheats.hint.ps1" = "Formato GameShark ou Action Replay (XXXXXXXX YYYY)";
 "cheats.namePlaceholder" = "Nome (opcional)";
+"cheats.edit.title" = "Editar código";
+"cheats.edit.hint" = "Editar este código";
 "cheats.add" = "Adicionar código";
 "cheats.invalid.gba" = "Código não reconhecido. Formato esperado: GameShark, CodeBreaker ou Action Replay.";
 "cheats.invalid.nds" = "Código não reconhecido. Formato esperado: Action Replay DS (XXXXXXXX YYYYYYYY, um par por linha).";
 "cheats.invalid.snes" = "Código não reconhecido. Esperado Game Genie (XXXX-XXXX) ou Pro Action Replay (oito caracteres).";
 "cheats.invalid.nes" = "Código não reconhecido. Esperado Game Genie (seis ou oito letras) ou Pro Action Rocky (oito caracteres).";
+"cheats.invalid.ps1" = "Código não reconhecido. Formato esperado: GameShark ou Action Replay (XXXXXXXX YYYY, um par por linha).";
 "cheats.empty" = "Sem batotas ativas";
 "cheats.findHint" = "Os códigos encontram-se facilmente online. Pesquisa os cheat codes do teu jogo.";
 "cheats.clearAll" = "Limpar tudo";
@@ -302,7 +323,7 @@
 "prompt.controls.title" = "Encontre a posição perfeita para as suas mãos";
 "prompt.controls.subtitle" = "Personaliza a posição, o tamanho e a opacidade dos botões e remapeia os botões do comando. Guarda os teus próprios esquemas para jogos diferentes.";
 "prompt.skins.title" = "Crie o skin dos seus sonhos";
-"prompt.skins.subtitle" = "Escolha cada cor da consola, torne-o seu e partilhe as suas criações.";
+"prompt.skins.subtitle" = "Escolhe cada cor da consola, torna-a tua e partilha as tuas criações.";
 "prompt.filters.title" = "Recupera o ecrã original";
 "prompt.filters.subtitle" = "CRT, grelha LCD, matriz de pontos e mais, por jogo. As tuas capturas e clipes mantêm exatamente o mesmo aspeto.";
 "layout.editor.landscapeShort" = "Paisagem";
@@ -334,11 +355,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Adicionar um jogo";
 "guide.importRom.intro" = "O Retro Pal não inclui jogos. És tu que forneces os teus próprios ficheiros ROM, dos quais possuis legalmente os direitos (os teus próprios cartuchos ou jogos homebrew gratuitos e legais).";
-"guide.importRom.step1" = "Leva o ficheiro do jogo (.gba, .gb, .gbc, .nds, .sfc, .smc ou .nes) para o teu iPhone: transfere-o no Safari, por AirDrop a partir de um computador, ou a partir do iCloud Drive.";
+"guide.importRom.step1" = "Coloca o ficheiro do jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, ou um disco de PlayStation em .chd, ou .cue com o respetivo .bin) no teu iPhone: transfere-o no Safari, envia-o por AirDrop de um computador ou usa o iCloud Drive.";
 "guide.importRom.step2" = "Confirma que aparece na app Ficheiros (em Transferências, No meu iPhone ou iCloud Drive).";
 "guide.importRom.step3" = "No Retro Pal, toca no botão + no topo da biblioteca.";
 "guide.importRom.step4" = "Escolhe o ficheiro. O jogo aparece logo na tua biblioteca, pronto a jogar.";
-"guide.importRom.footer" = "Formatos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes e ficheiros .zip com um único jogo. Os .7z e os arquivos com vários jogos não são suportados; extrai primeiro um único ficheiro. Importa apenas ficheiros dos quais possuis os direitos.";
+"guide.importRom.footer" = "Formatos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u. Um .zip também funciona, contenha ele um jogo, todos os ficheiros de um disco ou vários jogos à escolha. O .7z não é suportado. Importa apenas ficheiros que possuis legalmente.";
 "settings.guides.section" = "Guias";
 "settings.controller.row" = "Comando";
 "common.done" = "Concluído";
@@ -431,6 +452,7 @@
 "skin.editor.surround" = "Moldura";
 "skin.editor.dpad" = "Direcional";
 "skin.editor.abButtons" = "Botões A/B";
+"skin.editor.faceButtons" = "Botões de ação";
 "skin.editor.faceA" = "Botão A";
 "skin.editor.faceB" = "Botão B";
 "skin.editor.faceX" = "Botão X";
@@ -501,6 +523,7 @@
 "ra.details.invite.headline" = "Ganha conquistas neste jogo";
 "ra.details.invite.caption" = "Este jogo tem conquistas RetroAchievements: desafios para completar enquanto jogas, registados com uma conta gratuita.";
 "ra.details.unavailable" = "RetroAchievements não está disponível para este jogo.";
+"ra.details.unavailable.pbp" = "O RetroAchievements não consegue ler um ficheiro .pbp. O mesmo jogo em .chd, ou em .cue com o respetivo .bin, ganha conquistas normalmente.";
 "ra.library.invite.caption" = "Os teus jogos têm conquistas RetroAchievements. Liga uma conta gratuita para as ganhares enquanto jogas.";
 "ra.library.recent" = "Últimas desbloqueadas";
 "ra.library.noUnlocks" = "As tuas últimas conquistas vão aparecer aqui.";
@@ -523,10 +546,13 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Não é possível aceder ao ficheiro selecionado. Tenta importá-lo a partir da app Ficheiros.";
 "import.error.copyFailed" = "Não foi possível copiar o jogo para o Retro Pal. Liberta espaço de armazenamento e tenta novamente.";
-"import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc e .nes.";
+"import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc e .nes, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u.";
+"import.error.discMissingFiles" = "Este disco precisa de ficheiros que não foram selecionados: %@. Seleciona o .cue e todos os seus ficheiros .bin em conjunto, de uma só vez.";
 "import.error.zipNoROM" = "Não foi encontrado nenhum jogo neste ZIP. O Retro Pal lê jogos .gba, .gb, .gbc, .nds, .sfc, .smc e .nes; outras consolas não são suportadas.";
 "import.error.zipExtractionFailed" = "Não foi possível abrir este ZIP. Extrai-o na app Ficheiros e importa diretamente o ficheiro do jogo.";
 "import.error.alreadyImported" = "Este jogo já está na tua biblioteca.";
+"import.duplicate.title" = "Já na tua biblioteca";
+"import.duplicate.bodySeveral" = "Estes jogos já estão na tua biblioteca:";
 "import.error.saveFailed" = "Não foi possível adicionar o jogo à biblioteca. Tenta novamente.";
 "import.error.differentGame" = "Este ficheiro é um jogo diferente daquele que estás a substituir.";
 "import.error.batchIntro" = "Não foi possível importar estes ficheiros:";
@@ -541,7 +567,6 @@
 "whatsnew.title" = "Novidades";
 "whatsnew.version" = "Versão %@";
 "whatsnew.footer" = "Podes reler estas novidades em qualquer altura nas Definições.";
-"whatsnew.notice.pro" = "Sobre o Pro: o preço vitalício, de pagamento único, vai subir numa próxima atualização. Ainda não há data. Tudo o que é gratuito hoje continua gratuito, sempre: sem publicidade, e nunca tens de pagar para jogar.";
 "whatsnew.dismiss" = "Entendido!";
 
 /* --- External display (AirPlay / cable), Pro --- */
@@ -627,25 +652,24 @@
 
 "externalDisplay.idle.hint" = "Inicia um jogo no teu iPhone";
 
-/* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Mais duas consolas";
-"whatsnew.s1.b1" = "Os jogos Super Nintendo e NES já funcionam no Retro Pal, e as duas consolas são gratuitas para toda a gente.";
-"whatsnew.s1.b2" = "Gravações, velocidade, rebobinagem, códigos e conquistas funcionam nelas desde o primeiro dia.";
-"whatsnew.s2.title" = "Com o ar das verdadeiras";
-"whatsnew.s2.b1" = "Cada consola nova veste a sua própria carcaça à volta do jogo, na vertical e na horizontal.";
-"whatsnew.s2.b2" = "Cria o teu próprio tema e dá a cor a cada botão, depois partilha um cartão dele. {PRO}";
-"whatsnew.s3.title" = "Rebobinagem em todas as consolas";
-"whatsnew.s3.b1" = "A rebobinagem chegou à Nintendo DS, que precisava de uma forma bem mais pequena de guardar as suas imagens.";
-"whatsnew.s3.b2" = "Cinco segundos para toda a gente, trinta com o {PRO}, nas seis consolas.";
-"whatsnew.s4.title" = "Os códigos, corrigidos";
-"whatsnew.s4.b1" = "Um código escrito em várias linhas entra como uma só entrada, e a app di-lo antes de te enganares.";
-"whatsnew.s4.b2" = "Um jogo cuja edição não tem códigos pode pedir emprestados os de outra região do mesmo cartucho.";
-"whatsnew.s5.title" = "RetroAchievements";
-"whatsnew.s5.b1" = "Um jogo com várias séries de conquistas mostra agora cada série com a sua contagem e o seu emblema.";
-"whatsnew.s5.b2" = "Terminar uma série, ou um jogo inteiro, tem o seu próprio momento no ecrã.";
-"whatsnew.s6.title" = "Com um comando ligado";
-"whatsnew.s6.b1" = "Move o ecrã de jogo e muda-lhe o tamanho quando um comando de encaixe tapa uma parte. {PRO}";
-"whatsnew.s6.b2" = "Cada consola lembra-se da sua própria disposição, na vertical e na horizontal.";
+/* --- What's New, rewritten each release --- */
+"whatsnew.s1.title" = "A PlayStation";
+"whatsnew.s1.b1" = "Os jogos de PlayStation já funcionam no Retro Pal, e a consola é gratuita para toda a gente.";
+"whatsnew.s1.b2" = "Gravações, estados de jogo, rebobinar, códigos e conquistas funcionam desde o primeiro dia.";
+"whatsnew.s1.b3" = "O progresso fica guardado num cartão de memória, como na consola, e chega aos teus outros dispositivos como qualquer outra gravação.";
+"whatsnew.s1.b4" = "À volta do jogo veste a própria caixa, na vertical e na horizontal. Com o {PRO} repintas esse comando com as tuas cores, até às letras impressas.";
+"whatsnew.s2.title" = "Discos, seja qual for o formato";
+"whatsnew.s2.b1" = "Um jogo de PlayStation pode caber num só ficheiro ou numa pasta inteira. Adiciona um ficheiro .chd, um .cue com o respetivo .bin ao lado, ou um .zip com tudo lá dentro.";
+"whatsnew.s2.b2" = "O Retro Pal percebe que ficheiros andam juntos e adiciona um jogo, não cinquenta.";
+"whatsnew.s2.b3" = "Um jogo em vários discos passa a ser um só jogo, mesmo quando os discos chegam em ficheiros separados, e mudas de disco a partir do menu de pausa sem sair do jogo.";
+"whatsnew.s3.title" = "Um comando com dois analógicos";
+"whatsnew.s3.b1" = "Os controlos no ecrã têm os dois analógicos e o botão ANALOG, por isso os jogos analógicos funcionam no dedo como funcionam no comando.";
+"whatsnew.s3.b2" = "O analógico esquerdo move, o direito olha em redor, exatamente como os jogos esperam.";
+"whatsnew.s4.title" = "Códigos";
+"whatsnew.s4.b1" = "Um código guardado já pode ser editado: corrigir um carácter deixa de obrigar a escrever tudo de novo.";
+"whatsnew.s5.title" = "Comandos";
+"whatsnew.s5.b1" = "O joystick no ecrã ganha o mesmo relevo dos analógicos da PlayStation, nas cores de cada consola.";
+"whatsnew.s5.b2" = "O {PRO} deixa-te escolher até onde a rebobinagem volta: mantém o botão premido e escolhe os segundos, até 30.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nenhuma conquista desta série está carregada.";

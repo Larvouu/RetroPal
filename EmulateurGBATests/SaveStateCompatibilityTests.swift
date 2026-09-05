@@ -28,10 +28,12 @@
 //  STATUS WITHOUT FIXTURES:
 //  With no fixtures captured yet, each case NO-OPS (stays green) on purpose, so
 //  the suite is not red before the first capture. Until you capture fixtures it
-//  covers nothing, by design. See Fixtures/SaveStateCompat/CAPTURE.md for the
-//  one-time wiring + the capture procedure.
+//  covers nothing, by design. The one-time wiring and the capture procedure are
+//  written up in Fixtures/SaveStateCompat/CAPTURE.md, which is NOT part of the
+//  public source snapshot: a save state is a dump of a running game's memory,
+//  so the fixtures and their notes stay with whoever owns the games.
 //
-//  REQUIRES TEST-TARGET WIRING (one-time, see CAPTURE.md): a bridging header
+//  REQUIRES TEST-TARGET WIRING (one-time): a bridging header
 //  exposing the ObjC cores (MGBABridge / MelonDSBridge) to this target. Without
 //  it, this file will not compile once added to the target.
 //
@@ -75,6 +77,25 @@ struct SaveStateCompatibilityTests {
         }
     }
 
+    /// PCSX-ReARMed serialises through libretro's `retro_serialize`, so what
+    /// this guards is the CORE's own state layout across a submodule bump.
+    ///
+    /// Two things make it worth having even though nothing has bumped yet. Its
+    /// state is about 4.4 MB, an order of magnitude more than the SNES's, so a
+    /// silent layout change is not something a reader would spot by eye. And a
+    /// disc game's fixture is a FOLDER rather than a file, which the harness
+    /// already handles: it locates a fixture by extension, and `.cue` and
+    /// `.chd` are extensions like any other.
+    ///
+    /// This case runs the moment a fixture is captured for it and skips until
+    /// then, which is the same contract the other three have. See CAPTURE.md.
+    @Test("PCSX-ReARMed: a save state from the shipped core still loads")
+    func pcsxStateStillLoads() throws {
+        try runCompatCase(coreDir: "pcsx", romExtensions: ["chd", "cue", "m3u"]) {
+            PCSXBridge()
+        }
+    }
+
     // MARK: - Harness
 
     private func runCompatCase(coreDir: String,
@@ -83,7 +104,7 @@ struct SaveStateCompatibilityTests {
         guard let fx = Self.locateFixture(coreDir: coreDir, romExtensions: romExtensions) else {
             // Nothing on disk. Which of the two things that means is decided by the manifest:
             //
-            //   EXPECTED.txt present -> a fixture WAS captured for this core and is now gone.
+            //   EXPECTED-<core>.txt present -> a fixture WAS captured for this core and is now gone.
             //     The binaries are game content and stay out of git, so a fresh clone or a
             //     wiped Mac loses them. Fail, loudly. A guard that quietly returns to green
             //     when its evidence disappears is worse than no guard: green then reads as
@@ -91,11 +112,11 @@ struct SaveStateCompatibilityTests {
             //
             //   no manifest -> never captured for this core. No-op, as before.
             if Self.manifestExists(coreDir: coreDir) {
-                Issue.record("Fixtures/SaveStateCompat/\(coreDir) has an EXPECTED.txt but no fixture beside it, so that core's save-state guard is NOT running. Restore the files the manifest names, or delete it if the fixture is retired on purpose. See CAPTURE.md.")
+                Issue.record("Fixtures/SaveStateCompat/\(coreDir) has an EXPECTED-\(coreDir).txt but no fixture beside it, so that core's save-state guard is NOT running. Restore the files the manifest names, or delete it if the fixture is retired on purpose. See CAPTURE.md.")
                 return
             }
             print("[SaveStateCompat] No fixture in Fixtures/SaveStateCompat/\(coreDir) yet. "
-                  + "Skipping. This test covers nothing until you capture one (see CAPTURE.md).")
+                  + "Skipping. This test covers nothing until you capture one.")
             return
         }
 
@@ -154,10 +175,20 @@ struct SaveStateCompatibilityTests {
     /// Whether a capture was ever committed for this core. The manifest is the only part of a
     /// fixture that CAN be committed, so it is what tells a MISSING capture apart from one that
     /// was never taken.
+    ///
+    /// ⚠ THE FILENAME CARRIES THE CORE, and that is a build constraint rather
+    /// than a naming preference. This target is a filesystem-synchronized
+    /// group, so Xcode picks up every file under it and copies it into the test
+    /// bundle FLAT, folder names discarded. Two cores each holding an
+    /// `EXPECTED.txt` therefore produced two copy commands writing the same
+    /// destination, and the build failed with "Multiple commands produce". The
+    /// per-core name makes the flattened names unique, so a third core is safe
+    /// to add. Nothing reads these from the bundle: the loader below uses
+    /// `#filePath` and reads the source tree.
     private static func manifestExists(coreDir: String) -> Bool {
         let manifest = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)/EXPECTED.txt")
+            .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)/EXPECTED-\(coreDir).txt")
         return FileManager.default.fileExists(atPath: manifest.path)
     }
 

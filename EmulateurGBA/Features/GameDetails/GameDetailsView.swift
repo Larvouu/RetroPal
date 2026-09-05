@@ -340,11 +340,30 @@ struct GameDetailsView: View {
                 } header: {
                     RASectionHeader(onInfo: { showRAInfo = true })
                 } footer: {
-                    Text(String(localized: "ra.details.unavailable",
-                                defaultValue: "RetroAchievements is not available for this game."))
+                    // A `.pbp` is the one case where the reason is the FILE and
+                    // not the game, and the one a player can act on: the same
+                    // game as `.chd` earns achievements normally. "Not
+                    // available" would be true and useless.
+                    Text(Self.isUnhashableDiscContainer(filename)
+                         ? String(localized: "ra.details.unavailable.pbp",
+                                  defaultValue: "RetroAchievements cannot read a .pbp file. The same game as .chd, or as .cue with its .bin, earns achievements normally.")
+                         : String(localized: "ra.details.unavailable",
+                                  defaultValue: "RetroAchievements is not available for this game."))
                 }
             }
         }
+    }
+
+    /// Whether this game is a PlayStation container RetroAchievements cannot
+    /// hash, which today means exactly one format.
+    ///
+    /// `.pbp` is a repacked, re-encoded archive rather than a disc image: there
+    /// is no track 1 to read SYSTEM.CNF off, so rc_hash cannot identify it and
+    /// never will. Every other container we accept is a disc image or names
+    /// one, and the app's own reader opens `.chd` (see RADiscFileReader), so
+    /// this is the whole list rather than a first entry in a growing one.
+    static func isUnhashableDiscContainer(_ romFilePath: String) -> Bool {
+        (romFilePath as NSString).pathExtension.lowercased() == "pbp"
     }
 
     /// The signed-in row: the dashboard on tap (the sheet opens instantly and
@@ -761,9 +780,10 @@ struct GameDetailsView: View {
     // MARK: - Battery-save export (this game)
 
     /// Share this game's in-game battery save. The file is copied to a temp
-    /// name other emulators expect for the system (.sav for GBA/GB/GBC, .srm
-    /// for NDS — the same routing our own importer uses, so a round-trip
-    /// export/import always works). No save yet -> explanatory alert.
+    /// name other emulators expect for the system (.sav for GBA/GB/GBC/NES,
+    /// .srm for NDS/SNES, .mcd for a PlayStation memory card — the same routing
+    /// our own importer uses, so a round-trip export/import always works).
+    /// No save yet -> explanatory alert.
     private func exportSave() {
         let source = BatterySaveImporter.savePath(forRomBasename: romName)
         guard FileManager.default.fileExists(atPath: source.path) else {
@@ -775,7 +795,16 @@ struct GameDetailsView: View {
         // The extension every other emulator expects for this console's save.
         // On disk we keep one canonical `.sav` per game whatever the console;
         // this only names the copy that leaves the app.
-        let ext = (game.systemType == "nds" || game.systemType == "snes") ? "srm" : "sav"
+        // The PlayStation's file is a 128 KB memory card, not save RAM, and
+        // `.mcd` is the name every PlayStation emulator reads. We also ACCEPT
+        // `.srm` on the way in, because that is what libretro frontends write,
+        // but a file leaving the app should carry the name that describes it.
+        let ext: String
+        switch game.systemType {
+        case "nds", "snes": ext = "srm"
+        case "ps1":         ext = "mcd"
+        default:            ext = "sav"
+        }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("SaveExport", isDirectory: true)
         let dest = dir.appendingPathComponent("\(romName).\(ext)")

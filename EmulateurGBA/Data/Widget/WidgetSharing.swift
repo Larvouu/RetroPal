@@ -75,6 +75,7 @@ enum WidgetSharing {
             case "gbc": return "Game Boy Color"
             case "snes": return "Super Nintendo"
             case "nes": return "NES"
+            case "ps1": return "PlayStation"
             default: return "Game Boy Advance"
             }
         }

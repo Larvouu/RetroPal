@@ -27,10 +27,36 @@ struct ControllerInputSource {
     var shoulderR = false
     var menu = false            // physical Menu/Start button
     var options = false         // physical Options button (absent on some pads)
+    /// Whether the pad HAS one, which is a different question from whether it
+    /// is pressed and the one the PlayStation's Select fallback turns on.
+    var hasOptions = false
     var leftStickClick = false  // L3 — the Select fallback for pads without Options
     var leftTrigger = false     // L2 / LT / ZL (mappable, unbound by default)
     var rightTrigger = false    // R2 / RT / ZR
     var rightStickClick = false // R3
+
+    /// The thumbsticks as ANALOG, each axis -1...1, y positive UP as
+    /// GameController reports it.
+    ///
+    /// Kept beside the directions rather than instead of them. Every console
+    /// before the PlayStation has a digital pad and nothing else, so the sticks
+    /// are digitised into `up`/`down`/`left`/`right` above and that stays the
+    /// whole story for them. The PlayStation is the first console that can use
+    /// the real value, and it needs BOTH: a DualShock reports its stick and its
+    /// d-pad separately, so a player using the cross still gets the cross.
+    var leftStickX: CGFloat = 0
+    var leftStickY: CGFloat = 0
+    var rightStickX: CGFloat = 0
+    var rightStickY: CGFloat = 0
+
+    /// Whether either stick is meaningfully away from centre. What switches the
+    /// emulated pad to a DualShock: see `PCSXBridge.noteAnalogInput` for why
+    /// that is done on first movement rather than on connection.
+    var hasAnalogInput: Bool {
+        let dead: CGFloat = 0.25
+        return (leftStickX * leftStickX + leftStickY * leftStickY).squareRoot() > dead
+            || (rightStickX * rightStickX + rightStickY * rightStickY).squareRoot() > dead
+    }
 }
 
 extension ControllerInputSource {
@@ -85,8 +111,11 @@ extension ControllerInputSource {
         faceB = g.buttonB.isPressed
         faceX = g.buttonX.isPressed
         faceY = g.buttonY.isPressed
-        let stick = Self.stickDirections(x: CGFloat(g.leftThumbstick.xAxis.value),
-                                         y: CGFloat(g.leftThumbstick.yAxis.value))
+        leftStickX = CGFloat(g.leftThumbstick.xAxis.value)
+        leftStickY = CGFloat(g.leftThumbstick.yAxis.value)
+        rightStickX = CGFloat(g.rightThumbstick.xAxis.value)
+        rightStickY = CGFloat(g.rightThumbstick.yAxis.value)
+        let stick = Self.stickDirections(x: leftStickX, y: leftStickY)
         up = g.dpad.up.isPressed || stick & GBAInput.up.rawValue != 0
         down = g.dpad.down.isPressed || stick & GBAInput.down.rawValue != 0
         left = g.dpad.left.isPressed || stick & GBAInput.left.rawValue != 0
@@ -95,6 +124,7 @@ extension ControllerInputSource {
         shoulderR = g.rightShoulder.isPressed
         menu = g.buttonMenu.isPressed
         options = g.buttonOptions?.isPressed ?? false
+        hasOptions = (g.buttonOptions != nil)
         leftStickClick = g.leftThumbstickButton?.isPressed ?? false
         leftTrigger = g.leftTrigger.isPressed
         rightTrigger = g.rightTrigger.isPressed

@@ -22,6 +22,31 @@ import Foundation
 import UIKit
 @testable import EmulateurGBA
 
+/// A delivery flag the notification block can set and the test task can read.
+///
+/// `.saveStatesDidChange` is posted with `DispatchQueue.main.async` and observed on the main
+/// queue, so the test has to wait for the main queue to get round to it. It used to wait a flat
+/// 500ms, and that is a race the test host loses: this host is the whole app, booting iCloud's
+/// metadata query and a RetroAchievements login while the suite runs, and delivery there took
+/// about a second. Only the COORDINATED test survived it, and by luck rather than by design --
+/// `NSFileCoordinator` blocks long enough for the main queue to drain before the sleep even
+/// starts. The uncoordinated write is instant, so it had nothing but the 500ms and failed.
+private final class DeliveryFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var delivered = false
+    func set() { lock.lock(); delivered = true; lock.unlock() }
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return delivered }
+}
+
+/// Waits for the flag, checking often and giving up after `timeout` seconds. Returns as soon as
+/// it is set, so a healthy run costs a few milliseconds rather than a fixed sleep.
+private func waitForDelivery(_ flag: DeliveryFlag, timeout: TimeInterval = 5) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !flag.isSet && Date() < deadline {
+        try? await Task.sleep(nanoseconds: 20_000_000)
+    }
+}
+
 @Suite("SaveStateManager", .serialized)
 struct SaveStateManagerTests {
 
@@ -50,8 +75,11 @@ struct SaveStateManagerTests {
         // host can post .saveStatesDidChange too, so tolerate extra posts; we only
         // need to prove savePreviewImage posts at least once.
         await confirmation("posts .saveStatesDidChange", expectedCount: 1...) { posted in
+            let flag = DeliveryFlag()
             let token = NotificationCenter.default.addObserver(
-                forName: .saveStatesDidChange, object: nil, queue: .main) { _ in posted() }
+                forName: .saveStatesDidChange, object: nil, queue: .main) { _ in
+                    flag.set(); posted()
+                }
             defer { NotificationCenter.default.removeObserver(token) }
 
             manager.savePreviewImage(makePixel(), slot: slot)
@@ -59,8 +87,8 @@ struct SaveStateManagerTests {
             // Synchronous write: the PNG exists the instant the call returns.
             #expect(FileManager.default.fileExists(atPath: manager.previewImageURL(slot: slot).path))
 
-            // The notification is posted on the main queue; let it deliver.
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            // The notification is posted on the main queue; wait for it to arrive.
+            await waitForDelivery(flag)
         }
     }
 
@@ -75,14 +103,17 @@ struct SaveStateManagerTests {
         // host can post .saveStatesDidChange too, so tolerate extra posts; we only
         // need to prove savePreviewImage posts at least once.
         await confirmation("posts .saveStatesDidChange", expectedCount: 1...) { posted in
+            let flag = DeliveryFlag()
             let token = NotificationCenter.default.addObserver(
-                forName: .saveStatesDidChange, object: nil, queue: .main) { _ in posted() }
+                forName: .saveStatesDidChange, object: nil, queue: .main) { _ in
+                    flag.set(); posted()
+                }
             defer { NotificationCenter.default.removeObserver(token) }
 
             manager.savePreviewImage(makePixel(), slot: slot, coordinated: false)
 
             #expect(FileManager.default.fileExists(atPath: manager.previewImageURL(slot: slot).path))
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            await waitForDelivery(flag)
         }
     }
 }

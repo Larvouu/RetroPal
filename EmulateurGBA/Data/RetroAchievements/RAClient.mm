@@ -28,9 +28,25 @@
 #import "rc_api_user.h"
 #import "rc_error.h"
 #import "rc_hash.h"
+#import "RADiscFileReader.h"
 
 #include <time.h>
 #import <os/log.h>
+
+/// Hands rcheevos the disc reader.
+///
+/// The binding lives HERE, in the file that already speaks rcheevos, rather
+/// than in the reader: the reader is plain C over libchdr and has no business
+/// knowing what a hash is. The five shapes below are rcheevos' own, so a
+/// mismatch is a compile error rather than something found on a device.
+static void RAInstallDiscFileReader(rc_hash_filereader_t *out) {
+    if (!out) return;
+    out->open = RADiscOpen;
+    out->seek = RADiscSeek;
+    out->tell = RADiscTell;
+    out->read = RADiscRead;
+    out->close = RADiscClose;
+}
 
 @implementation RAAchievementInfo
 @end
@@ -70,6 +86,7 @@ static void RALogMessage(const char *message, const rc_client_t *client);
              callbackData:(void *)callbackData;
 - (void)handleEvent:(const rc_client_event_t *)event;
 - (void)handleGameLoadResult:(int)result error:(const char *)error;
++ (BOOL)rcheevosCannotGuessExtension:(NSString *)path;
 @end
 
 @implementation RAClient {
@@ -228,6 +245,18 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     rc_client_set_event_handler(_client, RAEventHandler);
     rc_client_set_get_time_millisecs_function(_client, RAGetTimeMillisecs);
 
+    // The client hashes a game by reading it, and its own reader cannot open a
+    // `.chd`. Ours can (see RADiscFileReader), so it is installed here, once,
+    // before any game is identified. Set on the CLIENT rather than through the
+    // deprecated global, because the client builds its own hash iterators
+    // internally and this is the seam that reaches them.
+    {
+        rc_hash_callbacks_t callbacks;
+        memset(&callbacks, 0, sizeof(callbacks));
+        RAInstallDiscFileReader(&callbacks.filereader);
+        rc_client_set_hash_callbacks(_client, &callbacks);
+    }
+
     // Branch 1 is softcore only. Hardcore (which would gate our Pro actions and
     // needs RAdmin User-Agent validation) is a Branch-2 concern.
     rc_client_set_hardcore_enabled(_client, 0);
@@ -340,9 +369,27 @@ static void RALogMessage(const char *message, const rc_client_t *client);
         _consoleId = consoleId;
         _regions = rc_console_memory_regions(consoleId);
     }
-    RADebugLog("[RA] identify+load: console=%u %{public}s", consoleId, path.UTF8String);
+    // rcheevos is normally told UNKNOWN, and that is deliberate: it works the
+    // console out from the extension itself and is BETTER at it than we are.
+    // A `.gb` makes it try Game Boy and then Game Boy Color, where our single
+    // answer would have to pick one and would be wrong half the time.
+    //
+    // Four PlayStation containers are the exception, because rcheevos has never
+    // heard of them. Its extension table (`rc_hash_get_iterator_ext_handlers`,
+    // in its own hash.c) lists bin, chd, cue, iso and m3u, and for anything
+    // absent it says so and falls back to "trying full file hash" as a GAME
+    // BOY. A PlayStation disc hashed whole as a Game Boy matches nothing, so
+    // the game would import, boot, play, and identify as no game at all with
+    // nothing anywhere saying why. For those four our answer is not a worse
+    // guess than rcheevos', it is the only one there is.
+    uint32_t identifyAs = RC_CONSOLE_UNKNOWN;
+    if (consoleId == RC_CONSOLE_PLAYSTATION && [RAClient rcheevosCannotGuessExtension:path]) {
+        identifyAs = consoleId;
+    }
+    RADebugLog("[RA] identify+load: console=%u as=%u %{public}s",
+               consoleId, identifyAs, path.UTF8String);
     _loadInFlight = YES;
-    rc_client_begin_identify_and_load_game(_client, RC_CONSOLE_UNKNOWN, path.UTF8String,
+    rc_client_begin_identify_and_load_game(_client, identifyAs, path.UTF8String,
                                            NULL, 0, RALoadGameCallback, NULL);
 }
 
@@ -439,6 +486,20 @@ static void RALogMessage(const char *message, const rc_client_t *client);
 
 // MARK: - Game identification (no login required)
 
+/// Whether rcheevos would fail to guess a console from this path's extension.
+///
+/// Read off its own extension table rather than recalled, and deliberately
+/// expressed as "the ones it does NOT know" rather than as a copy of the ones
+/// it does: this list only has to grow when WE accept a new container, which is
+/// a change in this repository, and it stays correct if rcheevos adds
+/// extensions upstream. The cost of being wrong is one redundant hint, not a
+/// broken identification.
++ (BOOL)rcheevosCannotGuessExtension:(NSString *)path {
+    NSString *ext = path.pathExtension.lowercaseString;
+    return [ext isEqualToString:@"img"] || [ext isEqualToString:@"mdf"]
+        || [ext isEqualToString:@"toc"] || [ext isEqualToString:@"cbn"];
+}
+
 + (uint32_t)consoleIdForROMPath:(NSString *)path {
     NSString *ext = path.pathExtension.lowercaseString;
     if ([ext isEqualToString:@"gba"]) return RC_CONSOLE_GAMEBOY_ADVANCE;
@@ -451,6 +512,42 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     if ([ext isEqualToString:@"sfc"] || [ext isEqualToString:@"smc"]) return RC_CONSOLE_SUPER_NINTENDO;
     // rc_hash also skips the 16-byte iNES header, for the same reason.
     if ([ext isEqualToString:@"nes"]) return RC_CONSOLE_NINTENDO;
+    // Every PlayStation container is the same console, and they hash the same
+    // way: rc_hash reads the boot executable named by SYSTEM.CNF off track 1
+    // and hashes its header plus its bytes, so a `.chd` and the `.cue` + `.bin`
+    // it was made from produce the SAME hash and resolve to the same set.
+    //
+    // `.pbp` is deliberately absent. It is a repacked, re-encoded container
+    // rather than a disc image, rc_hash cannot read one, and a player who has
+    // one gets a caption saying so rather than a game that silently earns
+    // nothing.
+    //
+    // ⚠ `.m3u` IS HERE, AND IT WAS NOT UNTIL 2026-08-27. The note that used to
+    // sit here said a playlist needs no answer because "the boot disc inside it
+    // is what gets hashed, and that is resolved before this is asked". The
+    // hashing half of that is true, and it is the wrong half. This method is
+    // called BEFORE the load, for the OTHER reason stated where it is called:
+    // to cache `_regions`, because `rc_client_validate_addresses` walks every
+    // achievement's memref during the load and calls our `read_memory` for each
+    // one. `readRAAddress:` returns 0 when `_regions` is NULL, and rcheevos
+    // reads a 0 as "this address does not exist" and marks the achievement
+    // UNSUPPORTED (`rc_client.c`, `rc_client_validate_addresses`, the
+    // `read_memory(...) == 0` branch). So a game booted from a playlist
+    // identified correctly, showed its set, and could never unlock a single one
+    // of them, with nothing saying why.
+    //
+    // Answering PLAYSTATION here fixes only that: `identifyAs` is unaffected,
+    // because `.m3u` is not in `rcheevosCannotGuessExtension:` and must not be.
+    // rcheevos knows playlists (`rc_hash_initialize_iterator_m3u`, and the
+    // `RC_CONSOLE_PLAYSTATION` branch hashes the first item), so it still does
+    // the resolving. It was never the identification that was broken.
+    if ([ext isEqualToString:@"chd"] || [ext isEqualToString:@"cue"]
+        || [ext isEqualToString:@"bin"] || [ext isEqualToString:@"iso"]
+        || [ext isEqualToString:@"img"] || [ext isEqualToString:@"mdf"]
+        || [ext isEqualToString:@"toc"] || [ext isEqualToString:@"cbn"]
+        || [ext isEqualToString:@"m3u"]) {
+        return RC_CONSOLE_PLAYSTATION;
+    }
     return 0;  // everything else has no RA support here.
 }
 
@@ -459,6 +556,11 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     if (!consoleId || path.length == 0) return nil;
     rc_hash_iterator_t iterator;
     rc_hash_initialize_iterator(&iterator, path.fileSystemRepresentation, NULL, 0);
+    // The same reader the client uses, for the same reason: this path hashes a
+    // game WITHOUT loading it (the library's box-art and progress lookups), and
+    // a `.chd` it could not open would report "no achievements" for a game that
+    // has them.
+    RAInstallDiscFileReader(&iterator.callbacks.filereader);
     char hash[33] = {0};
     int generated = rc_hash_generate(hash, consoleId, &iterator);
     rc_hash_destroy_iterator(&iterator);

@@ -32,6 +32,26 @@ enum ROMSystemType: String {
     case nds = "nds"
     case snes = "snes"
     case nes = "nes"
+    case ps1 = "ps1"
+
+    /// The PlayStation's formats, and the first ones here that are DISCS.
+    ///
+    /// A cartridge is one file with a header at a known offset, which is what
+    /// every check in this parser assumes. A disc is a filesystem, sometimes
+    /// split across a descriptor and its data (`.cue` + `.bin`), sometimes a
+    /// playlist naming several of those (`.m3u`), and its identity lives in a
+    /// `SYSTEM.CNF` inside the image rather than at any fixed offset. So the
+    /// extension is authoritative for these and the real validation belongs to
+    /// the disc importer, which can read the structure.
+    ///
+    /// `.chd` leads the guidance everywhere the app talks about formats: it is
+    /// one file, it compresses, and RetroAchievements can hash it. `.pbp` is
+    /// accepted and captioned rather than refused, because a player who has one
+    /// should not be told their game is invalid. `.exe` is deliberately absent:
+    /// the core takes it, but it is a homebrew loader, not a game.
+    static let discFileExtensions: Set<String> = [
+        "chd", "cue", "bin", "m3u", "pbp", "iso", "img", "mdf", "toc", "cbn"
+    ]
 
     /// Maps a file extension to the system it declares. Returns nil for
     /// anything that isn't a recognized ROM extension.
@@ -47,13 +67,33 @@ enum ROMSystemType: String {
         case "nds":          return .nds
         case "sfc", "smc":   return .snes
         case "nes":          return .nes
-        default:             return nil
+        default:
+            return discFileExtensions.contains(ext.lowercased()) ? .ps1 : nil
         }
     }
 
     /// Every extension the importer accepts for this system, used by the file
     /// pickers and the ZIP extractor so the three can never drift.
-    static let allFileExtensions: [String] = ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes"]
+    /// Files that belong to a disc game without ever being one.
+    ///
+    /// `.sbi` carries the subchannel data a PAL LibCrypt disc needs in order to
+    /// get past its copy protection, and it has to travel with the disc. It is
+    /// pickable for that reason and is NOT in `discFileExtensions`, so it never
+    /// resolves to a system and can never become a library entry by itself.
+    /// **This matters more to us than to most: LibCrypt is a PAL practice, and
+    /// we are FR-first, so our players hold disproportionately many of exactly
+    /// these discs.**
+    static let discSidecarExtensions: Set<String> = ["sbi", "sub"]
+
+    /// Everything the file pickers offer. Sidecars are included so they can be
+    /// selected ALONGSIDE their disc; the grouper drops any that arrive alone.
+    static let allFileExtensions: [String] =
+        ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes"]
+        + discFileExtensions.sorted() + discSidecarExtensions.sorted()
+
+    /// Whether this system's games arrive as discs rather than cartridges.
+    /// Import, hashing, saves and the library entry all branch on it.
+    var isDiscBased: Bool { self == .ps1 }
 }
 
 struct ROMInfo {
@@ -120,11 +160,23 @@ enum GBAROMParser {
         case .gba:
             title = readASCII(data, 0x0A0, 0x0AC)
             gameCode = readASCII(data, 0x0AC, 0x0B0)
+        case .ps1:
+            // A disc carries both, and neither is at an offset. The name and
+            // the serial (SCUS-94900 and the like) live in a SYSTEM.CNF inside
+            // an ISO 9660 filesystem, which for a `.cue` is not even in this
+            // file, and for a `.chd` is behind decompression. Reading it needs
+            // a track layout, so it belongs to the disc importer.
+            //
+            // Empty is not a stopgap: it is what the NES answers too, and the
+            // importer's filename fallback is what both then use. A player's
+            // own filename is a better name than a wrong one.
+            title = ""
+            gameCode = ""
         }
 
         return ROMInfo(title: title.isEmpty ? "Unknown Game" : title,
                        gameCode: gameCode,
-                       sha256: sha256(data: data),
+                       sha256: identityHash(data: data, fileSize: fileSize, system: system),
                        fileSize: fileSize,
                        systemType: system)
     }
@@ -163,6 +215,11 @@ enum GBAROMParser {
                   let offset = snesHeaderOffset(full) else { return nil }
             title = readASCII(full, offset, offset + 21)
         case .nes:      title = ""   // an iNES header carries no title
+        // Nor does a disc, at any offset this function could read. Its caller
+        // is box-art matching, which asks "does the library title merely echo
+        // the header?" — and with no header title there is no echo to find,
+        // which is a correct answer rather than a missing one.
+        case .ps1:      title = ""
         }
         return title.isEmpty ? nil : title
     }
@@ -197,6 +254,14 @@ enum GBAROMParser {
     /// bytes confirm the file really is a ROM of that family; otherwise
     /// the system is sniffed from the content, most-specific format first.
     private static func resolveSystem(data: Data, hint: ROMSystemType?) -> ROMSystemType? {
+        // Discs never reach the cartridge sniffers below. Every one of those
+        // reads a header at a fixed offset, and a disc has no such header: what
+        // identifies it is a filesystem, and reading that needs the whole image
+        // and a track layout, which is the disc importer's job and not this
+        // parser's. Trusting the extension here is therefore not laziness, it
+        // is declining to give a confident wrong answer.
+        if let hint = hint, hint.isDiscBased { return hint }
+
         if let hint = hint, isValidFile(data: data, system: hint) {
             return hint
         }
@@ -223,6 +288,8 @@ enum GBAROMParser {
         return hint
     }
 
+    /// "Do these bytes look like this system's cartridge?" — a question that
+    /// only has an answer for cartridges.
     private static func isValidFile(data: Data, system: ROMSystemType) -> Bool {
         switch system {
         case .nds:      return isValidNDSFile(data: data)
@@ -230,6 +297,12 @@ enum GBAROMParser {
         case .gba:      return isValidGBAFile(data: data)
         case .snes:     return isValidSNESFile(data: data)
         case .nes:      return isValidNESFile(data: data)
+        // Unreachable in practice: `resolveSystem` returns a disc hint before
+        // it gets here. Answering NO rather than YES anyway, because this
+        // function's contract is a byte test and we have none — and it is the
+        // safe direction: `resolveSystem` falls through to its sniffers and
+        // then returns the hint regardless, so a disc still resolves to .ps1.
+        case .ps1:      return false
         }
     }
 
@@ -378,6 +451,12 @@ enum GBAROMParser {
     /// run? Mapped rather than read, because a SNES header can sit 4 MB in and
     /// the old 0x200-byte read would have rejected every SNES ROM as "not a ROM".
     static func isValidROMFile(url: URL) -> Bool {
+        // Checked BEFORE the file is mapped, on purpose: a PlayStation data
+        // track is routinely several hundred megabytes, and there is nothing in
+        // it this function could usefully read anyway.
+        if ROMSystemType.from(fileExtension: url.pathExtension)?.isDiscBased == true {
+            return true
+        }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
         return isValidNESFile(data: data) || isValidNDSFile(data: data)
             || isValidGBFile(data: data) || isValidSNESFile(data: data)
@@ -428,6 +507,42 @@ enum GBAROMParser {
         return raw.trimmingCharacters(in: .controlCharacters)
                   .trimmingCharacters(in: .whitespaces)
     }
+
+    /// The library's identity key for a file: what `romHash` stores, what the
+    /// duplicate guard compares, and what `replaceROMFile` checks before it
+    /// will swap a game's file.
+    ///
+    /// Cartridges hash whole, as they always have. **Discs hash a bounded
+    /// prefix plus their size**, and that is a correctness fix rather than an
+    /// optimisation: a PlayStation data track runs to several hundred
+    /// megabytes, and this runs on the import path, on the duplicate probe, on
+    /// the post-copy verification and once per entry of a multi-ROM zip.
+    /// Hashing all of it several times would read gigabytes to answer "have I
+    /// seen this file before".
+    ///
+    /// The prefix is genuinely identifying rather than arbitrary: the first
+    /// megabytes of a disc image hold the volume descriptor, the root
+    /// directory and SYSTEM.CNF, so two different games differ inside it. The
+    /// size is mixed in so two dumps that share a prefix but not a length
+    /// cannot collide.
+    ///
+    /// This is NOT the RetroAchievements hash and does not try to be. RA hashes
+    /// a disc by the executable named in SYSTEM.CNF, through rcheevos, so that
+    /// the same game in `.cue` and `.chd` form resolves to one set. This key
+    /// deliberately does the opposite: it identifies a FILE, because its job is
+    /// to stop the same file being imported twice.
+    private static func identityHash(data: Data, fileSize: Int64, system: ROMSystemType) -> String {
+        guard system.isDiscBased else { return sha256(data: data) }
+        let prefix = data.prefix(discHashPrefixBytes)
+        var seed = Data("ps1-disc:\(fileSize):".utf8)
+        seed.append(prefix)
+        return sha256(data: seed)
+    }
+
+    /// Four megabytes. Comfortably past the 32 KB where the ISO 9660 primary
+    /// volume descriptor begins and past the root directory and SYSTEM.CNF that
+    /// follow it, while staying a bounded read on the oldest device we support.
+    private static let discHashPrefixBytes = 4 * 1024 * 1024
 
     private static func sha256(data: Data) -> String {
         var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))

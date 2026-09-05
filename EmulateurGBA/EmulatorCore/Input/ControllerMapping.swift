@@ -20,6 +20,16 @@ import Foundation
 /// The remappable console inputs. Raw values are the storage keys.
 enum RemappableInput: String, Codable, CaseIterable {
     case a, b, x, y, l, r, select, start
+    // The PlayStation's second shoulder pair. This enum is the CONSOLE side of
+    // remapping (which emulated button fires); the physical side already gained
+    // its own L2/R2 verbs in the 1.2.4 wave-two work, and until now they had no
+    // console input to be pointed at. Appended, never reordered: the raw values
+    // are the storage keys.
+    case l2, r2
+    // The stick CLICKS, which the physical side has read since the 1.2.4 wave
+    // (`leftThumbstickButton` / `rightThumbstickButton`) and which had nowhere
+    // to go until the PlayStation gave them a console button to be.
+    case l3, r3
 
     var gbaInput: GBAInput {
         switch self {
@@ -31,6 +41,10 @@ enum RemappableInput: String, Codable, CaseIterable {
         case .r: return .r
         case .select: return .select
         case .start: return .start
+        case .l2: return .l2
+        case .r2: return .r2
+        case .l3: return .l3
+        case .r3: return .r3
         }
     }
 
@@ -43,6 +57,45 @@ enum RemappableInput: String, Codable, CaseIterable {
         }
     }
 
+    /// The label the CONSOLE prints on that input.
+    ///
+    /// The generic one above is the enum's own name, which is right for five of
+    /// the six consoles and wrong for the PlayStation: that pad prints four
+    /// symbols and L1/R1, and the remap screen was offering to rebind "A", "B",
+    /// "X" and "Y" on a machine that has none of those letters anywhere. The
+    /// wiring was always correct -- `kButtonMap` in `PCSXBridge` sends A to
+    /// Circle, B to Cross, X to Triangle, Y to Square, which is exactly what
+    /// `PS1TouchControlsView` draws -- so this is the label catching up with it.
+    ///
+    /// Same glyphs the CONNECTED-pad column already uses for a DualShock
+    /// (`PhysicalButton.displayName(for:)`), so one row can read "◯ → ✕" and
+    /// mean it.
+    func displayName(for system: PresetSystem) -> String {
+        guard system == .ps1 else { return displayName }
+        switch self {
+        case .a: return "◯"
+        case .b: return "✕"
+        case .x: return "△"
+        case .y: return "□"
+        case .l: return "L1"
+        case .r: return "R1"
+        default: return displayName
+        }
+    }
+
+    /// The same input said out loud, for VoiceOver: a symbol is a fine label to
+    /// look at and a poor one to hear.
+    func accessibleName(for system: PresetSystem) -> String {
+        guard system == .ps1 else { return displayName }
+        switch self {
+        case .a: return "Circle"
+        case .b: return "Cross"
+        case .x: return "Triangle"
+        case .y: return "Square"
+        default: return displayName(for: system)
+        }
+    }
+
     /// The inputs a console family actually has (GB/GBC: no X/Y, no shoulders;
     /// GBA: no X/Y).
     static func available(on system: PresetSystem) -> [RemappableInput] {
@@ -52,6 +105,12 @@ enum RemappableInput: String, Codable, CaseIterable {
         case .nds: return [.a, .b, .x, .y, .l, .r, .select, .start]
         case .snes: return [.a, .b, .x, .y, .l, .r, .select, .start]
         case .nes: return [.a, .b, .select, .start]
+        // The widest pad here: four faces, four shoulders, two stick clicks.
+        // L2 and R2 were already remappable verbs from the 1.2.4 wave-two work,
+        // so this is the first console that actually offers them, and L3/R3 are
+        // the first that exist at all.
+        case .ps1: return [.a, .b, .x, .y, .l, .r, .l2, .r2,
+                           .l3, .r3, .select, .start]
         }
     }
 }

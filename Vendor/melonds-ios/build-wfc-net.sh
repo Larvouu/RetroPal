@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the melonDS network stack (Net + Net_Slirp + libslirp) as static
 # libraries for iOS (arm64) — the WFC spike's build half. Additive: does not
-# touch build.sh or libmelonds-core.a. See WFC_SPIKE.md at the repo root for
+# touch build.sh or libmelonds-core.a. See the header of MelonDSPlatform.cpp for
 # the Xcode wiring and the go/no-go device checklist.
 #
 # Usage: ./build-wfc-net.sh [clean]
@@ -60,4 +60,4 @@ cp "$BUILD_DIR/libslirp/libslirp-version.h" "$INCLUDE_DIR/"
 
 echo "=== Done ==="
 echo "Static libraries: $OUTPUT_NET + $OUTPUT_SLIRP"
-echo "Next: WFC_SPIKE.md -> Xcode wiring (link both libs, set RETROPAL_WFC=1)"
+echo "Next: Xcode wiring (link both libs, set RETROPAL_WFC=1)"

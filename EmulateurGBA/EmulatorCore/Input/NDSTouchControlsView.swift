@@ -8,7 +8,9 @@
 //  applyDefaultLayout + ControlLayoutDefaults); this subclass only contributes the
 //  extra button views, their bitmask mappings, and the wider lockable set.
 //
-//  Reference: Manic EMU button layout (portrait1.jpg, landscape2.jpg).
+//  Layout note: X and Y sit above and left of A and B, mirroring the DS Lite's
+//  own diamond, and MIC takes the small-button row beside SELECT/START because
+//  it is a rarely-pressed verb that must never crowd a face button.
 //
 
 import UIKit

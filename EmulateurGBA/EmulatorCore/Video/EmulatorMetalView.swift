@@ -53,6 +53,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         var filterType: UInt32
         var screenCount: UInt32
         var gameSize: SIMD2<Float>
+        /// The same fraction the vertex stage scales its texture coordinates by.
+        /// The CRT filter needs it: that one normalises uv into -1...1 to warp
+        /// it, and uv only reaches 1 on a console whose picture fills its
+        /// texture. Every console but the PlayStation passes (1, 1) here.
+        var uvScale: SIMD2<Float>
     }
 
     // Frame timing now comes from the core (`session.frameDuration`). The GBA
@@ -206,10 +211,16 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         // `session.hasTouchScreen`, which gave the same answer only because the
         // DS was the single BGRA core; Mesen is BGRA and has no touch screen.
         let pixelFormat: MTLPixelFormat = session.usesBGRAPixelOrder ? .bgra8Unorm : .rgba8Unorm
+        // Allocated at the core's MAXIMUM, which for the three cartridge cores
+        // is exactly the live picture and changes nothing. The PlayStation is
+        // the one that differs: its picture changes size mid-game and a texture
+        // cannot, so it draws into the top-left of a texture sized for its
+        // largest mode and the vertex stage scales the coordinates down.
+        let texture = session.textureSize
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
-            width: session.screenWidth,
-            height: session.totalBufferHeight,
+            width: texture.width,
+            height: texture.height,
             mipmapped: false
         )
         desc.usage = .shaderRead
@@ -310,9 +321,13 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         let texture: MTLTexture
         let isDualScreen: Bool
         let pipeline: MTLRenderPipelineState
-        /// The plain boot pipeline takes no uniforms; only the filtered one does.
+        /// The plain boot pipeline takes no FRAGMENT uniforms; only the
+        /// filtered one does. Both take the vertex-stage `uvScale` below.
         let usesFilterUniforms: Bool
         let uniforms: FilterUniforms
+        /// Fraction of the texture the live picture occupies. (1, 1) for every
+        /// console but the PlayStation; see `EmulatorSession.textureUVScale`.
+        let uvScale: SIMD2<Float>
     }
 
     /// Shared with the mirror: one GPU on iOS, so one queue is enough.
@@ -350,7 +365,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             uniforms: FilterUniforms(
                 filterType: videoFilter.metalIndex,
                 screenCount: UInt32(isDualScreen ? 2 : 1),
-                gameSize: SIMD2(Float(session.screenWidth), Float(session.totalBufferHeight))))
+                gameSize: SIMD2(Float(session.textureSize.width), Float(session.textureSize.height)),
+                uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1)),
+            uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1))
     }
 
     // MARK: - NDS Vertex Geometry
@@ -569,8 +586,13 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
 
         if didRunFrame, let frameBuffer = session.frameBuffer() {
             let texture = textures[currentTextureIndex]
-            let w = session.screenWidth
-            let h = session.totalBufferHeight
+            // Clamped to the stride the source rows actually have. `replace`
+            // reads width x 4 bytes out of every bytesPerRow-long row, so a
+            // width past the stride would read into the NEXT row rather than
+            // fail. No core reports it, and `textureSize` already guards the
+            // texture side; this guards the source side for the same cost.
+            let w = min(session.screenWidth, session.bufferStride)
+            let h = min(session.totalBufferHeight, session.textureSize.height)
             let bytesPerRow = session.bufferStride * 4
             let region = MTLRegionMake2D(0, 0, w, h)
             texture.replace(region: region, mipmapLevel: 0,
@@ -600,7 +622,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         var uniforms = FilterUniforms(
             filterType: videoFilter.metalIndex,
             screenCount: UInt32(isDualScreen ? 2 : 1),
-            gameSize: SIMD2(Float(session.screenWidth), Float(session.totalBufferHeight)))
+            gameSize: SIMD2(Float(session.textureSize.width), Float(session.textureSize.height)),
+            uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1))
+        var uvScale = SIMD2<Float>(session.textureUVScale.0, session.textureUVScale.1)
         let wantsFilter = videoFilter != .none
 
         if isDualScreen, let vertexBuf = ndsVertexBuffer {
@@ -619,6 +643,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             if let pipeline = filtered ?? pipelineState {
                 encoder.setRenderPipelineState(pipeline)
                 encoder.setFragmentTexture(displayTexture, index: 0)
+                // Bound for BOTH pipelines: the fullscreen-quad vertex shader
+                // takes it, and the plain boot pipeline uses that same shader.
+                encoder.setVertexBytes(&uvScale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
                 if filtered != nil {
                     encoder.setFragmentBytes(&uniforms, length: MemoryLayout<FilterUniforms>.stride, index: 0)
                 }

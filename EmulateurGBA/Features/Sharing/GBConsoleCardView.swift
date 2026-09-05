@@ -127,6 +127,159 @@ struct GBCardLayout {
         return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: k)
     }
 
+    /// PlayStation card layout, and the only one here that does NOT inherit a
+    /// screen from `make`.
+    ///
+    /// The picture is the same HEIGHT as every other card's (640), so the
+    /// machines all show the same size of screen; only its width follows this
+    /// console's 4:3. What differs is everything under it. Every other console
+    /// puts one row of controls there; this pad has four rows' worth, so one of
+    /// them — the four shoulders — moves ABOVE the picture and shares the top
+    /// band with the brand plaque, which is where a DualShock's triggers are on
+    /// the hardware anyway. That leaves three rows below: the cross and the
+    /// diamond, the sticks with ANALOG between them, and SELECT · START.
+    ///
+    /// The info block goes in the COLUMN BETWEEN the cross and the diamond
+    /// rather than under everything, which is the arrangement the Game Boy and
+    /// GBA cards already use: controls at the sides, the game's name down the
+    /// middle. `ps1InfoColumnWidth` hands the renderer that column's width, so
+    /// the two cannot disagree about how much room there is. Its vertical
+    /// position is NOT this layout's business: it is the shared one every card
+    /// uses, measured from the picture.
+    ///
+    /// Laid out top-down with one gap between rows, so a change to any row's
+    /// height pushes the rest down instead of landing on them.
+    static func ps1(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        // A SMALLER SCALE THAN THE OTHER CARDS, and the only card that needs one.
+        // With the picture in the shared place at the shared height, the band
+        // under it is about 256 points; at 0.78 this console's three rows measure
+        // 256 too, which is a card with no margin at all rather than a card that
+        // fits. 0.68 leaves 17, and the floor keeps the small controls at their
+        // own size anyway — only the cross, the faces and the sticks come down.
+        let k: CGFloat = 0.68
+        let gap: CGFloat = 14
+        func sz(_ e: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(e, system: .ps1, isLandscape: false, deviceScale: k)
+        }
+        let skirt = ControlLayoutDefaults.ps1PortraitSkirt * k
+        let bar = sz(.btnL)
+
+        // The picture: the shared position AND the shared height, so every
+        // machine here shows the same screen in the same place. Only its width
+        // follows this console's own shape.
+        let gw = max(g.width, 0.01), gh = max(g.height, 0.01)
+        let fH: CGFloat = 640, fW = fH * (gw / gh)
+        let screen = CGRect(x: (S - fW) / 2, y: 174, width: fW, height: fH)
+
+        let padX = 0.18 * S, diaX = 0.82 * S
+        var buttons: [String: ButtonLayout] = [:]
+        func bl(_ x: CGFloat, _ y: CGFloat, _ hidden: Bool = false) -> ButtonLayout {
+            ButtonLayout(centerX: x / S, centerY: y / S, isHidden: hidden)
+        }
+
+        // ABOVE the picture: L1 L2 · [plaque] · R1 R2, centred in the band
+        // between the card's top edge and the picture. The plaque centres itself
+        // on the same line from the skin side (`drawBrand`, card branch), which
+        // is why neither has to be told about the other.
+        let topRowY = screen.minY / 2
+        let step = (bar.width + ControlLayoutDefaults.shoulderPairGapCard) / 2
+        buttons[ControlElement.btnL.rawValue]  = bl(padX - step, topRowY)
+        buttons[ControlElement.btnL2.rawValue] = bl(padX + step, topRowY)
+        buttons[ControlElement.btnR.rawValue]  = bl(diaX - step, topRowY)
+        buttons[ControlElement.btnR2.rawValue] = bl(diaX + step, topRowY)
+
+        // THE RAISED BLOCK IS WHAT GETS CENTRED, not the rows.
+        //
+        // What a viewer reads on the lower half of this card is four swellings:
+        // the cross on its plateau, the diamond on its own, and a stick on each
+        // boss. Centring the button ROWS centred something nobody can see, and
+        // left the visible mass sitting high. So the block is measured from the
+        // plateau's top edge to the boss's bottom one — the raised ground, not
+        // the controls standing on it.
+        let pad = sz(.dpad), face = sz(.btnA), stick = sz(.stickLeft), ss = sz(.btnSelect)
+        let mode = sz(.btnMode)
+        let r = 50 * k                       // the portrait page's own diamond step
+        let row1 = max(pad.height, (r + face.height / 2) * 2)
+        let surroundBottom = screen.maxY + skirt
+        let padToStick = row1 / 2 + gap + stick.height / 2
+        let blockH = row1 * ControlLayoutDefaults.ps1PlateauScale / 2 + padToStick
+            + stick.height * ControlLayoutDefaults.ps1StickBossSpan / 2
+        // TRULY CENTRED, with no clamp. The clamp existed because SELECT, START
+        // and ANALOG were hung off the stick line, so lowering the block pushed
+        // ANALOG off the bottom of the card. Those three are placed from the
+        // BAND now rather than from the block, so the four raised things are
+        // free to sit where they belong and nothing follows them down.
+        let padY = surroundBottom + (S - surroundBottom - blockH) / 2
+            + row1 * ControlLayoutDefaults.ps1PlateauScale / 2
+        buttons[ControlElement.dpad.rawValue] = bl(padX, padY)
+        for (element, dx, dy) in [(ControlElement.btnA, r, CGFloat(0)), (.btnY, -r, 0),
+                                  (.btnX, CGFloat(0), -r), (.btnB, 0, r)] {
+            buttons[element.rawValue] = bl(diaX + dx, padY + dy)
+        }
+
+        // The sticks, stepped inboard by half an arrow as they are in the game.
+        // L3 and R3 are NOT on this card: they are the two controls a photograph
+        // of the machine would not show.
+        let stickY = padY + padToStick
+        let arrow = pad.width * CrossDPadView.ps1ArmRatioShared / 2
+        buttons[ControlElement.stickLeft.rawValue]  = bl(padX + arrow, stickY)
+        buttons[ControlElement.stickRight.rawValue] = bl(diaX - arrow, stickY)
+        buttons[ControlElement.btnL3.rawValue] = bl(S / 2, S * 3, true)
+        buttons[ControlElement.btnR3.rawValue] = bl(S / 2, S * 3, true)
+
+        // SELECT · START, then ANALOG below them, in the empty column between
+        // the two sticks. Both lines are measured UP FROM THE CARD'S BOTTOM
+        // EDGE, not down from the sticks: that is what lets the raised block
+        // centre itself without dragging these three along, and it is also the
+        // edge they actually want to sit above. They stay clear of the bosses by
+        // being in the middle, which nothing raised reaches.
+        //
+        // The pair sits TWICE as far apart as the row would otherwise put them,
+        // which is what that column's width allows.
+        let bottomMargin: CGFloat = 8
+        let modeY = S - bottomMargin - mode.height / 2
+        let ssY = modeY - mode.height / 2 - gap - ss.height / 2
+        let spread = gap * 2
+        buttons[ControlElement.btnSelect.rawValue] = bl(S / 2 - ss.width / 2 - spread, ssY)
+        buttons[ControlElement.btnStart.rawValue]  = bl(S / 2 + ss.width / 2 + spread, ssY)
+        buttons[ControlElement.btnMode.rawValue]   = bl(S / 2, modeY)
+
+        // Menu is force-shown by `applyLayout`, so it is parked off the card
+        // rather than hidden; Clip can simply be hidden. Same on every card here.
+        buttons[ControlElement.btnMenu.rawValue] = bl(S / 2, S * 3)
+        buttons[ControlElement.btnClip.rawValue] = bl(S / 2, S * 3, true)
+        return GBCardLayout(screen: screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// How WIDE a column the PlayStation card leaves for the game's name and
+    /// play time: the gap between the cross and the diamond, which is the only
+    /// free space on a page whose controls fill the whole band under the
+    /// picture. Derived from the placed frames rather than restated, so it
+    /// cannot drift from the layout above.
+    ///
+    /// **Width only. It used to hand out a `topY` as well** (the cross's top
+    /// edge plus ten), which put this card's block 25 points lower than every
+    /// other card's. The problem it was solving was horizontal all along: the
+    /// block was landing ON the pad because it ran the full width of the card,
+    /// and a column fixes that without moving it down. So the vertical position
+    /// goes back to the shared one, measured from the picture, and this console
+    /// reads like the others. Asked for on device, 2026-08-27.
+    static func ps1InfoColumnWidth(_ layout: GBCardLayout, side S: CGFloat) -> CGFloat? {
+        let k = layout.deviceScale
+        func rect(_ e: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[e.rawValue] else { return nil }
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: .ps1, isLandscape: false,
+                                                     deviceScale: k)
+            return CGRect(x: b.centerX * S - s.width / 2, y: b.centerY * S - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        guard let pad = rect(.dpad) else { return nil }
+        let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { rect($0) }
+        guard let diaLeft = faces.map(\.minX).min() else { return nil }
+        let inset: CGFloat = 24
+        return max(0, diaLeft - pad.maxX - inset * 2)
+    }
+
     /// NES card layout: `make`'s, unchanged. This console wears the Game Boy's page in the game
     /// too — one screen, no shoulders, D-pad left and A/B right — so it wants the Game Boy card's
     /// arrangement rather than a shape of its own. Named anyway, so the card mapping has one

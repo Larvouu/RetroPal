@@ -163,13 +163,29 @@ enum PresetLayoutResolver {
                 default: return 0
                 }
             }
-        case .snes:
-            // Same Start/Select row as the GBA, so the same nudge.
-            let extra = rawSize.width * 0.3
-            if element == .btnSelect { return -extra / 2 }
-            if element == .btnStart { return extra / 2 }
-            return 0
-        case .gbc, .nes:
+        case .snes, .ps1, .gbc, .nes:
+            // NOTHING, and the two that used to nudge here were wrong to.
+            //
+            // This function is not a place to improve a layout. It is the MIRROR of the
+            // adjustments `TouchControlsView.applyLayout` makes at render time, so that a
+            // preset seeded from the default sits exactly where the default draws, and the
+            // editor shows the page the player was just looking at. The GBA's nudge is half
+            // of a pair: `wideSelectStart` widens SELECT and START by 30% and the nudge
+            // moves each of them out by half that, so the INNER edges stay put and only the
+            // outer ones grow. That flag is `system == .gba` and nothing else.
+            //
+            // The Super Nintendo and the PlayStation took the nudge without the widening,
+            // which is not the same adjustment at all: it is a plain 9.6pt spread each way
+            // at the reference scale, applied by the resolver and not by the game. So on
+            // those two consoles a fresh custom preset opened with SELECT and START 19pt
+            // further apart than the built-in layout the player had been using, which is the
+            // one thing seeding promises never to do. Shipped on the SNES in 1.2.5 and
+            // inherited by the PlayStation; found 2026-08-27 by reading the two paths
+            // against each other, and locked by `polishMirrorsTheGamesOwnAdjustments`.
+            //
+            // If those two consoles' SELECT and START should be wider, that is a change to
+            // the GAME (the flag, and `polishedSize` beside it), and it moves a layout that
+            // was verified on device. It is not this function's to make on its own.
             return 0
         }
     }
@@ -606,6 +622,12 @@ enum PresetLayoutResolver {
         // 248 wide, not 256: the NES's leftmost 8 columns are cropped in the core (most games
         // blank them themselves, which drew a flat band down the left edge of the picture).
         case .nes: return 248.0 / 240.0
+        // 4:3, and unlike the two above this is not our reading of what a
+        // television did to a square-pixel frame: the core states it in
+        // `retro_get_system_av_info`, and the console really did vary its pixel
+        // aspect per video mode to hit that one shape. Matches
+        // `PCSXBridge.displayAspect`, and if one moves they both move.
+        case .ps1: return 4.0 / 3.0
         }
     }
 

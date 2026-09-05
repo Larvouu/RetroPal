@@ -169,6 +169,7 @@ extension PresetSystem {
         case .nds: return "Nintendo DS"
         case .snes: return "Super Nintendo"
         case .nes: return "NES"
+        case .ps1: return "PlayStation"
         }
     }
 
@@ -176,5 +177,6 @@ extension PresetSystem {
     /// formats across six consoles (GB and GBC share one), and since the NES dress landed every
     /// console has one. Kept as a gate rather than deleted: a console added later starts without
     /// a dress, and this is where it says it cannot store a skin it could not render.
+    /// Every console has a dress now, so every console can store a skin.
     var supportsCustomSkins: Bool { true }
 }

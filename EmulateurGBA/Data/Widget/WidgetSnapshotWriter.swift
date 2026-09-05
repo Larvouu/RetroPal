@@ -85,7 +85,7 @@ enum WidgetSnapshotWriter {
 
             for entity in entities {
                 guard let romFilePath = entity.romFilePath else { continue }
-                let romName = URL(fileURLWithPath: romFilePath).deletingPathExtension().lastPathComponent
+                let romName = BatterySaveImporter.romBasename(forStoredFilename: romFilePath)
                 let manager = romName.isEmpty ? nil : SaveStateManager(romName: romName)
 
                 let source = coverSourceURL(for: entity, manager: manager)

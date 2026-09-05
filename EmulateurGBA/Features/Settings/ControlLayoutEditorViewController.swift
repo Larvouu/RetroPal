@@ -177,10 +177,15 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
             let btn: UIView
             switch element {
             case .dpad: btn = useJoystick ? DPadView() : CrossDPadView()
-            case .btnA, .btnB, .btnX, .btnY: btn = ActionButton(label: element.displayName)
-            case .btnL, .btnR: btn = ShoulderButton(label: element.displayName)
-            case .btnStart, .btnSelect, .btnMic:
-                btn = SmallButton(label: element.displayName.uppercased())
+            // The editor places controls; it does not read them, so a stick is
+            // represented by the real view sitting inert, exactly as the D-pad is.
+            case .stickLeft, .stickRight: btn = AnalogStickView()
+            case .btnA, .btnB, .btnX, .btnY:
+                btn = ActionButton(label: element.displayName(for: system))
+            case .btnL, .btnR, .btnL2, .btnR2:
+                btn = ShoulderButton(label: element.displayName(for: system))
+            case .btnStart, .btnSelect, .btnMic, .btnMode, .btnL3, .btnR3:
+                btn = SmallButton(label: element.displayName(for: system).uppercased())
             case .btnMenu:
                 btn = SmallButton(systemImage: "gearshape.fill")
             case .btnClip:
@@ -609,7 +614,7 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
         switch component {
         case .button(let element):
             guard let rc = scene?.buttons[element] else { return }
-            panelTitle.text = element.displayName
+            panelTitle.text = element.displayName(for: system)
             let protected = (element == .btnMenu || element == .btnClip)
             hideButton.isHidden = protected
             cannotHideLabel.isHidden = !protected

@@ -2,7 +2,8 @@
 //  iCloudSaveSync.swift
 //  EmulateurGBA
 //
-//  LOCAL-FIRST save-state sync (see SAVE_SYNC_LOCAL_FIRST.md).
+//  LOCAL-FIRST save-state sync. The rules it follows are stated in full in
+//  SaveSyncReconciler, which implements them.
 //
 //  The device's local `Documents/SaveStates/` is the SOURCE OF TRUTH: every
 //  manual-slot read and write goes there (via `saveStatesURL(forROM:)`), so

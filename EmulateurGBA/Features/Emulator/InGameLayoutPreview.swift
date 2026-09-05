@@ -31,7 +31,7 @@ import SwiftUI
 /// touch layout exactly — there is no per-console button gating in the app — so
 /// they differ from GBA only in screen aspect (160×144 vs 240×160).
 enum PreviewSystem: String {
-    case gba, gbc, nds, snes, nes   // gbc = GB + GBC (identical controls + screen)
+    case gba, gbc, nds, snes, nes, ps1   // gbc = GB + GBC (identical controls + screen)
 
     var isNDS: Bool { self == .nds }
 
@@ -43,6 +43,7 @@ enum PreviewSystem: String {
         case .nds: return .nds
         case .snes: return .snes
         case .nes: return .nes
+        case .ps1: return .ps1
         }
     }
 
@@ -54,7 +55,7 @@ enum PreviewSystem: String {
         case .nds: return 256.0 / 384.0   // both screens stacked
         // Straight from the layout engine's own table, so this gallery cannot
         // show a shape the game does not draw.
-        case .snes, .nes: return PresetLayoutResolver.displayAspect(layoutSystem)
+        case .snes, .nes, .ps1: return PresetLayoutResolver.displayAspect(layoutSystem)
         }
     }
 
@@ -65,6 +66,7 @@ enum PreviewSystem: String {
         case .nds: return "NDS screen(s)"
         case .snes: return "SNES screen"
         case .nes: return "NES screen"
+        case .ps1: return "PlayStation screen"
         }
     }
 }
@@ -214,7 +216,15 @@ final class InGameLayoutPreviewView: UIView {
         hitboxOverlay.frame = bounds
         hitboxOverlay.isHidden = !ConsoleSkinView.hasSkin(for: system.layoutSystem)
         let bf = controls.visibleButtonFrames(in: hitboxOverlay)
-        let round: Set<ControlElement> = isNDS ? [.btnA, .btnB, .btnX, .btnY] : []
+        // The consoles whose four faces are round-hitboxed, which is a question
+        // about the PAD and not about the touchscreen: the DS, the Super
+        // Nintendo and the PlayStation all set `roundHitbox` on their diamond.
+        // Reading `isNDS` drew the Super Nintendo's circles as squares, so this
+        // overlay was already describing that console wrongly before the
+        // PlayStation arrived to make it matter twice.
+        let hasDiamond: Set<PreviewSystem> = [.nds, .snes, .ps1]
+        let round: Set<ControlElement> = hasDiamond.contains(system)
+            ? [.btnA, .btnB, .btnX, .btnY] : []
         hitboxOverlay.frames = bf.filter { !round.contains($0.key) }.map { $0.value }
         hitboxOverlay.roundFrames = bf.filter { round.contains($0.key) }.map { $0.value }
     }
@@ -299,6 +309,8 @@ struct LayoutPreviewGallery: View {
         Config(label: "SNES · landscape", system: .snes, isLandscape: true),
         Config(label: "NES · portrait", system: .nes, isLandscape: false),
         Config(label: "NES · landscape", system: .nes, isLandscape: true),
+        Config(label: "PS1 · portrait", system: .ps1, isLandscape: false),
+        Config(label: "PS1 · landscape", system: .ps1, isLandscape: true),
     ]
 
     var body: some View {

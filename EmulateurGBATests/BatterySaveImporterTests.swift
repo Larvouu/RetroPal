@@ -42,7 +42,7 @@ struct BatterySaveImporterTests {
     /// Stamps `0x08012025` little-endian at section-relative offset 0xFF8
     /// (the signature field; 0xFFC is the save index) across sections
     /// 14–27 — the backup slot. This mirrors the byte layout verified in
-    /// the real FireRed Manic export (`Vendor/test-fixtures/`), which had
+    /// a real Gen 3 export from another emulator, verified locally, which had
     /// exactly 14 stamps, all in the backup slot. Pinning the test to the
     /// real offset prevents a future off-by-4 from passing unnoticed.
     static func makeValidGen3Save() -> Data {
@@ -154,6 +154,33 @@ struct BatterySaveImporterTests {
         let nds = BatterySaveImporter.romBasename(
             forStoredFilename: "Pokemon - Version Argent SoulSilver (France).nds")
         #expect(nds == "Pokemon - Version Argent SoulSilver (France)")
+
+        // A DISC game is stored as `<folder>/<boot file>`, and the FOLDER is the
+        // game. This is the derivation that decides where its saves, its save
+        // states, its box art and its achievement record all live, and it has
+        // already been got wrong once: taking the boot file's name gave a game
+        // whose cover and save-state preview simply never appeared, because
+        // twenty-five call sites were each asking a slightly different
+        // question. A boot file can be called anything, and two different games
+        // can both boot from a file called `disc1.cue`; only the folder is
+        // unique, and only the folder is stable when the boot file changes on a
+        // re-import.
+        let disc = BatterySaveImporter.romBasename(
+            forStoredFilename: "Tomb Raider (USA)/Tomb Raider (USA) (Track 1).cue")
+        #expect(disc == "Tomb Raider (USA)")
+
+        // The same answer from the URL form, because both forms are asked at
+        // different call sites and a disagreement between them is invisible
+        // until a save lands under a name nothing else looks for.
+        let discURL = BatterySaveImporter.romBasename(
+            forROMURL: URL(fileURLWithPath: "/x/ROMs/Tomb Raider (USA)/Tomb Raider (USA) (Track 1).cue"))
+        #expect(discURL == disc)
+
+        // A cartridge has no folder of its own, so the URL form must NOT read
+        // the ROMs directory as one.
+        let cartURL = BatterySaveImporter.romBasename(
+            forROMURL: URL(fileURLWithPath: "/x/ROMs/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"))
+        #expect(cartURL == gba)
 
         // Spaces, parentheses and commas in the title must survive verbatim.
         let path = BatterySaveImporter.savePath(forRomBasename: gba).path

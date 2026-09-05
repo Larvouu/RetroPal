@@ -72,6 +72,12 @@ struct ControlPresetsView: View {
     private func activeRow(label: String, system: PresetSystem,
                            get: @escaping () -> UUID?, set: @escaping (UUID?) -> Void) -> some View {
         HStack {
+            // The console's own drawing, before its name. Six rows of text read
+            // as a list of words; the same six with their machines in front read
+            // as a list of consoles, which is what the row is actually about.
+            PixelConsoleIcon(console: PixelConsole(system))
+                .frame(width: 26, height: 26)
+                .accessibilityHidden(true)
             Text(label)
             Spacer()
             Picker("", selection: Binding(
@@ -145,11 +151,8 @@ struct ControlPresetsView: View {
                 }
 
                 Section(NSLocalizedString("layout.newPreset.systems", comment: "")) {
-                    ConsoleChoiceList(
-                        systems: ConsoleChoiceList.all,
-                        selection: $newPresetSystem,
-                        tint: Color(red: 0.45, green: 0.2, blue: 0.85)
-                    )
+                    ConsoleChoiceGrid(systems: ConsoleChoiceList.all,
+                                      selection: $newPresetSystem)
                 }
             }
             .navigationTitle(NSLocalizedString("layout.newPreset.title", comment: ""))
@@ -182,6 +185,7 @@ struct ControlPresetsView: View {
         case .nds: return "NDS"
         case .snes: return "SNES"
         case .nes: return "NES"
+        case .ps1: return "PS1"
         }
     }
 
@@ -241,13 +245,78 @@ struct ControlPresetsView: View {
 /// Six segments cannot hold "Game Boy Advance" and "Super Nintendo" side by side,
 /// and the answer to text that does not fit is a different control, never a
 /// shorter name: these rows say each console in full and grow with the list.
+/// Pick one console from a GRID of machines rather than a list of names.
+///
+/// The same choice `ConsoleChoiceList` offers, in the shape the new-preset sheet
+/// wants: six rows of text is a list of words, while six drawings is a list of
+/// consoles, and the player is choosing a machine. Four to a row, so the six fit
+/// in two rows on every iPhone the app supports and a seventh console changes
+/// nothing.
+///
+/// Built like the pause menu's Appearance button, which is where this shape
+/// already exists in the app: the machine on top, its name under it. The
+/// selected tile takes the same purple the list's checkmark took.
+struct ConsoleChoiceGrid: View {
+    let systems: [PresetSystem]
+    @Binding var selection: PresetSystem
+
+    private let tint = Color(red: 0.45, green: 0.2, blue: 0.85)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(systems, id: \.self) { system in
+                Button {
+                    selection = system
+                } label: {
+                    VStack(spacing: 6) {
+                        PixelConsoleIcon(console: PixelConsole(system))
+                            .frame(width: 40, height: 40)
+                        Text(ConsoleChoiceList.name(system))
+                            .font(.caption2)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .foregroundColor(selection == system ? tint : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(selection == system ? tint.opacity(0.14) : .clear)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(selection == system ? tint : .clear, lineWidth: 1.5)
+                            }
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: ConsoleChoiceList.name(system)))
+                .accessibilityAddTraits(selection == system ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct ConsoleChoiceList: View {
     let systems: [PresetSystem]
     @Binding var selection: PresetSystem
     let tint: Color
 
-    /// Every console, in the order the library already orders them.
-    static let all: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes]
+    /// Every console, in the order the enum declares them, which is the order
+    /// the library already orders them in.
+    ///
+    /// ⚠ READ OFF THE ENUM, never written out again. This list was a literal
+    /// and the PlayStation was left out of it, which cost that console THREE
+    /// Pro features at once and none of them noisily: custom touch presets,
+    /// controller remapping and the controller-connected screen layout all
+    /// choose their console from here, and all three were already built for it
+    /// (`ControllerMapping.actions(for:)` has its own case, `SystemApplicability`
+    /// has its field, the editor places its thirteen controls). The console was
+    /// simply never offered. A seventh will not go missing the same way.
+    static let all: [PresetSystem] = PresetSystem.allCases
 
     /// Proper nouns, deliberately not localized, matching the names the rest of
     /// the app shows.
@@ -258,6 +327,7 @@ struct ConsoleChoiceList: View {
         case .nds:  return "Nintendo DS"
         case .snes: return "Super Nintendo"
         case .nes:  return "NES"
+        case .ps1:  return "PlayStation"
         }
     }
 
@@ -267,6 +337,14 @@ struct ConsoleChoiceList: View {
                 selection = system
             } label: {
                 HStack {
+                    // The machine before its name, the same way the active-layout
+                    // rows carry it. This list is the console chooser for the
+                    // remap screen and the controller-layout screen as well, so
+                    // putting the drawing here is what makes all three read the
+                    // same rather than one of them reading better.
+                    PixelConsoleIcon(console: PixelConsole(system))
+                        .frame(width: 26, height: 26)
+                        .accessibilityHidden(true)
                     Text(Self.name(system)).foregroundColor(.primary)
                     Spacer()
                     if system == selection {
@@ -337,7 +415,7 @@ private struct EditorWrapper: UIViewControllerRepresentable {
     let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> ControlLayoutEditorViewController {
-        Analytics.signal("controls_editor", ["action": "opened", "system": "\(system)"])
+        Analytics.signalOnce("controls_editor", ["action": "opened", "system": "\(system)"])
         Analytics.signal("pro_feature_used", ["feature": "custom_controls"])
         let vc = ControlLayoutEditorViewController(system: system, preset: preset)
         vc.delegate = context.coordinator

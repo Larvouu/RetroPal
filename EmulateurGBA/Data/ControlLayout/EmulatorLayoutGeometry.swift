@@ -86,6 +86,69 @@ enum EmulatorLayoutGeometry {
     static let snesUsesNDSSizing: Set<ControlElement> = [.dpad, .btnA, .btnB, .btnX, .btnY]
     static let snesLandscapeUsesGBAPad = true
 
+    /// The PlayStation's four shoulders, which take a width of their own in BOTH
+    /// orientations: one line of four across a portrait page, and two to a
+    /// gutter in landscape. No other console has more than two of them.
+    static let ps1Shoulders: Set<ControlElement> = [.btnL, .btnR, .btnL2, .btnR2]
+
+    /// How much of the inherited bar HEIGHT those four keep. They are four where
+    /// every other console has two, so they read as a band rather than as a pair;
+    /// taking depth off turns the band back into a line. The top edge is held
+    /// where the inherited row put it, so the picture above does not move.
+    ///
+    /// 0.805, which is 0.70 raised by 15%. It stays expressed against the
+    /// INHERITED bar rather than as an absolute, so the row's top edge is still
+    /// recovered from the height it was laid out with and the extra depth is
+    /// spent downward, into the empty band, with nothing else moving.
+    static let ps1PortraitShoulderHeightScale: CGFloat = 0.805
+
+    /// How much of their own size the four faces keep in PORTRAIT.
+    ///
+    /// They sit inside a cross-shaped mark printed on their plateau, and at full
+    /// size the outermost point of each just cleared the end of the mark's arm.
+    /// This pulls them inside it. Their CENTRES are untouched -- only the size
+    /// changes, so the diamond keeps its spacing and its middle.
+    static let ps1PortraitFaceScale: CGFloat = 0.92
+
+    /// How much of their own size the sticks keep in portrait. A tenth off the
+    /// outer ring, which is the part that reads as furniture rather than as
+    /// target: the thumb aims at the middle either way.
+    static let ps1PortraitStickScale: CGFloat = 0.90
+
+    /// PlayStation portrait: the picture rides up under the Dynamic Island
+    /// instead of sitting `gbaPortraitTopPadding` below the safe area.
+    ///
+    /// This page carries more controls than any other the app draws, and every
+    /// point the picture gives back at the top is a point they get at the bottom.
+    /// Only the picture's ORIGIN moves; its size is unchanged, so the console's
+    /// share of the page is the same and only the empty band above it is spent.
+    static let ps1PortraitTopPadding: CGFloat = 8
+
+    /// How wide those four bars are, against 90 for every other console's pair.
+    ///
+    /// The number is forced, not chosen. That row is pinned at three points: the
+    /// L pair centres on the cross, the R pair on the diamond, and MENU on the
+    /// page. Nothing there is free, so width is the only thing that can give.
+    ///
+    /// It was chosen when the two clusters were NOT symmetric about the page, and
+    /// the note here recorded a tight side: 10.6pt from MENU to R1 against 24.8 on
+    /// the other. That asymmetry is gone -- the diamond has since been slid right
+    /// to mirror the cross's own margin -- so at 55 the row now leaves about 25pt
+    /// at BOTH ends of MENU on a 14 Pro, 28 on a Pro Max and 47 on an SE (where
+    /// the bar floors to 44 instead of scaling down). The bar therefore has slack
+    /// it did not have when the number was set; it is kept at 55 because the page
+    /// was reviewed on device at that width, not because it is still the ceiling.
+    static let ps1PortraitShoulderWidth: CGFloat = 55
+
+    /// And how wide they are in LANDSCAPE, against 110 for a console with two.
+    ///
+    /// Four bars, two to a gutter, side by side. The binding device is the SE,
+    /// whose gutter is about 185 points: at 88 the pair plus its gap measures
+    /// ~143 there and leaves a real margin, while on a Pro Max it is ~204 in a
+    /// 265-point gutter. Wider than the portrait bar because a landscape gutter
+    /// is wider than half a portrait page.
+    static let ps1LandscapeShoulderWidth: CGFloat = 88
+
     /// Reference size, chosen per element for the console being laid out.
     ///
     /// The `isNDS:` overload above is kept exactly as it was and still answers
@@ -93,7 +156,33 @@ enum EmulatorLayoutGeometry {
     /// through this change. Only the SNES asks a different question.
     static func referenceSize(_ element: ControlElement, system: PresetSystem,
                               isLandscape: Bool) -> CGSize {
-        if system == .snes && snesUsesNDSSizing.contains(element) {
+        // The PlayStation joins the Super Nintendo here, and for the same
+        // reason: its pad is the DS's shape too, a cross and four buttons in a
+        // diamond, so those five take the DS's measurements. The SNES's own
+        // answers are untouched by the addition, including the landscape D-pad
+        // exception below, which both consoles want for the same reason (that
+        // page is the GBA's page, and the GBA already parks a pad in its gutter).
+        if system == .ps1, isLandscape, ps1Shoulders.contains(element) {
+            let base = referenceSize(element, isNDS: false, isLandscape: true)
+            return CGSize(width: ps1LandscapeShoulderWidth, height: base.height)
+        }
+        if system == .ps1, !isLandscape {
+            let base = referenceSize(element, isNDS: false, isLandscape: false)
+            if ps1Shoulders.contains(element) {
+                return CGSize(width: ps1PortraitShoulderWidth,
+                              height: base.height * ps1PortraitShoulderHeightScale)
+            }
+            if element == .stickLeft || element == .stickRight {
+                return CGSize(width: base.width * ps1PortraitStickScale,
+                              height: base.height * ps1PortraitStickScale)
+            }
+            if snesUsesNDSSizing.contains(element), element != .dpad {
+                let face = referenceSize(element, isNDS: true, isLandscape: false)
+                return CGSize(width: face.width * ps1PortraitFaceScale,
+                              height: face.height * ps1PortraitFaceScale)
+            }
+        }
+        if (system == .snes || system == .ps1) && snesUsesNDSSizing.contains(element) {
             let padIsGBAs = snesLandscapeUsesGBAPad && isLandscape && element == .dpad
             if !padIsGBAs {
                 return referenceSize(element, isNDS: true, isLandscape: isLandscape)
@@ -251,7 +340,12 @@ enum EmulatorLayoutGeometry {
                 let x = panelWidth + (availW - fitW) / 2
                 // GBA is vertically centered; GB/GBC stays top-aligned; the SNES sits under
                 // its own top margin.
-                let y: CGFloat = (system == .gba) ? (availH - fitH) / 2 : topInset
+                // THE PLAYSTATION CENTRES TOO, and unlike the GBA it needs the band
+                // that leaves UNDER the picture: its SELECT · MENU · START row lives
+                // there rather than in a gutter. It reserves nothing at either end,
+                // so the two bands are equal and the row sits in the lower one.
+                let y: CGFloat = (system == .gba || system == .ps1)
+                    ? (availH - fitH) / 2 : topInset
                 return CGRect(x: x, y: y, width: fitW, height: fitH)
             }
         } else {
@@ -269,7 +363,14 @@ enum EmulatorLayoutGeometry {
             if fitH > maxH { fitH = maxH }
             var fitW = fitH * gameAspect
             var x = (availW - fitW) / 2
-            let portraitPad = (system == .gbc) ? gbcPortraitTopPadding : gbaPortraitTopPadding
+            // Three answers, not two: the PlayStation joined with its own so the
+            // other five keep theirs to the point.
+            let portraitPad: CGFloat
+            switch system {
+            case .gbc: portraitPad = gbcPortraitTopPadding
+            case .ps1: portraitPad = ps1PortraitTopPadding
+            default:   portraitPad = gbaPortraitTopPadding
+            }
             let extraPadding: CGFloat = hasTouchScreen ? 0 : portraitPad * k
             var y = safeInsets.top + extraPadding
             // The NES fills the WIDTH, always, and grows upward to do it.

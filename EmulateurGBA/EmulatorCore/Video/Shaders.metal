@@ -7,8 +7,21 @@ struct VertexOut {
     float alpha;
 };
 
-// Single-screen shader (GBA, GB, GBC) — hardcoded fullscreen quad
-vertex VertexOut vertexShader(uint vid [[vertex_id]]) {
+// Single-screen shader (GBA, GB, GBC, SNES, NES, PS1) — hardcoded fullscreen quad.
+//
+// `uvScale` is the fraction of the texture the live picture occupies. It is
+// (1, 1) for every console whose picture and buffer are the same size, which is
+// all of them except the PlayStation: that one allocates its texture at the
+// largest resolution it can produce and draws into the top-left corner, because
+// a PS1 game changes resolution mid-game and a texture cannot.
+//
+// Scaling HERE rather than in the fragment shaders is what keeps this change
+// small and total: both fragment paths, the plain boot one and the filtered
+// one, receive coordinates that are already correct, so neither had to learn
+// about it. The filters keep working because `gameSize` is the TEXTURE's size,
+// so `uv * gameSize` still lands on the live picture's own pixel grid.
+vertex VertexOut vertexShader(uint vid [[vertex_id]],
+                              constant float2& uvScale [[buffer(0)]]) {
     float2 positions[6] = {
         float2(-1, -1), float2(1, -1), float2(-1, 1),
         float2(-1,  1), float2(1, -1), float2( 1, 1)
@@ -19,7 +32,7 @@ vertex VertexOut vertexShader(uint vid [[vertex_id]]) {
     };
     VertexOut out;
     out.position = float4(positions[vid], 0, 1);
-    out.texCoord = texCoords[vid];
+    out.texCoord = texCoords[vid] * uvScale;
     out.alpha = 1.0;
     return out;
 }
@@ -82,7 +95,15 @@ constant uint kFilterSharp = 6;
 struct FilterUniforms {
     uint filterType;
     uint screenCount;   // 1, or 2 for the stacked NDS texture (per-screen CRT warp)
-    float2 gameSize;    // texture pixel size (e.g. 240x160, 256x384)
+    // The TEXTURE's pixel size (e.g. 240x160, 256x384, 1024x512), which for
+    // every console but the PlayStation is also the live picture's size. Paired
+    // with the vertex stage's `uvScale` it always resolves to the live pixel
+    // grid: uv is scaled down by the same factor gameSize is scaled up.
+    float2 gameSize;
+    // The fraction of the texture the live picture occupies — the same value the
+    // vertex stage multiplies its texture coordinates by. Only the CRT filter
+    // reads it, and only because that one has to normalise uv into -1...1.
+    float2 uvScale;
 };
 
 // Sharp-bilinear: nearest-neighbour blockiness with a sub-display-pixel linear
@@ -166,14 +187,35 @@ fragment float4 filteredFragment(VertexOut in [[stage_in]],
         // Mild per-screen barrel warp (texture space, so each stacked NDS
         // screen curves on its own) + scanlines + an aperture-style vertical
         // triad mask at display-pixel scale + a corner vignette.
+        // NORMALISE INTO THE LIVE PICTURE FIRST. `uv` arrives already scaled by
+        // `uvScale`, so on the PlayStation — the one console that draws into a
+        // corner of a larger texture — it never reaches 1, and `uv * 2 - 1` put
+        // the warp's own centre outside the picture entirely. That is the
+        // mispositioning seen in game and not on the share cards, which crop the
+        // frame before filtering it and so hand this a full 0...1. Every other
+        // console passes (1, 1) and is untouched by the division.
+        float2 span = max(u.uvScale, float2(1e-6));
+        float2 n = uv / span;
         float sc = float(u.screenCount);
-        float screenIdx = clamp(floor(uv.y * sc), 0.0, sc - 1.0);
-        float2 local = float2(uv.x, uv.y * sc - screenIdx) * 2.0 - 1.0;
+        float screenIdx = clamp(floor(n.y * sc), 0.0, sc - 1.0);
+        float2 local = float2(n.x, n.y * sc - screenIdx) * 2.0 - 1.0;
         float r2 = dot(local, local);
-        local *= 1.0 + 0.035 * r2;
+        // NORMALISED BY THE CORNER'S OWN WARP, so the corner still lands on the
+        // corner. Without the divisor the warp pushes the outer edge past the
+        // texture, that band falls through the guard below and renders BLACK,
+        // and the picture reads as having shrunk and moved inside its own frame
+        // the moment this filter is switched on — reported from a device, and it
+        // cost the outer 3.4% of every edge. The curve itself is unchanged: the
+        // centre is still magnified relative to the rim, which is the whole
+        // point of a barrel.
+        const float warp = 0.035;
+        local *= (1.0 + warp * r2) / (1.0 + warp * 2.0);
+        // Cannot fire now (the corner maps to exactly 1.0 and every other point
+        // falls inside), and kept as the guard it always was.
         if (any(abs(local) > float2(1.0))) return float4(0.0, 0.0, 0.0, in.alpha);
         float2 warped = (local + 1.0) * 0.5;
-        uv = float2(warped.x, (screenIdx + warped.y) / sc);
+        // ...and back out through the same fraction it came in by.
+        uv = float2(warped.x, (screenIdx + warped.y) / sc) * span;
 
         rgb = sampleSharp(tex, uv, u.gameSize);
         rgb *= scanlineShade(uv.y * u.gameSize.y, 0.30);

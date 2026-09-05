@@ -9,7 +9,7 @@
 "library.empty.title" = "Welkom bij Retro Pal";
 "library.empty.subtitle" = "Speel je retrogames op je iPhone. Geen advertenties, geen persoonlijke tracking.";
 "library.empty.button" = "Spel toevoegen";
-"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc of .nes) op je iPhone, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes of .chd) op je iPhone, via Safari, AirDrop of iCloud Drive.";
 "library.empty.step2" = "Tik op %@ en kies het bestand in de Bestanden-app.";
 "library.empty.step3" = "Spelen. Je voortgang wordt automatisch opgeslagen";
 "library.empty.romHint" = "Nog geen ROMs? Er bestaan veel gratis, legale spellen. Zoek online naar \"GBA homebrew\".";
@@ -50,10 +50,17 @@
 "overlay.paused" = "GEPAUZEERD";
 "overlay.resume" = "Hervatten";
 "overlay.rewind" = "%@s";
+"overlay.rewind.pick" = "Terugspoelen";
 "overlay.screenshot" = "Screenshot";
 "overlay.quit" = "Spel afsluiten";
 "overlay.speed" = "SNELHEID";
 "overlay.saveSlots" = "SNELLE SAVESLOTS";
+// PlayStation disc picker (pause menu, multi-disc games only)
+"overlay.discs" = "Discs";
+"overlay.disc.numbered" = "Disc %@";
+"overlay.disc.inDrive" = "In de lade";
+"overlay.disc.failed.title" = "De disc is niet gewisseld";
+"overlay.disc.failed.message" = "De console weigerde de discwissel. Open het menu en probeer het opnieuw.";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Leeg";
 "overlay.save" = "Opslaan";
@@ -82,6 +89,8 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Versie";
 "settings.core" = "Emulatorkern";
+"settings.engines.footer" = "Licentie: %@.";
+"settings.engines.footer.patched" = "Licentie: %@. Gebruikt met één kleine wijziging, die als patchbestand bij de broncode wordt gepubliceerd.";
 "settings.rateApp" = "Beoordeel Retro Pal";
 "settings.disclaimer" = "Retro Pal is een lokale emulator. Er zijn geen spellen inbegrepen. Importeer alleen bestanden die je rechtmatig bezit.";
 "settings.restore" = "Aankopen herstellen";
@@ -90,7 +99,12 @@
 "pro.title" = "Retro Pal Pro";
 "pro.purchased" = "Gekocht";
 "pro.forever" = "%@, voor altijd";
-"pro.monthly" = "of %@/maand";
+"pro.monthly" = "%@ / maand";
+// pro.lifetime / pro.yearly CARRY THEIR OWN LEADING PUNCTUATION. They follow
+// the price on one line ("9,99 EUR, a vie"), and the comma is not shared: ja and
+// zh-Hant take the ideographic comma. Keep the separator inside the value.
+"pro.lifetime" = ", voor altijd";
+"pro.yearly" = ", 1 jaar";
 "pro.notNow" = "Nu niet";
 "pro.restore" = "Aankopen herstellen";
 "pro.unavailable" = "Pro niet beschikbaar. Controleer je verbinding.";
@@ -179,7 +193,7 @@
 "legal.melonds" = "melonDS-licentie";
 "legal.importantNotice.title" = "Belangrijke mededeling";
 "legal.aboutApp.title" = "Over deze app";
-"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo- en NES-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
+"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES- en PlayStation-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
 "legal.aboutApp.description2" = "Deze app biedt geen spellencatalogus, verspreidt geen spelinhoud en faciliteert het downloaden van auteursrechtelijk beschermd materiaal niet.";
 "legal.privacy.title" = "Privacy";
 "legal.privacy.description" = "Je games en savegames blijven op je apparaat. Om de app te verbeteren stuurt Retro Pal alleen anonieme gebruiksstatistieken, zonder persoonlijke gegevens en zonder advertentie-id's.";
@@ -191,10 +205,13 @@
 "legal.mesen" = "MesenCE-licentie";
 "legal.mesen.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
 "legal.mesen.description" = "MesenCE is een Super Nintendo- en NES-emulator die in deze app wordt gebruikt als emulator-engine voor SNES- en NES-spellen. De broncode van MesenCE is beschikbaar op [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.pcsx" = "PCSX-ReARMed-licentie";
+"legal.pcsx.licenseLine" = "Gelicentieerd onder de GNU General Public License v2.0 of later (GPL-2.0-or-later)";
+"legal.pcsx.description" = "PCSX-ReARMed is een PlayStation-emulator die in deze app als emulatie-engine voor PlayStation-games wordt gebruikt. De broncode van PCSX-ReARMed is beschikbaar op [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.retropal" = "Retro Pal-licentie";
 "legal.retropal.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "De volledige broncode van Retro Pal is beschikbaar op [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). De software wordt geleverd zonder enige garantie.";
-"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en melonDS (GPL-3.0), die ongewijzigd worden gebruikt, en op MesenCE (GPL-3.0), dat met één kleine wijziging wordt gebruikt; die wijziging wordt als patchbestand bij de broncode gepubliceerd. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
+"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0), melonDS (GPL-3.0) en PCSX-ReARMed (GPL-2.0 of later), die ongewijzigd worden gebruikt, en op MesenCE (GPL-3.0), dat met één kleine wijziging wordt gebruikt; die wijziging wordt als patchbestand bij de broncode gepubliceerd. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
 
 "details.noSaves" = "Nog geen snelle saves. Maak er een tijdens het spelen via de menuknop.";
 "library.importing" = "ROM importeren...";
@@ -219,12 +236,16 @@
 "cheats.hint.nds" = "Action Replay DS-formaat (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Pro Action Replay- of Game Genie-formaat (XXXX-XXXX)";
 "cheats.hint.nes" = "Pro Action Rocky- of Game Genie-formaat (letters)";
+"cheats.hint.ps1" = "GameShark- of Action Replay-formaat (XXXXXXXX YYYY)";
 "cheats.namePlaceholder" = "Naam (optioneel)";
+"cheats.edit.title" = "Code bewerken";
+"cheats.edit.hint" = "Deze code bewerken";
 "cheats.add" = "Code toevoegen";
 "cheats.invalid.gba" = "Code niet herkend. Verwacht: GameShark-, CodeBreaker- of Action Replay-formaat.";
 "cheats.invalid.nds" = "Code niet herkend. Verwacht: Action Replay DS-formaat (XXXXXXXX YYYYYYYY, één paar per regel).";
 "cheats.invalid.snes" = "Code niet herkend. Verwacht: Game Genie (XXXX-XXXX) of Pro Action Replay (acht tekens).";
 "cheats.invalid.nes" = "Code niet herkend. Verwacht: Game Genie (zes of acht letters) of Pro Action Rocky (acht tekens).";
+"cheats.invalid.ps1" = "Code niet herkend. Verwacht: GameShark- of Action Replay-formaat (XXXXXXXX YYYY, één paar per regel).";
 "cheats.empty" = "Geen actieve cheats";
 "cheats.findHint" = "Codes zijn makkelijk online te vinden. Zoek naar de cheat codes van je spel.";
 "cheats.clearAll" = "Alles wissen";
@@ -334,11 +355,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Spel toevoegen";
 "guide.importRom.intro" = "Retro Pal bevat geen games. Je levert je eigen ROM-bestanden aan, waarvan je de rechten bezit (je eigen cartridges of gratis, legale homebrew-games).";
-"guide.importRom.step1" = "Zet het spelbestand (.gba, .gb, .gbc, .nds, .sfc, .smc of .nes) op je iPhone: download het in Safari, via AirDrop vanaf een computer, of via iCloud Drive.";
+"guide.importRom.step1" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin) op je iPhone: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
 "guide.importRom.step2" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPhone of iCloud Drive).";
 "guide.importRom.step3" = "Tik in Retro Pal op de knop + bovenaan de bibliotheek.";
 "guide.importRom.step4" = "Kies het bestand. De game verschijnt meteen in je bibliotheek, klaar om te spelen.";
-"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes en .zip-bestanden met één game. .7z en archieven met meerdere games worden niet ondersteund; pak eerst één bestand uit. Importeer alleen bestanden waarvan je de rechten bezit.";
+"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u. Een .zip kan ook, of die nu één game bevat, alle bestanden van één disc, of meerdere games om uit te kiezen. .7z wordt niet ondersteund. Importeer alleen bestanden die je legaal bezit.";
 "settings.guides.section" = "Handleidingen";
 "settings.controller.row" = "Controller";
 "common.done" = "Klaar";
@@ -431,6 +452,7 @@
 "skin.editor.surround" = "Rand";
 "skin.editor.dpad" = "D-pad";
 "skin.editor.abButtons" = "A/B-knoppen";
+"skin.editor.faceButtons" = "Actieknoppen";
 "skin.editor.faceA" = "A-knop";
 "skin.editor.faceB" = "B-knop";
 "skin.editor.faceX" = "X-knop";
@@ -501,6 +523,7 @@
 "ra.details.invite.headline" = "Verdien prestaties in deze game";
 "ra.details.invite.caption" = "Deze game heeft RetroAchievements-prestaties: uitdagingen om te voltooien terwijl je speelt, bijgehouden met een gratis account.";
 "ra.details.unavailable" = "RetroAchievements is niet beschikbaar voor deze game.";
+"ra.details.unavailable.pbp" = "RetroAchievements kan een .pbp-bestand niet lezen. Dezelfde game als .chd, of als .cue met bijbehorende .bin, verdient gewoon prestaties.";
 "ra.library.invite.caption" = "Je games hebben RetroAchievements-prestaties. Koppel een gratis account om ze te verdienen terwijl je speelt.";
 "ra.library.recent" = "Laatst ontgrendeld";
 "ra.library.noUnlocks" = "Je nieuwste prestaties verschijnen hier.";
@@ -523,10 +546,13 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Geen toegang tot het geselecteerde bestand. Probeer het te importeren via de Bestanden-app.";
 "import.error.copyFailed" = "De game kon niet naar Retro Pal worden gekopieerd. Maak opslagruimte vrij en probeer het opnieuw.";
-"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc, .nds, .sfc, .smc en .nes.";
+"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc, .nds, .sfc, .smc en .nes, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u.";
+"import.error.discMissingFiles" = "Deze disc mist bestanden die je niet hebt geselecteerd: %@. Selecteer de .cue en al zijn .bin-bestanden samen, in één keer.";
 "import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc-, .nds-, .sfc-, .smc- en .nes-games; andere consoles worden niet ondersteund.";
 "import.error.zipExtractionFailed" = "Deze ZIP kon niet worden geopend. Pak hem uit in de Bestanden-app en importeer het gamebestand direct.";
 "import.error.alreadyImported" = "Deze game staat al in je bibliotheek.";
+"import.duplicate.title" = "Al in je bibliotheek";
+"import.duplicate.bodySeveral" = "Deze games staan al in je bibliotheek:";
 "import.error.saveFailed" = "De game kon niet aan je bibliotheek worden toegevoegd. Probeer het opnieuw.";
 "import.error.differentGame" = "Dit bestand is een andere game dan die je vervangt.";
 "import.error.batchIntro" = "Deze bestanden konden niet worden geïmporteerd:";
@@ -541,7 +567,6 @@
 "whatsnew.title" = "Wat is er nieuw";
 "whatsnew.version" = "Versie %@";
 "whatsnew.footer" = "Je kunt dit later altijd teruglezen in Instellingen.";
-"whatsnew.notice.pro" = "Over Pro: de eenmalige levenslange prijs gaat omhoog in een komende update. Er is nog geen datum. Alles wat nu gratis is, blijft gratis, altijd: geen advertenties, en je hoeft nooit te betalen om te spelen.";
 "whatsnew.dismiss" = "Begrepen!";
 
 /* --- External display (AirPlay / cable), Pro --- */
@@ -627,25 +652,24 @@
 
 "externalDisplay.idle.hint" = "Start een game op je iPhone";
 
-/* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Twee consoles erbij";
-"whatsnew.s1.b1" = "Super Nintendo- en NES-games draaien nu in Retro Pal, en beide consoles zijn gratis voor iedereen.";
-"whatsnew.s1.b2" = "Opgeslagen spellen, snelheid, terugspoelen, cheats en prestaties werken er vanaf dag één.";
-"whatsnew.s2.title" = "Ze zien eruit als het echte werk";
-"whatsnew.s2.b1" = "Elke nieuwe console draagt zijn eigen behuizing om het spel heen, staand en liggend.";
-"whatsnew.s2.b2" = "Maak je eigen skin en geef elke knop zijn eigen kleur, en deel er een kaart van. {PRO}";
-"whatsnew.s3.title" = "Terugspoelen op elke console";
-"whatsnew.s3.b1" = "Terugspoelen bereikt de Nintendo DS, die een veel zuinigere manier nodig had om zijn veel grotere momentopnames te bewaren.";
-"whatsnew.s3.b2" = "Vijf seconden voor iedereen, dertig met {PRO}, op alle zes de consoles.";
-"whatsnew.s4.title" = "Cheatcodes, gerepareerd";
-"whatsnew.s4.b1" = "Een code van meerdere regels gaat er als één invoer in, en de app zegt het voordat je het fout doet.";
-"whatsnew.s4.b2" = "Een game waarvan de eigen uitgave geen codes heeft, kan die van een andere regio van dezelfde cartridge lenen.";
-"whatsnew.s5.title" = "RetroAchievements";
-"whatsnew.s5.b1" = "Een game met meerdere prestatiereeksen toont nu elke reeks met een eigen telling en badge.";
-"whatsnew.s5.b2" = "Een reeks afronden, of een hele game, krijgt zijn eigen moment op het scherm.";
-"whatsnew.s6.title" = "Met een controller aangesloten";
-"whatsnew.s6.b1" = "Verplaats het spelscherm en pas de grootte aan als een klemcontroller een deel bedekt. {PRO}";
-"whatsnew.s6.b2" = "Elke console onthoudt zijn eigen indeling, staand en liggend.";
+/* --- What's New, rewritten each release --- */
+"whatsnew.s1.title" = "De PlayStation";
+"whatsnew.s1.b1" = "PlayStation-games draaien nu in Retro Pal, en de console is gratis voor iedereen.";
+"whatsnew.s1.b2" = "Saves, savestates, terugspoelen, cheatcodes en prestaties werken vanaf dag één.";
+"whatsnew.s1.b3" = "Je voortgang komt op een memory card te staan, net als op de console, en bereikt je andere apparaten zoals elke andere save.";
+"whatsnew.s1.b4" = "Rond het spel draagt hij zijn eigen behuizing, staand en liggend. Met {PRO} schilder je die controller in je eigen kleuren, tot en met de opdruk.";
+"whatsnew.s2.title" = "Discs, in welke vorm dan ook";
+"whatsnew.s2.b1" = "Een PlayStation-game kan één bestand zijn of een hele map. Voeg een .chd toe, of een .cue met bijbehorende .bin, of een zip met alles erin.";
+"whatsnew.s2.b2" = "Retro Pal zoekt uit welke bestanden bij elkaar horen en voegt één game toe, geen vijftig.";
+"whatsnew.s2.b3" = "Een game op meerdere discs wordt één game, ook als de discs als losse bestanden binnenkomen, en je wisselt van disc via het pauzemenu zonder het te verlaten.";
+"whatsnew.s3.title" = "Een controller met twee sticks";
+"whatsnew.s3.b1" = "De schermbediening heeft beide analoge sticks en de ANALOG-knop, zodat analoge games op het scherm net zo goed werken als met een controller.";
+"whatsnew.s3.b2" = "De linkerstick beweegt, de rechter kijkt rond, precies zoals de games verwachten.";
+"whatsnew.s4.title" = "Cheats";
+"whatsnew.s4.b1" = "Een opgeslagen cheat kun je nu bewerken: één verkeerd teken herstellen betekent niet meer de hele code opnieuw typen.";
+"whatsnew.s5.title" = "Besturing";
+"whatsnew.s5.b1" = "De joystick op het scherm krijgt hetzelfde reliëf als de sticks van de PlayStation, in de kleuren van elke console.";
+"whatsnew.s5.b2" = "Met {PRO} kies je hoe ver je terugspoelt: houd de terugspoelknop ingedrukt en kies het aantal seconden, tot 30.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Er zijn geen prestaties uit deze reeks geladen.";

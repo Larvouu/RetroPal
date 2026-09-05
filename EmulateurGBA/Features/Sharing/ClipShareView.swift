@@ -465,6 +465,8 @@ final class ClipShareModel: ObservableObject {
 /// shimmering loading skeleton instead. Proportions mirror GameplayClipRenderer's
 /// 1080 card (k = side / 1080).
 struct ClipCardView: View {
+    /// The built console chrome, or nil while it is being drawn.
+    @State private var consoleChrome: ConsoleChrome?
     let frameAspect: CGFloat
     /// Card visual style (gold-neon for `.nostalgia`).
     var style: ShareCardStyle = .retroPal
@@ -489,17 +491,88 @@ struct ClipCardView: View {
     }
 
     var body: some View {
-        if let consoleVariant { consoleFace(variant: consoleVariant) } else { neonCardBody }
+        // A console face needs a console to draw. Asked BEFORE building either
+        // card, because this view used to build the console one unconditionally
+        // and then paper over a nil with `?? GBCardLayout.make(...)`: that gave
+        // a card with no chrome at all and the clip parked wherever a Game Boy
+        // keeps its screen. The two callers that work (the screenshot card and
+        // the clip EXPORTER) both fall back to the branded card instead, which
+        // is why only the preview was wrong.
+        if let consoleVariant, ScreenshotCardRenderer.hasConsoleCard(system) {
+            consoleFace(variant: consoleVariant)
+        } else {
+            neonCardBody
+        }
     }
 
     /// Nostalgia / current-skin styles: the shared console-card chrome (built once, in the dress's
     /// palette) with the looping clip in the console's screen rect — the motion sibling of the
     /// screenshot console card. The layout + chrome are the matching console pair for the game's
     /// system.
+    /// The console chrome, built ONCE and OFF the presentation's critical path.
+    ///
+    /// It used to be built inline in the view body, which meant a full 1080
+    /// composite ran on the main thread before the sheet could paint its first
+    /// frame — and rebuilt on every layout pass until the inner cache warmed.
+    /// On the consoles whose card is cheap that was invisible; on the
+    /// PlayStation, whose dress draws a path union, nine shadowed wells, four
+    /// wedges and two printed marks, it is a visible freeze with nothing on
+    /// screen. Held in state and filled in by a `task`, so the sheet opens on a
+    /// skeleton and the machine arrives when it is ready, which is what every
+    /// other loading surface in this feature already does.
+    private struct ConsoleChrome {
+        let image: UIImage?
+        let layout: GBCardLayout
+    }
+
+    /// Everything the chrome is baked FROM. The info block is drawn into the
+    /// image, so the title and the play time belong in here too: leave them out
+    /// and the card keeps a stale name after a rename.
+    private func chromeIdentity(_ variant: DressVariant) -> String {
+        "\(system.rawValue)|\(variant.cacheKey)|\(frameAspect)|\(title)|\(playTime)|\(isPro)"
+    }
+
     private func consoleFace(variant: DressVariant) -> some View {
         GeometryReader { geo in
             let k = geo.size.width / 1080
-            let info = ScreenshotCardRenderer.GameInfo(name: title, playTimeSeconds: playTime, isPro: isPro)
+            ZStack(alignment: .topLeading) {
+                if let chrome = consoleChrome {
+                    if let image = chrome.image {
+                        Image(uiImage: image).resizable()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
+                    let layout = chrome.layout
+                    if layout.ndsScreens.count == 2 {
+                        // NDS separated: the stacked clip split into the upper + lower screen rects.
+                        clipScreen(layout.ndsScreens[0], half: .top, k: k)
+                        clipScreen(layout.ndsScreens[1], half: .bottom, k: k)
+                    } else {
+                        Group {
+                            if let videoURL { LoopingClipView(url: videoURL) }
+                            else { SkeletonBox(cornerRadius: 6 * k) }
+                        }
+                        .frame(width: layout.screen.width * k, height: layout.screen.height * k)
+                        .clipShape(RoundedRectangle(cornerRadius: 6 * k, style: .continuous))
+                        .offset(x: layout.screen.minX * k, y: layout.screen.minY * k)
+                    }
+                } else {
+                    // The whole card as one skeleton: there is no layout yet, so
+                    // there is nowhere to put a screen-shaped hole.
+                    SkeletonBox(cornerRadius: 24 * k)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .task(id: chromeIdentity(variant)) {
+            consoleChrome = nil
+            // One turn of the runloop before the expensive part, so the sheet
+            // paints the skeleton first. The build itself has to stay on the
+            // main actor: it lays out real UIViews to render them.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            let info = ScreenshotCardRenderer.GameInfo(name: title, playTimeSeconds: playTime,
+                                                       isPro: isPro)
             // Same console pair as the exported clip and the screenshot card, from the one
             // place that maps a console to its card. This view had its OWN copy of that mapping,
             // ending in "or else the Game Boy", which is why the Super Nintendo's clip PREVIEW
@@ -507,28 +580,15 @@ struct ClipCardView: View {
             // fixing one is indistinguishable from fixing the bug until you find the next.
             let pair = ScreenshotCardRenderer.consoleCard(
                 system: system, gameFrame: nil, gameAspect: frameAspect, info: info, variant: variant)
-            let layout = pair?.layout ?? GBCardLayout.make(side: 1080, gameNativeSize: CGSize(width: frameAspect, height: 1))
-            let chrome = pair?.image
-            ZStack(alignment: .topLeading) {
-                if let chrome {
-                    Image(uiImage: chrome).resizable()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                }
-                if layout.ndsScreens.count == 2 {
-                    // NDS separated: the stacked clip split into the upper + lower screen rects.
-                    clipScreen(layout.ndsScreens[0], half: .top, k: k)
-                    clipScreen(layout.ndsScreens[1], half: .bottom, k: k)
-                } else {
-                    Group {
-                        if let videoURL { LoopingClipView(url: videoURL) }
-                        else { SkeletonBox(cornerRadius: 6 * k) }
-                    }
-                    .frame(width: layout.screen.width * k, height: layout.screen.height * k)
-                    .clipShape(RoundedRectangle(cornerRadius: 6 * k, style: .continuous))
-                    .offset(x: layout.screen.minX * k, y: layout.screen.minY * k)
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+            guard !Task.isCancelled else { return }
+            // `body` has already established that this console HAS a card, so a
+            // nil here would be the two answers disagreeing rather than a
+            // console without a dress. Fall back to the console's own layout
+            // family, never to another console's.
+            consoleChrome = ConsoleChrome(
+                image: pair?.image,
+                layout: pair?.layout ?? GBCardLayout.make(
+                    side: 1080, gameNativeSize: CGSize(width: frameAspect, height: 1)))
         }
     }
 

@@ -212,7 +212,7 @@ struct SettingsView: View {
         let games = (try? context.fetch(request)) ?? []
         return games.compactMap { game in
             guard let path = game.romFilePath else { return nil }
-            let stem = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+            let stem = BatterySaveImporter.romBasename(forStoredFilename: path)
             guard !stem.isEmpty else { return nil }
             return (stem, game.systemType ?? "gba")
         }
@@ -648,13 +648,12 @@ struct SettingsView: View {
                     }
                 }
                 #endif
-                HStack {
+                // Was a one-line value beside its label. Four core names did
+                // not fit, and every future console makes it worse, so it
+                // became a link to a screen that says which core runs which
+                // console instead of just listing names.
+                NavigationLink(destination: EmulationEnginesView()) {
                     Text(NSLocalizedString("settings.core", comment: ""))
-                    Spacer()
-                    // Every core the app links, named in the order the consoles
-                    // arrived. Not localized: these are project names.
-                    Text("mGBA / melonDS / MesenCE")
-                        .foregroundStyle(.secondary)
                 }
                 // Straight to the App Store review composer. Unlike the
                 // in-app ask, this path has no Apple quota: it must always
@@ -940,8 +939,14 @@ struct SettingsView: View {
         }
     }
 
-    /// Price-forward value line ("4,99 €, pour toujours" — the anti-subscription
+    /// Price-forward value line ("9,99 €, pour toujours" — the anti-subscription
     /// hook), falling back to the benefits CTA before the product loads.
+    ///
+    /// Deliberately still the LIFETIME price, even though the sheet now
+    /// highlights the yearly plan. This card is the one surface whose whole
+    /// line is "pay once and never again", and putting a subscription price on
+    /// it would trade the position for a smaller number. The sheet is where the
+    /// three plans are compared; this is a teaser, not a price list.
     private var proCardSubtitle: String {
         if let product = proManager.product {
             return String(format: NSLocalizedString("pro.forever", comment: ""), product.displayPrice)

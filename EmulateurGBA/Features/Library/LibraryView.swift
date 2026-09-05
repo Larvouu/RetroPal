@@ -30,6 +30,19 @@ struct LaunchRequest: Identifiable {
     /// ROM (a missing/truncated file is the cause of the rare "won't load"
     /// black screen) and show an actionable message instead of a dead end.
     let expectedSize: Int64
+
+    /// The emulator session, built ONCE when the game is launched.
+    ///
+    /// It used to be built inside the cover's content closure, which SwiftUI
+    /// re-runs on every body evaluation: each pass constructed another core,
+    /// handed it to a view that had already been made, and dropped it. That was
+    /// invisible waste for three cores and fatal for the fourth. libretro has
+    /// ONE global core instance, so PCSX-ReARMed cannot be built twice, and it
+    /// said so by name the moment a PlayStation game reached a re-render.
+    ///
+    /// Carrying it on the request is what makes "one launch, one core" a fact
+    /// about the type rather than a hope about how often SwiftUI re-renders.
+    let session: EmulatorSession
 }
 
 struct LibraryView: View {
@@ -67,6 +80,12 @@ struct LibraryView: View {
     @State private var launchRequest: LaunchRequest?
     @State private var importError: String?
     @State private var showImportError = false
+    /// Games the import skipped because they were already in the library. Not a
+    /// failure, so not in `importError`: it gets its own calm notice at the end
+    /// of the batch, through the same follow-up chain the other post-import
+    /// sheets use.
+    @State private var duplicateNotice: [String] = []
+    @State private var showDuplicateNotice = false
     @State private var isImporting = false
     @State private var searchText = ""
     /// Persisted across launches: the chosen sort survives an app kill (the
@@ -166,7 +185,7 @@ struct LibraryView: View {
 
     /// Canonical console ordering, used only as a stable tiebreak when two
     /// consoles have identical play time (e.g. none played yet).
-    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes"]
+    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -396,6 +415,17 @@ struct LibraryView: View {
         } message: {
             Text(importError ?? "")
         }
+        // Its own alert, with its own title. Folding it into the error one would
+        // put "Import failed" over a game that is sitting in the library working
+        // perfectly.
+        .alert(NSLocalizedString("import.duplicate.title", comment: ""), isPresented: $showDuplicateNotice) {
+            Button(NSLocalizedString("common.ok", comment: "")) {
+                duplicateNotice = []
+                advanceBatchFollowUps()
+            }
+        } message: {
+            Text(Self.duplicateMessage(duplicateNotice))
+        }
     }
 
     /// Destination view for the programmatic Files → "Open in Retro Pal"
@@ -451,15 +481,15 @@ struct LibraryView: View {
         switch systemType {
         case "nds":            return MelonDSBridge()
         case "snes", "nes":    return MesenBridge()
+        case "ps1":            return PCSXBridge()
         default:               return MGBABridge()
         }
     }
 
     private func emulatorScreen(for request: LaunchRequest) -> some View {
-        let bridge = Self.makeBridge(systemType: request.systemType)
-        return EmulatorScreen(
+        EmulatorScreen(
             romURL: request.url,
-            session: EmulatorSession(bridge: bridge),
+            session: request.session,
             loadSlot: request.loadSlot,
             gameTitle: request.gameTitle,
             expectedROMSize: request.expectedSize
@@ -892,8 +922,37 @@ struct LibraryView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let importer = ROMImporter(context: context)
             var failures: [(filename: String, reason: String)] = []
+            var duplicates: [String] = []
             var selectionRequests: [ZipSelectionRequest] = []
-            for url in urls {
+
+            // Discs first, because they are the one console whose games are not
+            // files: several picked files can be ONE game, and which ones is a
+            // question only the descriptors can answer. Cartridges come back
+            // untouched and in their original order.
+            let (cartridges, discs, gaps) = DiscImportGrouper.group(urls)
+
+            for gap in gaps {
+                Analytics.signal("rom_import", ["result": "error", "errorType": "discMissingFiles", "method": "picker"])
+                let error = ROMImportError.discMissingFiles(names: gap.missing)
+                failures.append((gap.boot.lastPathComponent, error.errorDescription ?? ""))
+            }
+
+            for group in discs {
+                do {
+                    let _ = try importer.importDiscGroup(group, method: "picker")
+                } catch let error as ROMImportError {
+                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
+                    if case .alreadyImported = error {
+                        duplicates.append(group.boot.lastPathComponent); continue
+                    }
+                    failures.append((group.boot.lastPathComponent, error.errorDescription ?? ""))
+                } catch {
+                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
+                    failures.append((group.boot.lastPathComponent, error.localizedDescription))
+                }
+            }
+
+            for url in cartridges {
                 do {
                     let _ = try importer.importROM(from: url, method: "picker")
                 } catch let error as ROMImportError {
@@ -904,7 +963,9 @@ struct LibraryView: View {
                         continue
                     }
                     Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
-                    if case .alreadyImported = error { continue }
+                    if case .alreadyImported = error {
+                        duplicates.append(url.lastPathComponent); continue
+                    }
                     failures.append((url.lastPathComponent, error.errorDescription ?? ""))
                 } catch {
                     Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
@@ -914,10 +975,15 @@ struct LibraryView: View {
             DispatchQueue.main.async {
                 isImporting = false
                 zipSelectionQueue.append(contentsOf: selectionRequests)
+                duplicateNotice = duplicates
                 if failures.isEmpty {
                     advanceBatchFollowUps()
                 } else {
-                    importError = Self.batchErrorMessage(failures: failures, pickedCount: urls.count)
+                    // Counted in GAMES, not files. A `.cue` and its `.bin` are
+                    // two picked files and one game, and "1 of 2 failed" would
+                    // be describing something the person did not do.
+                    let gameCount = cartridges.count + discs.count + gaps.count
+                    importError = Self.batchErrorMessage(failures: failures, pickedCount: gameCount)
                     showImportError = true   // its OK button advances the follow-up chain
                 }
             }
@@ -946,12 +1012,14 @@ struct LibraryView: View {
         let context = PersistenceController.shared.container.newBackgroundContext()
         DispatchQueue.global(qos: .userInitiated).async {
             let importer = ROMImporter(context: context)
-            let failures = importer.importZIPSelection(entryNames: names, fromTempZip: request.tempZipURL)
+            let (failures, duplicates) = importer.importZIPSelection(entryNames: names,
+                                                                      fromTempZip: request.tempZipURL)
             for failure in failures {
                 Analytics.signal("rom_import", ["result": "error", "errorType": failure.analyticsID, "method": "zip"])
             }
             DispatchQueue.main.async {
                 isImporting = false
+                duplicateNotice = duplicates
                 if failures.isEmpty {
                     advanceBatchFollowUps()
                 } else {
@@ -991,7 +1059,23 @@ struct LibraryView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                 SkinSharing.present(SkinSharing.importSkin(from: url)) { advanceBatchFollowUps() }
             }
+        } else if !duplicateNotice.isEmpty {
+            // Last in the chain: it is the quietest thing that can be said, and
+            // anything else queued is more urgent than it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { showDuplicateNotice = true }
         }
+    }
+
+    /// One game, its name; several, a list. Never a count, because "2 games were
+    /// already imported" makes the player go and work out which two.
+    private static func duplicateMessage(_ names: [String]) -> String {
+        // The single-game sentence already exists and is already translated: it
+        // is what the Files "open in Retro Pal" path says for the same thing.
+        if names.count == 1 {
+            return NSLocalizedString("import.error.alreadyImported", comment: "")
+        }
+        return NSLocalizedString("import.duplicate.bodySeveral", comment: "")
+            + "\n" + names.map { "• " + $0 }.joined(separator: "\n")
     }
 
     /// Shared launch closure used by both the library row's onPlay (via
@@ -1009,11 +1093,13 @@ struct LibraryView: View {
         // Hold widget publishing for the whole session: it must not spend I/O
         // inside the emulator's blocking auto-save window on backgrounding.
         WidgetSnapshotWriter.isGameLoaded = true
+        let systemType = game.systemType ?? "gba"
         launchRequest = LaunchRequest(
             url: url, loadSlot: slot,
-            systemType: game.systemType ?? "gba",
+            systemType: systemType,
             gameTitle: game.title,
-            expectedSize: game.romSize
+            expectedSize: game.romSize,
+            session: EmulatorSession(bridge: Self.makeBridge(systemType: systemType))
         )
     }
 
@@ -1130,7 +1216,16 @@ struct LibraryView: View {
     private func deleteGame(_ game: GameEntity) {
         if let filename = game.romFilePath {
             let url = romsDir.appendingPathComponent(filename)
-            try? FileManager.default.removeItem(at: url)
+            // A disc game is a FOLDER, so deleting only the file the core is
+            // pointed at would leave most of a gigabyte of orphaned tracks
+            // behind, invisible in the library and impossible to reach from
+            // inside the app. Cartridges have no folder and take the same line
+            // they always did.
+            if let folder = DiscStorage.gameFolder(forROMAt: url) {
+                try? FileManager.default.removeItem(at: folder)
+            } else {
+                try? FileManager.default.removeItem(at: url)
+            }
 
             // Delete the local save-states folder and the separate slot-0
             // auto-save tree (otherwise re-importing the same game would
@@ -1326,8 +1421,8 @@ private struct LibraryRow: View {
 
     private var gamePlayTime: TimeInterval {
         guard let path = game.romFilePath else { return 0 }
-        let romName = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-        return PromptTracker.shared.gamePlayTime(romName: romName)
+        return PromptTracker.shared.gamePlayTime(
+            romName: BatterySaveImporter.romBasename(forStoredFilename: path))
     }
 
     private func formatPlayTime(_ seconds: TimeInterval) -> String {
@@ -1362,8 +1457,29 @@ struct DocumentPickerView: UIViewControllerRepresentable {
 
     /// One list, built from the parser's own extensions, so a console can never
     /// be importable in code while greyed out in the picker.
+    ///
+    /// **Never falls back to `.data`.** That fallback is the difference between
+    /// "this one format is not selectable" and "the picker offers every file on
+    /// the device", and the second is what a single unrecognised extension used
+    /// to buy. It mattered little while every extension here was one we declare
+    /// in our own Info.plist; the PlayStation adds several we deliberately do
+    /// NOT declare (`.bin`, `.iso`, `.img` are far too generic to claim), so the
+    /// fallback went from unreachable to likely.
     private static let romTypesWithoutZip: [UTType] =
-        ROMSystemType.allFileExtensions.map { UTType(filenameExtension: $0) ?? .data }
+        ROMSystemType.allFileExtensions.compactMap(romContentType)
+
+    /// The content type for a ROM extension: the registered one when the system
+    /// knows it, and otherwise a DYNAMIC type built from the extension itself.
+    ///
+    /// The second half is the part that matters and is not a guess:
+    /// `UTType(tag:tagClass:conformingTo:)` is the API that mints a dynamic
+    /// identifier for an unregistered tag, so an extension nothing has claimed
+    /// still filters by that extension instead of disappearing or widening the
+    /// picker. Returning nil is the last resort and costs only that one format.
+    private static func romContentType(_ ext: String) -> UTType? {
+        UTType(filenameExtension: ext)
+            ?? UTType(tag: ext, tagClass: .filenameExtension, conformingTo: .data)
+    }
 
     /// Battery saves only, used by the per-game "Import a save" button where
     /// the target game is already known.

@@ -108,6 +108,30 @@
 				<string>com.retropal.rom.nes</string>
 			</array>
 		</dict>
+		<!-- PlayStation. ONE entry for the whole family rather than one per
+		     extension, because a disc is a game in several possible containers
+		     and they all open the same way. Deliberately NOT claimed here:
+		     .bin, .iso and .img. Those are generic enough that claiming them
+		     would offer Retro Pal for every firmware blob and disk image on the
+		     device, which is rude and would train people to ignore the prompt.
+		     They are still accepted in the app's own picker, where the user has
+		     already said what they are opening. -->
+		<dict>
+			<key>CFBundleTypeIconFiles</key>
+			<array>
+				<string>DocIconPS1</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>PlayStation disc</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.retropal.rom.ps1</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>Retro Pal Skin</string>
@@ -310,6 +334,29 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>nes</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>PlayStation disc</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.retropal.rom.ps1</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>chd</string>
+					<string>cue</string>
+					<string>m3u</string>
+					<string>pbp</string>
+					<string>mdf</string>
+					<string>toc</string>
+					<string>cbn</string>
 				</array>
 			</dict>
 		</dict>

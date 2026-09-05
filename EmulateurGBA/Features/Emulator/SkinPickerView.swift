@@ -346,7 +346,6 @@ struct SkinPickerView: View {
             guard !disabled else { return }
             selected = sel
             onSelect(sel)                                // apply now; OK / Close only dismiss
-            Analytics.signal("skin_changed", ["variant": item.customSkin != nil ? "custom" : item.builtinSkin.rawValue, "system": "\(system)"])
         }
         .modifier(CustomCardMenu(item: item,
                                  isPro: pro.isPro,

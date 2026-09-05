@@ -5,7 +5,7 @@ build_cheat_index.py - Retro Pal cheat database index.
 Compiles libretro-database's `cht/` folder into the ONE small file the app
 bundles:
 
-    EmulateurGBA/Resources/CheatIndex.json      (~420 KB, four systems)
+    EmulateurGBA/Resources/CheatIndex.json      (~800 KB, seven systems)
 
 The index holds no cheat codes at all. It maps a normalised game title to the
 libretro filenames that carry codes for it, so the app can build a URL and
@@ -13,8 +13,9 @@ fetch that single game's file (median 0.6 KB) from jsDelivr on demand.
 
 WHY AN INDEX AND NOT THE CODES. Bundling the codes themselves costs ~11 MB,
 almost all of it Nintendo DS, and it would grow with every console we add.
-The index costs 20-80 KB per console, so breadth stays free. Measured, not
-estimated.
+The index costs 20-120 KB per console, so breadth stays free. Measured, not
+estimated: the PlayStation, the largest single addition so far, cost 122 KB
+for 1385 titles against the several gigabytes its codes would weigh.
 
 WHY TITLES AND NOT CRC32. libretro's cheat filenames follow an OLDER No-Intro
 naming generation than the DATs behind BoxArtIndex: exact-name matching
@@ -46,6 +47,10 @@ SYSTEMS = {
     "nds": "Nintendo - Nintendo DS",
     "snes": "Nintendo - Super Nintendo Entertainment System",
     "nes": "Nintendo - Nintendo Entertainment System",
+    # The seventh console, and the first from a maker other than Nintendo.
+    # libretro's folder is "Sony - PlayStation"; "Sony - PlayStation Portable"
+    # sits beside it and is a different machine we do not run.
+    "ps1": "Sony - PlayStation",
 }
 
 FORMAT_VERSION = 1

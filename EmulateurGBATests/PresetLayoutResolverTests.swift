@@ -266,6 +266,76 @@ struct PresetLayoutResolverTests {
                                                      isLandscape: false, deviceScale: k))
     }
 
+    /// THE POLISH IS A MIRROR, NOT AN OPINION, AND ONE CONSOLE'S WAS NEITHER.
+    ///
+    /// `TouchControlsView.applyLayout` makes three render-time adjustments to the default
+    /// layout, each behind a flag it computes from the system: `wideSelectStart`
+    /// (`system == .gba`), `wideShoulders` (`isNDS && !isLandscape`) and `ndsBigSelectStart`
+    /// (`isNDS`). `PresetLayoutResolver.defaultGeometry(polished:)` exists to reproduce
+    /// exactly those and nothing else, because a new preset is SEEDED from that geometry and
+    /// an untouched component resolves to it. Anything the resolver polishes and the game
+    /// does not is a control that jumps the moment a player opens the editor.
+    ///
+    /// Which is what happened: the Super Nintendo, and then the PlayStation copying it, took
+    /// the GBA's centre nudge WITHOUT its widening. The nudge is the second half of the
+    /// widening — it keeps the inner edges still while the outer ones grow — so on its own it
+    /// is a plain spread, and a fresh preset on either console opened with SELECT and START
+    /// 19pt further apart than the built-in layout the player had been using. Shipped on the
+    /// SNES in 1.2.5, found 2026-08-27.
+    ///
+    /// So this asserts the RULE, not the symptom: where the game's flags are all false,
+    /// polishing is the identity; where they are not, it touches only the elements they name.
+    @Test func polishMirrorsTheGamesOwnAdjustments() {
+        let devices: [(String, CGSize, Bool)] = [
+            ("14 Pro portrait", Self.proPortrait, false),
+            ("14 Pro landscape", Self.proLandscape, true),
+            ("SE portrait", Self.sePortrait, false),
+            ("SE landscape", Self.seLandscape, true),
+        ]
+        for (label, size, isLandscape) in devices {
+            func geometry(_ system: PresetSystem, polished: Bool)
+                -> PresetLayoutResolver.DefaultGeometry {
+                PresetLayoutResolver.defaultGeometry(
+                    system: system, isLandscape: isLandscape, viewSize: size,
+                    safeInsets: .zero, controllerConnected: false, polished: polished)
+            }
+            func differing(_ system: PresetSystem) -> Set<ControlElement> {
+                let plain = geometry(system, polished: false)
+                let polished = geometry(system, polished: true)
+                var moved: Set<ControlElement> = []
+                for (element, p) in polished.buttons {
+                    guard let q = plain.buttons[element] else {
+                        Issue.record("\(label) \(system): \(element.rawValue) is missing unpolished")
+                        continue
+                    }
+                    if !approx(p.center, q.center)
+                        || !approx(p.baseSize.width, q.baseSize.width)
+                        || !approx(p.baseSize.height, q.baseSize.height) {
+                        moved.insert(element)
+                    }
+                }
+                return moved
+            }
+
+            // The game sets no flag for these four, so the resolver may not either.
+            for system in [PresetSystem.gbc, .nes, .snes, .ps1] {
+                let moved = differing(system)
+                #expect(moved.isEmpty,
+                        Comment(rawValue: "\(label) \(system): the resolver polishes "
+                                          + "\(moved.map(\.rawValue).sorted()) and the game does "
+                                          + "not, so a seeded preset would move them"))
+            }
+            // And the two that do adjust touch exactly what their flags name.
+            #expect(differing(.gba) == [.btnSelect, .btnStart],
+                    "\(label) gba: wideSelectStart covers SELECT and START, nothing else")
+            let dsExpected: Set<ControlElement> = isLandscape
+                ? [.btnSelect, .btnStart, .btnClip]
+                : [.btnL, .btnR, .btnSelect, .btnStart, .btnClip, .btnMic]
+            #expect(differing(.nds) == dsExpected,
+                    "\(label) nds: the DS's own adjustments moved a control they do not name")
+        }
+    }
+
     @Test func materializingAFallbackComponentDoesNotMoveIt() {
         // Storing an untouched component at its resolved center (what the
         // editor does on first touch) must produce the exact same rectangle:

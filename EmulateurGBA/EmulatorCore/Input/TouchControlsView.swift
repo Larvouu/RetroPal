@@ -23,6 +23,16 @@ enum GBAInput: UInt32 {
     case l      = 0x200  // 1 << 9
     case x      = 0x400  // 1 << 10 (NDS)
     case y      = 0x800  // 1 << 11 (NDS)
+    // The PlayStation's second shoulder pair. Free bits: the mask has always
+    // been 32 wide and only twelve were spoken for.
+    case l2     = 0x1000 // 1 << 12 (PS1)
+    case r2     = 0x2000 // 1 << 13 (PS1)
+    // The DualShock's stick CLICKS. Late to the console and rare in its
+    // library, but not optional: Tomb Raider 3 fires with R3, Ape Escape crawls
+    // with both, Mega Man Legends 2 centres its camera with L3. A game that
+    // needs one and cannot get it is a game that cannot be finished.
+    case l3     = 0x4000 // 1 << 14 (PS1)
+    case r3     = 0x8000 // 1 << 15 (PS1)
 }
 
 protocol TouchControlsDelegate: AnyObject {
@@ -91,6 +101,21 @@ class TouchControlsView: UIView {
     private var preControllerHidden: [ObjectIdentifier: Bool] = [:]
 
     // Long-press lock gesture state
+    /// A stick-click button waiting out its hold. See `holdTriggers`.
+    private struct PendingHold {
+        let view: UIView
+        let buttonMask: UInt32
+        let startTime: CFTimeInterval
+        let ringLayer: CAShapeLayer
+    }
+    /// Holds in flight, by the touch that started them.
+    private var pendingHolds: [ObjectIdentifier: PendingHold] = [:]
+    /// Completed holds still under a finger, by that finger.
+    private var completedHolds: [ObjectIdentifier: UInt32] = [:]
+    /// Holds that have completed and are still under a finger. OR'd into the
+    /// reported mask exactly as `lockedButtons` is.
+    fileprivate var heldButtons: UInt32 = 0
+
     private struct PendingLock {
         let view: UIView
         let buttonMask: UInt32
@@ -118,8 +143,9 @@ class TouchControlsView: UIView {
     // Haptic feedback — game-button taps honor the Settings strength (1-6).
     /// Level → (style, intensity) map. Level 3 IS the historical feel (.light at
     /// full intensity, the pre-1.2.4 constant); lower levels soften through
-    /// .soft, higher move through .medium to .heavy. Perceptual spacing owes a
-    /// device pass.
+    /// .soft, higher move through .medium to .heavy. Perceptual spacing is
+    /// tuned by hand on hardware, not derived: the numbers are what felt evenly
+    /// spaced, and there is no formula behind them to preserve.
     static let hapticLevels: [(style: UIImpactFeedbackGenerator.FeedbackStyle, intensity: CGFloat)] = [
         (.soft, 0.5), (.soft, 0.8), (.light, 1.0), (.medium, 0.8), (.medium, 1.0), (.heavy, 1.0)
     ]
@@ -253,6 +279,55 @@ class TouchControlsView: UIView {
 
     // MARK: - Custom Layout Support
 
+    /// Controls a subclass hit-tests ITSELF, which the parent must still know
+    /// about so a touch on one is not treated as landing on nothing.
+    ///
+    /// Everything in `buttonMap` is non-interactive and hit-tested here; these
+    /// are the exceptions. Without them a tap passes straight through to the
+    /// game screen whenever the controls are in pass-through mode.
+    func extraClaimingViews() -> [UIView] { [] }
+
+    /// Buttons that answer only to a HOLD, with the bit each contributes.
+    ///
+    /// Empty for every console but the PlayStation, whose L3 and R3 are these.
+    /// They are not in `buttonMap` because a tap on them must do NOTHING: a
+    /// stick click is a rare, deliberate input sitting next to a control the
+    /// player's thumb is on constantly, and an instantaneous version of it
+    /// would fire every time a thumb strayed. Holding is the whole feature.
+    ///
+    /// Once the hold completes the bit stays set until the finger lifts, which
+    /// is what the games want: Tomb Raider 3 fires while R3 is down, Ape Escape
+    /// crawls while L3 is.
+    func holdTriggers() -> [(view: UIView, mask: UInt32)] { [] }
+
+    /// How long a hold has to last. Shorter than the button-lock gesture's
+    /// second, because this one is not a hidden power feature: it is how the
+    /// button works at all, and every press pays it.
+    private static let stickClickHoldDuration: CFTimeInterval = 0.35
+
+    /// Let go of every input this view is holding. The base drops the button
+    /// mask; a subclass with controls of its own adds them.
+    func releaseAllInputs() {
+        lockedButtons = 0
+        // Holds too: a stick click left set by a finger nobody will ever lift
+        // is a game firing forever, which is the same class of bug the sticks'
+        // own `reset()` exists for.
+        heldButtons = 0
+        completedHolds.removeAll()
+        for (_, pending) in pendingHolds { fadeAndRemoveRing(pending.ringLayer) }
+        pendingHolds.removeAll()
+        applyButtons(0)
+    }
+
+    /// Controls that are TAPS, not game inputs: checked like MENU and CLIP and
+    /// reported through their own callback rather than through the bitmask.
+    ///
+    /// Empty for every console but the PlayStation, whose pad carries an ANALOG
+    /// switch. That switch is not a button the console reads; it asks the
+    /// CONTROLLER to change what it is, and that difference is the whole reason
+    /// it cannot travel in `buttonMap` with everything else.
+    func tapTriggers() -> [(view: UIView, fire: () -> Void)] { [] }
+
     /// Maps ControlElement to the corresponding button view. Subclasses override to add NDS buttons.
     func allButtonViews() -> [(ControlElement, UIView)] {
         [(.dpad, dpad), (.btnA, btnA), (.btnB, btnB), (.btnL, btnL),
@@ -298,6 +373,7 @@ class TouchControlsView: UIView {
         switch system {
         case .nds:  return NDSTouchControlsView()
         case .snes: return SNESTouchControlsView()
+        case .ps1:  return PS1TouchControlsView()
         case .gba, .gbc, .nes: return TouchControlsView()
         }
     }
@@ -310,6 +386,7 @@ class TouchControlsView: UIView {
         case .nds:  return .nds
         case .snes: return .snes
         case .nes:  return .nes
+        case .ps1:  return .ps1
         case .gbc:  return .gbc
         }
     }
@@ -569,8 +646,7 @@ class TouchControlsView: UIView {
                 preControllerHidden[ObjectIdentifier(view)] = view.isHidden
                 view.isHidden = true
             }
-            lockedButtons = 0
-            applyButtons(0)   // drop any current touch / lock state
+            releaseAllInputs()   // drop any current touch / lock / stick state
         } else {
             for (element, view) in allButtonViews() where element != .btnMenu {
                 view.isHidden = preControllerHidden[ObjectIdentifier(view)] ?? false
@@ -646,6 +722,23 @@ class TouchControlsView: UIView {
                 return true
             }
         }
+        // Taps and self-hit-testing controls. Neither lives in `buttonMap`, and
+        // both are still controls: a claim test that does not know them lets a
+        // press on the PlayStation's ANALOG switch, or on either of its sticks,
+        // fall through to the screen behind.
+        for trigger in tapTriggers() where !trigger.view.isHidden && trigger.view.alpha > 0.01 {
+            if trigger.view.bounds.insetBy(dx: -10, dy: -10)
+                .contains(convert(point, to: trigger.view)) { return true }
+        }
+        for view in extraClaimingViews() where !view.isHidden && view.alpha > 0.01 {
+            if view.bounds.contains(convert(point, to: view)) { return true }
+        }
+        // Hold buttons claim their touches too. A press that falls through
+        // while the finger waits out the hold would reach the screen behind,
+        // which on a pass-through layout is the game.
+        for trigger in holdTriggers() where !trigger.view.isHidden && trigger.view.alpha > 0.01 {
+            if trigger.view.bounds.contains(convert(point, to: trigger.view)) { return true }
+        }
         return false
     }
 
@@ -689,6 +782,7 @@ class TouchControlsView: UIView {
             }
         }
         startLockTrackersIfNeeded(touches)
+        startHoldTrackersIfNeeded(touches)
         updateButtons(for: event)
     }
 
@@ -702,6 +796,7 @@ class TouchControlsView: UIView {
             if touch === dpadTouch { dpadTouch = nil }
         }
         finishLockTrackers(touches)
+        finishHoldTrackers(touches)
         updateButtons(for: event)
     }
 
@@ -710,10 +805,72 @@ class TouchControlsView: UIView {
             if touch === dpadTouch { dpadTouch = nil }
         }
         cancelLockTrackers(touches)
+        finishHoldTrackers(touches)
         updateButtons(for: event)
     }
 
     // MARK: - Button-Lock Gesture (long-press to lock, tap to unlock)
+
+    // MARK: - Hold-to-press (the PlayStation's stick clicks)
+
+    private func startHoldTrackersIfNeeded(_ touches: Set<UITouch>) {
+        let triggers = holdTriggers()
+        guard !triggers.isEmpty else { return }
+        for touch in touches {
+            let point = touch.location(in: self)
+            for (view, mask) in triggers where !view.isHidden && view.alpha > 0.01 {
+                guard view.bounds.contains(convert(point, to: view)) else { continue }
+                let ring = makeLockRing(for: view)
+                view.layer.addSublayer(ring)
+                pendingHolds[ObjectIdentifier(touch)] = PendingHold(
+                    view: view, buttonMask: mask,
+                    startTime: CACurrentMediaTime(), ringLayer: ring)
+                startLockDisplayLinkIfNeeded()
+                break   // one tracker per touch
+            }
+        }
+    }
+
+    /// The finger lifted. Whether the hold had completed or not, everything it
+    /// was doing stops: a half-finished hold leaves no bit set, which is the
+    /// point of the gesture.
+    private func finishHoldTrackers(_ touches: Set<UITouch>) {
+        guard !pendingHolds.isEmpty || heldButtons != 0 else { return }
+        for touch in touches {
+            let id = ObjectIdentifier(touch)
+            if let pending = pendingHolds.removeValue(forKey: id) {
+                fadeAndRemoveRing(pending.ringLayer)
+            }
+            if let mask = completedHolds.removeValue(forKey: id) {
+                heldButtons &= ~mask
+            }
+        }
+        stopLockDisplayLinkIfIdle()
+    }
+
+    fileprivate func holdDisplayLinkTick(now: CFTimeInterval) {
+        guard !pendingHolds.isEmpty else { return }
+        var completed: [ObjectIdentifier] = []
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for (id, pending) in pendingHolds {
+            let progress = min((now - pending.startTime) / Self.stickClickHoldDuration, 1.0)
+            pending.ringLayer.strokeEnd = CGFloat(progress)
+            if progress >= 1.0 { completed.append(id) }
+        }
+        CATransaction.commit()
+        for id in completed {
+            guard let pending = pendingHolds.removeValue(forKey: id) else { continue }
+            completedHolds[id] = pending.buttonMask
+            heldButtons |= pending.buttonMask
+            (pending.view as? SmallButton)?.flashPress()
+            fireHaptic()
+            fadeAndRemoveRing(pending.ringLayer)
+            // Push it out now: the finger is still and will generate no further
+            // touch events, so nothing else would report this press.
+            applyButtons(lastRawButtons)
+        }
+    }
 
     private func startLockTrackersIfNeeded(_ touches: Set<UITouch>) {
         // Respect the Settings → Controls toggle. Default ON (current behavior);
@@ -840,11 +997,15 @@ class TouchControlsView: UIView {
     }
 
     fileprivate func lockDisplayLinkTick() {
+        // One link drives both gestures. They are independent -- a hold can be
+        // in flight with no lock pending -- so the holds tick FIRST and the
+        // early return below only decides whether the lock half has work.
+        let now = CACurrentMediaTime()
+        holdDisplayLinkTick(now: now)
         guard !pendingLocks.isEmpty else {
             stopLockDisplayLinkIfIdle()
             return
         }
-        let now = CACurrentMediaTime()
         var completedIds: [ObjectIdentifier] = []
 
         CATransaction.begin()
@@ -897,7 +1058,7 @@ class TouchControlsView: UIView {
     }
 
     private func stopLockDisplayLinkIfIdle() {
-        guard pendingLocks.isEmpty else { return }
+        guard pendingLocks.isEmpty, pendingHolds.isEmpty else { return }
         lockDisplayLink?.invalidate()
         lockDisplayLink = nil
         lockDisplayProxy = nil
@@ -1007,6 +1168,20 @@ class TouchControlsView: UIView {
                 onMenuTap?()
             }
 
+            // Controls a subclass reports as TAPS rather than as pressed
+            // buttons. Only on `.began`, unlike MENU and CLIP above: those are
+            // idempotent (the menu is already open), while a toggle fired again
+            // on every `.moved` would flip back and forth under a resting thumb.
+            for trigger in tapTriggers() where !trigger.view.isHidden && trigger.view.alpha > 0.01 {
+                guard touch.phase == .began else { continue }
+                let local = convert(point, to: trigger.view)
+                if trigger.view.bounds.insetBy(dx: -10, dy: -10).contains(local) {
+                    fireHaptic()
+                    (trigger.view as? SmallButton)?.flashPress()
+                    trigger.fire()
+                }
+            }
+
             // Check clip button (action trigger like Menu, never a game input). The
             // pad's claimed finger already `continue`d above, so sliding the D-pad
             // finger here can't fire it. Skip when hidden (controller mode / preset).
@@ -1047,11 +1222,11 @@ class TouchControlsView: UIView {
         // updateButtons and still works.
         let buttons = controllerModeActive ? 0 : buttons
         // Augment raw touch state with locked buttons before reporting to the emulator
-        let augmented = controllerModeActive ? 0 : (buttons | lockedButtons)
+        let augmented = controllerModeActive ? 0 : (buttons | lockedButtons | heldButtons)
 
         // Haptic only on new *physical* presses, and skip buttons that are already
         // locked (silent re-press of a locked button — already pressed visually).
-        let newlyPressedRaw = buttons & ~lastRawButtons & ~lockedButtons
+        let newlyPressedRaw = buttons & ~lastRawButtons & ~lockedButtons & ~heldButtons
         lastRawButtons = buttons
         if newlyPressedRaw != 0 {
             // Strength is the user's Settings choice; the default level keeps
@@ -1133,7 +1308,7 @@ protocol HighlightableButton: UIView {
 /// #C4BFCF buttons + D-pad). Only consulted while `dressed` is on — the undressed path is
 /// untouched. `gbaButton` shades are derived from #C4BFCF.
 enum DressKind {
-    case gbc, gba, nds, snes, nes
+    case gbc, gba, nds, snes, nes, ps1
 
     static let gbaButton        = UIColor(red: 0.769, green: 0.749, blue: 0.812, alpha: 1) // #C4BFCF
     static let gbaButtonPressed = UIColor(red: 0.640, green: 0.620, blue: 0.680, alpha: 1)
@@ -1158,7 +1333,7 @@ enum DressKind {
     static let snesY      = UIColor(red: 0.212, green: 0.408, blue: 0.251, alpha: 1) // #366840
 
     // NES palette, taken from the console art this app already ships (the Appearance button's
-    // icon, Store/components/console-nes.svg) so the drawing and the dress cannot describe the
+    // icon, the `console-nes` imageset) so the drawing and the dress cannot describe the
     // same machine differently. Body is the pad's light grey, the cross and the two pills are
     // the same near-black the Super Nintendo uses (both consoles really do print them black),
     // A and B are the red the stripe uses, and the WELL is the darker panel those buttons are
@@ -1169,11 +1344,53 @@ enum DressKind {
     static let nesWell = UIColor(red: 0.651, green: 0.631, blue: 0.659, alpha: 1) // #A6A1A8
     static let nesSurround = UIColor(red: 0.804, green: 0.800, blue: 0.820, alpha: 1) // #CDCCD1
 
+    // PlayStation palette. The console this app has that is closest to the SNES in
+    // shape and furthest from it in colour logic: the Super Nintendo colours the
+    // BUTTONS, while the PlayStation leaves all four the same warm grey as the pad
+    // and colours only the SYMBOL printed on them. So `ps1Face` answers for every
+    // face button and the four values below are LABEL colours, which is why they
+    // are not called `ps1A` and so on.
+    static let ps1Body     = UIColor(rpHex: 0xBEBEBC)   // the shell, and every unpainted surface
+    /// EVERY CONTROL IS THIS ONE DARK, which is the colour logic of this pad and
+    /// the reason its four face buttons are not four colours: the cross's
+    /// arrows, both stick dishes, the four faces' own plastic, all four
+    /// shoulders, ANALOG, SELECT, START and the MENU / CLIP seats are one tone,
+    /// and what distinguishes the faces is the symbol PRINTED on them.
+    static let ps1Dark     = UIColor(rpHex: 0x404145)
+    /// The face buttons are that same dark, so this is an alias and not a
+    /// second decision. It stays a separate name because every other console
+    /// here means something different by "face" and the call sites read better
+    /// asking for the one they mean.
+    static let ps1Face     = ps1Dark
+    /// The screen panel. Derived from the shell rather than given, so a custom
+    /// skin that repaints the body keeps its panel a shade of the same plastic.
+    // BLACK, on both dresses. It is the frame around the picture, and a frame
+    // that is a shade of the shell competes with the picture for the eye; black
+    // steps back and lets the screen be the brightest thing on the page. It is
+    // also what the console's own bezel does.
+    static let ps1Surround = UIColor(rpHex: 0x000000)
+    // The four printed symbols. PASTEL, and that is the hardware: they are inks
+    // on grey plastic, not coloured buttons, so they are far softer than the
+    // saturated versions the console ICON uses. The icon is 36pt and needs
+    // punch; a control under a thumb does not, and the real pad is pale.
+    static let ps1Triangle = UIColor(rpHex: 0xC0EAE8)
+    static let ps1Circle   = UIColor(rpHex: 0xD7A59D)
+    static let ps1Cross    = UIColor(rpHex: 0xC0D2F4)
+    static let ps1Square   = UIColor(rpHex: 0xDDB9D3)
+
     /// The "modern recolor" family: a light face with a dark ink accent (GBA, NDS). This used to
     /// be written inline as `dressKind != .gbc` in every button view; it is named here because the
     /// SNES is neither family — light shoulders like the GBA, a dark pad and dark SELECT/START
     /// like the Game Boy, and four coloured faces that are like nothing else. Every `!= .gbc` in
     /// the views now asks this instead, which is the same answer for gbc / gba / nds.
+    /// The "modern recolor" family: a light face with a dark ink accent.
+    ///
+    /// NOT the PlayStation, though it was listed here first. Its faces are the
+    /// same near-black as everything else it has, and being in this family cost
+    /// three things at once: SELECT and START rendered as the GBA's tiny circle
+    /// instead of a real pill, the label branch sent its four printed symbols to
+    /// the GBA's grey ink, and the cross drew the arm lines this console's pad
+    /// does not have.
     var usesLightFaces: Bool { self == .gba || self == .nds }
 
     /// Whether SELECT/START render as the tiny circle beside a skin-drawn pill (GBA, NDS) or as
@@ -1294,6 +1511,7 @@ enum DressKind {
         switch self {
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesPad
+        case .ps1:  return DressKind.ps1Dark
         default: return UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
         }
     }
@@ -1304,6 +1522,7 @@ enum DressKind {
         // outline is what separates the two, and it is a specified colour rather than a derived
         // one for exactly that reason.
         case .nes:  return DressKind.nesWell
+        case .ps1:  return DressKind.ps1Dark.rpEdge
         default: return UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
         }
     }
@@ -1317,6 +1536,9 @@ enum DressKind {
         case .gbc:  return DressKind.gbcSmall
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesPad
+        // SELECT and START are the same grey plastic as everything else on this
+        // pad; only the printing tells them apart.
+        case .ps1:  return DressKind.ps1Face
         case .gba, .nds: return faceFill
         }
     }
@@ -1325,6 +1547,7 @@ enum DressKind {
         case .gbc:  return DressKind.gbcSmallPressed
         case .snes: return DressKind.snesDark.rpPressed
         case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.18)
+        case .ps1:  return DressKind.ps1Face.rpPressed
         case .gba, .nds: return facePressed
         }
     }
@@ -1333,6 +1556,7 @@ enum DressKind {
         case .gbc:  return DressKind.gbcSmallEdge
         case .snes: return DressKind.snesDark.rpEdge
         case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.10)
+        case .ps1:  return DressKind.ps1Face.rpEdge
         case .gba, .nds: return faceEdge
         }
     }
@@ -1352,6 +1576,7 @@ enum DressKind {
         // The NES's MENU/CLIP sit on its near-black pill colour, so the glyph is the light
         // grey its wells and its cross outline use.
         case .nes:  return DressKind.nesWell
+        case .ps1:  return DressKind.ps1Dark
         case .gba, .nds: return faceInk
         }
     }
@@ -1371,6 +1596,9 @@ enum DressKind {
         // The NES's A and B ARE one colour, so unlike the Super Nintendo it needs no per-button
         // override: the console's own face fill answers for both.
         case .nes:  return DressKind.nesFace
+        // All four faces, and the shoulders. The colour is on the SYMBOL, which
+        // PS1TouchControlsView paints per button through `dressFaceLabel`.
+        case .ps1:  return DressKind.ps1Face
         case .gbc, .gba: return DressKind.gbaButton
         }
     }
@@ -1379,6 +1607,7 @@ enum DressKind {
         case .nds:  return DressKind.ndsButtonPressed
         case .snes: return DressKind.snesBody.rpPressed
         case .nes:  return DressKind.nesFace.rpPressed
+        case .ps1:  return DressKind.ps1Face.rpPressed
         case .gbc, .gba: return DressKind.gbaButtonPressed
         }
     }
@@ -1387,6 +1616,7 @@ enum DressKind {
         case .nds:  return DressKind.ndsButtonEdge
         case .snes: return DressKind.snesBody.rpEdge
         case .nes:  return DressKind.nesFace.rpEdge
+        case .ps1:  return DressKind.ps1Face.rpEdge
         case .gbc, .gba: return DressKind.gbaButtonEdge
         }
     }
@@ -1395,8 +1625,132 @@ enum DressKind {
         case .nds:  return DressKind.ndsInk
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesWell
+        // Darker than the plate it is cut into, because on this console the
+        // plate IS `ps1Dark`: returning that would print a shoulder's word in
+        // exactly its own background.
+        case .ps1:  return DressKind.ps1Dark.rpMixed(with: .black, 0.34)
         case .gbc, .gba: return DressKind.gbaSurround
         }
+    }
+}
+
+/// The "bombé": the shading that turns a flat fill into something domed.
+///
+/// One light direction for the whole console, from the TOP RIGHT, because a
+/// page lit from two directions reads as a mistake rather than as two materials.
+/// It is a gradient clipped to the shape, so a circle domes as a sphere and a
+/// rectangle as a pillow without either knowing about the other.
+///
+/// Lives here rather than in each button class because there are four of them
+/// and they would otherwise disagree by a hundredth of an alpha.
+enum Bombe {
+    static func make() -> CAGradientLayer {
+        let g = CAGradientLayer()
+        // The lit side is the strong one. It carries the whole read of a domed
+        // surface, and at parity with the shadow the shape stayed flat.
+        g.colors = [UIColor.white.withAlphaComponent(0.38).cgColor,
+                    UIColor.clear.cgColor,
+                    UIColor.black.withAlphaComponent(0.20).cgColor]
+        g.locations = [0, 0.5, 1]
+        g.startPoint = CGPoint(x: 1, y: 0)
+        g.endPoint = CGPoint(x: 0, y: 1)
+        g.isHidden = true
+        return g
+    }
+
+    /// Fit `dome` to `bounds` and clip it to a rounded rect. `corner` of nil
+    /// means a full oval, which is what a face button wants.
+    static func fit(_ dome: CAGradientLayer, to bounds: CGRect, corner: CGFloat?) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        dome.frame = bounds
+        let mask = CAShapeLayer()
+        let local = CGRect(origin: .zero, size: bounds.size)
+        mask.path = corner.map { UIBezierPath(roundedRect: local, cornerRadius: $0).cgPath }
+            ?? UIBezierPath(ovalIn: local).cgPath
+        dome.mask = mask
+        CATransaction.commit()
+    }
+
+    /// Fit `dome` over a view's whole bounds but clip it to an arbitrary shape
+    /// given in that view's own coordinates. The small buttons need this: their
+    /// visible shape is a rectangle or a triangle drawn inside a hitbox that is
+    /// larger than it, so doming the hitbox would light up empty space.
+    static func fit(_ dome: CAGradientLayer, over bounds: CGRect, clippedTo path: CGPath) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        dome.frame = bounds
+        let mask = CAShapeLayer()
+        mask.path = path
+        dome.mask = mask
+        CATransaction.commit()
+    }
+
+    // MARK: The core — the bombé's second layer
+
+    /// How much smaller the core is than the shape it sits in. "Almost the same
+    /// size": a tenth, so what shows of the outer layer is a thin rim.
+    static let coreInset: CGFloat = 0.10
+
+    /// The SECOND layer of the bombé: the same shape again, a tenth smaller and
+    /// CONCENTRIC, carrying a gradient that runs from nothing at the top right
+    /// to black at the bottom left.
+    ///
+    /// Why two layers rather than one stronger gradient. A single gradient
+    /// shades a flat shape; it never gives it an EDGE. A concentric second copy
+    /// leaves an even rim of the lighter layer showing all the way round, and
+    /// the shading inside that rim is what reads as the surface falling away.
+    /// The light direction has to agree with `make()` above: both run top-right
+    /// to bottom-left, so the two darken together instead of fighting.
+    static func makeCore() -> CAGradientLayer {
+        let g = CAGradientLayer()
+        // CLEAR at the top right, not a pale black: the top right has to be the
+        // background colour exactly, so the core disappears into the layer under
+        // it there and only darkens as it falls to the bottom left. Any tint at
+        // the light end draws a visible edge where the two layers meet.
+        g.colors = [UIColor.clear.cgColor,
+                    UIColor.black.withAlphaComponent(0.34).cgColor]
+        g.locations = [0, 1]
+        g.startPoint = CGPoint(x: 1, y: 0)
+        g.endPoint = CGPoint(x: 0, y: 1)
+        g.isHidden = true
+        return g
+    }
+
+    /// Fit `core` over `bounds`, clipped to `path` shrunk about its own centre.
+    ///
+    /// Any shape at all: the transform is applied to whatever path it is handed,
+    /// so a triangle domes as a triangle and a bar as a bar.
+    static func fitCore(_ core: CAGradientLayer, over bounds: CGRect, clippedTo path: CGPath) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        core.frame = bounds
+        let mask = CAShapeLayer()
+        mask.path = coredPath(UIBezierPath(cgPath: path)).cgPath
+        core.mask = mask
+        CATransaction.commit()
+    }
+
+    /// One shape's core: the same outline shrunk about its own centre.
+    ///
+    /// Exposed on its own because a control made of SEVERAL shapes has to core
+    /// each one separately. The cross is the case: cored as one path its four
+    /// keys would shrink toward the pad's own middle together, which domes the
+    /// cross rather than the keys. Per key, each domes about its own centre,
+    /// exactly as a face button does.
+    static func coredPath(_ path: UIBezierPath) -> UIBezierPath {
+        let box = path.cgPath.boundingBox
+        guard box.width > 0, box.height > 0 else { return path }
+        // AN EQUAL MARGIN IN POINTS on all four sides, not an equal fraction.
+        // A uniform scale takes `coreInset` of each axis, which on a circle is
+        // the same thing but on a BAR is a wide margin at the ends and a thin
+        // one along the top and bottom -- the rim then looks like a mistake
+        // rather than like the edge of something domed. The margin is set by the
+        // SHORTER side, so the tight axis keeps the proportion it had.
+        let d = min(box.width, box.height) * coreInset / 2
+        let sx = max(0, box.width - d * 2) / box.width
+        let sy = max(0, box.height - d * 2) / box.height
+        var t = CGAffineTransform(translationX: box.midX, y: box.midY)
+            .scaledBy(x: sx, y: sy)
+            .translatedBy(x: -box.midX, y: -box.midY)
+        return UIBezierPath(cgPath: path.cgPath.copy(using: &t) ?? path.cgPath)
     }
 }
 
@@ -1415,10 +1769,56 @@ final class LockDisplayProxy {
 final class DPadView: UIView {
     private let baseLayer = CAShapeLayer()
     private let thumbLayer = CAShapeLayer()
+    /// Ported from `AnalogStickView` 2026-08-27 so the joystick alternative
+    /// wears the same look as the PlayStation's sticks, in each console's own
+    /// colours. Deliberately a COPY of those three layers rather than a shared
+    /// renderer: extracting one would refactor a control class six consoles
+    /// depend on and which is device-verified, to save about fifty lines.
+    /// If a third stick-shaped control ever appears, extract it then.
+    private let holeLayer = CAShapeLayer()
+    private let thumbDome = CAGradientLayer()
+    private let thumbGrain = CALayer()
     private let thumbRadius: CGFloat = 20
 
-    /// The thumb is 1.6x larger when dressed (the GB/GBC console look).
-    private var effectiveThumbRadius: CGFloat { dressed ? thumbRadius * 1.6 : thumbRadius }
+    /// How far past the cap the black hole shows, as a fraction of the radius.
+    /// Same value the PlayStation stick uses.
+    private let holeExcess: CGFloat = 0.07
+
+    /// A stick is SMALLER than the cross it replaces, and the number is taken
+    /// from this app's own layout rather than chosen: a PlayStation stick is
+    /// 90pt where its cross is 165 (`ControlLayoutModels.size`), and the
+    /// comment there says the 90 is not a taste, it is what fits the lane.
+    ///
+    /// Mirroring that ratio is the whole point. The first version of this made
+    /// the cap fill the control, which is correct on the PlayStation only
+    /// because a stick's FRAME is already stick-sized there. Dropped into a
+    /// d-pad's much larger frame it produced a joystick the size of a d-pad.
+    private static let stickToCrossRatio: CGFloat = 90.0 / 165.0
+
+    /// The cap's radius. Dressed it is the PlayStation stick's proportion of
+    /// the control; undressed it is the small knob the custom presets have
+    /// always drawn, untouched.
+    private var effectiveThumbRadius: CGFloat {
+        dressed ? min(bounds.width, bounds.height) / 2 * Self.stickToCrossRatio
+                : thumbRadius
+    }
+
+    /// How far the cap is DRAWN from centre at full push.
+    ///
+    /// ⚠ THIS IS DRAWING ONLY. The direction the game receives is computed by
+    /// `TouchControlsView` from the pad's own centre and never reads this, so
+    /// nothing here changes how hard the player has to push or which way the
+    /// character walks.
+    ///
+    /// Dressed it is the cap's own radius, so the cap's trailing edge arrives
+    /// exactly on the STICK's centre and no further: the largest move that
+    /// still leaves the seat covered, and the same rule the PlayStation stick
+    /// follows. Undressed it is the old rule, the room left between the knob
+    /// and the ring.
+    private var drawnTravel: CGFloat {
+        dressed ? effectiveThumbRadius
+                : min(bounds.width, bounds.height) / 2 - effectiveThumbRadius
+    }
 
     private var thumbOffset: CGPoint = .zero
 
@@ -1445,6 +1845,14 @@ final class DPadView: UIView {
         if dressed {
             // No outer ring — the dress always draws a recessed well behind the joystick.
             baseLayer.isHidden = true
+            // The hole is the shell, not the control: it does not move with the
+            // cap, and it is what reads as the seat now the cap fills the frame.
+            holeLayer.isHidden = false
+            thumbDome.isHidden = false
+            thumbGrain.isHidden = false
+            // The face colour stays `dpadFace`. This control replaces the
+            // D-PAD, so it takes the d-pad's ink on every console rather than
+            // the shoulder tone the PlayStation stick borrows from its own pad.
             let rp = dressVariant.dpadFace(dressKind)
             if dressKind.usesLightFaces {
                 thumbLayer.fillColor = (rp ?? dressKind.faceFill).cgColor
@@ -1453,7 +1861,14 @@ final class DPadView: UIView {
                 thumbLayer.fillColor = (rp ?? dressKind.darkPadFill).cgColor
                 thumbLayer.strokeColor = UIColor.white.withAlphaComponent(0.25).cgColor
             }
+            thumbDome.colors = [UIColor.white.withAlphaComponent(0.22).cgColor,
+                                UIColor.clear.cgColor,
+                                UIColor.black.withAlphaComponent(0.22).cgColor]
+            thumbDome.locations = [0, 0.5, 1]
         } else {
+            holeLayer.isHidden = true
+            thumbDome.isHidden = true
+            thumbGrain.isHidden = true
             baseLayer.isHidden = false
             baseLayer.fillColor = UIColor.white.withAlphaComponent(0.1).cgColor
             baseLayer.strokeColor = UIColor.white.withAlphaComponent(0.3).cgColor
@@ -1472,11 +1887,33 @@ final class DPadView: UIView {
         baseLayer.lineWidth = 2
         layer.addSublayer(baseLayer)
 
+        // The hole sits UNDER the cap and above the ring, so the cap moves
+        // across it rather than out of it.
+        holeLayer.fillColor = UIColor.black.cgColor
+        holeLayer.isHidden = true
+        layer.addSublayer(holeLayer)
+
         // Inner thumb
         thumbLayer.fillColor = UIColor.white.withAlphaComponent(0.35).cgColor
         thumbLayer.strokeColor = UIColor.white.withAlphaComponent(0.5).cgColor
         thumbLayer.lineWidth = 1.5
         layer.addSublayer(thumbLayer)
+
+        // Dome and grain ride ON the cap, clipped to it in updateThumbPosition,
+        // so the light stays on the knob instead of washing the seat.
+        // Light from the top right, shadow at the bottom left: the same
+        // direction the PlayStation stick is lit from, and the same one every
+        // dressed control in this app uses. A stick lit from a different angle
+        // than the shell around it is the one thing that reads as pasted on.
+        thumbDome.startPoint = CGPoint(x: 1, y: 0)
+        thumbDome.endPoint = CGPoint(x: 0, y: 1)
+        thumbDome.isHidden = true
+        layer.addSublayer(thumbDome)
+
+        thumbGrain.backgroundColor = UIColor(patternImage: GameBoySkin.grain).cgColor
+        thumbGrain.opacity = 0.5
+        thumbGrain.isHidden = true
+        layer.addSublayer(thumbGrain)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -1491,6 +1928,15 @@ final class DPadView: UIView {
             startAngle: 0, endAngle: .pi * 2, clockwise: true
         ).cgPath
 
+        // Sized to the STICK, not to the control: the seat is the hole the
+        // stick sits in, so a d-pad-wide black disc behind a stick-sized cap
+        // would be a hole the hardware does not have.
+        holeLayer.path = UIBezierPath(
+            arcCenter: center,
+            radius: max(effectiveThumbRadius * (1 + holeExcess), 1),
+            startAngle: 0, endAngle: .pi * 2, clockwise: true
+        ).cgPath
+
         updateThumbPosition()
     }
 
@@ -1498,10 +1944,10 @@ final class DPadView: UIView {
     func setThumbDirection(dx: CGFloat, dy: CGFloat, maxDistance: CGFloat) {
         let dist = sqrt(dx * dx + dy * dy)
         let clampedDist = min(dist, maxDistance)
-        let radius = min(bounds.width, bounds.height) / 2 - effectiveThumbRadius
+        let reach = max(drawnTravel, 0)
 
         if dist > 0 {
-            let scale = min(clampedDist / maxDistance, 1.0) * radius
+            let scale = min(clampedDist / maxDistance, 1.0) * reach
             thumbOffset = CGPoint(x: dx / dist * scale, y: dy / dist * scale)
         } else {
             thumbOffset = .zero
@@ -1516,10 +1962,26 @@ final class DPadView: UIView {
 
     private func updateThumbPosition() {
         let center = CGPoint(x: bounds.midX + thumbOffset.x, y: bounds.midY + thumbOffset.y)
+        let r = effectiveThumbRadius
         thumbLayer.path = UIBezierPath(
-            arcCenter: center, radius: effectiveThumbRadius,
+            arcCenter: center, radius: r,
             startAngle: 0, endAngle: .pi * 2, clockwise: true
         ).cgPath
+        guard dressed, r > 0 else { return }
+        // No implicit animation: the cap has to arrive with the finger, and a
+        // quarter-second dissolve on a control is read as lag, not polish.
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        let box = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
+        let disc = UIBezierPath(ovalIn: CGRect(origin: .zero, size: box.size)).cgPath
+        // Named `piece`, not `layer`: `layer` is this view's own, and shadowing
+        // it inside the loop is how the wrong one gets masked one edit later.
+        for piece in [thumbDome, thumbGrain] as [CALayer] {
+            piece.frame = box
+            let mask = CAShapeLayer()
+            mask.path = disc
+            piece.mask = mask
+        }
+        CATransaction.commit()
     }
 
     // Fallback for non-floating touches (fixed position)
@@ -1568,6 +2030,33 @@ final class ActionButton: UIView, HighlightableButton {
     var dressFace: UIColor? { didSet { applyResting() } }
     /// The letter's colour when `dressFace` is set (the SNES prints A/B/X/Y in the body lavender).
     var dressFaceLabel: UIColor? { didSet { applyResting() } }
+
+    /// The PlayStation's four marks, DRAWN rather than typed.
+    ///
+    /// They were the unicode glyphs in a label, and a glyph cannot be sized to
+    /// order: a typeface draws triangle and square on different optical bodies,
+    /// so at one point size they come out visibly different widths and the
+    /// triangle reads as the runt of the four. Four paths sharing ONE box is
+    /// what makes "the same size for all four" a fact rather than a hope.
+    enum PS1Symbol { case circle, cross, triangle, square }
+
+    /// Which mark this face prints. `nil` on every other console, where the face
+    /// carries a letter and the label does the work.
+    var ps1Symbol: PS1Symbol? {
+        didSet { guard ps1Symbol != oldValue else { return }; applyResting(); setNeedsLayout() }
+    }
+    private let symbolLayer = CAShapeLayer()
+
+    /// Side of the box all four marks are drawn in, as a fraction of the
+    /// button's RADIUS.
+    ///
+    /// Set from the square, which is the tightest of the four: a square
+    /// inscribed in the bombé's inner circle has a side of `sqrt(2)` times that
+    /// circle's radius, and this takes 94% of it so the corners come close to
+    /// the rim without touching it. The other three then take the same box.
+    static var ps1SymbolBox: CGFloat {
+        (1 - Bombe.coreInset) * CGFloat(2).squareRoot() * 0.94 * 0.90
+    }
     /// Nostalgia vs the Retro Pal recolour (set by setDressed).
     var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
     // `dressFace` is asked FIRST, and the order is load-bearing. It is the per-BUTTON answer and
@@ -1646,6 +2135,8 @@ final class ActionButton: UIView, HighlightableButton {
         backgroundColor = dressed ? fillColor : UIColor.white.withAlphaComponent(0.2)
         layer.borderColor = (dressed ? edgeColor : UIColor.white.withAlphaComponent(0.45)).cgColor
         sheen.isHidden = true   // A/B keep ONE flat background behind the letter (no top sheen)
+        dome.isHidden = !(dressed && dressKind == .ps1)
+        core.isHidden = dome.isHidden
     }
 
     /// The A/B letter. GBA dress = "creusé" (engraved): a darker glyph of the button's own family
@@ -1656,6 +2147,10 @@ final class ActionButton: UIView, HighlightableButton {
     /// OWN button's colour darkened, so the same incised treatment is what the four coloured
     /// buttons want. `dressFaceLabel` carries that per-button ink (see `SNESTouchControlsView`).
     private func applyLabelStyle() {
+        // The PlayStation reaches the FLAT branch below, which is the one that
+        // honours `dressFaceLabel`: its four symbols are inks printed on
+        // plastic, not letters cut into it. It gets there by not being in
+        // `usesLightFaces`, so there is no test for it here.
         if dressed && (dressKind.usesLightFaces
                        || (dressKind == .snes && dressFaceLabel != nil)
                        || dressKind == .nes) {
@@ -1694,6 +2189,17 @@ final class ActionButton: UIView, HighlightableButton {
             label.textColor = (dressed ? (dressVariant.gbcPalette?.abLetters ?? dressFaceLabel) : nil) ?? .white
             label.font = .systemFont(ofSize: 20, weight: .bold)
         }
+        // THE PLAYSTATION DRAWS ITS MARK AND HIDES THE LABEL. Its four are
+        // shapes rather than letters, so they are stroked paths in a shared box
+        // (see `ps1Symbol`); the label would otherwise print the glyph a second
+        // time, at a different size, on top of it.
+        let drawn = dressed && dressKind == .ps1 && ps1Symbol != nil
+        symbolLayer.isHidden = !drawn
+        label.isHidden = drawn
+        if drawn {
+            symbolLayer.strokeColor = (dressFaceLabel ?? .white).cgColor
+            setNeedsLayout()
+        }
     }
 
     /// Long-press lock indicator. Pressed visual remains the same; only the
@@ -1717,6 +2223,8 @@ final class ActionButton: UIView, HighlightableButton {
     private let label = UILabel()
     private var titleText = ""               // the "A" / "B" letter, for restyling the label
     private let sheen = CAGradientLayer()   // raised-plastic top highlight (dressed only), mirrors L/R
+    private let dome = Bombe.make()       // the PlayStation's bombé
+    private let core = Bombe.makeCore()   // its second, offset layer
     private let lockGlyph: UIImageView = {
         let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)
         let img = UIImage(systemName: "lock.fill", withConfiguration: config)
@@ -1736,6 +2244,24 @@ final class ActionButton: UIView, HighlightableButton {
 
     var currentTitle: String? { label.text }
 
+    /// Change the character on the button after it was built.
+    ///
+    /// It exists for the PlayStation, whose A and B are not letters: the base
+    /// class creates them labelled "A" and "B", and on that pad they are the
+    /// circle and the cross. Relabelling in the subclass is better than making
+    /// the base class take a per-console letter table, which would put five
+    /// consoles' worth of knowledge in the one class that has none of it.
+    ///
+    /// `titleText` is kept in step because the dressed path restyles from it,
+    /// and a label whose text and titleText disagree looks correct until the
+    /// first time the dress is applied.
+    func setTitle(_ text: String) {
+        guard titleText != text else { return }
+        titleText = text
+        label.text = text
+        applyResting()
+    }
+
     init(label text: String) {
         super.init(frame: .zero)
         backgroundColor = UIColor.white.withAlphaComponent(0.2)
@@ -1752,6 +2278,8 @@ final class ActionButton: UIView, HighlightableButton {
         sheen.endPoint = CGPoint(x: 0.5, y: 1)
         sheen.isHidden = true
         layer.insertSublayer(sheen, at: 0)
+        layer.addSublayer(dome)
+        layer.addSublayer(core)
 
         titleText = text
         label.text = text
@@ -1760,6 +2288,13 @@ final class ActionButton: UIView, HighlightableButton {
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
+        // Above the bombé, because the mark is an ink printed ON the moulded
+        // surface. Below the lock glyph, which is chrome rather than the pad.
+        symbolLayer.fillColor = UIColor.clear.cgColor
+        symbolLayer.lineJoin = .round
+        symbolLayer.lineCap = .round
+        symbolLayer.isHidden = true
+        layer.addSublayer(symbolLayer)
         addSubview(lockGlyph)
         NSLayoutConstraint.activate([
             label.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -1772,13 +2307,63 @@ final class ActionButton: UIView, HighlightableButton {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// The mark, stroked inside a box that is the same for all four.
+    private func layoutPS1Symbol() {
+        guard let symbol = ps1Symbol, !symbolLayer.isHidden else { return }
+        let side = (bounds.width / 2) * Self.ps1SymbolBox
+        let box = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2,
+                         width: side, height: side)
+        symbolLayer.lineWidth = side * 0.10
+        let path = UIBezierPath()
+        switch symbol {
+        case .circle:
+            path.append(UIBezierPath(ovalIn: box.insetBy(dx: symbolLayer.lineWidth / 2,
+                                                         dy: symbolLayer.lineWidth / 2)))
+        case .square:
+            path.append(UIBezierPath(roundedRect: box.insetBy(dx: symbolLayer.lineWidth / 2,
+                                                              dy: symbolLayer.lineWidth / 2),
+                                     cornerRadius: side * 0.06))
+        case .cross:
+            // The two diagonals, pulled in by half a stroke so the round caps
+            // land inside the box rather than hanging out of its corners.
+            let i = box.insetBy(dx: symbolLayer.lineWidth / 2, dy: symbolLayer.lineWidth / 2)
+            path.move(to: CGPoint(x: i.minX, y: i.minY))
+            path.addLine(to: CGPoint(x: i.maxX, y: i.maxY))
+            path.move(to: CGPoint(x: i.maxX, y: i.minY))
+            path.addLine(to: CGPoint(x: i.minX, y: i.maxY))
+        case .triangle:
+            // EQUILATERAL, so it is `sqrt(3)/2` of its base tall rather than as
+            // tall as the box. Centred in the box's height, so the three points
+            // are equidistant from the button's middle and it does not sit low.
+            let i = box.insetBy(dx: symbolLayer.lineWidth / 2, dy: symbolLayer.lineWidth / 2)
+            let height = i.width * CGFloat(3).squareRoot() / 2
+            // Centred on its CENTROID rather than its bounding box. A triangle's
+            // weight sits a sixth of its height below the middle of the box it
+            // fits in, so a box-centred one always reads as hanging low. Lifting
+            // it by that sixth is what makes it look centred, which is the only
+            // kind of centred that matters here.
+            let lift = height / 6
+            let top = i.midY - height / 2 - lift, bottom = i.midY + height / 2 - lift
+            path.move(to: CGPoint(x: i.midX, y: top))
+            path.addLine(to: CGPoint(x: i.maxX, y: bottom))
+            path.addLine(to: CGPoint(x: i.minX, y: bottom))
+            path.close()
+        }
+        symbolLayer.path = path.cgPath
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        layoutPS1Symbol()
         layer.cornerRadius = bounds.width / 2
         // Sheen on the top half, clipped to the circle (shadow needs masksToBounds off).
         sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
         sheen.cornerRadius = bounds.width / 2
         sheen.masksToBounds = true
+        // A face is a circle: dome it as a sphere, and core it as one too.
+        Bombe.fit(dome, to: bounds, corner: nil)
+        Bombe.fitCore(core, over: bounds,
+                      clippedTo: UIBezierPath(ovalIn: bounds).cgPath)
         // THE SHADOW NEEDS ITS PATH, and this is not a micro-optimisation.
         //
         // Without one, Core Animation has to derive the silhouette itself: it rasterises the
@@ -1801,10 +2386,19 @@ final class ActionButton: UIView, HighlightableButton {
 final class ShoulderButton: UIView, HighlightableButton {
     /// NDS L/R corner radius as a fraction of the short side — a rounded square, not a pill.
     /// The skin's L/R creusé seat mirrors this so the two stay concentric.
+    /// The PlayStation's shoulder corner, in POINTS rather than a fraction, and
+    /// that is the point of it: its bars take the corner an arrow of its own
+    /// cross has on the outside, which is a fixed 6 (`CrossDPadView`'s arm-tip
+    /// radius). A fraction would have made every bar's corner depend on the
+    /// bar's own size, so the two shapes would only have matched at one scale.
+    /// Half the height, the default here, read as a later console's trigger.
+    static let ps1Corner: CGFloat = 6
     static let ndsCornerFactor: CGFloat = 0.3
 
     private let label = UILabel()
     private let sheen = CAGradientLayer()   // raised-plastic top highlight (dressed only)
+    private let dome = Bombe.make()       // the PlayStation's bombé
+    private let core = Bombe.makeCore()   // its second, offset layer
 
     /// When on, wears the GBA shoulder-trigger dress: a light (#C4BFCF) raised, rounded bar with
     /// a top sheen and a dark moulded L/R label. GB/GBC has no L/R, so this only shows on GBA;
@@ -1834,6 +2428,16 @@ final class ShoulderButton: UIView, HighlightableButton {
         return dressKind.faceEdge
     }
     /// L/R label: custom uses the letters slot (GBA + NDS); Retro Pal NDS recolours it to #777777.
+    /// Change the text on the bar after it was built.
+    ///
+    /// Exists for the same reason `ActionButton.setTitle` does: this class is
+    /// built knowing nothing about consoles, and the PlayStation's shoulders
+    /// are printed L1 and R1 rather than L and R. Relabelling in the subclass
+    /// beats teaching the base class a per-console table.
+    func setTitle(_ text: String) {
+        label.text = text
+    }
+
     private var labelInk: UIColor {
         if let p = dressVariant.gbaPalette { return p.letters }
         if let p = dressVariant.ndsPalette { return p.letters }
@@ -1871,6 +2475,8 @@ final class ShoulderButton: UIView, HighlightableButton {
         sheen.endPoint = CGPoint(x: 0.5, y: 1)
         sheen.isHidden = true
         layer.insertSublayer(sheen, at: 0)
+        layer.addSublayer(dome)
+        layer.addSublayer(core)
 
         label.text = text
         label.font = .systemFont(ofSize: 14, weight: .semibold)
@@ -1887,11 +2493,43 @@ final class ShoulderButton: UIView, HighlightableButton {
     required init?(coder: NSCoder) { fatalError() }
 
     private func applyResting() {
+        // The bombé belongs to the one console that has it, dressed or not, so
+        // it is decided before the branch rather than inside it.
+        dome.isHidden = !(dressed && dressKind == .ps1)
+        core.isHidden = dome.isHidden
         if dressed {
             backgroundColor = fill
             layer.borderColor = edge.cgColor
             label.textColor = labelInk                 // dark moulded "L"/"R"
-            sheen.isHidden = false
+            // INCRUSTED on this console: a light catch one point BELOW the word,
+            // which is what the lower wall of a groove does under a light from
+            // above. Cleared on every other console, because a shoulder that is
+            // already wearing a raised sheen must not also read as carved.
+            if dressKind == .ps1 {
+                // INVERTED, on purpose and as a trial: the word is the LIGHT one
+                // and the catch beneath it the dark one. Read literally that is
+                // a raised letter rather than a cut one, but on a plate this
+                // dark the light letter is the one that can actually be read at
+                // a glance. Swap these two lines back to return to the groove.
+                // The custom skin's PRINTED TEXT slot lands here: L1, L2, R1 and
+                // R2 carry a word printed ON the plate, not moulded into it, so
+                // it is free to be any colour. The catch below it stays derived
+                // from the plate, because the catch is light on plastic rather
+                // than ink.
+                label.textColor = dressVariant.ps1Palette?.print
+                    ?? fill.rpMixed(with: .white, 0.55)
+                label.shadowColor = fill.rpMixed(with: .black, 0.62)
+                label.shadowOffset = CGSize(width: 0, height: 1)
+                label.font = .systemFont(ofSize: 14, weight: .bold)
+            } else {
+                label.font = .systemFont(ofSize: 14, weight: .semibold)
+                label.shadowColor = nil
+                label.shadowOffset = .zero
+            }
+            // NOT ON THE PLAYSTATION. Its shoulders are flat mouldings in one
+            // colour, and a raised-plastic highlight down them is the GBA's
+            // trigger rather than this pad's bar. The bombé takes its place.
+            sheen.isHidden = (dressKind == .ps1)
             layer.shadowColor = UIColor.black.cgColor
             layer.shadowOffset = CGSize(width: 0, height: 1.5)
             layer.shadowRadius = 2
@@ -1900,6 +2538,8 @@ final class ShoulderButton: UIView, HighlightableButton {
             backgroundColor = UIColor.white.withAlphaComponent(0.2)
             layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
             label.textColor = .white
+            label.shadowColor = nil
+            label.shadowOffset = .zero
             sheen.isHidden = true
             layer.shadowOpacity = 0
         }
@@ -1911,14 +2551,23 @@ final class ShoulderButton: UIView, HighlightableButton {
         // top band. The drop shadow needs masksToBounds off, so the sheen clips itself instead.
         // NDS: a rounded SQUARE (small corner) rather than the GBA pill. The skin's L/R seat
         // matches this with ShoulderButton.ndsCornerFactor (keep in sync).
+        // The PlayStation's bars are not capsules: they take the corner an arrow
+        // of its own cross has at the outside, which is a small fixed radius
+        // rather than half the bar's height. A capsule here read as a trigger
+        // from a later console.
         let radius = dressed
-            ? (dressKind == .nds ? min(bounds.width, bounds.height) * ShoulderButton.ndsCornerFactor
-                                 : min(bounds.height * 0.5, bounds.width * 0.5))
+            ? (dressKind == .ps1 ? ShoulderButton.ps1Corner
+               : dressKind == .nds ? min(bounds.width, bounds.height) * ShoulderButton.ndsCornerFactor
+                                   : min(bounds.height * 0.5, bounds.width * 0.5))
             : 8
         layer.cornerRadius = radius
         sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
         sheen.cornerRadius = radius
         sheen.masksToBounds = true
+        Bombe.fit(dome, to: bounds, corner: radius)
+        Bombe.fitCore(core, over: bounds,
+                      clippedTo: UIBezierPath(roundedRect: bounds,
+                                              cornerRadius: radius).cgPath)
         // Same reason as ActionButton's: a shadow with no path is an offscreen render pass, and
         // this one is redone every time the dress toggles it. The radius is the one computed
         // just above, so the path is the shape that is actually drawn.
@@ -1938,7 +2587,20 @@ final class SmallButton: UIView, HighlightableButton {
     ///    (light up-left + dark down-right) (CLIP both orientations, MENU portrait).
     ///  - circle: a true-circle grey background behind the icon (MENU landscape).
     ///  - decal: the button draws nothing; the skin draws the decoration over it (NDS Mic).
-    enum DressStyle { case none, pill, pillTop, iconOnly, circle, decal }
+    enum DressStyle {
+        case none, pill, pillTop, iconOnly, circle, decal
+        /// PlayStation. Three shapes rather than a pill, because this pad prints
+        /// three different things in the middle of itself: SELECT is a plain
+        /// horizontal rectangle with its word BELOW it, START is a triangle with
+        /// its word below it, and ANALOG is a rectangle with its word engraved
+        /// INSIDE. L3 and R3 take `ps1Plate` too, in the shell's own colour.
+        case ps1Rect, ps1Triangle, ps1Plate, ps1Stub
+        var isPS1: Bool {
+            self == .ps1Rect || self == .ps1Triangle || self == .ps1Plate || self == .ps1Stub
+        }
+        /// Whether the word sits under the shape rather than in it.
+        var ps1LabelBelow: Bool { self == .ps1Rect || self == .ps1Triangle }
+    }
 
     // GB/GBC dressed palette (the three SELECT/START greys now live on DressKind, unchanged).
     private static let iconBody = UIColor(red: 0.753, green: 0.741, blue: 0.737, alpha: 1) // #C0BDBC (matches PHONES icon)
@@ -1960,6 +2622,57 @@ final class SmallButton: UIView, HighlightableButton {
     /// colour under custom; GBA/NDS pills are untouched (nil → keep their built-in fill).
     // SELECT/START pill (.pill): every console's face goes to its small-button slot under custom
     // (GBC → smallButtons; GBA/NDS → buttons), to the Retro Pal recolour, or the built-in default.
+    /// The shell colour, which is what L3 and R3 are moulded from: on the
+    /// hardware they are not painted controls, they are two thumbed pads of the
+    /// same plastic as the pad around them.
+    private var ps1BodyColor: UIColor {
+        if let p = dressVariant.ps1Palette { return p.body }
+        if dressVariant == .retroPal { return RetroPalPalette.ps1Body }
+        return DressKind.ps1Body
+    }
+    /// The plate a PlayStation style draws, and the word cut into it. The word
+    /// is a shade of the plate rather than a colour of its own, because it is
+    /// moulded into the plastic and not printed on it.
+    private var ps1PlateColor: UIColor { dressStyle == .ps1Stub ? ps1BodyColor : pillBase }
+    /// The light a cut in this plastic catches on its lower wall. Derived from
+    /// whatever the style actually fills with, so it holds on both dresses and
+    /// on a custom palette rather than being a constant that suits only one.
+    private var ps1EngravedCatch: UIColor {
+        // 0.55 rather than 0.30, for the same reason the ink went darker: the
+        // catch is the half that carries the effect, and a faint one on a dark
+        // plate is a catch nobody sees.
+        (dressStyle == .circle ? circleBgColor : ps1PlateColor).rpMixed(with: .white, 0.55)
+    }
+    /// The custom skin's PRINTED TEXT slot, when there is one. This is the
+    /// words on SELECT, START, ANALOG and the four shoulders, plus the MENU and
+    /// CLIP glyphs through `circleIconC` below. It is the ink ON a control, not
+    /// the plastic of one, which is why it earns a slot of its own: the built-in
+    /// dresses derive it from the plate because a moulded word is a shade of its
+    /// plate, but a printed one has no such obligation.
+    private var ps1PrintSlot: UIColor? {
+        dressKind == .ps1 ? dressVariant.ps1Palette?.print : nil
+    }
+
+    /// ⚠ THE PRINTED-TEXT SLOT DOES NOT REACH HERE, and that is deliberate.
+    /// This serves SELECT, START, ANALOG, L3 and R3, whose words are MOULDED:
+    /// SELECT and START print theirs on the shell beside the shape, the other
+    /// three cut theirs into their own plate. A moulded word is a shade of what
+    /// it is moulded into, so it derives and must keep deriving. The slot was
+    /// wired through here for one commit and recoloured SELECT and START, which
+    /// is not what it is for.
+    private var ps1InkColor: UIColor {
+        // SELECT and START print their word on the SHELL, beside the shape, so
+        // there it is the plate's own colour standing on the body. ANALOG, L3
+        // and R3 cut theirs INTO the plate, so those go darker than it.
+        // 0.62 rather than 0.34: at a third the letter and the plate were two
+        // dark greys a few percent apart, which is a groove you can find only if
+        // you already know it is there. A cut goes properly dark; what makes it
+        // read as cut rather than as painted is the light catch below it, not
+        // the letter being timid.
+        return dressStyle.ps1LabelBelow ? pillBase
+                                        : ps1PlateColor.rpMixed(with: .black, 0.62)
+    }
+
     private var pillBase: UIColor {
         if let c = dressVariant.smallButtonFace(dressKind) { return c }
         return dressKind.smallButtonFill }
@@ -1989,6 +2702,7 @@ final class SmallButton: UIView, HighlightableButton {
     private var circleEdgeC: UIColor { dressVariant.gbaPalette != nil ? circleBgColor.rpEdge : pillEdgeC }
     // The MENU/CLIP circle ICON: custom uses the menu-icons (GBC/GBA) / icons (NDS) slot.
     private var circleIconC: UIColor {
+        if let printed = ps1PrintSlot { return printed }
         if let p = dressVariant.gbcPalette { return p.menuIcons }
         if let p = dressVariant.gbaPalette { return p.menuIcons }
         if let p = dressVariant.ndsPalette { return p.icons }
@@ -1997,6 +2711,13 @@ final class SmallButton: UIView, HighlightableButton {
         // near-black and the pale body colour reads on it; Retro Pal fills them with the GBA's
         // pale button, where that same glyph disappeared. Dark then, and specifically the ring
         // the face buttons sit in, which is the console's own dark grey.
+        // The PlayStation: its circle IS the control colour, so the glyph is that
+        // colour carved, exactly as a shoulder's word is. Falling through to the
+        // branches below gave it something near its own background and it
+        // disappeared.
+        if dressKind == .ps1 {
+            return circleBgColor.rpMixed(with: .black, circleBgColor.rpIsLight ? 0.42 : 0.34)
+        }
         if dressKind == .snes, circleBgColor.rpIsLight {
             if let p = dressVariant.snesPalette { return p.surround }
             return dressVariant == .retroPal ? RetroPalPalette.snesSurround : DressKind.snesSurround
@@ -2030,6 +2751,19 @@ final class SmallButton: UIView, HighlightableButton {
     private var iconBig: [NSLayoutConstraint] = []
     private let circleBg = CAShapeLayer()
     private let pillBg = CAShapeLayer()        // diagonal capsule for .pill (SELECT/START)
+    /// The PlayStation styles print their word BELOW the shape for SELECT and
+    /// START, so the label's vertical placement is not a constant. Held here and
+    /// moved in layoutSubviews, where the shape's own height is known.
+    private var labelCentreY: NSLayoutConstraint?
+    /// Caps the word's width so `adjustsFontSizeToFitWidth` has a bound to work
+    /// against. Only the styles that print their word INSIDE a plate want it.
+    private var labelWidth: NSLayoutConstraint?
+    /// The bombé, clipped to whichever of the four shapes is drawn.
+    private let dome = Bombe.make()
+    private let core = Bombe.makeCore()
+    /// The word's default size, kept so the undressed look is untouched when a
+    /// PlayStation layout scales the label and then the dress comes off.
+    private static let labelPointSize: CGFloat = 10
 
     /// Pill thickness as a fraction of the hitbox short side. Must match
     /// `GameBoySkin.pillThicknessRatio` so the dress's recessed seat lines up.
@@ -2100,6 +2834,10 @@ final class SmallButton: UIView, HighlightableButton {
                 CATransaction.commit()
                 return
             }
+        case .ps1Rect, .ps1Triangle, .ps1Plate, .ps1Stub:
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            pillBg.fillColor = (isPressed ? ps1PlateColor.rpPressed : ps1PlateColor).cgColor
+            CATransaction.commit()
         case .circle:
             CATransaction.begin(); CATransaction.setDisableActions(true)
             circleBg.fillColor = (isPressed ? circlePressedColor : circleBgColor).cgColor
@@ -2116,13 +2854,34 @@ final class SmallButton: UIView, HighlightableButton {
         }
     }
 
+    /// Drop any incrusted-word treatment. Called by the styles that do not want
+    /// one, because a label keeps its shadow until something takes it away and a
+    /// console switch would otherwise carry this pad's groove onto another's.
+    /// The emboss copy's own ink. Named because two styles now set it: the
+    /// icon-only emboss wants it dark, and the PlayStation's disc re-tints it
+    /// light to read as a groove instead.
+    static let embossShadowInk = UIColor.black.withAlphaComponent(0.32)
+
+    private func clearEngravedWord() {
+        textLabel?.shadowColor = nil
+        textLabel?.shadowOffset = .zero
+    }
+
     /// Resting appearance for the current dress style.
     private func applyResting() {
         circleBg.isHidden = (dressStyle != .circle)
-        pillBg.isHidden = (dressStyle != .pill && dressStyle != .pillTop)
+        pillBg.isHidden = (dressStyle != .pill && dressStyle != .pillTop && !dressStyle.isPS1)
+        // The bombé belongs to the CONSOLE, not to the four ps1 shapes: MENU and
+        // CLIP wear `.circle` here exactly as they do everywhere else, and they
+        // are as much a moulding on this pad as SELECT is.
+        dome.isHidden = !(dressKind == .ps1 && dressStyle != .none)
+        core.isHidden = dome.isHidden
         // Dressed (SELECT/START): the identifier is printed on the case (slice 3c), so the
         // pill is bare. Its diagonal shape is built in layoutSubviews.
-        textLabel?.isHidden = (dressStyle != .none)
+        // The PlayStation is the exception: its SELECT, START, ANALOG, L3 and R3
+        // wear their word themselves, either under the shape or cut into it, so
+        // the dress does not print it on the shell for them.
+        textLabel?.isHidden = (dressStyle != .none && !dressStyle.isPS1)
         setNeedsLayout()
         // Enlarge the icon only when it stands alone (icon-only), to fill its round well.
         if iconView != nil {
@@ -2130,11 +2889,22 @@ final class SmallButton: UIView, HighlightableButton {
             NSLayoutConstraint.deactivate(big ? iconSmall : iconBig)
             NSLayoutConstraint.activate(big ? iconBig : iconSmall)
         }
+        // Cleared for every style, then set again by the two that want one. A
+        // label keeps its shadow until something takes it away, so resetting in
+        // one place is what stops this pad's groove following a console switch.
+        clearEngravedWord()
+        // The word is capped only where it is printed inside something: ANALOG,
+        // L3 and R3. SELECT and START stand theirs on the shell, with the whole
+        // hitbox to spread into.
+        labelWidth?.isActive = dressStyle.isPS1 && !dressStyle.ps1LabelBelow
         switch dressStyle {
         case .none:
             backgroundColor = UIColor.white.withAlphaComponent(0.15)
             layer.borderWidth = 1
             layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
+            textLabel?.textColor = UIColor.white.withAlphaComponent(0.8)
+            textLabel?.font = .systemFont(ofSize: Self.labelPointSize, weight: .medium)
+            labelCentreY?.constant = 0
             iconView?.tintColor = UIColor.white.withAlphaComponent(0.8)
             iconHighlight?.isHidden = true
             iconShadow?.isHidden = true
@@ -2157,6 +2927,28 @@ final class SmallButton: UIView, HighlightableButton {
             pillBg.lineWidth = 0
             iconHighlight?.isHidden = true
             iconShadow?.isHidden = true
+        case .ps1Rect, .ps1Triangle, .ps1Plate, .ps1Stub:
+            // Not a capsule, and not the same shape for all five: this pad
+            // prints a rectangle for SELECT, a right-pointing triangle for
+            // START, and a longer plate for ANALOG. L3 and R3 take the plate in
+            // the shell's own colour, since they are moulded rather than
+            // painted. The shapes themselves are built in layoutSubviews.
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            pillBg.fillColor = ps1PlateColor.cgColor
+            pillBg.strokeColor = ps1PlateColor.rpEdge.cgColor
+            pillBg.lineWidth = 1
+            // INVERTED for the three that carry their word INSIDE the plate
+            // (ANALOG, L3, R3): the light tone is the letter and the dark one
+            // the catch under it. SELECT and START are untouched -- their word
+            // stands on the shell, not in a plate, so there is nothing there to
+            // invert. Swapping the two lines back restores the groove.
+            let inverted = !dressStyle.ps1LabelBelow
+            textLabel?.textColor = inverted ? ps1EngravedCatch : ps1InkColor
+            textLabel?.shadowColor = inverted ? ps1InkColor : ps1EngravedCatch
+            textLabel?.shadowOffset = CGSize(width: 0, height: 1)
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
         case .circle:
             backgroundColor = .clear
             layer.borderWidth = 0
@@ -2164,14 +2956,31 @@ final class SmallButton: UIView, HighlightableButton {
             circleBg.strokeColor = circleEdgeC.cgColor
             circleBg.lineWidth = 1
             iconView?.tintColor = circleIconC
+            // On this console the glyph is CUT INTO the disc, so it gets the
+            // same light-below catch the words get. `iconShadow` is the copy
+            // offset down-right, so it is the one that plays the catch here and
+            // it is tinted light rather than dark; the up-left copy stays hidden,
+            // because showing both would emboss instead of engrave.
+            // INVERTED like the words: the glyph itself takes the light tone
+            // and the copy behind it the dark one, so the mark reads at a glance
+            // on a disc this dark.
+            let engraved = (dressKind == .ps1)
             iconHighlight?.isHidden = true
-            iconShadow?.isHidden = true
+            iconShadow?.isHidden = !engraved
+            if engraved {
+                iconView?.tintColor = ps1EngravedCatch
+                iconShadow?.tintColor = circleBgColor.rpMixed(with: .black, 0.62)
+            }
         case .iconOnly:
             backgroundColor = .clear
             layer.borderWidth = 0
             iconView?.tintColor = iconColorC
             iconHighlight?.isHidden = false
             iconShadow?.isHidden = false
+            // Restated, not assumed: the PlayStation's `.circle` re-tints this
+            // same copy LIGHT to play an engraved catch, and a style switch on
+            // one button would otherwise leave an emboss lit from both sides.
+            iconShadow?.tintColor = Self.embossShadowInk
         case .decal:
             // Pure skin decal (NDS Mic): the button draws nothing; the skin draws slit + label.
             backgroundColor = .clear
@@ -2187,7 +2996,10 @@ final class SmallButton: UIView, HighlightableButton {
         case .circle:
             let d = min(bounds.width, bounds.height)
             let rect = CGRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
-            circleBg.path = UIBezierPath(ovalIn: rect).cgPath
+            let circle = UIBezierPath(ovalIn: rect)
+            circleBg.path = circle.cgPath
+            Bombe.fit(dome, over: bounds, clippedTo: circle.cgPath)
+            Bombe.fitCore(core, over: bounds, clippedTo: circle.cgPath)
         case .pill where dressKind.selectIsTinyCircle, .pillTop where dressKind.selectIsTinyCircle:
             // GBA/NDS: the visible "button" is a tiny circle at the right of the pill (the dress
             // draws the creusé pill bg + the label).
@@ -2205,10 +3017,141 @@ final class SmallButton: UIView, HighlightableButton {
             let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
             pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
                                     lineJoin: .round, miterLimit: 0)
+        case .ps1Rect, .ps1Triangle, .ps1Plate, .ps1Stub:
+            let shape = ps1ShapePath()
+            pillBg.path = shape.cgPath
+            Bombe.fit(dome, over: bounds, clippedTo: shape.cgPath)
+            Bombe.fitCore(core, over: bounds, clippedTo: shape.cgPath)
+            // Bold, not semibold: a groove is read by its edges, and a heavier
+            // stroke gives the catch below it more edge to fall on.
+            textLabel?.font = .systemFont(ofSize: ps1LabelPointSize, weight: .bold)
+            // SELECT and START carry their word under the shape; ANALOG, L3 and
+            // R3 carry it inside, where the constraint's own centre is right.
+            labelCentreY?.constant = dressStyle.ps1LabelBelow
+                ? (ps1BlockTop + ps1BandHeight + ps1LabelGap + ps1LabelHeight / 2) - bounds.midY
+                : 0
         case .none, .iconOnly, .decal:
             layer.cornerRadius = 6
         }
     }
+
+    // MARK: The PlayStation shapes
+    //
+    // This pad does not print a capsule anywhere, so none of these is one. What
+    // it prints between the sticks is a small rounded RECTANGLE for SELECT, a
+    // right-pointing TRIANGLE for START, and a wider plate saying ANALOG between
+    // them. The first two carry their word below the shape, as the hardware
+    // does; the third has it cut into the plate.
+    //
+    // Every one of them is drawn inside a hitbox deliberately larger than the
+    // shape, which is why the geometry is written as a block that is centred as
+    // a whole: SELECT's rectangle and START's triangle are different heights,
+    // and their two words have to sit on one line all the same.
+
+    /// The PlayStation's centre shapes, as pure geometry.
+    ///
+    /// STATIC because the skin needs them too: it carves a recess around each of
+    /// these controls, and a recess that is a rounded rectangle where the button
+    /// drew a triangle is worse than no recess at all. Same arrangement as the
+    /// cross's seat, which reads `CrossDPadView.ps1KeysPath` rather than guessing
+    /// at the shape a second time — and the same reason it exists.
+    enum PS1Shape {
+        /// The base unit both centre shapes are measured in: the triangle's own
+        /// height, and what SELECT's rectangle is a multiple of.
+        static func unit(_ b: CGRect) -> CGFloat { b.height * 0.34 }
+        /// SELECT's rectangle, TWICE the depth it used to draw. It was the
+        /// flattest mark on the pad and read as a dash rather than as a button.
+        static func rectHeight(_ b: CGRect) -> CGFloat { unit(b) * 0.82 * 2 }
+        /// The band the shapes occupy. Shared by the rectangle and the triangle
+        /// so the two words below them line up, and sized to whichever is TALLER
+        /// so the taller is not clipped and the shorter simply centres inside it.
+        /// That is what keeps SELECT and START on one line now that they differ.
+        static func band(_ b: CGRect) -> CGFloat { max(unit(b), rectHeight(b)) }
+        static func labelPointSize(_ style: DressStyle, _ b: CGRect) -> CGFloat {
+            // SELECT and START (the two that print BELOW their shape) run 20%
+            // larger: their word stands on the shell with nothing around it, so
+            // it has the room, and they are the two a player actually hunts for.
+            max(7, b.height * (style.ps1LabelBelow ? 0.252 : 0.24))
+        }
+        static func labelHeight(_ style: DressStyle, _ b: CGRect) -> CGFloat {
+            labelPointSize(style, b) * 1.2
+        }
+        static func labelGap(_ b: CGRect) -> CGFloat { b.height * 0.08 }
+        /// Top of the shape+gap+word block, centred in the hitbox as one piece.
+        static func blockTop(_ style: DressStyle, _ b: CGRect) -> CGFloat {
+            b.midY - (band(b) + labelGap(b) + labelHeight(style, b)) / 2
+        }
+
+        /// How far the drawn SHAPE sits above the hitbox's own centre.
+        ///
+        /// The block is shape + gap + word and it is the BLOCK that is centred,
+        /// so on the two that carry a word below, the shape rides high by half
+        /// the gap and word. The layout needs the number: aligning SELECT and
+        /// START with CLIP means aligning what a player SEES, and what they see
+        /// is the shape, not the hitbox it is centred in.
+        static func shapeRise(_ style: DressStyle, _ b: CGRect) -> CGFloat {
+            style.ps1LabelBelow ? (labelGap(b) + labelHeight(style, b)) / 2 : 0
+        }
+
+        /// Which shape each PlayStation control prints. ONE mapping, read by the
+        /// control view when it dresses and by the skin when it carves.
+        static func style(for element: ControlElement) -> DressStyle? {
+            switch element {
+            case .btnSelect: return .ps1Rect
+            case .btnStart:  return .ps1Triangle
+            case .btnMode:   return .ps1Plate
+            case .btnL3, .btnR3: return .ps1Stub
+            default: return nil
+            }
+        }
+
+        static func path(_ style: DressStyle, in b: CGRect) -> UIBezierPath {
+            let w = b.width
+            switch style {
+            case .ps1Rect:
+                let sh = rectHeight(b), sw = w * 0.52
+                let r = CGRect(x: b.midX - sw / 2, y: blockTop(style, b) + (band(b) - sh) / 2,
+                               width: sw, height: sh)
+                // Capped at a fraction of the WIDTH so a rectangle this deep
+                // stays a rectangle: 0.30 of its height would round it into a
+                // capsule, and nothing on this pad is a capsule.
+                return UIBezierPath(roundedRect: r, cornerRadius: min(sh * 0.30, sw * 0.18))
+            case .ps1Triangle:
+                // AS WIDE AS SELECT'S RECTANGLE, which makes it a squat
+                // horizontal triangle rather than the near-equilateral one it
+                // was. The two sit side by side and are read as a pair, so the
+                // pair has to share a width or the smaller reads as further away.
+                let sh = unit(b), sw = w * 0.52
+                let x = b.midX - sw / 2, y = blockTop(style, b) + (band(b) - sh) / 2
+                let p = UIBezierPath()
+                p.move(to: CGPoint(x: x, y: y))
+                p.addLine(to: CGPoint(x: x + sw, y: y + sh / 2))
+                p.addLine(to: CGPoint(x: x, y: y + sh))
+                p.close()
+                return p
+            case .ps1Plate, .ps1Stub:
+                let isPlate = (style == .ps1Plate)
+                let sw = w * (isPlate ? 0.92 : 0.84)
+                // L3 and R3 are SQUARE, at the width they already had. ANALOG
+                // keeps its plate shape: it is a word in a slot and wants to be
+                // wider than it is tall, while these two are thumb pads.
+                let sh = isPlate ? b.height * 0.50 : sw
+                let r = CGRect(x: b.midX - sw / 2, y: b.midY - sh / 2, width: sw, height: sh)
+                return UIBezierPath(roundedRect: r,
+                                    cornerRadius: min(ShoulderButton.ps1Corner, sh / 2))
+            default:
+                return UIBezierPath()
+            }
+        }
+    }
+
+    private var ps1LabelPointSize: CGFloat { PS1Shape.labelPointSize(dressStyle, bounds) }
+    private var ps1LabelHeight: CGFloat { PS1Shape.labelHeight(dressStyle, bounds) }
+    private var ps1LabelGap: CGFloat { PS1Shape.labelGap(bounds) }
+    private var ps1BandHeight: CGFloat { PS1Shape.band(bounds) }
+    private var ps1BlockTop: CGFloat { PS1Shape.blockTop(dressStyle, bounds) }
+
+    private func ps1ShapePath() -> UIBezierPath { PS1Shape.path(dressStyle, in: bounds) }
 
     init(label text: String) {
         super.init(frame: .zero)
@@ -2219,18 +3162,37 @@ final class SmallButton: UIView, HighlightableButton {
 
         pillBg.isHidden = true
         layer.insertSublayer(pillBg, at: 0)
+        layer.addSublayer(dome)
+        layer.addSublayer(core)
 
         let lbl = UILabel()
         lbl.text = text
         lbl.textColor = UIColor.white.withAlphaComponent(0.8)
-        lbl.font = .systemFont(ofSize: 10, weight: .medium)
+        lbl.font = .systemFont(ofSize: Self.labelPointSize, weight: .medium)
         lbl.textAlignment = .center
+        // Only ever engages on the PlayStation styles, where the word is sized
+        // from the hitbox and the longest of them (ANALOG) sits inside a plate.
+        lbl.adjustsFontSizeToFitWidth = true
+        lbl.minimumScaleFactor = 0.7
         lbl.translatesAutoresizingMaskIntoConstraints = false
         addSubview(lbl)
         textLabel = lbl
+        let centreY = lbl.centerYAnchor.constraint(equalTo: centerYAnchor)
+        labelCentreY = centreY
+        // `adjustsFontSizeToFitWidth` above did NOTHING without this: a label with
+        // no width constraint sizes to its own text, so it is never too narrow
+        // and never shrinks. ANALOG is the word that showed it — the longest on
+        // the pad, printed inside a plate 0.92 of the hitbox, and running past
+        // its own plate at the size the hitbox asked for. Off by default so no
+        // other console's label changes; the styles that print INSIDE something
+        // switch it on.
+        let width = lbl.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor,
+                                               multiplier: 0.80)
+        width.isActive = false
+        labelWidth = width
         NSLayoutConstraint.activate([
             lbl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            lbl.centerYAnchor.constraint(equalTo: centerYAnchor),
+            centreY,
         ])
     }
 
@@ -2245,6 +3207,12 @@ final class SmallButton: UIView, HighlightableButton {
 
         circleBg.isHidden = true
         layer.insertSublayer(circleBg, at: 0)
+        // MENU and CLIP get the bombé like everything else on this pad. They are
+        // built by a DIFFERENT initializer from the labelled small buttons, and
+        // this pair of lines was only in that one, so the two layers existed for
+        // SELECT and START and simply were not there for these two.
+        layer.addSublayer(dome)
+        layer.addSublayer(core)
 
         let img = UIImage(systemName: name)
         // Two-sided emboss matching the dress's drawEmbossedImage (PHONES badge): a light copy
@@ -2256,7 +3224,7 @@ final class SmallButton: UIView, HighlightableButton {
         hl.isHidden = true
         addSubview(hl)
         let sh = UIImageView(image: img)               // emboss shadow (dark, offset down-right)
-        sh.tintColor = UIColor.black.withAlphaComponent(0.32)
+        sh.tintColor = Self.embossShadowInk
         sh.contentMode = .scaleAspectFit
         sh.translatesAutoresizingMaskIntoConstraints = false
         sh.isHidden = true

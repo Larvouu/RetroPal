@@ -70,11 +70,33 @@ final class BoxArtManager {
     static let coverStateCustom = "custom"
 
     private static let host = URL(string: "https://thumbnails.libretro.com")!
+    /// Which thumbnail directory each console's covers live in.
+    ///
+    /// It is also the gate for THIS path: a console missing from the map is
+    /// stamped `none` without a lookup, whatever the bundled index holds. The
+    /// Super Nintendo and the NES were missing from it from 1.2.5 until the
+    /// PlayStation was added, so their 11,320 indexed names were never once
+    /// queried and every download carried the data for nothing.
+    ///
+    /// They were NOT coverless, and the difference is worth being exact about,
+    /// because getting it wrong once already hid the second half of the fix.
+    /// RA adoption below is not gated by this map: a game RetroAchievements can
+    /// identify gets its RA image, which looks like a cover and is one. So what
+    /// those two consoles actually lacked was a cover for anyone NOT signed in
+    /// to RA, for any game RA has no record of, and at IMPORT rather than after
+    /// the first signed-in play.
+    ///
+    /// The names match `Tools/build_boxart_index.py`, which uses the same string
+    /// for the DAT filename and for this directory, so a console indexed there
+    /// can be fetched here.
     private static let systemDirectories: [ROMSystemType: String] = [
         .gb: "Nintendo - Game Boy",
         .gbc: "Nintendo - Game Boy Color",
         .gba: "Nintendo - Game Boy Advance",
         .nds: "Nintendo - Nintendo DS",
+        .snes: "Nintendo - Super Nintendo Entertainment System",
+        .nes: "Nintendo - Nintendo Entertainment System",
+        .ps1: "Sony - PlayStation",
     ]
     /// Bound on HTTP tries per game: exact + serial + a couple of fuzzy
     /// runners-up. Beyond that, a wrong cover is likelier than a right one.
@@ -100,7 +122,13 @@ final class BoxArtManager {
     /// gated on filename consistency, header-echo titles dropped). v3 =
     /// verdicts split into exact ("boxart") vs heuristic
     /// ("boxart_heuristic") so the RA image can outrank the latter.
-    private static let resolutionVersion = 3
+    /// v4 = the Super Nintendo, the NES and the PlayStation reached
+    /// `systemDirectories` at last. Without this bump the fix would have been
+    /// invisible on any library that already had them: a console the map did
+    /// not list was stamped `none`, `none` is terminal, and terminal verdicts
+    /// are never revisited. Adopted RA covers survive the reset by design, so
+    /// a game already wearing RA art keeps it.
+    private static let resolutionVersion = 4
     private static let resolutionVersionKey = "boxArtResolutionVersion"
 
     private init() {
@@ -479,17 +507,12 @@ final class BoxArtManager {
             entity.setValue(state, forKey: "coverType")
             try? context.save()
 
-            // One terminal signal per game ever (anonymous: outcome + tier +
-            // console; never a title). Measures real-world match coverage.
-            if state == Self.coverStateBoxArt || state == Self.coverStateBoxArtHeuristic,
-               let method {
-                Analytics.signal("boxart_match", ["result": "matched",
-                                                  "method": method,
-                                                  "system": game.system])
-            } else if state == Self.coverStateNone {
-                Analytics.signal("boxart_match", ["result": "no_match",
-                                                  "system": game.system])
-            }
+            // `boxart_match` was removed 2026-08-27. It fired once per game per
+            // user, so a fifty-game library sent fifty events, and the coverage
+            // dashboard it fed was deliberately never built: there is no lever
+            // to pull on the result. It was paying a volume cost for an answer
+            // nobody reads. The build-on-complaint trigger in the analytics
+            // plan is unchanged and needs no signal to fire.
         }
     }
 

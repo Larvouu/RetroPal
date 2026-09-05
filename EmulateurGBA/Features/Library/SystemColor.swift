@@ -19,6 +19,10 @@ enum SystemColor {
         // would have made three consoles share one badge.
         case "snes": return Color(red: 0.408, green: 0.310, blue: 0.643)   // #685098, the SNES lilac
         case "nes":  return Color(red: 0.804, green: 0.129, blue: 0.161)   // #CD2129, the NES red stripe
+        // The PlayStation's own grey, from the console rather than from the
+        // logo: the four coloured symbols are the brand, but a single badge can
+        // only be one colour and picking one of the four would name a button.
+        case "ps1":  return Color(red: 0.451, green: 0.463, blue: 0.494)   // #737685
         default: return Color(red: 0.463, green: 0.149, blue: 0.773) // GBA = app-logo purple #7626C5
         }
     }

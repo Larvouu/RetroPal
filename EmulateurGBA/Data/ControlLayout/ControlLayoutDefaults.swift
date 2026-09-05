@@ -465,7 +465,443 @@ enum ControlLayoutDefaults {
         case .nes:
             return nes(containerSize: containerSize, scale: scale,
                        isLandscape: isLandscape, safeLeftInset: safeLeftInset)
+        case .ps1:
+            return ps1(containerSize: containerSize, scale: scale,
+                       isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                       safeRightInset: safeRightInset)
         }
+    }
+
+    // MARK: - PlayStation
+
+    /// The skirt of body the dress keeps around the picture, in reference points.
+    ///
+    /// HALF IN LANDSCAPE: that page gives the picture almost the whole height,
+    /// and the skirt that reads as an inlaid frame in portrait reads as a border
+    /// eating the page there. Read by `PlayStationSkin.drawScreenPanel`, which
+    /// draws it, and by the landscape layout, which places the SELECT · MENU ·
+    /// START row below it — the row sits under what a player SEES, and what they
+    /// see is the frame rather than the picture inside it.
+    static let ps1PortraitSkirt: CGFloat = 14
+    static let ps1LandscapeSkirt: CGFloat = 7
+
+    /// How far each face sits from the diamond's centre, as a fraction of its own
+    /// width. The portrait page's own proportion (50 against a 63.8 face), reused
+    /// so landscape rebuilds the SAME lozenge rather than a second one that
+    /// happens to look similar.
+    static let diamondStep: CGFloat = 50.0 / 63.8
+
+    /// The gap inside a shoulder PAIR, in reference points.
+    ///
+    /// TWO VALUES, and the wide one belongs to the SHARE CARD alone. Both
+    /// playing pages keep the tight pair: portrait's row is pinned at three
+    /// points and already paid for in width (at 24 the R pair closes to 1.6
+    /// points of MENU on a 14 Pro), and landscape's was right as it was. The
+    /// card is a portrait of the machine rather than a page to play on, and
+    /// there the pair reads better with air between its two bars.
+    static let shoulderPairGap: CGFloat = 6
+    static let shoulderPairGapCard: CGFloat = 24
+
+    /// How far CLIP sits from the two page edges it is cornered against in
+    /// portrait, in reference points. It was the sticks' own page margin while a
+    /// stick shared that corner and every point of clearance counted; the sticks
+    /// have since moved under their blocks, so it is a real margin now.
+    static let clipCornerMargin: CGFloat = 16
+
+    /// How far a stick's raised boss shows PAST the stick, as a fraction of the
+    /// stick's own diameter. It is the visible RING that is sized here, not the
+    /// boss: scaling the whole boss scales the stick's footprint with it, which
+    /// turns a collar into a saucer.
+    static let ps1StickBossRing: CGFloat = 0.15
+    /// The boss's full diameter against its stick's.
+    static var ps1StickBossSpan: CGFloat { 1 + ps1StickBossRing * 2 }
+
+    /// A raised plateau's diameter against the cluster it grounds.
+    ///
+    /// What the portrait page's own rule works out to on the reference device
+    /// (218.9 around a 159.5 cross), carried to landscape and to the share card
+    /// so the same console does not wear three different proportions. It lives
+    /// here rather than in the skin because the CARD lays itself out around
+    /// these two circles, and a layout that guessed at their size would be a
+    /// second copy of a number the dress already owns.
+    static let ps1PlateauScale: CGFloat = 1.37
+
+    /// The gap between a stick and its click button, in reference points. One
+    /// number for both orientations: the pairing reads the same either way.
+    static let stickClickGap: CGFloat = 6
+
+    /// How far a stick sits from the page edge it is anchored to, in reference
+    /// points. The sticks are the only controls on any page placed from the
+    /// bottom edge rather than from a neighbour, because they are the last thing
+    /// to be fitted and the edge is the one measurement that cannot move.
+    static let stickPageMargin: CGFloat = 8
+
+    /// Clearance a stick keeps from whatever sits above it, in reference points.
+    /// It is larger than the shoulder stack's gap on purpose: a stick is dragged
+    /// rather than tapped, so a thumb crossing its rim is normal use.
+    static let stickClearance: CGFloat = 10
+
+    /// The PlayStation page: the Super Nintendo's, carrying five more controls.
+    ///
+    /// A second shoulder each side, the ANALOG switch, and two sticks. Those five
+    /// do not fit by being dropped into the gaps, because the page was already
+    /// full at six controls a side. Making room is most of what this function
+    /// does, and the two orientations have to make it in different places,
+    /// because they are different pages: portrait has a tall band under the
+    /// picture and no gutters, landscape has two gutters and almost no band.
+    ///
+    /// Every position below is DERIVED from what `snes()` placed, never written
+    /// as a coordinate. So the cross, the diamond and the utility row stay
+    /// exactly where the other six consoles put them, and a control moves only
+    /// when it genuinely does not fit, only as far as it must, and only on the
+    /// devices where that is true.
+    static func ps1(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                    safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+
+        var layout = snes(containerSize: containerSize, scale: k, isLandscape: isLandscape,
+                          safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
+                          system: .ps1)
+
+        // Everything below works in POINTS and converts once on the way back out.
+        // The layout stores fractions of the container, and doing collision
+        // arithmetic in fractions is how a page ends up with the right numbers in
+        // the wrong units.
+        func size(_ element: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(element, system: .ps1, isLandscape: isLandscape,
+                                              deviceScale: k)
+        }
+        func frame(_ element: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[element.rawValue] else { return nil }
+            let s = size(element)
+            return CGRect(x: b.centerX * w - s.width / 2, y: b.centerY * h - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        func setCentre(_ element: ControlElement, x: CGFloat, y: CGFloat) {
+            let hidden = layout.buttons[element.rawValue]?.isHidden ?? false
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h,
+                                                            isHidden: hidden)
+        }
+        /// Half the raised ring the dress draws around a stick.
+        func ps1BossHalf(_ stick: CGRect) -> CGFloat {
+            max(stick.width, stick.height) * ps1StickBossSpan / 2
+        }
+        func moveUp(_ elements: [ControlElement], by dy: CGFloat) {
+            guard dy > 0 else { return }
+            for element in elements {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                layout.buttons[element.rawValue] = ButtonLayout(
+                    centerX: b.centerX, centerY: b.centerY - dy / h, isHidden: b.isHidden)
+            }
+        }
+
+        let faces: [ControlElement] = [.btnA, .btnB, .btnX, .btnY]
+        let stick = size(.stickLeft)
+
+        if isLandscape {
+            // The picture is CENTRED on this page (see `screenFrame`), so it
+            // leaves an equal band at each end and two wide gutters. Everything
+            // below is placed against one of those three: the lower band takes
+            // the row, and each gutter takes one thumb's worth of controls.
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.ps1),
+                system: .ps1, controllerConnected: false, deviceScale: k)
+            // The dress's own skirt, so nothing is placed against the picture
+            // when what a player sees is the frame around it.
+            let surroundBottom = screen.maxY + ps1LandscapeSkirt * k
+
+            // TWO BARS TO A GUTTER, side by side on the line the first one
+            // already holds. Stacked, they ate a gutter's depth that the cross
+            // and the diamond need; across, the gutter has the width to spare.
+            // Each pair grows INWARD from the edge its single bar already hugged,
+            // rather than spreading about that bar's centre: a pair is more than
+            // twice as wide as the bar it replaces, so centred on it, half of it
+            // would be off the side of the phone. The outer bar keeps the outer
+            // edge, and its partner takes the room toward the picture.
+            for (first, second, towardCentre) in
+                [(ControlElement.btnL, ControlElement.btnL2, CGFloat(1)),
+                 (.btnR, .btnR2, CGFloat(-1))] {
+                guard let anchor = frame(first) else { continue }
+                let bar = size(first).width
+                let outerEdge = towardCentre > 0 ? anchor.minX : anchor.maxX
+                let outerCentre = outerEdge + towardCentre * bar / 2
+                setCentre(first, x: outerCentre, y: anchor.midY)
+                setCentre(second, x: outerCentre + towardCentre * (bar + shoulderPairGap * k),
+                          y: anchor.midY)
+            }
+
+            // THE DIAMOND BECOMES A DIAMOND. It arrives from the DS's landscape
+            // page, where the four sit in a square-ish cluster; this pad wears
+            // the same lozenge in both orientations, so the PORTRAIT arrangement
+            // is rebuilt here around the right gutter's centre. `diamondStep` is
+            // the portrait proportion, not a second number: 50 against a 63.8
+            // face is what that page uses.
+            let faceSize = size(.btnA).width
+            let step = faceSize * diamondStep
+            let gutterR = (screen.maxX + w) / 2
+            let blocY = screen.midY
+            for (element, dx, dy) in [(ControlElement.btnA, step, CGFloat(0)),
+                                      (.btnY, -step, 0),
+                                      (.btnX, CGFloat(0), -step),
+                                      (.btnB, 0, step)] {
+                setCentre(element, x: gutterR + dx, y: blocY + dy)
+            }
+
+            // THE CROSS takes the mirror of that in the left gutter, so the two
+            // thumbs sit at the same height and the same distance in.
+            setCentre(.dpad, x: w - gutterR, y: blocY)
+
+            // SELECT · MENU · START, centred in the band under the picture.
+            //
+            // Measured from the SURROUND rather than the picture: the skirt is
+            // what a player sees the row sitting below. MENU keeps the middle
+            // here, unlike portrait, because in landscape this row is the only
+            // thing in the band and the middle is the one slot that reads as
+            // belonging to the page rather than to a hand.
+            let rowY = (surroundBottom + h) / 2
+            let row: [ControlElement] = [.btnSelect, .btnMenu, .btnStart]
+            let gap = 10 * k
+            let rowWidth = row.reduce(CGFloat(0)) { $0 + size($1).width }
+                + gap * CGFloat(row.count - 1)
+            var x = w / 2 - rowWidth / 2
+            for element in row {
+                let width = size(element).width
+                setCentre(element, x: x + width / 2, y: rowY)
+                x += width + gap
+            }
+
+            // CLIP AND ANALOG hug the picture, one each side, on the line under
+            // their own gutter's bars. They are the two controls on this page
+            // that belong to nobody's thumb: one is ours and one is a mode
+            // switch, so they take the strip beside the screen that no thumb
+            // reaches across.
+            let hug = 10 * k
+            for (element, onRight) in [(ControlElement.btnClip, true),
+                                       (.btnMode, false)] {
+                let size0 = size(element)
+                let barBottom = (frame(onRight ? .btnR : .btnL)?.maxY ?? 0)
+                let y = barBottom + stickClearance * k + size0.height / 2
+                let x = onRight
+                    ? screen.maxX + hug + size0.width / 2
+                    : screen.minX - hug - size0.width / 2
+                setCentre(element, x: x, y: y)
+            }
+
+            // THE STICKS take the bottom of each gutter, where the thumbs rest.
+            let stickY = h - stickPageMargin * k - stick.height / 2
+            // The right stick takes X's LEFT EDGE as its centre line, not the
+            // diamond's middle. The diamond is not symmetric about the thumb
+            // that works it -- X is its top vertex and the stick sits below and
+            // inboard of the whole bloc, which is where a DualShock puts it.
+            if let x = frame(.btnX) {
+                setCentre(.stickRight, x: x.minX, y: stickY)
+                // AND THE LEFT ONE MIRRORS IT ACROSS THE PICTURE. It sat under
+                // the cross's own centre line, which put it noticeably further
+                // out than its partner once the right one moved inboard to X's
+                // edge. Measured as a distance FROM THE PICTURE rather than as a
+                // position, so the two stay a pair on every device.
+                let inset = x.minX - screen.maxX
+                setCentre(.stickLeft, x: screen.minX - inset, y: stickY)
+            }
+
+            // L3 and R3 go OUTBOARD of their stick, on its line: the gutter
+            // above a stick is the pad or the diamond, while the strip between a
+            // stick and the page edge is empty and is where the thumb already is.
+            // From the BOSS's edge, as in portrait: the raised ring is what a
+            // player reads as the stick's extent.
+            let clickGap = stickClickGap * k
+            let click = size(.btnL3)
+            if let stick = frame(.stickLeft) {
+                setCentre(.btnL3,
+                          x: max(stick.midX - ps1BossHalf(stick) - clickGap - click.width / 2,
+                                 click.width / 2 + 4 * k),
+                          y: stick.midY)
+            }
+            if let stick = frame(.stickRight) {
+                setCentre(.btnR3,
+                          x: min(stick.midX + ps1BossHalf(stick) + clickGap + click.width / 2,
+                                 w - click.width / 2 - 4 * k),
+                          y: stick.midY)
+            }
+        } else {
+            // THE CROSS RISES until its centre is where its UP KEY reads.
+            //
+            // A cross is aimed at the direction under the thumb, not at the
+            // middle of the square it is drawn in, and on this pad the four keys
+            // are separate mouldings with a hole between them, so the middle of
+            // the square is literally nothing. `ps1UpKeyMiddle` comes from the
+            // shape the cross draws, so the two cannot drift apart.
+            let padSize = size(.dpad)
+            let rise = CrossDPadView.ps1UpKeyMiddle * padSize.height
+            moveUp([ControlElement.dpad] + faces, by: rise)
+
+            // THE DIAMOND SLIDES RIGHT until its margin mirrors the cross's.
+            //
+            // The two blocks are the page's two thumbs and they arrive from
+            // different consoles, so nothing had been making them symmetric: the
+            // cross sat 12pt from its edge and the diamond 24 from its. Measured
+            // from the placed frames rather than from the numbers that produced
+            // them, because both are floored on small devices.
+            if let pad = frame(.dpad) {
+                let placed = faces.compactMap { frame($0) }
+                if let right = placed.map(\.maxX).max() {
+                    let shift = (w - pad.minX) - right
+                    for element in faces {
+                        guard let b = layout.buttons[element.rawValue] else { continue }
+                        layout.buttons[element.rawValue] = ButtonLayout(
+                            centerX: b.centerX + shift / w, centerY: b.centerY,
+                            isHidden: b.isHidden)
+                    }
+                }
+            }
+
+            // ONE LINE OF FIVE: L1 · L2 · MENU · R1 · R2.
+            //
+            // Each pair sits over the cluster its fingers serve: the L pair on
+            // the cross's centre line, the R pair on the diamond's, MENU on the
+            // page's. Those are three fixed points, so the row is paid for in
+            // WIDTH rather than in position — `ps1PortraitShoulderWidth`, 55
+            // against the 90 every other console's pair takes.
+            //
+            // The bars are also SHALLOWER than the row they inherit, and the row
+            // holds its TOP edge rather than its centre while they shrink: the
+            // top edge is the one that faces the picture, and a row that thinned
+            // about its middle would have opened a gap under the screen instead
+            // of at the bottom of the page, where this console needs it.
+            //
+            // The two gaps either side of MENU came out EQUAL once the diamond
+            // moved (about 25pt each on a 14 Pro). They were not, and this note
+            // used to say they could not be: MENU is centred on the page, and the
+            // cross and the diamond were not symmetric about it. The rise-and-
+            // mirror pass above made them symmetric, so the row centres for free.
+            // Nothing here enforces it -- it is a consequence of the two blocks,
+            // and it is `ps1ShouldersSitFourAcrossAndNeverTouch` that would notice
+            // if a future move to either block reopened the gap.
+            if let rowY = layout.buttons[ControlElement.btnL.rawValue]?.centerY,
+               let pad = frame(.dpad) {
+                // The height the inherited row was laid out with, so the top edge
+                // is recovered rather than re-stated as a literal.
+                let inherited = EmulatorLayoutGeometry.buttonSize(
+                    .btnL, system: .snes, isLandscape: false, deviceScale: k).height
+                let rowCentre = rowY * h - (inherited - size(.btnL).height) / 2
+                let step = (size(.btnL).width + shoulderPairGap * k) / 2
+                let bloc = faces.compactMap { frame($0) }
+                let diamondX = bloc.isEmpty
+                    ? w / 2
+                    : ((bloc.map(\.minX).min() ?? 0) + (bloc.map(\.maxX).max() ?? 0)) / 2
+                for (element, x) in [(ControlElement.btnL, pad.midX - step),
+                                     (.btnL2, pad.midX + step),
+                                     (.btnR, diamondX - step),
+                                     (.btnR2, diamondX + step)] {
+                    setCentre(element, x: x, y: rowCentre)
+                }
+                setCentre(.btnMenu, x: w / 2, y: rowCentre)
+            }
+
+            // THE STICKS go UNDER the two blocks, which is where the hardware
+            // puts them.
+            //
+            // They could not before: the cross sat low enough that the band under
+            // it covered SELECT and START, so the sticks were exiled to the lanes
+            // either side. The cross rising is what opened this band, and it is
+            // the reason the two moves belong in one pass.
+            //
+            // Stepped INWARD from their block by half an arrow's width, so each
+            // stick sits under the inner half of the cluster it serves rather
+            // than square under its centre. That is the DualShock's own offset.
+            let arrowHalf = padSize.width * CrossDPadView.ps1ArmRatioShared / 2
+            let blocks = ([ControlElement.dpad] + faces).compactMap { frame($0)?.maxY }
+            // The band under the blocks has to clear the STICK and also the half
+            // of ANALOG that sits above the stick's top edge, because that is
+            // where ANALOG is centred (below). Without the second term ANALOG
+            // reaches back up into the cross's hitbox: only by a point, but the
+            // cross claims its whole frame past a small deadzone, so a point
+            // there is a real diagonal firing under the mode switch.
+            let modeLift = size(.btnMode).height / 2 + stickClickGap * k
+            let blockGap = max(stickClearance * k, modeLift)
+            let stickY = (blocks.max() ?? 0) + blockGap + stick.height / 2
+            let placedFaces = faces.compactMap { frame($0) }
+            let diamondX = placedFaces.isEmpty
+                ? w / 2
+                : ((placedFaces.map(\.minX).min() ?? 0) + (placedFaces.map(\.maxX).max() ?? 0)) / 2
+            if let pad = frame(.dpad) {
+                setCentre(.stickLeft, x: pad.midX + arrowHalf, y: stickY)
+            }
+            setCentre(.stickRight, x: diamondX - arrowHalf, y: stickY)
+
+            // L3 and R3 go OUTBOARD of their own stick, on its line — the same
+            // rule landscape already uses, and now available here because the
+            // sticks have left the page edges. It replaces hiding them on short
+            // phones: the band above a stick was never 40pt on an SE, but the
+            // margin beside one is, so on that device these two become visible
+            // for the first time.
+            // MEASURED FROM THE BOSS, not from the stick. The stick wears a
+            // raised ring the dress draws around it, and a gap taken from the
+            // cap put the click button inside that ring: the space a player
+            // sees is the space to the RING's edge, so that is what is set.
+            let click = size(.btnL3)
+            if let s = frame(.stickLeft) {
+                setCentre(.btnL3, x: s.midX - ps1BossHalf(s) - stickClickGap * k - click.width / 2,
+                          y: s.midY)
+            }
+            if let s = frame(.stickRight) {
+                setCentre(.btnR3, x: s.midX + ps1BossHalf(s) + stickClickGap * k + click.width / 2,
+                          y: s.midY)
+            }
+
+            // ANALOG between the two sticks, which is where the pad prints it and
+            // what it is for: it switches the very controls either side of it.
+            // It used to sit between SELECT and START, spreading that pair to
+            // make room; that spread went with it, so those two are back in the
+            // columns the Game Boy layout gave them.
+            //
+            // On the sticks' TOP rather than their centre line. Centred between
+            // them it read as a third control in a row of three; level with
+            // where they begin, it reads as the label over the pair, which is
+            // what it is.
+            setCentre(.btnMode, x: w / 2, y: stickY - stick.height / 2)
+
+            // CLIP CROSSES TO THE BOTTOM RIGHT: R3's column, on the row SELECT
+            // and START arrive on.
+            //
+            // Both anchors are controls rather than page edges. It sits at the
+            // outboard end of its row and on the side away from the cross, so
+            // the hand that is steering never passes over it, and the corner it
+            // leaves is where the brand mark goes.
+            // SELECT, START and CLIP are ONE LINE, and the line is centred in
+            // the band the sticks leave under them: that band is the only empty
+            // space left on this page, and a row floating above its middle was
+            // the last thing here still sitting where an inherited layout had
+            // put it rather than where this page's own furniture allows.
+            let clip = size(.btnClip)
+            let stickBottom = frame(.stickLeft).map { $0.maxY } ?? (h / 2)
+            let markLine = (stickBottom + h) / 2
+            setCentre(.btnClip,
+                      x: min(frame(.btnR3)?.midX ?? (w - clipCornerMargin * k - clip.width / 2),
+                             w - clipCornerMargin * k - clip.width / 2),
+                      y: markLine)
+
+            // AND SELECT AND START DROP, so that what a player SEES lines up.
+            //
+            // Their hitbox holds a shape AND a word under it, centred as one
+            // block, so the shape itself rides above the hitbox's middle by half
+            // the gap and the word. CLIP's disc has no word and sits dead centre.
+            // Matching the two hitboxes therefore leaves the three marks visibly
+            // staggered; matching the MARKS means dropping these two by exactly
+            // that rise. `PS1Shape.shapeRise` is the same call the button draws
+            // its block from, so the two cannot disagree about the number.
+            for element in [ControlElement.btnSelect, .btnStart] {
+                guard let f = frame(element),
+                      let style = SmallButton.PS1Shape.style(for: element) else { continue }
+                setCentre(element, x: f.midX,
+                          y: markLine + SmallButton.PS1Shape.shapeRise(style, f))
+            }
+        }
+
+        return layout
     }
 
     // MARK: - SNES
@@ -486,8 +922,16 @@ enum ControlLayoutDefaults {
     /// Sizes follow the same split through
     /// `EmulatorLayoutGeometry.referenceSize(_:system:isLandscape:)`, so what is
     /// drawn matches what is positioned.
+    /// - Parameter system: whose page this is. Defaults to the Super Nintendo,
+    ///   so that console's answers are untouched; the PlayStation passes its own
+    ///   because it borrows this whole layout and does NOT borrow the picture.
+    ///   The two shapes really differ, 4:3 against 8:7, and in landscape the
+    ///   gutters are what is left over after the picture, so laying out a
+    ///   PlayStation page against a Super Nintendo's picture would have put its
+    ///   buttons over the game.
     static func snes(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
-                     safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+                     safeLeftInset: CGFloat, safeRightInset: CGFloat = 0,
+                     system: PresetSystem = .snes) -> OrientationLayout {
         let w = containerSize.width
         let h = containerSize.height
         guard w > 0 && h > 0 else { return OrientationLayout() }
@@ -535,8 +979,8 @@ enum ControlLayoutDefaults {
         if isLandscape {
             let screen = EmulatorLayoutGeometry.screenFrame(
                 deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
-                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.snes),
-                system: .snes, controllerConnected: false, deviceScale: k)
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(system),
+                system: system, controllerConnected: false, deviceScale: k)
             let sidePad = 8 * k        // matches the dress's landscape panel margin
 
             // The D-pad is untouched here: it is the GBA's, and gbcLandscape already centred it
@@ -549,7 +993,7 @@ enum ControlLayoutDefaults {
             var maxX = -CGFloat.greatestFiniteMagnitude
             for element in faces {
                 guard let b = layout.buttons[element.rawValue] else { continue }
-                let size = EmulatorLayoutGeometry.buttonSize(element, system: .snes,
+                let size = EmulatorLayoutGeometry.buttonSize(element, system: system,
                                                              isLandscape: true, deviceScale: k)
                 minX = Swift.min(minX, b.centerX * w - size.width / 2)
                 maxX = Swift.max(maxX, b.centerX * w + size.width / 2)
@@ -573,7 +1017,7 @@ enum ControlLayoutDefaults {
             // SELECT · MENU · START: one line, under THIS console's screen. They arrive from two
             // different consoles (SELECT/START the Game Boy's, MENU the GBA's), each stuck to its
             // own console's screen bottom, so left alone they render as a staggered row.
-            let rowH = EmulatorLayoutGeometry.buttonSize(.btnStart, system: .snes,
+            let rowH = EmulatorLayoutGeometry.buttonSize(.btnStart, system: system,
                                                          isLandscape: true, deviceScale: k).height
             let rowY = (screen.maxY + EmulatorLayoutGeometry.gbcLandscapeRowGap * k + rowH / 2) / h
             for element in [ControlElement.btnSelect, .btnMenu, .btnStart] {
@@ -599,10 +1043,10 @@ enum ControlLayoutDefaults {
                let pad = layout.buttons[ControlElement.dpad.rawValue] {
                 func bottom(_ e: ControlElement, _ b: ButtonLayout) -> CGFloat {
                     b.centerY * h + EmulatorLayoutGeometry.buttonSize(
-                        e, system: .snes, isLandscape: true, deviceScale: k).height / 2
+                        e, system: system, isLandscape: true, deviceScale: k).height / 2
                 }
                 let padTop = pad.centerY * h - EmulatorLayoutGeometry.buttonSize(
-                    .dpad, system: .snes, isLandscape: true, deviceScale: k).height / 2
+                    .dpad, system: system, isLandscape: true, deviceScale: k).height / 2
                 let y = DressKind.snesLandscapeUtilityCenterY(
                     shoulderBottom: Swift.max(bottom(.btnL, l), bottom(.btnR, r)), padTop: padTop)
                 layout.buttons[ControlElement.btnClip.rawValue] =
@@ -624,7 +1068,14 @@ enum ControlLayoutDefaults {
         //
         // Symmetric on purpose: equal and opposite steps leave the bloc's centre exactly where
         // it was, which is the D-pad's line, and `theFaceBlocSharesThePadsLine` holds that.
-        if !isLandscape {
+        // NOT ON THE PLAYSTATION. The step below exists for the Super Nintendo's
+        // dress, which draws one capsule over B and A and another over X and Y:
+        // taken straight from the DS those two capsules cross, so each pair
+        // steps apart along the diagonal. This console has no capsules. Its four
+        // buttons are four separate mouldings at equal distance, and separating
+        // the pairs here made the diamond read as two pills, which is the Super
+        // Nintendo's shape rather than this one's.
+        if !isLandscape && system != .ps1 {
             let step = Self.facePairSeparation * k / CGFloat(2).squareRoot()   // along (±1, ±1)/√2
             let moves: [(ControlElement, CGFloat)] = [(.btnX, -1), (.btnY, -1), (.btnA, 1), (.btnB, 1)]
             for (element, direction) in moves {

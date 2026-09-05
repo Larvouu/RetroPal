@@ -31,6 +31,34 @@ enum Analytics {
         TelemetryDeck.signal(name, parameters: sanitized(params))
     }
 
+    /// Send at most ONCE per app launch for a given name and parameter set.
+    ///
+    /// Why this exists (2026-08-27, at 100k+ monthly events). Six signals
+    /// answer exactly one question: "does this user use the feature". That
+    /// needs one event per user, not one per action, and `rewind_used` alone
+    /// fired dozens of times in a session. Deduplicating keeps every insight
+    /// the dashboards are built on and removes the volume that bought nothing.
+    ///
+    /// The key is built from the SANITIZED parameters, so a value the
+    /// anonymity gate drops cannot make two identical signals look distinct
+    /// and defeat the whole thing.
+    ///
+    /// Locked because signals are sent from background threads (box art,
+    /// imports), and a Set mutated from two of them is a data race.
+    static func signalOnce(_ name: String, _ params: [String: String] = [:]) {
+        let clean = sanitized(params)
+        let key = ([name] + clean.keys.sorted().map { "\($0)=\(clean[$0]!)" })
+            .joined(separator: "|")
+        dedupeLock.lock()
+        let isNew = sentThisLaunch.insert(key).inserted
+        dedupeLock.unlock()
+        guard isNew else { return }
+        signal(name, params)
+    }
+
+    private static let dedupeLock = NSLock()
+    private static var sentThisLaunch: Set<String> = []
+
     /// Anonymity gate: a hard allowlist. Anything not listed is dropped, so a
     /// game title / filename / free text can never leak even if passed by mistake.
     /// When new events are added, add their param keys here on purpose.

@@ -9,7 +9,7 @@
 "library.empty.title" = "歡迎使用 Retro Pal";
 "library.empty.subtitle" = "在 iPhone 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
 "library.empty.button" = "加入遊戲";
-"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc 或 .nes）放到 iPhone 上。";
+"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes 或 .chd）放到 iPhone 上。";
 "library.empty.step2" = "點一下 %@，再到「檔案」App 選取檔案。";
 "library.empty.step3" = "開始玩吧。進度會自動儲存";
 "library.empty.romHint" = "還沒有 ROM？網路上有許多免費且合法的遊戲，搜尋「GBA homebrew」看看。";
@@ -50,10 +50,17 @@
 "overlay.paused" = "已暫停";
 "overlay.resume" = "繼續";
 "overlay.rewind" = "%@ 秒";
+"overlay.rewind.pick" = "倒帶長度";
 "overlay.screenshot" = "截圖";
 "overlay.quit" = "離開遊戲";
 "overlay.speed" = "速度";
 "overlay.saveSlots" = "即時存檔欄位";
+// PlayStation disc picker (pause menu, multi-disc games only)
+"overlay.discs" = "光碟";
+"overlay.disc.numbered" = "光碟 %@";
+"overlay.disc.inDrive" = "已放入";
+"overlay.disc.failed.title" = "無法更換光碟";
+"overlay.disc.failed.message" = "主機拒絕了更換光碟。請開啟選單再試一次。";
 "overlay.slot" = "欄位 %@";
 "overlay.slot.empty" = "空";
 "overlay.save" = "儲存";
@@ -82,6 +89,8 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "版本";
 "settings.core" = "模擬器核心";
+"settings.engines.footer" = "授權：%@。";
+"settings.engines.footer.patched" = "授權：%@。使用時做了一項小修改，該修改以修補檔的形式與原始碼一同公開。";
 "settings.rateApp" = "為 Retro Pal 評分";
 "settings.disclaimer" = "Retro Pal 是純本機運作的模擬器，不內含任何遊戲。請只匯入你合法持有的檔案。";
 "settings.restore" = "回復購買項目";
@@ -90,7 +99,12 @@
 "pro.title" = "Retro Pal Pro";
 "pro.purchased" = "已購買";
 "pro.forever" = "%@，永久擁有";
-"pro.monthly" = "或每月 %@";
+"pro.monthly" = "%@ / 月";
+// pro.lifetime / pro.yearly CARRY THEIR OWN LEADING PUNCTUATION. They follow
+// the price on one line ("9,99 EUR, a vie"), and the comma is not shared: ja and
+// zh-Hant take the ideographic comma. Keep the separator inside the value.
+"pro.lifetime" = "、買斷";
+"pro.yearly" = "、1 年";
 "pro.notNow" = "暫時不要";
 "pro.restore" = "回復購買項目";
 "pro.unavailable" = "無法載入 Pro，請檢查網路連線。";
@@ -179,7 +193,7 @@
 "legal.melonds" = "melonDS 授權";
 "legal.importantNotice.title" = "重要聲明";
 "legal.aboutApp.title" = "關於本 App";
-"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color、任天堂 DS、超級任天堂與紅白機遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
+"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color、任天堂 DS、超級任天堂、紅白機與 PlayStation 遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
 "legal.aboutApp.description2" = "本 App 不提供遊戲目錄、不散布遊戲內容，也不協助下載受著作權保護的素材。";
 "legal.privacy.title" = "隱私權";
 "legal.privacy.description" = "你的遊戲與存檔都保留在你的裝置上。為了改進 App，Retro Pal 只傳送匿名使用統計，不含個人資料，也不含廣告識別碼。";
@@ -191,10 +205,13 @@
 "legal.mesen" = "MesenCE 授權";
 "legal.mesen.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
 "legal.mesen.description" = "MesenCE 是本 App 用於 SNES 與 NES 遊戲的模擬引擎，一款超級任天堂與 NES 模擬器。其原始碼公開於 [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.pcsx" = "PCSX-ReARMed 授權";
+"legal.pcsx.licenseLine" = "依 GNU General Public License v2.0 或更新版本（GPL-2.0-or-later）授權";
+"legal.pcsx.description" = "PCSX-ReARMed 是一款 PlayStation 模擬器，在本應用程式中作為 PlayStation 遊戲的模擬引擎。PCSX-ReARMed 的原始碼位於 [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.retropal" = "Retro Pal 授權";
 "legal.retropal.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
 "legal.retropal.description" = "Retro Pal 的完整原始碼公開於 [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal)。本軟體不提供任何保固。";
-"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）與 melonDS（GPL-3.0）之上，兩者均未經修改；另建構於 MesenCE（GPL-3.0）之上，我們對其做了一處小修改，並以 patch 檔隨原始碼一併公開。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
+"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）、melonDS（GPL-3.0）與 PCSX-ReARMed（GPL-2.0 或更新版本）之上，三者均未經修改；另建構於 MesenCE（GPL-3.0）之上，我們對其做了一處小修改，並以 patch 檔隨原始碼一併公開。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
 
 "details.noSaves" = "還沒有即時存檔。遊戲中按選單按鈕即可建立。";
 "details.play" = "開始遊戲";
@@ -217,12 +234,16 @@
 "cheats.hint.nds" = "Action Replay DS 格式（XXXXXXXX YYYYYYYY）";
 "cheats.hint.snes" = "Game Genie（XXXX-XXXX）或 Pro Action Replay 格式";
 "cheats.hint.nes" = "Game Genie（英文字母）或 Pro Action Rocky 格式";
+"cheats.hint.ps1" = "GameShark 或 Action Replay 格式（XXXXXXXX YYYY）";
 "cheats.namePlaceholder" = "名稱（選填）";
+"cheats.edit.title" = "編輯代碼";
+"cheats.edit.hint" = "編輯這組代碼";
 "cheats.add" = "加入代碼";
 "cheats.invalid.gba" = "無法辨識的代碼。請使用 GameShark、CodeBreaker 或 Action Replay 格式。";
 "cheats.invalid.nds" = "無法辨識的代碼。請使用 Action Replay DS 格式：XXXXXXXX YYYYYYYY（每行一組）。";
 "cheats.invalid.snes" = "無法辨識這組代碼。請使用 Game Genie（XXXX-XXXX）或 Pro Action Replay（八個字元）。";
 "cheats.invalid.nes" = "無法辨識這組代碼。請使用 Game Genie（六或八個英文字母）或 Pro Action Rocky（八個字元）。";
+"cheats.invalid.ps1" = "無法辨識的代碼。請使用 GameShark 或 Action Replay 格式：XXXXXXXX YYYY（每行一組）。";
 "cheats.empty" = "沒有啟用中的金手指";
 "cheats.findHint" = "代碼可以在網路上找到，搜尋你的遊戲加上金手指即可。";
 "cheats.clearAll" = "全部清除";
@@ -332,11 +353,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "加入遊戲";
 "guide.importRom.intro" = "Retro Pal 不內含任何遊戲。ROM 檔案由你自行提供，且必須是你合法持有的（自己的卡帶，或免費合法的自製遊戲）。";
-"guide.importRom.step1" = "把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc 或 .nes）放到 iPhone 上：用 Safari 下載、從電腦 AirDrop，或透過 iCloud 雲碟。";
+"guide.importRom.step1" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPhone：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
 "guide.importRom.step2" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPhone」或「iCloud 雲碟」）。";
 "guide.importRom.step3" = "在 Retro Pal 中，點遊戲庫上方的 + 按鈕。";
 "guide.importRom.step4" = "選取檔案，遊戲立即出現在遊戲庫中，馬上可以玩。";
-"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，以及只含單一遊戲的 .zip。不支援 .7z 與多遊戲壓縮檔，請先解壓出單一檔案。請只匯入你合法持有的檔案。";
+"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，以及 PlayStation 光碟的 .chd、.cue 搭配 .bin，或 .m3u。.zip 也可以，不論裡面是一款遊戲、一張光碟的全部檔案，還是多款遊戲讓你挑選。不支援 .7z。請只匯入你合法持有的檔案。";
 "settings.guides.section" = "指南";
 "settings.controller.row" = "控制器";
 "common.done" = "完成";
@@ -429,6 +450,7 @@
 "skin.editor.surround" = "螢幕邊框";
 "skin.editor.dpad" = "十字鍵";
 "skin.editor.abButtons" = "A/B 按鈕";
+"skin.editor.faceButtons" = "動作按鍵";
 "skin.editor.faceA" = "A 按鈕";
 "skin.editor.faceB" = "B 按鈕";
 "skin.editor.faceX" = "X 按鈕";
@@ -498,6 +520,7 @@
 "ra.details.invite.headline" = "在這個遊戲中解鎖成就";
 "ra.details.invite.caption" = "這個遊戲有 RetroAchievements 成就集：一邊玩一邊完成挑戰，用免費帳號記錄進度。";
 "ra.details.unavailable" = "這個遊戲不支援 RetroAchievements。";
+"ra.details.unavailable.pbp" = "RetroAchievements 無法讀取 .pbp 檔案。同一款遊戲改用 .chd，或 .cue 搭配 .bin，即可正常取得成就。";
 "ra.library.invite.caption" = "你的遊戲有 RetroAchievements 成就集。連結免費帳號，邊玩邊解鎖成就。";
 "ra.library.recent" = "最近解鎖";
 "ra.library.noUnlocks" = "你最近解鎖的成就會顯示在這裡。";
@@ -520,10 +543,13 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "無法存取所選檔案。請試著從「檔案」App 匯入。";
 "import.error.copyFailed" = "無法將遊戲複製到 Retro Pal。請先釋出一些儲存空間，再試一次。";
-"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes。";
+"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes，以及 .chd、.cue 搭配 .bin、.m3u 格式的 PlayStation 光碟。";
+"import.error.discMissingFiles" = "這張光碟需要未被選取的檔案：%@。請一次選取 .cue 和所有 .bin 檔案。";
 "import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes 遊戲，不支援其他主機。";
 "import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
 "import.error.alreadyImported" = "這個遊戲已經在你的遊戲庫裡了。";
+"import.duplicate.title" = "已在你的遊戲庫中";
+"import.duplicate.bodySeveral" = "這些遊戲已經在你的遊戲庫中：";
 "import.error.saveFailed" = "無法將遊戲加入遊戲庫。請再試一次。";
 "import.error.differentGame" = "這個檔案是另一款遊戲，不是你要取代的那一款。";
 "import.error.batchIntro" = "以下檔案無法匯入：";
@@ -538,7 +564,6 @@
 "whatsnew.title" = "新功能";
 "whatsnew.version" = "版本 %@";
 "whatsnew.footer" = "你可以隨時在設定中重新查看這些內容。";
-"whatsnew.notice.pro" = "關於 Pro：買斷制的永久版價格會在日後的更新調漲，目前還沒有日期。現在免費的內容永遠免費：沒有廣告，也永遠不需要付費才能玩。";
 "whatsnew.dismiss" = "知道了！";
 
 /* --- External display (AirPlay / cable), Pro --- */
@@ -624,25 +649,24 @@
 
 "externalDisplay.idle.hint" = "請在 iPhone 上啟動遊戲";
 
-/* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "多了兩台主機";
-"whatsnew.s1.b1" = "超級任天堂與紅白機的遊戲現在都能在 Retro Pal 上玩，而且兩台主機都免費開放給所有人。";
-"whatsnew.s1.b2" = "存檔、速度、倒帶、金手指與成就，從第一天就全部可用。";
-"whatsnew.s2.title" = "看起來就像真的一樣";
-"whatsnew.s2.b1" = "兩台新主機在直向與橫向都會在遊戲四周穿上自己的機殼。";
-"whatsnew.s2.b2" = "打造專屬外觀，為每顆按鍵挑一個顏色，再分享成一張卡片。{PRO}";
-"whatsnew.s3.title" = "每一台主機都能倒帶";
-"whatsnew.s3.b1" = "倒帶來到任天堂 DS。它的快照大得多，需要一種小得多的保存方式。";
-"whatsnew.s3.b2" = "所有人 5 秒，{PRO} 30 秒，六台主機全都適用。";
-"whatsnew.s4.title" = "金手指，修好了";
-"whatsnew.s4.b1" = "分成多行的代碼會以一個項目加入，而且 App 會在你弄錯之前先說明。";
-"whatsnew.s4.b2" = "自己這一版沒有代碼的遊戲，可以借用同一卡帶其他地區版本的代碼。";
-"whatsnew.s5.title" = "RetroAchievements";
-"whatsnew.s5.b1" = "有多組成就的遊戲，現在會分別顯示每一組的數量與徽章。";
-"whatsnew.s5.b2" = "完成一組成就，或完成整款遊戲，都會在畫面上有屬於自己的一刻。";
-"whatsnew.s6.title" = "接上控制器時";
-"whatsnew.s6.b1" = "當夾式控制器遮住部分畫面時，可以移動遊戲畫面並調整大小。{PRO}";
-"whatsnew.s6.b2" = "每台主機都會分別記住直向與橫向的配置。";
+/* --- What's New, rewritten each release --- */
+"whatsnew.s1.title" = "PlayStation";
+"whatsnew.s1.b1" = "PlayStation 遊戲現在可以在 Retro Pal 上遊玩，這台主機對所有人免費。";
+"whatsnew.s1.b2" = "存檔、即時存檔、倒帶、金手指與成就，全都從第一天起就能用。";
+"whatsnew.s1.b3" = "進度會存在記憶卡上，和當年的主機一樣，也會像其他存檔一樣傳到你的其他裝置。";
+"whatsnew.s1.b4" = "遊戲周圍會顯示這台主機自己的機殼，直向與橫向都是。{PRO} 可以把手把重新上色，連印在上面的字都能換。";
+"whatsnew.s2.title" = "光碟，不論你的是什麼形式";
+"whatsnew.s2.b1" = "一款 PlayStation 遊戲可能是一個檔案，也可能是一整個資料夾。可以加入 .chd，或 .cue 搭配 .bin，或整包的 zip。";
+"whatsnew.s2.b2" = "哪些檔案屬於同一款遊戲，交給 Retro Pal 判斷，加進來的是一款遊戲，不是五十個。";
+"whatsnew.s2.b3" = "分成多張光碟的遊戲會變成一款遊戲，就算光碟是分開的檔案也一樣；換片直接從暫停選單進行，不必離開遊戲。";
+"whatsnew.s3.title" = "有兩根搖桿的手把";
+"whatsnew.s3.b1" = "螢幕上的操作有兩根類比搖桿和 ANALOG 鍵，需要類比的遊戲用手指玩，就和用實體手把一樣。";
+"whatsnew.s3.b2" = "左搖桿移動，右搖桿轉視角，正是遊戲預期的方式。";
+"whatsnew.s4.title" = "金手指";
+"whatsnew.s4.b1" = "已儲存的代碼現在可以編輯，改一個字元不必再重打整組代碼。";
+"whatsnew.s5.title" = "操作";
+"whatsnew.s5.b1" = "螢幕上的搖桿採用與 PlayStation 類比搖桿相同的立體外觀，並使用各主機自己的顏色。";
+"whatsnew.s5.b2" = "{PRO} 可以自己決定倒帶多久：長按倒帶按鈕選擇秒數，最多 30 秒。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "這個系列沒有載入任何成就。";

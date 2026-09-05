@@ -9,7 +9,7 @@
 "library.empty.title" = "Willkommen bei Retro Pal";
 "library.empty.subtitle" = "Spiele deine Retro-Games auf dem iPhone. Keine Werbung, kein persönliches Tracking.";
 "library.empty.button" = "Spiel hinzufügen";
-"library.empty.step1" = "Bring ein Spiel (.gba, .gb, .gbc, .nds, .sfc, .smc oder .nes) auf dein iPhone, per Safari, AirDrop oder iCloud Drive.";
+"library.empty.step1" = "Bring ein Spiel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes oder .chd) auf dein iPhone, per Safari, AirDrop oder iCloud Drive.";
 "library.empty.step2" = "Tippe auf %@ und wähle die Datei in der Dateien-App aus.";
 "library.empty.step3" = "Spielen. Dein Fortschritt wird automatisch gespeichert";
 "library.empty.romHint" = "Noch keine ROMs? Es gibt viele kostenlose, legale Spiele. Suche online nach \"GBA homebrew\".";
@@ -50,10 +50,17 @@
 "overlay.paused" = "PAUSIERT";
 "overlay.resume" = "Fortsetzen";
 "overlay.rewind" = "%@s";
+"overlay.rewind.pick" = "Zurückspulen um";
 "overlay.screenshot" = "Screenshot";
 "overlay.quit" = "Spiel beenden";
 "overlay.speed" = "TEMPO";
 "overlay.saveSlots" = "SCHNELLSPEICHER-PLÄTZE";
+// PlayStation disc picker (pause menu, multi-disc games only)
+"overlay.discs" = "Discs";
+"overlay.disc.numbered" = "Disc %@";
+"overlay.disc.inDrive" = "Im Laufwerk";
+"overlay.disc.failed.title" = "Die Disc wurde nicht gewechselt";
+"overlay.disc.failed.message" = "Die Konsole hat den Discwechsel abgelehnt. Öffne das Menü und versuch es noch einmal.";
 "overlay.slot" = "Platz %@";
 "overlay.slot.empty" = "Leer";
 "overlay.save" = "Speichern";
@@ -82,6 +89,8 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Emulator-Kern";
+"settings.engines.footer" = "Lizenz: %@.";
+"settings.engines.footer.patched" = "Lizenz: %@. Mit einer kleinen Änderung verwendet, die als Patch-Datei neben dem Quellcode veröffentlicht wird.";
 "settings.rateApp" = "Retro Pal bewerten";
 "settings.disclaimer" = "Retro Pal ist ein lokaler Emulator. Es sind keine Spiele enthalten. Importiere nur Dateien, die du legal besitzt.";
 "settings.restore" = "Käufe wiederherstellen";
@@ -90,7 +99,12 @@
 "pro.title" = "Retro Pal Pro";
 "pro.purchased" = "Gekauft";
 "pro.forever" = "%@, für immer";
-"pro.monthly" = "oder %@/Monat";
+"pro.monthly" = "%@ / Monat";
+// pro.lifetime / pro.yearly CARRY THEIR OWN LEADING PUNCTUATION. They follow
+// the price on one line ("9,99 EUR, a vie"), and the comma is not shared: ja and
+// zh-Hant take the ideographic comma. Keep the separator inside the value.
+"pro.lifetime" = ", für immer";
+"pro.yearly" = ", 1 Jahr";
 "pro.notNow" = "Nicht jetzt";
 "pro.restore" = "Käufe wiederherstellen";
 "pro.unavailable" = "Pro nicht verfügbar. Prüfe deine Verbindung.";
@@ -179,7 +193,7 @@
 "legal.melonds" = "melonDS-Lizenz";
 "legal.importantNotice.title" = "Wichtiger Hinweis";
 "legal.aboutApp.title" = "Über diese App";
-"legal.aboutApp.description1" = "Retro Pal ist ein lokales Emulator-Frontend für Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo- und NES-Spiele. Die App lädt keine Spiele herunter, verteilt sie nicht und bietet keinen Zugriff auf Spielinhalte. Alle ROM-Dateien müssen vom Nutzer aus dem eigenen Gerätespeicher über die Dateien-App importiert werden.";
+"legal.aboutApp.description1" = "Retro Pal ist ein lokales Emulator-Frontend für Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES- und PlayStation-Spiele. Die App lädt keine Spiele herunter, verteilt sie nicht und bietet keinen Zugriff auf Spielinhalte. Alle ROM-Dateien müssen vom Nutzer aus dem eigenen Gerätespeicher über die Dateien-App importiert werden.";
 "legal.aboutApp.description2" = "Diese App bietet keinen Spielekatalog, verteilt keine Spielinhalte und erleichtert nicht das Herunterladen urheberrechtlich geschützter Inhalte.";
 "legal.privacy.title" = "Datenschutz";
 "legal.privacy.description" = "Deine Spiele und Spielstände bleiben auf deinem Gerät. Zur Verbesserung der App sendet Retro Pal ausschließlich anonyme Nutzungsstatistiken, ohne personenbezogene Daten und ohne Werbe-IDs.";
@@ -191,10 +205,13 @@
 "legal.mesen" = "MesenCE-Lizenz";
 "legal.mesen.licenseLine" = "Lizenziert unter der GNU General Public License v3.0 (GPL-3.0)";
 "legal.mesen.description" = "MesenCE ist ein Super-Nintendo- und NES-Emulator, der in dieser App als Emulator-Engine für SNES- und NES-Spiele verwendet wird. Der Quellcode von MesenCE ist verfügbar unter [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.pcsx" = "PCSX-ReARMed-Lizenz";
+"legal.pcsx.licenseLine" = "Lizenziert unter der GNU General Public License v2.0 oder neuer (GPL-2.0-or-later)";
+"legal.pcsx.description" = "PCSX-ReARMed ist ein PlayStation-Emulator, der in dieser App als Emulations-Engine für PlayStation-Spiele dient. Der Quellcode von PCSX-ReARMed ist verfügbar unter [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.retropal" = "Retro Pal-Lizenz";
 "legal.retropal.licenseLine" = "Lizenziert unter der GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Der vollständige Quellcode von Retro Pal ist verfügbar unter [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Die Software wird ohne jegliche Gewährleistung bereitgestellt.";
-"legal.compliance" = "Retro Pal wird unter der GNU General Public License v3.0 vertrieben. Die App baut auf mGBA (Mozilla Public License 2.0) und melonDS (GPL-3.0) auf, die unverändert verwendet werden, sowie auf MesenCE (GPL-3.0), das mit einer kleinen Änderung verwendet wird; diese liegt dem Quellcode als Patch-Datei bei. Der vollständige zugehörige Quellcode ist im oben verlinkten Repository verfügbar, und die Software wird ohne jegliche Gewährleistung bereitgestellt.";
+"legal.compliance" = "Retro Pal wird unter der GNU General Public License v3.0 vertrieben. Die App baut auf mGBA (Mozilla Public License 2.0), melonDS (GPL-3.0) und PCSX-ReARMed (GPL-2.0 oder neuer) auf, die unverändert verwendet werden, sowie auf MesenCE (GPL-3.0), das mit einer kleinen Änderung verwendet wird; diese liegt dem Quellcode als Patch-Datei bei. Der vollständige zugehörige Quellcode ist im oben verlinkten Repository verfügbar, und die Software wird ohne jegliche Gewährleistung bereitgestellt.";
 
 "details.noSaves" = "Noch keine Schnellspeicher. Erstelle einen im Spiel über die Menütaste.";
 "library.importing" = "ROM wird importiert...";
@@ -219,12 +236,16 @@
 "cheats.hint.nds" = "Action Replay DS-Format (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Pro-Action-Replay- oder Game-Genie-Format (XXXX-XXXX)";
 "cheats.hint.nes" = "Pro-Action-Rocky- oder Game-Genie-Format (Buchstaben)";
+"cheats.hint.ps1" = "GameShark- oder Action-Replay-Format (XXXXXXXX YYYY)";
 "cheats.namePlaceholder" = "Name (optional)";
+"cheats.edit.title" = "Code bearbeiten";
+"cheats.edit.hint" = "Diesen Code bearbeiten";
 "cheats.add" = "Code hinzufügen";
 "cheats.invalid.gba" = "Code nicht erkannt. Erwartet: GameShark-, CodeBreaker- oder Action Replay-Format.";
 "cheats.invalid.nds" = "Code nicht erkannt. Erwartet: Action Replay DS-Format (XXXXXXXX YYYYYYYY, ein Paar pro Zeile).";
 "cheats.invalid.snes" = "Code nicht erkannt. Erwartet wird Game Genie (XXXX-XXXX) oder Pro Action Replay (acht Zeichen).";
 "cheats.invalid.nes" = "Code nicht erkannt. Erwartet wird Game Genie (sechs oder acht Buchstaben) oder Pro Action Rocky (acht Zeichen).";
+"cheats.invalid.ps1" = "Code nicht erkannt. Erwartet: GameShark- oder Action-Replay-Format (XXXXXXXX YYYY, ein Paar pro Zeile).";
 "cheats.empty" = "Keine aktiven Cheats";
 "cheats.findHint" = "Codes findest du online. Suche einfach nach den Cheat-Codes deines Spiels.";
 "cheats.clearAll" = "Alle löschen";
@@ -334,11 +355,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Spiel hinzufügen";
 "guide.importRom.intro" = "Retro Pal enthält keine Spiele. Du stellst deine eigenen ROM-Dateien bereit, für die du die Rechte besitzt (deine eigenen Module oder kostenlose, legale Homebrew-Spiele).";
-"guide.importRom.step1" = "Bring die Spieldatei (.gba, .gb, .gbc, .nds, .sfc, .smc oder .nes) auf dein iPhone: Download in Safari, per AirDrop von einem Computer oder über iCloud Drive.";
+"guide.importRom.step1" = "Bring die Spieldatei (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes oder eine PlayStation-Disc als .chd oder .cue mit zugehöriger .bin) auf dein iPhone: lade sie in Safari, schick sie per AirDrop vom Computer oder hol sie aus iCloud Drive.";
 "guide.importRom.step2" = "Prüfe, dass sie in der Dateien-App auftaucht (unter „Downloads“, „Auf meinem iPhone“ oder iCloud Drive).";
 "guide.importRom.step3" = "Tippe in Retro Pal oben in der Bibliothek auf die Schaltfläche +.";
 "guide.importRom.step4" = "Wähle die Datei. Das Spiel erscheint sofort in deiner Bibliothek, bereit zum Spielen.";
-"guide.importRom.footer" = "Unterstützte Formate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes und .zip-Dateien mit nur einem Spiel. .7z und Archive mit mehreren Spielen werden nicht unterstützt; entpacke zuerst eine einzelne Datei. Importiere nur Dateien, für die du die Rechte besitzt.";
+"guide.importRom.footer" = "Unterstützte Formate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes sowie PlayStation-Discs als .chd, .cue mit zugehöriger .bin oder .m3u. Eine .zip geht auch, egal ob sie ein Spiel enthält, alle Dateien einer Disc oder mehrere Spiele zur Auswahl. .7z wird nicht unterstützt. Importiere nur Dateien, die dir rechtmäßig gehören.";
 "settings.guides.section" = "Anleitungen";
 "settings.controller.row" = "Controller";
 "common.done" = "Fertig";
@@ -431,6 +452,7 @@
 "skin.editor.surround" = "Rahmen";
 "skin.editor.dpad" = "Steuerkreuz";
 "skin.editor.abButtons" = "A/B-Tasten";
+"skin.editor.faceButtons" = "Aktionstasten";
 "skin.editor.faceA" = "Taste A";
 "skin.editor.faceB" = "Taste B";
 "skin.editor.faceX" = "Taste X";
@@ -501,6 +523,7 @@
 "ra.details.invite.headline" = "Verdiene Erfolge in diesem Spiel";
 "ra.details.invite.caption" = "Für dieses Spiel gibt es RetroAchievements-Erfolge: Herausforderungen, die du beim Spielen meisterst, festgehalten mit einem kostenlosen Konto.";
 "ra.details.unavailable" = "RetroAchievements ist für dieses Spiel nicht verfügbar.";
+"ra.details.unavailable.pbp" = "RetroAchievements kann eine .pbp-Datei nicht lesen. Dasselbe Spiel als .chd, oder als .cue mit zugehöriger .bin, sammelt Erfolge ganz normal.";
 "ra.library.invite.caption" = "Deine Spiele haben RetroAchievements-Erfolge. Verbinde ein kostenloses Konto, um sie beim Spielen zu verdienen.";
 "ra.library.recent" = "Zuletzt freigeschaltet";
 "ra.library.noUnlocks" = "Deine neuesten Erfolge erscheinen hier.";
@@ -523,10 +546,13 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Auf die ausgewählte Datei kann nicht zugegriffen werden. Versuche, sie über die Dateien-App zu importieren.";
 "import.error.copyFailed" = "Das Spiel konnte nicht in Retro Pal kopiert werden. Gib Speicherplatz frei und versuche es erneut.";
-"import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc, .nds, .sfc, .smc und .nes.";
+"import.error.invalidROM" = "Diese Datei ist kein Spiel, das Retro Pal lesen kann. Unterstützte Spiele: .gba, .gb, .gbc, .nds, .sfc, .smc und .nes, dazu PlayStation-Discs als .chd, .cue mit zugehöriger .bin oder .m3u.";
+"import.error.discMissingFiles" = "Dieser Disc fehlen Dateien, die nicht ausgewählt wurden: %@. Wähle die .cue-Datei und alle zugehörigen .bin-Dateien zusammen aus, in einem Schritt.";
 "import.error.zipNoROM" = "In diesem ZIP wurde keine Spieldatei gefunden. Retro Pal liest Spiele in .gba, .gb, .gbc, .nds, .sfc, .smc und .nes; andere Konsolen werden nicht unterstützt.";
 "import.error.zipExtractionFailed" = "Dieses ZIP konnte nicht geöffnet werden. Entpacke es in der Dateien-App und importiere die Spieldatei direkt.";
 "import.error.alreadyImported" = "Dieses Spiel ist bereits in deiner Bibliothek.";
+"import.duplicate.title" = "Schon in der Bibliothek";
+"import.duplicate.bodySeveral" = "Diese Spiele sind bereits in deiner Bibliothek:";
 "import.error.saveFailed" = "Das Spiel konnte nicht zur Bibliothek hinzugefügt werden. Versuche es erneut.";
 "import.error.differentGame" = "Diese Datei ist ein anderes Spiel als das, das du ersetzt.";
 "import.error.batchIntro" = "Diese Dateien konnten nicht importiert werden:";
@@ -541,7 +567,6 @@
 "whatsnew.title" = "Neuigkeiten";
 "whatsnew.version" = "Version %@";
 "whatsnew.footer" = "Du findest diese Neuigkeiten jederzeit in den Einstellungen.";
-"whatsnew.notice.pro" = "Zu Pro: der einmalige Lifetime-Preis steigt in einem kommenden Update. Ein Datum gibt es noch nicht. Alles, was heute kostenlos ist, bleibt es für immer: keine Werbung, und du musst nie bezahlen, um zu spielen.";
 "whatsnew.dismiss" = "Alles klar!";
 
 /* --- External display (AirPlay / cable), Pro --- */
@@ -627,25 +652,24 @@
 
 "externalDisplay.idle.hint" = "Starte ein Spiel auf deinem iPhone";
 
-/* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Zwei Konsolen mehr";
-"whatsnew.s1.b1" = "Super-Nintendo- und NES-Spiele laufen jetzt in Retro Pal, und beide Konsolen sind für alle kostenlos.";
-"whatsnew.s1.b2" = "Spielstände, Geschwindigkeit, Rückspulen, Cheats und Erfolge funktionieren dort ab dem ersten Tag.";
-"whatsnew.s2.title" = "Sie sehen aus wie das Original";
-"whatsnew.s2.b1" = "Jede neue Konsole trägt ihr eigenes Gehäuse rund ums Spiel, im Hoch- und im Querformat.";
-"whatsnew.s2.b2" = "Bau dir dein eigenes Design und gib jeder Taste ihre Farbe, dann teile eine Karte davon. {PRO}";
-"whatsnew.s3.title" = "Rückspulen auf jeder Konsole";
-"whatsnew.s3.b1" = "Rückspulen erreicht den Nintendo DS, der dafür einen viel sparsameren Weg für seine viel größeren Schnappschüsse brauchte.";
-"whatsnew.s3.b2" = "Fünf Sekunden für alle, dreißig mit {PRO}, auf allen sechs Konsolen.";
-"whatsnew.s4.title" = "Cheat-Codes, repariert";
-"whatsnew.s4.b1" = "Ein Code über mehrere Zeilen kommt als ein Eintrag hinein, und die App sagt es dir, bevor du es falsch machst.";
-"whatsnew.s4.b2" = "Ein Spiel, dessen eigene Fassung keine Codes hat, kann sich die einer anderen Region derselben Cartridge leihen.";
-"whatsnew.s5.title" = "RetroAchievements";
-"whatsnew.s5.b1" = "Ein Spiel mit mehreren Erfolgsserien zeigt jede Serie jetzt mit eigener Zählung und eigenem Abzeichen.";
-"whatsnew.s5.b2" = "Eine Serie abzuschließen, oder ein ganzes Spiel, bekommt seinen eigenen Moment auf dem Bildschirm.";
-"whatsnew.s6.title" = "Mit angeschlossenem Controller";
-"whatsnew.s6.b1" = "Verschiebe den Spielbildschirm und ändere seine Größe, wenn ein Aufsteck-Controller einen Teil verdeckt. {PRO}";
-"whatsnew.s6.b2" = "Jede Konsole merkt sich ihre eigene Anordnung, im Hoch- und im Querformat.";
+/* --- What's New, rewritten each release --- */
+"whatsnew.s1.title" = "Die PlayStation";
+"whatsnew.s1.b1" = "PlayStation-Spiele laufen jetzt in Retro Pal, und die Konsole ist für alle kostenlos.";
+"whatsnew.s1.b2" = "Speicherstände, Spielstände, Zurückspulen, Cheat-Codes und Erfolge funktionieren vom ersten Tag an.";
+"whatsnew.s1.b3" = "Der Fortschritt landet auf einer Memory Card, wie damals auf der Konsole, und erreicht deine anderen Geräte wie jeder andere Spielstand.";
+"whatsnew.s1.b4" = "Um das Spiel herum trägt sie ihr eigenes Gehäuse, im Hoch- und im Querformat. Mit {PRO} färbst du dieses Pad neu ein, bis hin zur aufgedruckten Schrift.";
+"whatsnew.s2.title" = "Discs, in welcher Form auch immer";
+"whatsnew.s2.b1" = "Ein PlayStation-Spiel kann eine einzelne Datei sein oder ein ganzer Ordner. Füge eine .chd hinzu, eine .cue samt zugehöriger .bin, oder ein .zip, in dem alles steckt.";
+"whatsnew.s2.b2" = "Retro Pal erkennt, welche Dateien zusammengehören, und legt ein Spiel an, nicht fünfzig.";
+"whatsnew.s2.b3" = "Ein Spiel auf mehreren Discs wird ein Spiel, auch wenn die Discs als einzelne Dateien ankommen, und du wechselst die Disc im Pausenmenü, ohne es zu verlassen.";
+"whatsnew.s3.title" = "Ein Controller mit zwei Sticks";
+"whatsnew.s3.b1" = "Die Bildschirmsteuerung hat beide Analogsticks und die ANALOG-Taste, damit Analog-Spiele auf dem Touchscreen genauso laufen wie am Controller.";
+"whatsnew.s3.b2" = "Der linke Stick bewegt, der rechte schaut sich um, genau wie die Spiele es erwarten.";
+"whatsnew.s4.title" = "Cheats";
+"whatsnew.s4.b1" = "Ein gespeicherter Cheat lässt sich jetzt bearbeiten. Ein falsches Zeichen zu korrigieren heißt nicht mehr, den ganzen Code neu zu tippen.";
+"whatsnew.s5.title" = "Steuerung";
+"whatsnew.s5.b1" = "Der Joystick auf dem Bildschirm trägt jetzt das Relief der PlayStation-Sticks, in den Farben der jeweiligen Konsole.";
+"whatsnew.s5.b2" = "Mit {PRO} wählst du, wie weit zurückgespult wird: Halte den Rückspul-Knopf gedrückt und nimm die Sekunden, bis zu 30.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Aus dieser Serie sind keine Erfolge geladen.";

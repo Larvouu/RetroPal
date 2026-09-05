@@ -80,6 +80,7 @@ final class ExternalScreenView: MTKView, MTKViewDelegate {
         else { return }
 
         var uniforms = frame.uniforms
+        var uvScale = frame.uvScale
         encoder.setRenderPipelineState(frame.pipeline)
         encoder.setFragmentTexture(frame.texture, index: 0)
         if frame.usesFilterUniforms {
@@ -96,7 +97,11 @@ final class ExternalScreenView: MTKView, MTKViewDelegate {
         } else {
             // Single-screen games use the fullscreen-quad vertex shader; the
             // letterboxing is done by the view's frame, exactly as on the
-            // phone, so the shader path stays untouched.
+            // phone, so the shader path stays untouched. That shader takes the
+            // texture-coordinate scale, so the mirror binds it too, or a
+            // PlayStation game would fill the television with the corner of its
+            // own texture.
+            encoder.setVertexBytes(&uvScale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
         }
 

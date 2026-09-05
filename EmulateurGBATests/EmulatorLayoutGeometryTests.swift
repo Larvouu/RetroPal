@@ -73,6 +73,7 @@ struct EmulatorLayoutGeometryTests {
         case .nds: return 256.0 / 384.0
         case .snes: return 8.0 / 7.0
         case .nes: return 248.0 / 240.0
+        case .ps1: return 4.0 / 3.0
         }
     }
 
@@ -489,7 +490,7 @@ struct EmulatorLayoutGeometryTests {
         let pristine = ControllerLayout()
 
         for (label, size, isLandscape) in devices {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
                 let expected = EmulatorLayoutGeometry.screenFrame(
                     deviceSize: size, safeInsets: .zero,
                     hasTouchScreen: system == .nds, isLandscape: isLandscape,
@@ -551,7 +552,7 @@ struct EmulatorLayoutGeometryTests {
 
         for (size, isLandscape) in [(Self.proPortrait, false), (Self.sePortrait, false),
                                     (Self.proLandscape, true), (Self.seLandscape, true)] {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: layout, system: system, isLandscape: isLandscape,
                     viewSize: size, safeInsets: .zero)
@@ -585,7 +586,7 @@ struct EmulatorLayoutGeometryTests {
             (Self.seLandscape, true, Self.sePortrait, Self.seLandscape),
         ]
         for (size, isLandscape, portrait, landscape) in cases {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
                 let seeded = PresetLayoutResolver.seededControllerLayout(
                     system: system,
                     portraitSize: portrait, portraitInsets: .zero,
@@ -647,14 +648,19 @@ struct SNESAndNESLayoutTests {
     ///
     /// It pairs that layout with a TALLER screen (31:30 against the Game Boy's squarer shape), so
     /// its controls container is shorter than the layout was tuned for. Three controls therefore
-    /// move and only three: CLIP and MENU, each clamped clear of what is below it, and in
-    /// landscape the SELECT · MENU · START row, re-stuck to this console's own screen because
-    /// the Game Boy's sits at a different height. Everything else must still be value for value,
-    /// or it is a copy that drifted rather than a decision.
+    /// move and only three: MENU and CLIP, and in landscape the SELECT · MENU · START row.
+    /// Everything else must still be value for value, or it is a copy that drifted rather than a
+    /// decision.
     ///
-    /// The two kinds of move are asserted differently, because they ARE different: a clamp only
-    /// ever lifts its control, while the landscape row is placed outright (centred in the strip
-    /// the picture leaves below itself) and may land either side of where the Game Boy put it.
+    /// NEITHER MOVE IS A CLAMP ANY MORE, and that is what this test used to get wrong. Both are
+    /// outright placements into a band, so either can land BELOW where the Game Boy put it, and
+    /// on a 14 Pro and a Pro Max MENU does. It was written against the two clamps that placement
+    /// replaced on 2026-08-17, kept asserting that a clamp only ever lifts, and has failed on
+    /// those two devices ever since -- through the 1.2.5 submission. What each band is measured
+    /// against is asserted where the band is: `theNESUtilityRowSitsBetweenThePanelAndTheFaceWell`
+    /// for portrait, with the real safe-area insets that band depends on, and the landscape strip
+    /// below. Here we hold what both moves share -- only these three controls move, none of them
+    /// sideways, and MENU and CLIP land on ONE line.
     @Test func nesLayoutIsTheGameBoyLayout() {
         for (label, size, isLandscape) in Self.devices {
             let k = EmulatorLayoutGeometry.deviceScale(for: size)
@@ -693,12 +699,14 @@ struct SNESAndNESLayoutTests {
                             "\(label): \(key) is not centred in the strip under the picture")
                 }
             } else {
-                // A clamp only ever moves its control UP.
-                for key in mayMove {
-                    guard let n = nes.buttons[key], let g = gbc.buttons[key] else { continue }
-                    #expect(n.centerY <= g.centerY + 0.0001,
-                            "\(label): \(key) moved DOWN, so this is not the clamp")
-                }
+                // MENU and CLIP share one line: they are placed together, centred in the band
+                // the dress leaves between the screen panel and the A/B well. WHERE that line
+                // falls is `theNESUtilityRowSitsBetweenThePanelAndTheFaceWell`'s business,
+                // because the band moves with the safe-area insets and this sweep passes none.
+                guard let menu = nes.buttons[ControlElement.btnMenu.rawValue],
+                      let clip = nes.buttons[ControlElement.btnClip.rawValue] else { continue }
+                #expect(abs(menu.centerY - clip.centerY) < 0.0001,
+                        "\(label): MENU and CLIP are not on one line")
             }
         }
     }
@@ -746,6 +754,564 @@ struct SNESAndNESLayoutTests {
     /// not the coordinates: the four faces move into the right gutter as ONE block, which is
     /// why each of them must carry the same shift and none may change line, and the D-pad is
     /// centred in the left gutter, which is the Game Boy's rule on this page.
+    // MARK: - PlayStation
+
+    /// THE PLAYSTATION PORTRAIT PAGE IS SYMMETRIC ABOUT ITS TWO THUMB BLOCKS.
+    ///
+    /// This REPLACES an older claim, that the page was the Super Nintendo's with
+    /// three exceptions. It still starts there — `ps1()` composes from `snes()` —
+    /// but it no longer ends there: the cross rises to stand on its up key, the
+    /// diamond slides right to mirror the cross's margin, and the shoulder row,
+    /// the sticks and the bottom row are all placed from those two. Asserting
+    /// identical coordinates had stopped describing anything, so what is locked
+    /// here instead is the symmetry those moves exist to produce.
+    ///
+    /// Landscape is unchanged and keeps the only claim that was ever true of it:
+    /// every shared control is still on the page, wherever its gutter put it.
+    @Test func ps1PortraitMirrorsItsTwoThumbBlocks() {
+        for (label, size, isLandscape) in Self.devices {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let c = container(size, isLandscape, .ps1)
+            let ps1 = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: isLandscape, containerSize: c, scale: k)
+
+            for element in ControlElement.snesElements {
+                #expect(ps1.buttons[element.rawValue] != nil,
+                        "\(label): \(element.rawValue) was lost")
+            }
+            #expect(ps1.buttons[ControlElement.btnL2.rawValue] != nil,
+                    "\(label): L2 was never placed")
+            #expect(ps1.buttons[ControlElement.btnR2.rawValue] != nil,
+                    "\(label): R2 was never placed")
+            guard !isLandscape else { continue }
+
+            func rect(_ element: ControlElement) -> CGRect? {
+                guard let b = ps1.buttons[element.rawValue] else { return nil }
+                let s = EmulatorLayoutGeometry.buttonSize(element, system: .ps1,
+                                                         isLandscape: false, deviceScale: k)
+                return CGRect(x: b.centerX * c.width - s.width / 2,
+                              y: b.centerY * c.height - s.height / 2,
+                              width: s.width, height: s.height)
+            }
+            guard let pad = rect(.dpad) else {
+                Issue.record("\(label): the cross was never placed"); continue
+            }
+            let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { rect($0) }
+            guard faces.count == 4,
+                  let left = faces.map(\.minX).min(), let right = faces.map(\.maxX).max(),
+                  let top = faces.map(\.minY).min(), let low = faces.map(\.maxY).max() else {
+                Issue.record("\(label): the diamond was never placed"); continue
+            }
+
+            // 1. EQUAL MARGINS. The cross's distance from the left edge is the
+            //    diamond's from the right. This is the move that had never been
+            //    made: the two blocks arrive from different consoles and sat 12
+            //    and 24 points from their own edges.
+            #expect(abs(pad.minX - (c.width - right)) < 0.5,
+                    Comment(rawValue: "\(label): the two thumb blocks no longer mirror each "
+                                      + "other (cross \(pad.minX) from the left, diamond "
+                                      + "\(c.width - right) from the right)"))
+
+            // 2. ONE CENTRE LINE. The diamond's middle is the cross's middle.
+            #expect(abs(pad.midY - (top + low) / 2) < 0.5,
+                    "\(label): the diamond left the cross's centre line")
+
+            // 3. THE CROSS STANDS ON ITS UP KEY. Its centre is where the middle
+            //    of the up key reads, which is what a thumb aims at — the middle
+            //    of the bounding box is a hole on this pad. Checked against the
+            //    inherited placement, so this fails if the rise is dropped OR if
+            //    it stops being derived from the shape the cross draws.
+            let snes = ControlLayoutDefaults.defaultLayout(
+                system: .snes, isLandscape: false, containerSize: c, scale: k)
+            if let inherited = snes.buttons[ControlElement.dpad.rawValue] {
+                let rise = CrossDPadView.ps1UpKeyMiddle * pad.height
+                #expect(abs(pad.midY - (inherited.centerY * c.height - rise)) < 0.5,
+                        "\(label): the cross is not standing on its up key")
+            }
+
+            // 4. THE STICKS SIT UNDER THEIR OWN BLOCK, stepped inward by half an
+            //    arrow. Outward, or square under the centre, are both wrong and
+            //    both easy to reach by editing one sign.
+            let arrowHalf = pad.width * CrossDPadView.ps1ArmRatioShared / 2
+            if let l = rect(.stickLeft), let r = rect(.stickRight) {
+                #expect(abs(l.midX - (pad.midX + arrowHalf)) < 0.5,
+                        "\(label): the left stick is not half an arrow inboard of the cross")
+                #expect(abs(r.midX - ((left + right) / 2 - arrowHalf)) < 0.5,
+                        "\(label): the right stick is not half an arrow inboard of the diamond")
+                #expect(l.minY > max(pad.maxY, low) - 0.5,
+                        "\(label): the sticks are not under the two blocks")
+                #expect(abs(l.midY - r.midY) < 0.5,
+                        "\(label): the two sticks left their shared line")
+            }
+
+            // 5. THE BOTTOM ROW IS ONE LINE — of MARKS, not of hitboxes.
+            //
+            //    SELECT and START hold a shape AND a word under it, centred as
+            //    one block, so their shape rides above their hitbox's middle;
+            //    CLIP's disc sits dead centre in its own. Lining up the three
+            //    HITBOXES therefore leaves the three marks visibly staggered,
+            //    which is what this used to assert. The two drop by their own
+            //    rise instead, and what is level is what a player sees.
+            //
+            //    The direction also matters and is easy to reverse: CLIP takes
+            //    the row SELECT and START arrive on, not the other way round.
+            if let clip = rect(.btnClip), let sel = rect(.btnSelect), let st = rect(.btnStart) {
+                let selRise = SmallButton.PS1Shape.shapeRise(.ps1Rect, sel)
+                let stRise = SmallButton.PS1Shape.shapeRise(.ps1Triangle, st)
+                #expect(abs((sel.midY - selRise) - clip.midY) < 0.5,
+                        "\(label): SELECT's mark is not level with CLIP's")
+                #expect(abs((st.midY - stRise) - clip.midY) < 0.5,
+                        "\(label): START's mark is not level with CLIP's")
+            }
+
+            // 6. ANALOG IS BETWEEN THE STICKS, which is where the pad prints it.
+            if let mode = rect(.btnMode), let l = rect(.stickLeft), let r = rect(.stickRight) {
+                #expect(mode.minX > l.maxX - 0.5 && mode.maxX < r.minX + 0.5,
+                        "\(label): ANALOG is not between the two sticks")
+                // On the sticks' TOP edge, not their centre line: level with
+                // where they begin it reads as the label over the pair rather
+                // than as a third control in a row of three.
+                #expect(abs(mode.midY - l.minY) < 0.5,
+                        "\(label): ANALOG left the sticks' top edge")
+                // And the half of it that reaches above that edge must still
+                // clear the cross, which claims its whole frame past a small
+                // deadzone. This is what the blocks-to-sticks gap is sized for.
+                #expect(mode.minY > pad.maxY - 0.5,
+                        "\(label): ANALOG reaches back up into the cross's hitbox")
+            }
+
+            // 7. THE SHOULDER ROW HOLDS ITS TOP EDGE while the bars thin. The
+            //    edge that faces the picture is the one that must not move.
+            if let l1 = rect(.btnL), let inherited = snes.buttons[ControlElement.btnL.rawValue] {
+                let inheritedH = EmulatorLayoutGeometry.buttonSize(
+                    .btnL, system: .snes, isLandscape: false, deviceScale: k).height
+                #expect(abs(l1.minY - (inherited.centerY * c.height - inheritedH / 2)) < 0.5,
+                        "\(label): the shoulder row left the top edge it inherited")
+            }
+        }
+    }
+
+    /// NOTHING ON THE PLAYSTATION PAGE MAY SIT ON ANYTHING ELSE.
+    ///
+    /// This is the test the console shipped its first build without, and the
+    /// build was unusable because of it: the two sticks landed exactly on
+    /// SELECT · ANALOG · START on every device, so the row could not be reached
+    /// at all. Placing each control against ONE anchor and clamping only against
+    /// the bottom edge is what allowed it. A page is not a set of anchors, it is
+    /// an area, and the only honest check is the area one.
+    ///
+    /// REAL SAFE-AREA INSETS, not the zeros the rest of this suite passes.
+    /// The insets decide where the picture ends, the picture's bottom edge is the
+    /// top of the portrait controls container, and a zero inset hands the page
+    /// about 60pt it does not have. Every collision here lives in those 60pt.
+    ///
+    /// The four faces are exempt from each other and only from each other: they
+    /// are drawn as an overlapping diamond by design and hit-tested as circles,
+    /// which is the arrangement `roundHitbox` exists for.
+    @Test func ps1LaysNothingOnTopOfAnythingElse() {
+        // top / left / right insets, per orientation, from the real devices.
+        let devices: [(String, CGSize, Bool, UIEdgeInsets)] = [
+            ("SE portrait", CGSize(width: 375, height: 667), false,
+             UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)),
+            ("SE landscape", CGSize(width: 667, height: 375), true, .zero),
+            ("13 mini portrait", CGSize(width: 375, height: 812), false,
+             UIEdgeInsets(top: 50, left: 0, bottom: 34, right: 0)),
+            ("13 mini landscape", CGSize(width: 812, height: 375), true,
+             UIEdgeInsets(top: 0, left: 50, bottom: 21, right: 50)),
+            ("14 portrait", CGSize(width: 390, height: 844), false,
+             UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)),
+            ("14 landscape", CGSize(width: 844, height: 390), true,
+             UIEdgeInsets(top: 0, left: 47, bottom: 21, right: 47)),
+            ("14 Pro portrait", CGSize(width: 393, height: 852), false,
+             UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)),
+            ("14 Pro landscape", CGSize(width: 852, height: 393), true,
+             UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
+            ("Pro Max portrait", CGSize(width: 440, height: 956), false,
+             UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)),
+            ("Pro Max landscape", CGSize(width: 956, height: 440), true,
+             UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
+        ]
+        let diamond: Set<ControlElement> = [.btnA, .btnB, .btnX, .btnY]
+
+        for (label, device, isLandscape, insets) in devices {
+            let k = EmulatorLayoutGeometry.deviceScale(for: device)
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: device, safeInsets: insets, hasTouchScreen: false,
+                isLandscape: isLandscape,
+                gameAspect: EmulatorLayoutGeometryTests.displayAspect(.ps1), system: .ps1,
+                controllerConnected: false, deviceScale: k)
+            let container = EmulatorLayoutGeometry.controlsFrame(
+                deviceSize: device, screenFrame: screen,
+                hasTouchScreen: false, isLandscape: isLandscape).size
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: isLandscape, containerSize: container, scale: k,
+                safeLeftInset: isLandscape ? insets.left : 0,
+                safeRightInset: isLandscape ? insets.right : 0)
+
+            var placed: [(ControlElement, CGRect)] = []
+            for element in ControlElement.elements(for: .ps1) {
+                guard let b = layout.buttons[element.rawValue] else {
+                    Issue.record("\(label): \(element.rawValue) was never placed")
+                    continue
+                }
+                // A DELIBERATELY hidden control is not a failure and must not be
+                // measured: the shortest portrait page cannot hold the stick
+                // clicks anywhere near their sticks, and hiding them is the
+                // answer that beats drawing one on top of the stick it belongs
+                // to. It still has to have been PLACED, which the guard above
+                // insists on, so a hidden control is a decision and not a
+                // control that fell out of the layout.
+                guard !b.isHidden else { continue }
+                let s = EmulatorLayoutGeometry.buttonSize(element, system: .ps1,
+                                                          isLandscape: isLandscape, deviceScale: k)
+                let rect = CGRect(x: b.centerX * container.width - s.width / 2,
+                                  y: b.centerY * container.height - s.height / 2,
+                                  width: s.width, height: s.height)
+                // A control off the page is the same failure as one underneath
+                // another: it cannot be pressed. The tolerance is a rounding
+                // one, not a licence to hang over the edge.
+                #expect(rect.minX >= -0.5 && rect.minY >= -0.5
+                        && rect.maxX <= container.width + 0.5
+                        && rect.maxY <= container.height + 0.5,
+                        "\(label): \(element.rawValue) hangs off the page at \(rect)")
+                placed.append((element, rect))
+            }
+
+            // CLIP is anchored to two CONTROLS, not to the page: R3's column and
+            // SELECT's line. It held the bottom-left corner for two rounds, then
+            // crossed to make room for the brand mark; anchoring it to controls
+            // is what stops it drifting back into a corner nobody meant it to
+            // take. Its clearance of the right edge is checked by the off-page
+            // assertion above, which every control goes through.
+            if !isLandscape, let clip = placed.first(where: { $0.0 == .btnClip })?.1,
+               let r3 = placed.first(where: { $0.0 == .btnR3 })?.1 {
+                #expect(abs(clip.midX - r3.midX) < 0.5 || clip.maxX > container.width - 20,
+                        "\(label): CLIP left R3's column without being pushed off the edge")
+            }
+
+            for i in placed.indices {
+                for j in placed.indices where j > i {
+                    let (a, ra) = placed[i]
+                    let (b, rb) = placed[j]
+                    if diamond.contains(a) && diamond.contains(b) { continue }
+                    #expect(!ra.insetBy(dx: 0.01, dy: 0.01).intersects(rb),
+                            "\(label): \(a.rawValue) sits on \(b.rawValue) (\(ra) / \(rb))")
+                }
+            }
+        }
+    }
+
+    /// LANDSCAPE IS LAID OUT AGAINST THIS CONSOLE'S OWN PICTURE.
+    ///
+    /// The bug this locks: the PlayStation borrows the Super Nintendo's whole layout, and that
+    /// layout used to compute its gutters from a hardcoded 8:7 picture. A 4:3 one is a different
+    /// shape, so every gutter, band and edge the buttons are placed against moves.
+    ///
+    /// It asserts the CONSEQUENCES rather than the picture's own width, which an earlier version
+    /// did and which proved nothing: the landscape fit is width-first, so both shapes take the
+    /// same width wherever neither is height-bound, and the two pictures differ in HEIGHT there.
+    @Test func ps1LandscapeIsLaidOutAgainstItsOwnPicture() {
+        for (label, size, isLandscape) in Self.devices where isLandscape {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let c = container(size, isLandscape, .ps1)
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: size, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: 4.0 / 3.0, system: .ps1,
+                controllerConnected: false, deviceScale: k)
+            let snesScreen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: size, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: 8.0 / 7.0, system: .snes,
+                controllerConnected: false, deviceScale: k)
+            #expect(abs(screen.height - snesScreen.height) > 1,
+                    "\(label): the two pictures are the same shape, so this test proves nothing")
+
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: true, containerSize: c, scale: k)
+            func rect(_ e: ControlElement) -> CGRect? {
+                guard let b = layout.buttons[e.rawValue] else { return nil }
+                let s = EmulatorLayoutGeometry.buttonSize(e, system: .ps1,
+                                                          isLandscape: true, deviceScale: k)
+                return CGRect(x: b.centerX * c.width - s.width / 2,
+                              y: b.centerY * c.height - s.height / 2,
+                              width: s.width, height: s.height)
+            }
+            // The face diamond lives in the right-hand gutter and the cross in the left. Both
+            // must clear THIS picture, or the buttons are drawn over the game.
+            for element in [ControlElement.btnA, .btnB, .btnX, .btnY] {
+                guard let b = rect(element) else { continue }
+                #expect(b.minX >= screen.maxX - 1,
+                        Comment(rawValue: "\(label): \(element.rawValue) overlaps the picture by "
+                                          + "\(screen.maxX - b.minX)pt"))
+            }
+            if let pad = rect(.dpad) {
+                #expect(pad.maxX <= screen.minX + 1,
+                        Comment(rawValue: "\(label): the cross overlaps the picture by "
+                                          + "\(pad.maxX - screen.minX)pt"))
+            }
+            // And the row sits in the band under the picture's own surround, which is the other
+            // measurement that would be wrong if this page had been laid out against an 8:7 one.
+            let surroundBottom = screen.maxY + ControlLayoutDefaults.ps1LandscapeSkirt * k
+            for element in [ControlElement.btnSelect, .btnMenu, .btnStart] {
+                guard let b = rect(element) else { continue }
+                #expect(b.minY >= surroundBottom - 0.5,
+                        "\(label): \(element.rawValue) sits on the picture's surround")
+                #expect(b.maxY <= c.height + 0.5, "\(label): \(element.rawValue) runs off the page")
+            }
+        }
+    }
+
+    /// ANALOG BELONGS TO THE STICKS, not to the SELECT · START row.
+    ///
+    /// This REPLACES its first placement. It sat between SELECT and START, spreading that pair
+    /// to make room, which is where the pad prints the WORD but not what the switch does: it
+    /// switches the two sticks, so it labels them. In portrait it takes the page's centre on
+    /// the sticks' top edge — level with where they begin, so it reads as the label over the
+    /// pair rather than as a third control in a row of three — and SELECT and START went back
+    /// to the columns the Game Boy layout gave them. In landscape there is no band to share, so
+    /// it hugs the picture's outer edge under its own gutter's bars, opposite CLIP.
+    @Test func ps1AnalogLabelsTheSticksRatherThanJoiningTheRow() {
+        for (label, size, isLandscape) in Self.devices {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let c = container(size, isLandscape, .ps1)
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: isLandscape, containerSize: c, scale: k)
+            func rect(_ e: ControlElement) -> CGRect? {
+                guard let b = layout.buttons[e.rawValue] else { return nil }
+                let s = EmulatorLayoutGeometry.buttonSize(e, system: .ps1,
+                                                          isLandscape: isLandscape, deviceScale: k)
+                return CGRect(x: b.centerX * c.width - s.width / 2,
+                              y: b.centerY * c.height - s.height / 2,
+                              width: s.width, height: s.height)
+            }
+            guard let mode = rect(.btnMode), let left = rect(.stickLeft),
+                  let right = rect(.stickRight) else {
+                Issue.record("\(label): ANALOG or a stick is missing")
+                continue
+            }
+
+            if isLandscape {
+                let screen = EmulatorLayoutGeometry.screenFrame(
+                    deviceSize: size, safeInsets: .zero, hasTouchScreen: false,
+                    isLandscape: true, gameAspect: EmulatorLayoutGeometryTests.displayAspect(.ps1),
+                    system: .ps1, controllerConnected: false, deviceScale: k)
+                #expect(mode.maxX <= screen.minX + 0.5,
+                        "\(label): ANALOG should hug the picture from the LEFT, not cover it")
+                if let clip = rect(.btnClip) {
+                    #expect(clip.minX >= screen.maxX - 0.5,
+                            "\(label): CLIP should hug the picture from the right")
+                    #expect(abs(clip.midY - mode.midY) < 0.5,
+                            "\(label): the two page controls should share one line")
+                }
+                if let l = rect(.btnL) {
+                    #expect(mode.minY > l.maxY, "\(label): ANALOG should sit under its gutter's bars")
+                }
+            } else {
+                // The page's centre, between the two sticks and touching neither.
+                #expect(abs(mode.midX - c.width / 2) < 0.5,
+                        "\(label): ANALOG should take the page's centre line")
+                #expect(mode.minX - left.maxX > 0.5 && right.minX - mode.maxX > 0.5,
+                        Comment(rawValue: "\(label): ANALOG runs into a stick "
+                                          + "(left \(mode.minX - left.maxX)pt, "
+                                          + "right \(right.minX - mode.maxX)pt)"))
+                // On their TOP edge, which is the whole reason it reads as their label.
+                #expect(abs(mode.midY - left.minY) < 0.5 && abs(mode.midY - right.minY) < 0.5,
+                        "\(label): ANALOG left the line the sticks begin on")
+                // And the pair it used to spread is back in the Game Boy's columns.
+                let gb = ControlLayoutDefaults.defaultLayout(
+                    system: .gbc, isLandscape: false, containerSize: c, scale: k)
+                for element in [ControlElement.btnSelect, .btnStart] {
+                    guard let ps1 = layout.buttons[element.rawValue],
+                          let boy = gb.buttons[element.rawValue] else { continue }
+                    #expect(abs(ps1.centerX - boy.centerX) < 0.0001,
+                            "\(label): \(element.rawValue) never went back to its own column")
+                }
+            }
+        }
+    }
+
+    /// FOUR SHOULDERS, TWO TO A HAND, AND NEVER STACKED.
+    ///
+    /// This REPLACES the stacked-pairs arrangement an earlier round drew. Stacking cost a
+    /// portrait row's depth and a landscape gutter's, both of which this page needs for the
+    /// controls under them, so each pair now sits side by side on the line its single bar
+    /// already held. The two pages reach that differently and the difference is the point:
+    ///  - PORTRAIT is ONE LINE OF FIVE, L1 · L2 · MENU · R1 · R2, each pair centred on the
+    ///    cluster its fingers serve and MENU on the page. Three fixed points, so the row is
+    ///    paid for in WIDTH (`ps1PortraitShoulderWidth`) rather than in position.
+    ///  - LANDSCAPE puts a pair in each gutter, growing INWARD from the edge the outer bar
+    ///    already hugged: a pair is more than twice its own bar wide, so spreading it about
+    ///    that bar's centre would put half of it off the side of the phone.
+    @Test func ps1ShouldersSitFourAcrossAndNeverTouch() {
+        for (label, size, isLandscape) in Self.devices {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let c = container(size, isLandscape, .ps1)
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: isLandscape, containerSize: c, scale: k)
+
+            func rect(_ e: ControlElement) -> CGRect? {
+                guard let b = layout.buttons[e.rawValue] else { return nil }
+                let s = EmulatorLayoutGeometry.buttonSize(e, system: .ps1,
+                                                          isLandscape: isLandscape, deviceScale: k)
+                return CGRect(x: b.centerX * c.width - s.width / 2,
+                              y: b.centerY * c.height - s.height / 2,
+                              width: s.width, height: s.height)
+            }
+            guard let l = rect(.btnL), let l2 = rect(.btnL2),
+                  let r = rect(.btnR), let r2 = rect(.btnR2) else {
+                Issue.record("\(label): a shoulder is missing")
+                continue
+            }
+
+            // A PAIR IS ONE CONTROL: one line, one size, and a real gap between the two bars.
+            for (first, second) in [(l, l2), (r, r2)] {
+                #expect(abs(first.midY - second.midY) < 0.5,
+                        "\(label): a shoulder pair left its own line")
+                #expect(abs(first.height - second.height) < 0.01
+                        && abs(first.width - second.width) < 0.01,
+                        "\(label): the two bars of one pair are different sizes")
+                let gap = max(first.minX, second.minX) - min(first.maxX, second.maxX)
+                #expect(gap > 0.5,
+                        Comment(rawValue: "\(label): the pair's two bars touch or overlap "
+                                          + "(gap \(gap)pt)"))
+            }
+
+            if isLandscape {
+                // Each pair in its own gutter, and the second bar is the INBOARD one.
+                #expect(l2.minX > l.minX, "\(label): L2 should sit inboard of L1")
+                #expect(r2.maxX < r.maxX, "\(label): R2 should sit inboard of R1")
+                #expect(l2.maxX < r2.minX, "\(label): the two pairs met in the middle")
+            } else {
+                guard let menu = rect(.btnMenu) else {
+                    Issue.record("\(label): MENU is missing")
+                    continue
+                }
+                // ONE LINE OF FIVE, in order, with MENU between the pairs and nothing touching.
+                let row = [l, l2, menu, r, r2]
+                for bar in row {
+                    #expect(abs(bar.midY - l.midY) < 0.5, "\(label): the row of five is not one line")
+                }
+                for (a, b) in zip(row, row.dropFirst()) {
+                    #expect(b.minX - a.maxX > 0.5,
+                            Comment(rawValue: "\(label): the row of five collides "
+                                              + "(gap \(b.minX - a.maxX)pt)"))
+                }
+                // Each pair is centred on the cluster its fingers serve, and MENU on the page.
+                // That is what forces the bar's width, so it is the rule worth holding.
+                if let pad = rect(.dpad) {
+                    #expect(abs((l.midX + l2.midX) / 2 - pad.midX) < 0.5,
+                            "\(label): the L pair left the cross's centre line")
+                }
+                let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap(rect)
+                if let left = faces.map(\.minX).min(), let right = faces.map(\.maxX).max() {
+                    #expect(abs((r.midX + r2.midX) / 2 - (left + right) / 2) < 0.5,
+                            "\(label): the R pair left the diamond's centre line")
+                }
+                #expect(abs(menu.midX - c.width / 2) < 0.5, "\(label): MENU left the page's centre")
+            }
+        }
+    }
+
+    @Test func ps1SecondShouldersStayOnScreen() {
+        // The one thing stacking can break: a second row pushed off the bottom,
+        // or onto the picture. Checked on the SE, which is the tightest page.
+        for (label, size, isLandscape) in Self.devices {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let c = container(size, isLandscape, .ps1)
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .ps1, isLandscape: isLandscape, containerSize: c, scale: k)
+            for element in [ControlElement.btnL2, .btnR2] {
+                guard let b = layout.buttons[element.rawValue] else { continue }
+                let s = EmulatorLayoutGeometry.buttonSize(element, system: .ps1,
+                                                          isLandscape: isLandscape, deviceScale: k)
+                let top = b.centerY * c.height - s.height / 2
+                let bottom = b.centerY * c.height + s.height / 2
+                let left = b.centerX * c.width - s.width / 2
+                let right = b.centerX * c.width + s.width / 2
+                #expect(top >= 0, "\(label): \(element.rawValue) is off the top by \(-top)pt")
+                #expect(bottom <= c.height,
+                        "\(label): \(element.rawValue) is off the bottom by \(bottom - c.height)pt")
+                #expect(left >= 0, "\(label): \(element.rawValue) is off the left by \(-left)pt")
+                #expect(right <= c.width,
+                        "\(label): \(element.rawValue) is off the right by \(right - c.width)pt")
+            }
+        }
+    }
+
+    /// The PlayStation's size table: the DS's pad, at this console's own scales.
+    ///
+    /// This REPLACES an older claim, that the PlayStation measured exactly like the Super
+    /// Nintendo. It started there — both take the DS's five pad elements — and stopped being
+    /// true when this page had to carry thirteen controls: the faces came in to `ps1PortraitFaceScale`
+    /// so they sit inside the cross printed on their plateau, the sticks to `ps1PortraitStickScale`,
+    /// and the four shoulders took a width of their own in BOTH orientations because four bars
+    /// do not fit where two did. Asserting the old equality stopped describing anything, so what
+    /// is locked here is each scale against the thing it derives from, plus the half of the old
+    /// test that still matters: the Super Nintendo's own answers must not have moved.
+    @Test func ps1SizesAreTheDSPadAtThisConsolesOwnScales() {
+        // PORTRAIT.
+        for element in [ControlElement.btnA, .btnB, .btnX, .btnY] {
+            let ds = EmulatorLayoutGeometry.referenceSize(element, isNDS: true, isLandscape: false)
+            let ps1 = EmulatorLayoutGeometry.referenceSize(element, system: .ps1, isLandscape: false)
+            #expect(ps1.width == ds.width * EmulatorLayoutGeometry.ps1PortraitFaceScale
+                    && ps1.height == ds.height * EmulatorLayoutGeometry.ps1PortraitFaceScale,
+                    Comment(rawValue: "\(element.rawValue): a portrait face is the DS's, "
+                                      + "scaled inside its printed mark"))
+        }
+        #expect(EmulatorLayoutGeometry.referenceSize(.dpad, system: .ps1, isLandscape: false)
+                == EmulatorLayoutGeometry.referenceSize(.dpad, isNDS: true, isLandscape: false),
+                "the cross is the DS's pad outright, unscaled")
+        for element in [ControlElement.stickLeft, .stickRight] {
+            let base = EmulatorLayoutGeometry.referenceSize(element, isNDS: false, isLandscape: false)
+            let ps1 = EmulatorLayoutGeometry.referenceSize(element, system: .ps1, isLandscape: false)
+            #expect(ps1.width == base.width * EmulatorLayoutGeometry.ps1PortraitStickScale,
+                    "\(element.rawValue): a portrait stick gives up its outer ring")
+        }
+
+        // THE FOUR SHOULDERS ARE ONE BAR, in each orientation, and that is what makes the
+        // arithmetic in `ControlLayoutDefaults.ps1` correct: portrait steps a pair about its
+        // cluster's centre by half a bar, landscape grows a pair inward from one bar's edge.
+        // Both read the FIRST bar's size for both members. (btnL2/btnR2 had no entry in the
+        // landscape table and fell through to the portrait one, so a pair rendered 38 tall
+        // beside 35.2 — this is the expectation that would have caught it.)
+        for isLandscape in [false, true] {
+            let bar = EmulatorLayoutGeometry.referenceSize(.btnL, system: .ps1, isLandscape: isLandscape)
+            for element in EmulatorLayoutGeometry.ps1Shoulders {
+                #expect(EmulatorLayoutGeometry.referenceSize(element, system: .ps1, isLandscape: isLandscape)
+                        == bar,
+                        Comment(rawValue: "\(element.rawValue): the four shoulders are one bar "
+                                          + "(landscape: \(isLandscape))"))
+            }
+            let width = isLandscape
+                ? EmulatorLayoutGeometry.ps1LandscapeShoulderWidth
+                : EmulatorLayoutGeometry.ps1PortraitShoulderWidth
+            #expect(bar.width == width, "the shoulder bar takes this console's own width")
+        }
+        let portraitBar = EmulatorLayoutGeometry.referenceSize(.btnL, system: .ps1, isLandscape: false)
+        let inherited = EmulatorLayoutGeometry.referenceSize(.btnL, isNDS: false, isLandscape: false)
+        #expect(portraitBar.height
+                == inherited.height * EmulatorLayoutGeometry.ps1PortraitShoulderHeightScale,
+                "the portrait bar keeps its share of the inherited depth")
+
+        // AND THE SUPER NINTENDO IS UNAFFECTED. Its rule is the one that existed before the
+        // PlayStation joined the table: the DS's measurements for the five pad elements, its
+        // own for everything else, and the landscape D-pad excepted because that page is the
+        // GBA's. Written out rather than compared against the PlayStation, since the two
+        // consoles no longer agree and comparing them proved nothing about either.
+        for isLandscape in [false, true] {
+            for element in ControlElement.snesElements {
+                let usesDS = EmulatorLayoutGeometry.snesUsesNDSSizing.contains(element)
+                    && !(isLandscape && element == .dpad
+                         && EmulatorLayoutGeometry.snesLandscapeUsesGBAPad)
+                let expected = EmulatorLayoutGeometry.referenceSize(
+                    element, isNDS: usesDS, isLandscape: isLandscape)
+                #expect(EmulatorLayoutGeometry.referenceSize(element, system: .snes,
+                                                             isLandscape: isLandscape) == expected,
+                        Comment(rawValue: "\(element.rawValue): the Super Nintendo's size moved "
+                                          + "(landscape: \(isLandscape))"))
+            }
+        }
+    }
+
     @Test func snesPadIsTheDSPad() {
         for (label, size, isLandscape) in Self.devices {
             let k = EmulatorLayoutGeometry.deviceScale(for: size)
@@ -1096,8 +1662,13 @@ struct SNESAndNESLayoutTests {
     /// an SE, and the NES's landed 4pt inside A on the SE, while the old sweep reported both
     /// pages clean. Both are fixed in `ControlLayoutDefaults`; this is what holds them fixed.
     ///
-    /// Scoped to the two new consoles on purpose: the three that shipped are verified on real
-    /// devices, and widening a passing sweep is a separate decision from fixing these two.
+    /// Scoped to the consoles added SINCE the engine was device-verified: the three that shipped
+    /// before are verified on real hardware, and widening a passing sweep to them is a separate
+    /// decision. The PlayStation joined on 2026-08-27 and belongs here more than either of the
+    /// other two -- it is the fullest page the app draws, thirteen controls against six, and the
+    /// only overlap check it had was the zero-inset one, which is the exact blind spot this test
+    /// exists for. The page was modelled on all three devices with these insets before it was
+    /// added here.
     @Test func newConsolesDoNotOverlapWithRealSafeAreas() {
         // (device, portrait size, portrait insets, landscape size, landscape insets)
         let devices: [(String, CGSize, UIEdgeInsets, CGSize, UIEdgeInsets)] = [
@@ -1108,7 +1679,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 440, height: 956), UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
              CGSize(width: 956, height: 440), UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes] {
+        for system in [PresetSystem.snes, .nes, .ps1] {
             for (name, portrait, pInsets, landscape, lInsets) in devices {
                 for (size, insets, isLandscape) in [(portrait, pInsets, false), (landscape, lInsets, true)] {
                     let rects = realRects(system: system, isLandscape: isLandscape,
@@ -1142,7 +1713,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 956, height: 440),
              UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes] {
+        for system in [PresetSystem.snes, .nes, .ps1] {
             for (name, size, insets) in devices {
                 let k = EmulatorLayoutGeometry.deviceScale(for: size)
                 let screen = EmulatorLayoutGeometry.screenFrame(

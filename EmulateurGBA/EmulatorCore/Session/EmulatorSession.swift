@@ -22,15 +22,47 @@ final class EmulatorSession: ObservableObject {
     var bufferStride: Int { Int(bridge.bufferStride) }
     /// Total video buffer height (screenHeight for single-screen, 384 for NDS)
     var totalBufferHeight: Int { Int(bridge.totalBufferHeight) }
+    /// The tallest buffer this core can report, which is what the renderer
+    /// allocates. Equal to `totalBufferHeight` on the three cartridge cores;
+    /// larger on the PlayStation, whose picture changes size mid-game.
+    var maxBufferHeight: Int { Int(bridge.maxBufferHeight) }
+
+    /// The size the renderer allocates its video texture at, in pixels.
+    ///
+    /// The `max` against the live size is a guard, not arithmetic anyone
+    /// expects to fire: a core that reported a picture LARGER than the buffer
+    /// it declared would make the renderer upload a region bigger than its own
+    /// texture, which is a crash rather than a glitch. One `max` costs nothing
+    /// and turns that into a harmlessly oversized texture.
+    var textureSize: (width: Int, height: Int) {
+        (max(bufferStride, screenWidth), max(maxBufferHeight, totalBufferHeight))
+    }
+
+    /// Fraction of the video texture the live picture actually occupies, as
+    /// (width, height) in 0...1. The renderer multiplies its texture
+    /// coordinates by this, so a console drawing into a corner of a larger
+    /// texture is sampled correctly.
+    ///
+    /// It is exactly (1, 1) for GBA, GB/GBC, NDS, SNES and NES, because their
+    /// picture and their buffer are the same size, so their rendering is
+    /// untouched by its existence. Derived from `textureSize` rather than from
+    /// the bridge directly, so the scale and the allocation cannot disagree.
+    var textureUVScale: (Float, Float) {
+        let size = textureSize
+        return (Float(screenWidth) / Float(max(size.width, 1)),
+                Float(totalBufferHeight) / Float(max(size.height, 1)))
+    }
     /// Whether the current system has a touch screen (NDS bottom screen)
     var hasTouchScreen: Bool { bridge.hasTouchScreen }
-    /// Shape the game should be DISPLAYED in, which is the buffer's own ratio
-    /// for the first four consoles and 4:3 for SNES/NES (see `EmulatorBridge`).
+    /// Shape the game should be DISPLAYED in: the buffer's own ratio for the
+    /// four Nintendo handhelds, and 4:3 for SNES, NES and PS1, which all drew
+    /// for a television (see `EmulatorBridge`).
     var displayAspect: CGFloat { bridge.displayAspect }
     /// Byte order of the frame buffer, which decides the renderer's pixel format.
     var usesBGRAPixelOrder: Bool { bridge.usesBGRAPixelOrder }
-    /// How long one emulated frame should take. Constant for the first four
-    /// consoles; a PAL SNES or NES cartridge runs at 50, so the core answers.
+    /// How long one emulated frame should take. Constant for the four Nintendo
+    /// handhelds; a PAL SNES or NES cartridge runs at 50 and a PAL disc at 50
+    /// too, so on those three the core answers.
     var frameDuration: CFTimeInterval {
         let fps = bridge.framesPerSecond
         return fps > 1 ? 1.0 / fps : 280896.0 / 16777216.0
@@ -56,6 +88,71 @@ final class EmulatorSession: ObservableObject {
     /// and Pal Park writes to it).
     private var gbaSlot2Basename: String?
 
+    /// Feed the PlayStation's analog sticks, each axis -1...1, **y positive
+    /// DOWN**, which is what UIKit, libretro and the PlayStation all use.
+    ///
+    /// A no-op on every other core, exactly as `configureGBASlot2` is a no-op
+    /// off the DS: the protocol stays the four cores' common contract and the
+    /// console-specific surfaces are reached through a cast.
+    ///
+    /// No flip here. GameController is the one source that measures +1 as UP,
+    /// so its flip lives at ITS boundary. Doing it here instead meant the touch
+    /// path had to negate on the way in so this could negate back, and a value
+    /// that passes through two negations to arrive unchanged is a sign error
+    /// waiting for someone to remove one of them.
+    func setAnalogSticks(leftX: CGFloat, leftY: CGFloat, rightX: CGFloat, rightY: CGFloat) {
+        guard let pcsx = bridge as? PCSXBridge else { return }
+        pcsx.setLeftStickX(Float(leftX), y: Float(leftY))
+        pcsx.setRightStickX(Float(rightX), y: Float(rightY))
+    }
+
+    /// Press the PlayStation pad's ANALOG switch. A no-op on every other core.
+    func pressAnalogModeButton() {
+        (bridge as? PCSXBridge)?.pressAnalogModeButton()
+    }
+
+    // MARK: - Discs (PlayStation only)
+
+    /// Whether the loaded game holds more than one disc. False on every other
+    /// console, whose games are one file from beginning to end.
+    ///
+    /// This is the ONLY condition the disc picker needs, and it is worth
+    /// saying why, because the obvious second one ("are the other discs
+    /// actually here?") is already answered. `DiscImportGroup` refuses to
+    /// import a group whose parts are not all present: an `.m3u` naming three
+    /// discs imports as one game with all three, or it is reported as a GAP
+    /// and never becomes a library entry at all. So a multi-disc game that
+    /// EXISTS is a multi-disc game whose discs are all on disk, and the core
+    /// counting more than one image is proof of it.
+    var isMultiDiscGame: Bool {
+        (bridge as? PCSXBridge)?.isMultiDisc ?? false
+    }
+
+    /// The discs the core knows, in the order the playlist listed them. Empty
+    /// for a single-disc game and for every other console.
+    var discs: [PS1Disc] {
+        (bridge as? PCSXBridge)?.discs ?? []
+    }
+
+    /// Index of the disc currently in the drive, 0-based.
+    var currentDiscIndex: Int {
+        Int((bridge as? PCSXBridge)?.currentDiscIndex ?? 0)
+    }
+
+    /// Swap the drive to another disc. The bridge does the full open-swap-close
+    /// sequence, because a game watches for the lid and never sees an image
+    /// changed underneath it, and it drops the rewind history, because the
+    /// spinning disc is part of the state.
+    ///
+    /// Returns false when the core refuses, which the caller must surface
+    /// rather than swallow: a silent failure here leaves the player looking at
+    /// a game asking for a disc it did not get.
+    @discardableResult
+    func changeToDisc(at index: Int) -> Bool {
+        guard let pcsx = bridge as? PCSXBridge else { return false }
+        return pcsx.changeToDisc(at: UInt(index))
+    }
+
     /// Mount a GBA game in the NDS slot 2 for the next `loadROM`. No-op on
     /// non-NDS bridges. `saveBasename` is the GBA game's battery-save key
     /// (`BatterySaveImporter.romBasename` of its stored filename).
@@ -70,7 +167,8 @@ final class EmulatorSession: ObservableObject {
     /// The existing values are deliberately unchanged: GB and GBC still report
     /// "gba" as they always have, because the signal set is frozen and altering
     /// a dimension's existing values would rewrite history on the dashboards.
-    /// The two new consoles simply add two new values.
+    /// Each new console simply adds a value: "snes" and "nes" at 1.2.5, "ps1"
+    /// with the PlayStation.
     private var analyticsSystem: String = "gba"
 
     func loadROM(at url: URL) -> Bool {
@@ -78,17 +176,27 @@ final class EmulatorSession: ObservableObject {
         case "nds":         analyticsSystem = "nds"
         case "sfc", "smc":  analyticsSystem = "snes"
         case "nes":         analyticsSystem = "nes"
+        // Every disc extension reports one value. The dimension names the
+        // CONSOLE, and which container a player's copy happens to be in is a
+        // different question that this signal was never asked.
+        case let ext where ROMSystemType.discFileExtensions.contains(ext):
+            analyticsSystem = "ps1"
         default:            analyticsSystem = "gba"
         }
+        // Told BEFORE the load, because the core asks for it while loading and
+        // the app's own `setSavePath` below runs after. Only the PlayStation has
+        // anything to do with it.
+        let romName = BatterySaveImporter.romBasename(forROMURL: url)
+        let savePath = BatterySaveImporter.savePath(forRomBasename: romName)
+        (bridge as? PCSXBridge)?.setSaveDirectory(savePath.deletingLastPathComponent().path)
+
         let success = bridge.loadROM(atPath: url.path)
         if success {
             // Set battery save path BEFORE reset so existing .sav is loaded.
             // The path comes from BatterySaveImporter (single source of truth)
             // so the loader, the per-game save importer, and the path-lock test
             // can never drift apart and orphan a user's save.
-            let romName = BatterySaveImporter.romBasename(forStoredFilename: url.lastPathComponent)
-            let savePath = BatterySaveImporter.savePath(forRomBasename: romName).path
-            bridge.setSavePath(savePath)
+            bridge.setSavePath(savePath.path)
             // The core now holds this .sav open for the whole session (mGBA
             // retains its VFile; melonDS rewrites it as the game saves) — flag
             // it, plus the slot-2 GBA game's save when one is mounted, so the
@@ -176,7 +284,7 @@ final class EmulatorSession: ObservableObject {
         let result = bridge.rewindFrames(safeFrames)
         if result {
             rewindFramesAvailable = max(0, rewindFramesAvailable - safeFrames)
-            Analytics.signal("rewind_used")
+            Analytics.signalOnce("rewind_used")
         }
         return result
     }

@@ -28,7 +28,7 @@
 // Pre-recorded blow waveform from melonDS (local copy with melonDS types dependency removed)
 #include "mic_blow.h"
 
-// WFC spike (see WFC_SPIKE.md): real DS-game internet access through the
+// WFC spike: real DS-game internet access through the
 // melonDS slirp user-mode network stack, feeding the Nintendo WFC revival
 // servers. OFF by default — enabling RETROPAL_WFC requires the extra static
 // libs from Vendor/melonds-ios/build-wfc-net.sh, so current builds are

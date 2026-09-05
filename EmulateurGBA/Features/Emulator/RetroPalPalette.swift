@@ -26,13 +26,15 @@ extension DressVariant {
     var ndsPalette: NDSSkinPalette? { if case .custom(.nds(let p)) = self { return p }; return nil }
     var snesPalette: SNESSkinPalette? { if case .custom(.snes(let p)) = self { return p }; return nil }
     var nesPalette: NESSkinPalette? { if case .custom(.nes(let p)) = self { return p }; return nil }
+    var ps1Palette: PS1SkinPalette? { if case .custom(.ps1(let p)) = self { return p }; return nil }
 
     /// Per-control dressed face fill, or nil to keep the built-in Nostalgia colour. Retro Pal keeps
     /// its unified recolour (every GB/GBC face → gbcDark; NDS → ndsAccent; GBA untouched). A custom
     /// skin reads the matching slot: GB/GBC splits per control, GBA/NDS share one `buttons` colour.
     private func customFace(_ kind: DressKind, gbc: (GBCSkinPalette) -> UIColor,
                             snes: (SNESSkinPalette) -> UIColor = { $0.pad },
-                            nes: (NESSkinPalette) -> UIColor = { $0.face }) -> UIColor? {
+                            nes: (NESSkinPalette) -> UIColor = { $0.face },
+                            ps1: (PS1SkinPalette) -> UIColor = { $0.pad }) -> UIColor? {
         switch self {
         case .nostalgia:            return nil
         //Retro Pal answers PER CONTROL on the NES by feeding its own values through the very
@@ -52,14 +54,26 @@ extension DressVariant {
         //console is A and B. Its cross and pills ask `dpadFace` / `smallButtonFace`, which take
         //the pad slot through the closures below.
         case .custom(.nes(let p)): return nes(p)
+        //The PlayStation answers like the Super Nintendo and for the same reason: its four
+        //faces are one plastic with four printed inks, set per button in
+        //`PS1TouchControlsView`, and `ActionButton.dressFace` outranks this. So everything
+        //that actually reaches here is the cross, the pills, MENU, CLIP and the four
+        //shoulders, which on that pad really are one colour.
+        case .custom(.ps1(let p)): return ps1(p)
         }
     }
     /// The D-pad cross face (+ its under-discs).
     func dpadFace(_ kind: DressKind) -> UIColor? {
         customFace(kind, gbc: { $0.dpad }, nes: { $0.pad })
     }
-    /// The A/B button faces.
-    func abFace(_ kind: DressKind) -> UIColor? { customFace(kind) { $0.abButtons } }
+    /// The face buttons. On the PlayStation this is the plastic BEHIND the four
+    /// symbols and takes its own slot: a pad whose diamond matches its cross is
+    /// one look, not the only one. The four symbols themselves never come from
+    /// a palette. Square, cross, circle and triangle are how a player
+    /// identifies a button, so they stay fixed on every skin, always.
+    func abFace(_ kind: DressKind) -> UIColor? {
+        customFace(kind, gbc: { $0.abButtons }, ps1: { $0.diamond })
+    }
     /// The SELECT / START / MENU / CLIP button faces.
     func smallButtonFace(_ kind: DressKind) -> UIColor? {
         customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad })
@@ -112,6 +126,12 @@ enum RetroPalPalette {
     static let nesFace     = UIColor(rpHex: 0xC3C3EE)    // every control, and the band
     static let nesInk      = UIColor(rpHex: 0x3D3392)    // MENU / CLIP glyphs, on the above
 
+    // PlayStation. Two values do the whole console, because one dark tone does
+    // every control on this pad: there are no per-button slots to recolour.
+    static let ps1Body     = UIColor(rpHex: 0x1F1F1F)    // fond
+    static let ps1Surround = UIColor(rpHex: 0x000000)    // screen panel: black, as on the Nostalgia dress
+    static let ps1Face     = UIColor(rpHex: 0x727272)    // every control
+
     // NDS
     static let ndsBody     = UIColor(rpHex: 0x595A76)   // fond
     static let ndsAccent   = UIColor(rpHex: 0xEBEBEB)   // button fill: D-pad, A/B/X/Y, L/R, joystick (= the SELECT tiny button)
@@ -157,6 +177,12 @@ enum RetroPalPalette {
         //correct: since the 08-18 unification every control on it wears the face colour) rather
         //than fatalError-ing on a case the compiler can still reach.
         case .nes: return RetroPalPalette.nesFace
+        // Same shape of answer as the SNES: everything that is NOT a face
+        // button takes the GBA's light button colour, because the Retro Pal
+        // body is near-black and this pad's own warm grey would sink into it.
+        // The four faces do not come through here either: PS1TouchControlsView
+        // sets `dressFace` per button and that outranks this.
+        case .ps1: return DressKind.gbaButton
         }
     }
 

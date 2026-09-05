@@ -62,6 +62,16 @@ struct LegalView: View {
                     licenseKey: "legal.mesen.licenseLine",
                     descriptionKey: "legal.mesen.description"
                 )
+                licenseRow(
+                    titleKey: "legal.pcsx",
+                    // Both halves of a fork chain, from the source files' own
+                    // headers rather than from a summary: the PCSX lineage this
+                    // core descends from, and notaz, who made it the ReARMed one.
+                    copyright: "Copyright (C) 2007 Ryan Schultz, PCSX-df Team, "
+                             + "PCSX team; (C) notaz",
+                    licenseKey: "legal.pcsx.licenseLine",
+                    descriptionKey: "legal.pcsx.description"
+                )
                 Text(NSLocalizedString("legal.compliance", comment: ""))
                     .font(.caption)
                     .foregroundColor(.secondary)

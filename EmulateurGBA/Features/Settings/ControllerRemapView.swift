@@ -54,7 +54,11 @@ struct ControllerRemapView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(RemappableInput.available(on: system), id: \.self) { input in
-                    bindingRow(label: input.displayName,
+                    // The label is the CONSOLE's own mark, which on the
+                    // PlayStation is a symbol rather than a letter; the spoken
+                    // name is its word, because "◯" reads badly out loud.
+                    bindingRow(label: input.displayName(for: system),
+                               accessibleLabel: input.accessibleName(for: system),
                                target: .input(input),
                                assigned: mapping.assignments[input])
                 }
@@ -87,7 +91,11 @@ struct ControllerRemapView: View {
     /// One binding row (console button or shortcut): tap → capture the next
     /// pad press; swipe → clear the binding. Physical names follow the
     /// connected pad's family (△ / LB / ZL…), generic GC names as fallback.
-    private func bindingRow(label: String, target: CaptureTarget,
+    /// `accessibleLabel` is what VoiceOver says when the visible label is a
+    /// symbol. It defaults to the label itself, which is right everywhere except
+    /// the PlayStation's four faces.
+    private func bindingRow(label: String, accessibleLabel: String? = nil,
+                            target: CaptureTarget,
                             assigned: PhysicalButton?) -> some View {
         Button {
             if capturing == target {
@@ -127,7 +135,8 @@ struct ControllerRemapView: View {
                 }
             }
         }
-        .accessibilityLabel(Text(verbatim: "\(label): \(assigned?.displayName(for: controllers.controllerStyle) ?? "")"))
+        .accessibilityLabel(Text(verbatim: "\(accessibleLabel ?? label): "
+                                 + "\(assigned?.displayName(for: controllers.controllerStyle) ?? "")"))
     }
 
     private func startCapture(for target: CaptureTarget) {

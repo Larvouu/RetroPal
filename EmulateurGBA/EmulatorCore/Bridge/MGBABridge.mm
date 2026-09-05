@@ -567,6 +567,11 @@ static void _mgbaAudioRateChangedTrampoline(struct mAVStream *stream, unsigned r
     return self.screenHeight;
 }
 
+// One picture size for the whole session, so the texture is the picture.
+- (NSInteger)maxBufferHeight {
+    return self.totalBufferHeight;
+}
+
 /// GBA pixels are square and so are GB/GBC's, so the display shape is the
 /// buffer's: 240x160 and 160x144. This is the expression the layout used to
 /// compute for itself.

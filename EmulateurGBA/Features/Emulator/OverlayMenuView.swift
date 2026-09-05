@@ -23,6 +23,10 @@ protocol OverlayMenuDelegate: AnyObject {
     func overlayDidSaveState(slot: Int)
     func overlayDidLoadState(slot: Int)
     func overlayDidTapRewind()
+    /// A depth chosen from the rewind button's long-press menu. The plain tap
+    /// keeps `overlayDidTapRewind` and its own arithmetic: this is the second
+    /// way in, not a replacement for the first.
+    func overlayDidSelectRewind(seconds: Int)
     func overlayDidTapQuit()
     func overlayDidTapLockedFeature(context: ProPromptContext)
     func overlayDidTapShareScreenshot()
@@ -32,6 +36,7 @@ protocol OverlayMenuDelegate: AnyObject {
     func overlayDidToggleButtonLock(enabled: Bool)
     func overlayDidSelectOrientation(_ mode: GameOrientationMode)
     func overlayDidTapSkin()
+    func overlayDidSelectDisc(index: Int)
 }
 
 final class OverlayMenuView: UIView {
@@ -174,6 +179,10 @@ final class OverlayMenuView: UIView {
     private lazy var speedLabel = makeSectionLabel(NSLocalizedString("overlay.speed", comment: ""))
     private lazy var saveLoadLabel = makeSectionLabel(NSLocalizedString("overlay.saveSlots", comment: ""))
 
+    /// The disc picker's header. Hidden with `discsStack` on every game that is
+    /// not a multi-disc PlayStation one, which is all of them but a handful.
+    private lazy var discsLabel = makeSectionLabel(NSLocalizedString("overlay.discs", comment: ""))
+
     /// Section header (Speed / Orientation / Quick-save slots). Uppercased in
     /// code so the casing stays uniform no matter how each locale's string is
     /// authored (the originals were typed in caps, "Orientation" was not).
@@ -196,6 +205,34 @@ final class OverlayMenuView: UIView {
     }
 
 
+    /// The rewind depths, hidden until the rewind button is held. Built like the
+    /// Speed pills below and placed directly under the action row, so the choice
+    /// appears where the control that opens it lives.
+    private let rewindDepthRow: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 8
+        s.distribution = .fillEqually
+        s.isHidden = true
+        return s
+    }()
+
+    private lazy var rewindDepthLabel: UILabel = {
+        let l = UILabel()
+        l.text = NSLocalizedString("overlay.rewind.pick", comment: "")
+        l.textColor = UIColor.white.withAlphaComponent(0.5)
+        l.font = .preferredFont(forTextStyle: .caption1)
+        l.textAlignment = .center
+        l.isHidden = true
+        return l
+    }()
+
+    private lazy var rewindLongPress: UILongPressGestureRecognizer = {
+        let g = UILongPressGestureRecognizer(target: self, action: #selector(rewindLongPressed(_:)))
+        g.minimumPressDuration = 0.4
+        return g
+    }()
+
     private let speedStack: UIStackView = {
         let s = UIStackView()
         s.axis = .horizontal
@@ -211,6 +248,22 @@ final class OverlayMenuView: UIView {
         s.alignment = .fill
         return s
     }()
+
+    /// One row per disc. Built by `updateDiscs`, which is also what reveals the
+    /// section: it starts hidden and only a game with more than one disc shows
+    /// it, so nothing about this exists for the other five consoles.
+    private let discsStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .vertical
+        s.spacing = 8
+        s.alignment = .fill
+        return s
+    }()
+
+    /// Whether the disc section has anything to show. The rows themselves live
+    /// in `discsStack` and survive a rotation (only the parent stacks are
+    /// emptied), so this one flag is all the rebuild needs.
+    private var hasDiscPicker = false
 
     private var speedButtons: [UIButton] = []
 
@@ -341,6 +394,10 @@ final class OverlayMenuView: UIView {
         // Wire actions
         resumeButton.addTarget(self, action: #selector(resumeTapped), for: .touchUpInside)
         rewindButton.addTarget(self, action: #selector(rewindTapped), for: .touchUpInside)
+        // Press and hold reveals the depth row. `cancelsTouchesInView` is left at
+        // its default true, so once the hold is recognised the button's own touch
+        // tracking is cancelled and lifting the finger cannot also rewind.
+        rewindButton.addGestureRecognizer(rewindLongPress)
         screenshotButton.addTarget(self, action: #selector(screenshotTapped), for: .touchUpInside)
         cheatsButton.addTarget(self, action: #selector(cheatsTapped), for: .touchUpInside)
         clipButton.addTarget(self, action: #selector(clipTapped), for: .touchUpInside)
@@ -403,6 +460,8 @@ final class OverlayMenuView: UIView {
         actionRow.addArrangedSubview(clipButton)
         actionRow.addArrangedSubview(cheatsButton)
         contentStack.addArrangedSubview(actionRow)
+        contentStack.addArrangedSubview(rewindDepthLabel)
+        contentStack.addArrangedSubview(rewindDepthRow)
         for btn in [quitButton, resumeButton] { setActionButtonCompact(btn, false) }
         for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] { setActionButtonCompact(btn, true) }
 
@@ -428,6 +487,15 @@ final class OverlayMenuView: UIView {
         contentStack.addArrangedSubview(saveLoadLabel)
         contentStack.addArrangedSubview(slotsStack)
 
+        // Below the slots, and only ever visible on a multi-disc game. Placed
+        // last on purpose: it is the rarest thing in this menu, and the player
+        // who needs it is looking for it, while everyone else must not have
+        // the save slots pushed down by a section that does not apply to them.
+        addSpacer(height: 4, to: contentStack)
+        contentStack.addArrangedSubview(discsLabel)
+        contentStack.addArrangedSubview(discsStack)
+        applyDiscSectionVisibility()
+
         // Sizes: full-width primaries, fixed-width rows, taller compact action
         // cells so the wrapped two-line labels are not clipped. 280pt matches
         // the slots width (proven safe down to the 375pt-wide iPhone SE).
@@ -436,7 +504,7 @@ final class OverlayMenuView: UIView {
             layoutConstraints.append(btn.widthAnchor.constraint(equalToConstant: w))
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 46))
         }
-        for stack in [actionRow, togglesRow, speedStack, orientationStack] {
+        for stack in [actionRow, togglesRow, speedStack, orientationStack, rewindDepthRow] {
             layoutConstraints.append(stack.widthAnchor.constraint(equalToConstant: w))
         }
         for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] {
@@ -446,6 +514,7 @@ final class OverlayMenuView: UIView {
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 56))
         }
         layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: w))
+        layoutConstraints.append(discsStack.widthAnchor.constraint(equalToConstant: w))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 280
     }
@@ -499,6 +568,8 @@ final class OverlayMenuView: UIView {
         actionRow.addArrangedSubview(clipButton)
         actionRow.addArrangedSubview(cheatsButton)
         leftColumn.addArrangedSubview(actionRow)
+        leftColumn.addArrangedSubview(rewindDepthLabel)
+        leftColumn.addArrangedSubview(rewindDepthRow)
         for b in [quitButton, resumeButton] { setActionButtonCompact(b, false) }
         for b in [rewindButton, screenshotButton, clipButton, cheatsButton] { setActionButtonCompact(b, true) }
 
@@ -517,9 +588,15 @@ final class OverlayMenuView: UIView {
         leftColumn.addArrangedSubview(togglesRow)
         leftColumn.addArrangedSubview(buttonLockCaption)
 
-        // Right column: save slots only, with room for all five.
+        // Right column: save slots, and the disc picker under them when the
+        // game has one. Same column, so the two "pick a thing" lists stay
+        // together and the left column keeps its fixed height.
         rightColumn.addArrangedSubview(saveLoadLabel)
         rightColumn.addArrangedSubview(slotsStack)
+        addSpacer(height: 4, to: rightColumn)
+        rightColumn.addArrangedSubview(discsLabel)
+        rightColumn.addArrangedSubview(discsStack)
+        applyDiscSectionVisibility()
 
         // Sizes for landscape
         let fullW: CGFloat = 320
@@ -528,7 +605,7 @@ final class OverlayMenuView: UIView {
             layoutConstraints.append(btn.widthAnchor.constraint(equalToConstant: fullW))
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: btnH))
         }
-        for stack in [actionRow, togglesRow, speedStack, orientationStack] {
+        for stack in [actionRow, togglesRow, speedStack, orientationStack, rewindDepthRow] {
             layoutConstraints.append(stack.widthAnchor.constraint(equalToConstant: fullW))
         }
         for btn in [rewindButton, screenshotButton, clipButton, cheatsButton] {
@@ -538,6 +615,7 @@ final class OverlayMenuView: UIView {
             layoutConstraints.append(btn.heightAnchor.constraint(equalToConstant: 52))
         }
         layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: fullW))
+        layoutConstraints.append(discsStack.widthAnchor.constraint(equalToConstant: fullW))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 320
     }
@@ -598,6 +676,33 @@ final class OverlayMenuView: UIView {
         }
     }
 
+    /// Show the disc picker, or hide it. Fewer than two discs hides the whole
+    /// section, header included, which is the state for every game on the other
+    /// five consoles and for every single-disc PlayStation game.
+    ///
+    /// Called every time the menu opens, so the drive's current disc is read
+    /// fresh rather than remembered: a state loaded from a slot can have been
+    /// saved on a different disc.
+    func updateDiscs(_ discs: [(index: Int, label: String)], current: Int) {
+        hasDiscPicker = discs.count > 1
+        applyDiscSectionVisibility()
+        discsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        guard discs.count > 1 else { return }
+        for disc in discs {
+            discsStack.addArrangedSubview(makeDiscRow(disc, isCurrent: disc.index == current))
+        }
+    }
+
+    /// Read from the stored flag rather than passed in, because BOTH layout
+    /// builders call it: a rotation empties the parent stacks and re-adds these
+    /// two views, and without this the section would come back visible on a
+    /// game that has no discs to pick. It also covers the first build, before
+    /// anything has been shown at all.
+    private func applyDiscSectionVisibility() {
+        discsLabel.isHidden = !hasDiscPicker
+        discsStack.isHidden = !hasDiscPicker
+    }
+
     func setSoundEnabled(_ enabled: Bool) {
         isSoundEnabled = enabled
         updateSoundButton()
@@ -619,6 +724,71 @@ final class OverlayMenuView: UIView {
         lockableLetters = letters.isEmpty ? ["A", "B"] : letters
         updateButtonLockButton()
         updateButtonLockCaption()
+    }
+
+    /// The depths the rewind button offers on a LONG PRESS, shortest first.
+    ///
+    /// ⚠ THE ENTRY POINT IS THE POINT, and the first attempt at it did not work.
+    /// That version set `UIButton.menu` with `showsMenuAsPrimaryAction` false, on
+    /// the understanding that iOS then shows the menu on a long press. On device
+    /// nothing appeared at all, on two consoles, with the depths present. Rather
+    /// than guess at a second system behaviour that cannot be checked from here,
+    /// this is now OUR row and OUR gesture: a `UILongPressGestureRecognizer`
+    /// reveals a row of pills built exactly like the Speed pills a few lines
+    /// below, which are the same shape of choice and are known to work in this
+    /// same scroll view.
+    ///
+    /// The row starts hidden on every open, so the button still looks and acts
+    /// like the button it was: tap rewinds as far as the tier allows, and only a
+    /// deliberate hold shows the choice. The recognizer cancels the button's own
+    /// touch tracking when it fires, so a hold never also rewinds.
+    ///
+    /// Fewer than two depths means no gesture at all, rather than a row with one
+    /// pill in it: a free player's five seconds is their whole allowance, and a
+    /// press that reveals a list of one is a worse answer than a press that does
+    /// nothing. The caller decides what is offerable, because it is the one that
+    /// knows the tier and how long this sitting has actually run.
+    func setRewindDepths(_ depths: [Int]) {
+        rewindDepthRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        // Both hidden again on every open: the row is a thing you reveal, not a
+        // thing that stays revealed from the last pause.
+        rewindDepthRow.isHidden = true
+        rewindDepthLabel.isHidden = true
+        rewindLongPress.isEnabled = depths.count > 1
+        guard depths.count > 1 else { return }
+
+        let format = NSLocalizedString("overlay.rewind", comment: "")
+        for seconds in depths {
+            let btn = UIButton(type: .system)
+            btn.setTitle(String(format: format, String(seconds)), for: .normal)
+            btn.titleLabel?.font = .preferredFont(forTextStyle: .footnote)
+            btn.titleLabel?.adjustsFontSizeToFitWidth = true
+            btn.titleLabel?.minimumScaleFactor = 0.6
+            btn.setTitleColor(UIColor.white.withAlphaComponent(0.85), for: .normal)
+            btn.backgroundColor = .clear
+            btn.layer.cornerRadius = 8
+            btn.layer.borderWidth = 1.5
+            btn.layer.borderColor = UIColor.white.withAlphaComponent(0.25).cgColor
+            btn.tag = seconds
+            btn.addTarget(self, action: #selector(rewindDepthTapped(_:)), for: .touchUpInside)
+            btn.accessibilityLabel = String(format: format, String(seconds))
+            rewindDepthRow.addArrangedSubview(btn)
+            btn.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        }
+    }
+
+    @objc private func rewindLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, !rewindDepthRow.arrangedSubviews.isEmpty else { return }
+        Haptics.tap()   // chrome haptic, the same one every reveal in the app uses
+        UIView.animate(withDuration: 0.18) {
+            self.rewindDepthRow.isHidden = false
+            self.rewindDepthLabel.isHidden = false
+            self.layoutIfNeeded()
+        }
+    }
+
+    @objc private func rewindDepthTapped(_ sender: UIButton) {
+        delegate?.overlayDidSelectRewind(seconds: sender.tag)
     }
 
     func refreshProState() {
@@ -689,6 +859,83 @@ final class OverlayMenuView: UIView {
         } else {
             view.layer.shadowOpacity = 0
         }
+    }
+
+    // MARK: - Disc Row
+
+    /// One disc. Deliberately the plainest row in this menu: a name, and a mark
+    /// on the one that is in the drive.
+    ///
+    /// No preview image and no second line, because unlike a save slot there is
+    /// nothing to describe. The disc in the drive is shown with a filled mark
+    /// and is NOT tappable: re-inserting the disc that is already spinning is a
+    /// lid cycle the game reacts to for no reason.
+    private func makeDiscRow(_ disc: (index: Int, label: String), isCurrent: Bool) -> UIView {
+        let container = UIView()
+        container.backgroundColor = UIColor.white.withAlphaComponent(isCurrent ? 0.14 : 0.08)
+        container.layer.cornerRadius = 12
+
+        // ONE symbol for both states, with a fallback. The obvious pairing is
+        // `opticaldisc` / `opticaldisc.fill`, but the filled variant is newer
+        // than the plain one and a symbol this app does not already use
+        // elsewhere is not worth a silent nil on somebody's device. The current
+        // disc is already marked three other ways: tint, background, and the
+        // "in drive" caption. `??` because `systemName:` returns nil rather
+        // than throwing when a symbol is missing.
+        let discSymbol = UIImage(systemName: "opticaldisc") ?? UIImage(systemName: "circle")
+        let icon = UIImageView(image: discSymbol)
+        icon.tintColor = isCurrent ? .white : UIColor.white.withAlphaComponent(0.6)
+        icon.contentMode = .scaleAspectFit
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = UILabel()
+        title.text = disc.label
+        title.textColor = isCurrent ? .white : UIColor.white.withAlphaComponent(0.85)
+        title.font = .preferredFont(forTextStyle: .subheadline)
+        // The label comes from the player's own .m3u, so it can be anything.
+        // Clarity over brevity: it wraps rather than being cut off.
+        title.numberOfLines = 2
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        let trailing = UILabel()
+        trailing.text = isCurrent ? NSLocalizedString("overlay.disc.inDrive", comment: "") : ""
+        trailing.textColor = UIColor.white.withAlphaComponent(0.5)
+        trailing.font = .preferredFont(forTextStyle: .caption1)
+        trailing.textAlignment = .right
+        trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
+        trailing.translatesAutoresizingMaskIntoConstraints = false
+
+        for v in [icon, title, trailing] { container.addSubview(v) }
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            icon.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 22),
+            icon.heightAnchor.constraint(equalToConstant: 22),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
+            title.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+            title.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
+            trailing.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 8),
+            trailing.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            trailing.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+
+        container.isAccessibilityElement = true
+        container.accessibilityLabel = disc.label
+        if isCurrent {
+            container.accessibilityTraits = [.selected]
+        } else {
+            container.accessibilityTraits = [.button]
+            container.tag = disc.index
+            container.addGestureRecognizer(
+                UITapGestureRecognizer(target: self, action: #selector(discRowTapped(_:))))
+        }
+        return container
+    }
+
+    @objc private func discRowTapped(_ gesture: UITapGestureRecognizer) {
+        guard let index = gesture.view?.tag else { return }
+        delegate?.overlayDidSelectDisc(index: index)
     }
 
     // MARK: - Slot Row
@@ -1042,7 +1289,7 @@ final class OverlayMenuView: UIView {
         currentSpeed = speed
         updateSpeedHighlight()
         delegate?.overlayDidSelectSpeed(speed)
-        Analytics.signal("speed_changed", ["speed": String(speed)])
+        Analytics.signalOnce("speed_changed", ["speed": String(speed)])
         // Pro speeds are anything outside the free 1x / 1.5x set; reaching here
         // with one means the user is Pro (the gate above returns otherwise).
         if !Self.freeSpeeds.contains(speed) {

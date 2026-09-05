@@ -27,9 +27,82 @@ enum ZIPExtractor {
     /// Duplicate names are dropped: extraction is by name, so a malformed
     /// archive with two identical entry names could only ever yield the
     /// first one anyway.
+    ///
+    /// **Cartridges win over disc parts when an archive holds both**, and that
+    /// rule exists to protect archives that already work. The PlayStation
+    /// brought generic extensions into the ROM list, `.bin` and `.iso` among
+    /// them, and a cartridge zip that happens to carry a stray `.bin` beside
+    /// its game would otherwise go from importing silently to asking the user
+    /// which of two "games" they meant. An archive containing a cartridge is a
+    /// cartridge archive; only one containing no cartridge at all is read as a
+    /// disc.
     static func romEntryNames(in zipURL: URL) throws -> [String] {
         var seen = Set<String>()
-        return romEntries(in: try loadData(zipURL)).map(\.name).filter { seen.insert($0).inserted }
+        let names = romEntries(in: try loadData(zipURL))
+            .map(\.name)
+            .filter { seen.insert($0).inserted }
+        let cartridges = names.filter { !isDiscPart($0) }
+        return cartridges.isEmpty ? names : cartridges
+    }
+
+    private static func isDiscPart(_ entryName: String) -> Bool {
+        DiscImportGrouper.isDiscFile(entryName)
+    }
+
+    /// The GAMES an archive holds, rather than the files it holds.
+    ///
+    /// This is the difference between offering someone a choice of fifty-eight
+    /// files and telling them they have Tomb Raider. The archive is opened and
+    /// parsed ONCE, and only the descriptors are decompressed: a `.cue` is a few
+    /// hundred bytes, so grouping a four-hundred-megabyte archive costs nothing
+    /// until something is actually imported.
+    static func gameEntries(in zipURL: URL) throws
+    -> (discs: [DiscNameGroup], cartridges: [String], gaps: [DiscNameGap]) {
+        let data = try loadData(zipURL)
+        let entries = romEntries(in: data)
+        var seen = Set<String>()
+        let names = entries.map(\.name).filter { seen.insert($0).inserted }
+
+        // Cartridges still win, for the reason above: an archive with a real
+        // cartridge in it is a cartridge archive, whatever else it carries.
+        let cartridgeNames = names.filter { !isDiscPart($0) }
+        if !cartridgeNames.isEmpty { return ([], cartridgeNames, []) }
+
+        let byName = Dictionary(entries.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+        let grouping = DiscImportGrouper.groupNames(names) { name in
+            guard let entry = byName[name],
+                  let bytes = try? extractEntry(entry, from: data) else { return nil }
+            return DiscImportGrouper.decode(bytes)
+        }
+        return (grouping.discs, grouping.others, grouping.gaps)
+    }
+
+    /// Extract several named entries into ONE fresh temp directory, parsing the
+    /// archive a single time.
+    ///
+    /// The per-entry `extractROM` re-opens and re-parses the archive on every
+    /// call, which is fine for one cartridge and absurd for a disc: Tomb Raider
+    /// would have parsed the same central directory fifty-eight times.
+    static func extractEntries(named names: [String], from zipURL: URL) throws -> [URL] {
+        let data = try loadData(zipURL)
+        let byName = Dictionary(romEntries(in: data).map { ($0.name, $0) },
+                                uniquingKeysWith: { a, _ in a })
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        var written: [URL] = []
+        for name in names {
+            guard let entry = byName[name] else { throw ZIPExtractorError.noROMFound }
+            // Flattened: an archive's folder structure is its own, and a game's
+            // descriptor names its tracks WITHOUT a path, so they have to end up
+            // side by side or the core cannot find them.
+            let dest = tempDir.appendingPathComponent(
+                URL(fileURLWithPath: entry.name).lastPathComponent)
+            try writeEntry(entry, from: data, to: dest)
+            written.append(dest)
+        }
+        return written
     }
 
     /// Extracts one ROM entry (by its full entry name, as returned by
@@ -212,6 +285,95 @@ enum ZIPExtractor {
         case 8: // Deflate
             return try inflate(compressed, expectedSize: entry.uncompressedSize)
         default:
+            throw ZIPExtractorError.extractionFailed
+        }
+    }
+
+    /// Above this, an entry is inflated STRAIGHT TO DISK in chunks instead of
+    /// being built whole in memory.
+    ///
+    /// The number is chosen to leave every console that shipped before the
+    /// PlayStation on the path it has always used: the largest cartridge this
+    /// app loads is a 32 MB DS card, so nothing below the disc era can reach
+    /// the streaming branch and nothing below the disc era changes.
+    ///
+    /// It matters because a disc is a different order of size. The data track
+    /// of a real Tomb Raider archive is 293 MB, and holding that as one
+    /// allocation on the oldest device we support, an A11, is how an import
+    /// gets the app killed rather than merely being slow.
+    private static let streamingInflateThreshold = 32 * 1024 * 1024
+
+    /// Write one entry to `dest`, choosing how by size.
+    private static func writeEntry(_ entry: ZIPEntry, from data: Data, to dest: URL) throws {
+        let compressed = data.subdata(in: entry.dataOffset..<entry.dataOffset + entry.compressedSize)
+        switch entry.method {
+        case 0:
+            // Stored. `compressed` is a slice of the MAPPED archive, so this
+            // never resident-loads the whole thing either.
+            try compressed.write(to: dest)
+        case 8 where entry.uncompressedSize <= streamingInflateThreshold:
+            try inflate(compressed, expectedSize: entry.uncompressedSize).write(to: dest)
+        case 8:
+            try inflateToFile(compressed, expectedSize: entry.uncompressedSize, dest: dest)
+        default:
+            throw ZIPExtractorError.extractionFailed
+        }
+    }
+
+    /// Inflate to a file a megabyte at a time, so peak memory is the chunk and
+    /// not the track.
+    private static func inflateToFile(_ compressed: Data, expectedSize: Int, dest: URL) throws {
+        guard FileManager.default.createFile(atPath: dest.path, contents: nil),
+              let handle = try? FileHandle(forWritingTo: dest) else {
+            throw ZIPExtractorError.extractionFailed
+        }
+        defer { try? handle.close() }
+
+        var stream = compression_stream(
+            dst_ptr: UnsafeMutablePointer<UInt8>(bitPattern: -1)!, dst_size: 0,
+            src_ptr: UnsafePointer<UInt8>(bitPattern: -1)!, src_size: 0, state: nil)
+        guard compression_stream_init(&stream, COMPRESSION_STREAM_DECODE,
+                                      COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+            throw ZIPExtractorError.extractionFailed
+        }
+        defer { compression_stream_destroy(&stream) }
+
+        let chunkSize = 1 << 20
+        let chunk = UnsafeMutablePointer<UInt8>.allocate(capacity: chunkSize)
+        defer { chunk.deallocate() }
+        var written = 0
+
+        try compressed.withUnsafeBytes { raw in
+            stream.src_ptr = raw.bindMemory(to: UInt8.self).baseAddress!
+            stream.src_size = compressed.count
+
+            while true {
+                stream.dst_ptr = chunk
+                stream.dst_size = chunkSize
+                let status = compression_stream_process(
+                    &stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
+                let produced = chunkSize - stream.dst_size
+                if produced > 0 {
+                    try handle.write(contentsOf: Data(bytes: chunk, count: produced))
+                    written += produced
+                }
+                if status == COMPRESSION_STATUS_END { break }
+                if status == COMPRESSION_STATUS_ERROR {
+                    throw ZIPExtractorError.extractionFailed
+                }
+                // No output and not finished means the stream is stuck; without
+                // this a corrupt entry spins forever instead of failing.
+                if produced == 0 && status == COMPRESSION_STATUS_OK {
+                    throw ZIPExtractorError.extractionFailed
+                }
+            }
+        }
+
+        // Same guarantee the one-shot path gives: the entry is all there, or it
+        // is a failure rather than a truncated file that imports and then does
+        // not boot.
+        guard written == expectedSize else {
+            try? FileManager.default.removeItem(at: dest)
             throw ZIPExtractorError.extractionFailed
         }
     }

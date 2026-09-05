@@ -144,8 +144,15 @@ enum VideoFilterRenderer {
         var uniforms = FilterUniforms(filterType: filter.metalIndex,
                                       screenCount: UInt32(max(1, screenCount)),
                                       gameSize: SIMD2(Float(iw), Float(ih)))
+        // The shared vertex shader takes a texture-coordinate scale, because the
+        // PlayStation draws into the corner of a larger texture. Here the input
+        // texture IS the picture (the bridge already cropped it on the way into
+        // the CGImage), so the scale is 1 and this pass is unchanged. It still
+        // has to be bound: the shader declares the buffer for every caller.
+        var uvScale = SIMD2<Float>(1, 1)
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(inTex, index: 0)
+        encoder.setVertexBytes(&uvScale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<FilterUniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
         encoder.endEncoding()

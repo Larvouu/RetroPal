@@ -120,7 +120,7 @@ private struct ControllerEditorWrapper: UIViewControllerRepresentable {
     let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> ControlLayoutEditorViewController {
-        Analytics.signal("controls_editor", ["action": "opened", "system": "\(system)"])
+        Analytics.signalOnce("controls_editor", ["action": "opened", "system": "\(system)"])
         Analytics.signal("pro_feature_used", ["feature": "custom_controls"])
         let carrier = ControlPreset(name: "",
                                     systems: SystemApplicability(system: system),

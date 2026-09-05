@@ -197,6 +197,96 @@ struct NESSkinPalette: Equatable, Codable {
         bodyHex: 0x050505, surroundHex: 0x2C2E2D, padHex: 0xC3C3EE, faceHex: 0xC3C3EE)
 }
 
+/// PlayStation.
+///
+/// Four slots, like the NES, and for the same reason inverted: on this pad the
+/// four face buttons are ONE grey plastic, so there are no per-letter slots.
+/// What differs between them is the printed SYMBOL, and those four inks are
+/// fixed hardware facts rather than user-choosable slots.
+struct PS1SkinPalette: Equatable, Codable {
+    var bodyHex: UInt32      // the console's shell
+    var surroundHex: UInt32  // the panel around the screen
+    var padHex: UInt32       // the cross, and the SELECT/START printing
+    var faceHex: UInt32      // the four face buttons, which are one plastic
+    /// Everything on this pad that is INK rather than plastic: the words on
+    /// SELECT, START and the shoulders, and the MENU / CLIP glyphs. Added
+    /// 2026-08-27. A word moulded into a plate still derives from its plate;
+    /// this is for the printed things, which have every right to their own
+    /// colour because printing is not moulding.
+    var printHex: UInt32
+    /// The plastic BEHIND the four face buttons. Their four symbols are
+    /// deliberately absent from this struct and always will be: square, cross,
+    /// circle and triangle are how a player identifies a button, so they are
+    /// the one thing on this pad nobody gets to recolour.
+    var diamondHex: UInt32
+
+    var body: UIColor     { UIColor(rpHex: bodyHex) }
+    var surround: UIColor { UIColor(rpHex: surroundHex) }
+    var pad: UIColor      { UIColor(rpHex: padHex) }
+    var face: UIColor     { UIColor(rpHex: faceHex) }
+    var print: UIColor    { UIColor(rpHex: printHex) }
+    var diamond: UIColor  { UIColor(rpHex: diamondHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, surroundHex, padHex, faceHex, printHex, diamondHex]
+            .allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// Skins saved before the two slots existed decode with them absent, so
+    /// they default rather than failing the whole skin. Without this, every
+    /// custom PlayStation skin a user already made would stop loading.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bodyHex = try c.decode(UInt32.self, forKey: .bodyHex)
+        surroundHex = try c.decode(UInt32.self, forKey: .surroundHex)
+        padHex = try c.decode(UInt32.self, forKey: .padHex)
+        faceHex = try c.decode(UInt32.self, forKey: .faceHex)
+        // The old behaviour, expressed as data: print was a shade of its plate,
+        // and the diamond's backing was the one control colour.
+        printHex = try c.decodeIfPresent(UInt32.self, forKey: .printHex)
+            ?? Self.mixedTowardWhite(padHex, 0.55)
+        diamondHex = try c.decodeIfPresent(UInt32.self, forKey: .diamondHex) ?? padHex
+    }
+
+    /// The old print rule as integer arithmetic: each channel 55% of the way to
+    /// white. Done on the hex rather than by round-tripping a `UIColor`,
+    /// because a colour-space conversion in a decoder is a lot of machinery to
+    /// reproduce a number that is three multiplications.
+    private static func mixedTowardWhite(_ hex: UInt32, _ t: Double) -> UInt32 {
+        var out: UInt32 = 0
+        for shift in [16, 8, 0] {
+            let channel = Double((hex >> UInt32(shift)) & 0xFF)
+            let mixed = channel + (255.0 - channel) * t
+            out |= UInt32(mixed.rounded()) << UInt32(shift)
+        }
+        return out
+    }
+
+    init(bodyHex: UInt32, surroundHex: UInt32, padHex: UInt32, faceHex: UInt32,
+         printHex: UInt32, diamondHex: UInt32) {
+        self.bodyHex = bodyHex
+        self.surroundHex = surroundHex
+        self.padHex = padHex
+        self.faceHex = faceHex
+        self.printHex = printHex
+        self.diamondHex = diamondHex
+    }
+
+    /// Taken from `DressKind.ps1*`, so the dress and the palette describe one
+    /// machine rather than two that happen to look similar.
+    static let nostalgia = PS1SkinPalette(
+        bodyHex: 0xBEBEBC, surroundHex: 0x000000, padHex: 0x404145, faceHex: 0x404145,
+        printHex: 0x9B9BA0, diamondHex: 0x404145)
+
+    /// The Retro Pal recolour. `pad` and `face` are the same value here for the
+    /// same reason they are on the Nostalgia dress: this console has one control
+    /// colour and four printed symbols, so a recolour that split them would be
+    /// inventing a distinction the hardware does not have.
+    static let retroPal = PS1SkinPalette(
+        bodyHex: 0x1F1F1F, surroundHex: 0x000000, padHex: 0x727272, faceHex: 0x727272,
+        printHex: 0xC0C0C0, diamondHex: 0x727272)
+}
+
 // MARK: - The console-tagged palette
 
 enum SkinPalette: Equatable, Codable {
@@ -205,6 +295,7 @@ enum SkinPalette: Equatable, Codable {
     case nds(NDSSkinPalette)
     case snes(SNESSkinPalette)
     case nes(NESSkinPalette)
+    case ps1(PS1SkinPalette)
 
     /// The console this palette belongs to (must match the owning CustomSkin's system).
     var system: PresetSystem {
@@ -214,6 +305,7 @@ enum SkinPalette: Equatable, Codable {
         case .nds: return .nds
         case .snes: return .snes
         case .nes: return .nes
+        case .ps1: return .ps1
         }
     }
 
@@ -224,6 +316,7 @@ enum SkinPalette: Equatable, Codable {
         case .nds(let p): return p.isWithinHexRange
         case .snes(let p): return p.isWithinHexRange
         case .nes(let p): return p.isWithinHexRange
+        case .ps1(let p): return p.isWithinHexRange
         }
     }
 
@@ -235,6 +328,7 @@ enum SkinPalette: Equatable, Codable {
         case .nds: return .nds(.nostalgia)
         case .snes: return .snes(.nostalgia)
         case .nes: return .nes(.nostalgia)
+        case .ps1: return .ps1(.nostalgia)
         }
     }
 }

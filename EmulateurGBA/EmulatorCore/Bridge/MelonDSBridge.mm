@@ -136,6 +136,11 @@ static int resolveNDSLanguageFromLocale(void) {
     return NDSScreenHeight * 2; // 384 (top + bottom)
 }
 
+// Both screens, every frame, for the whole session: the texture is the picture.
+- (NSInteger)maxBufferHeight {
+    return self.totalBufferHeight;
+}
+
 /// The stacked pair, 256x384. Portrait geometry is built around this shape and
 /// the landscape branch ignores the aspect entirely, so this is exactly the
 /// expression the layout used to compute for itself.

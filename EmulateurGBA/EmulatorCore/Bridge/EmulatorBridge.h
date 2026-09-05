@@ -28,6 +28,28 @@ NS_ASSUME_NONNULL_BEGIN
 /// Total height of the video buffer (screenHeight for single-screen, 384 for NDS dual-screen)
 @property (nonatomic, readonly) NSInteger totalBufferHeight;
 
+/// The tallest `totalBufferHeight` this core will ever report in one session,
+/// which is what the renderer allocates its texture at.
+///
+/// It exists because of the PlayStation, and it says something the other three
+/// cores never needed to say. Every console before it draws one picture size
+/// for a whole session, or two the bridge flattens into one (the SNES presents
+/// its hi-res mode's buffer and doubles the ordinary frames into it), so the
+/// live size and the allocation size were the same number and one property
+/// carried both. The PlayStation changes resolution mid-game, between a menu
+/// and the field, sometimes for a single cutscene, so the two genuinely differ:
+/// the buffer is allocated once at the maximum and the live picture occupies
+/// its top-left corner.
+///
+/// `bufferStride` is the matching width: it has always been the ALLOCATED width
+/// while `screenWidth` is the drawn one, which is why no second property is
+/// needed for that axis.
+///
+/// The three cartridge cores answer `totalBufferHeight` here, so their texture
+/// and their picture stay the same size and nothing about their rendering
+/// changes.
+@property (nonatomic, readonly) NSInteger maxBufferHeight;
+
 /// Whether this system has a touch screen (e.g., NDS bottom screen)
 @property (nonatomic, readonly) BOOL hasTouchScreen;
 

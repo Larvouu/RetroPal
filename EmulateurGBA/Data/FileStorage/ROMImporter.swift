@@ -39,6 +39,11 @@ enum ROMImportError: LocalizedError {
     /// doesn't match the one recorded at import), so the existing save states
     /// wouldn't be valid for it.
     case differentGame
+    /// A disc was picked without the files it is made of. Carries their names,
+    /// because "some files are missing" is not actionable and "Game (Track
+    /// 01).bin is missing" is. iOS grants access per picked file, so there is
+    /// no way to reach a sibling the person did not select.
+    case discMissingFiles(names: [String])
 
     var errorDescription: String? {
         switch self {
@@ -51,6 +56,9 @@ enum ROMImportError: LocalizedError {
         case .alreadyImported: return NSLocalizedString("import.error.alreadyImported", comment: "")
         case .saveFailed: return NSLocalizedString("import.error.saveFailed", comment: "")
         case .differentGame: return NSLocalizedString("import.error.differentGame", comment: "")
+        case .discMissingFiles(let names):
+            return String(format: NSLocalizedString("import.error.discMissingFiles", comment: ""),
+                          names.joined(separator: ", "))
         }
     }
 
@@ -66,6 +74,7 @@ enum ROMImportError: LocalizedError {
         case .alreadyImported: return "alreadyImported"
         case .saveFailed: return "saveFailed"
         case .differentGame: return "differentGame"
+        case .discMissingFiles: return "discMissingFiles"
         }
     }
 }
@@ -165,6 +174,20 @@ final class ROMImporter {
             return try importZIP(from: sourceURL)
         }
 
+        // A disc never takes the flat cartridge path below, even when it is a
+        // single file: it needs its own folder, because that folder is what
+        // names its saves and what a second disc of the same game would
+        // otherwise collide with. Routed through the grouper rather than
+        // constructed here, so one `.cue` opened from Files gets exactly the
+        // same answer as one `.cue` picked in a batch — including the message
+        // naming the tracks it cannot reach.
+        if ROMSystemType.discFileExtensions.contains(ext) {
+            let (_, discs, gaps) = DiscImportGrouper.group([sourceURL])
+            if let gap = gaps.first { throw ROMImportError.discMissingFiles(names: gap.missing) }
+            guard let group = discs.first else { throw ROMImportError.invalidROM }
+            return try importDiscGroup(group, method: method)
+        }
+
         // Validate ROM header (GBA, GB, or GBC)
         guard GBAROMParser.isValidROMFile(url: sourceURL) else {
             throw ROMImportError.invalidROM
@@ -199,6 +222,147 @@ final class ROMImporter {
         let id = try createGameEntry(romURL: destURL, originalFilename: filename, method: method)
         cleanupInboxFile(sourceURL)
         return id
+    }
+
+    /// Import one disc game: every file it is made of, into a folder of its
+    /// own, and one library entry pointing at the file the emulator boots.
+    ///
+    /// A folder rather than the flat layout the cartridges use, because a disc
+    /// game is several files whose names it does not control. `Game (Track
+    /// 01).bin` is a name two different games can both have, and a `.cue`
+    /// naming its tracks only works if they sit beside it. Giving each game a
+    /// directory makes both true without renaming anything the descriptors
+    /// point at.
+    /// - Parameter movingMembers: take the files rather than copy them. True
+    ///   only when they are OUR OWN staging copies, freshly decompressed out of
+    ///   an archive, and it is not an optimisation: a PlayStation disc runs to
+    ///   most of a gigabyte, so copying a staged one means holding the archive,
+    ///   the staging and the final copy at once, on a device where that is the
+    ///   difference between an import working and the disk being full.
+    func importDiscGroup(_ group: DiscImportGroup, method: String,
+                         movingMembers: Bool = false) throws -> NSManagedObjectID {
+        // One scope per member: they were picked separately and are granted
+        // separately, so opening them as a batch is not an option.
+        var scoped: [URL] = []
+        for url in group.members {
+            if url.startAccessingSecurityScopedResource() { scoped.append(url) }
+        }
+        defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
+
+        // Identify BEFORE copying, so a duplicate costs nothing: a disc runs to
+        // hundreds of megabytes and copying one to discover we already have it
+        // is the most expensive mistake available on this console.
+        guard let info = GBAROMParser.parse(fileURL: group.identityFile) else {
+            throw ROMImportError.invalidROM
+        }
+        let dupCheck = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
+        dupCheck.predicate = NSPredicate(format: "romHash == %@", info.sha256)
+        dupCheck.fetchLimit = 1
+        if !(((try? context.fetch(dupCheck)) ?? []).isEmpty) {
+            group.members.forEach { cleanupInboxFile($0) }
+            throw ROMImportError.alreadyImported
+        }
+
+        let folderName = uniqueFolderName(for: group.displayName)
+        let folder = romsDir.appendingPathComponent(folderName, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        } catch {
+            throw ROMImportError.copyFailed
+        }
+
+        // Any failure past this point takes the whole folder with it. A disc
+        // game that is half copied is worse than one that is absent: it appears
+        // in the library and fails at boot, which is the shape of the 1.1
+        // "file damaged" bug this project already paid for once.
+        func abandon() { try? FileManager.default.removeItem(at: folder) }
+
+        var bootDestination: URL?
+        for member in group.members {
+            let dest = folder.appendingPathComponent(member.lastPathComponent)
+            do {
+                try? FileManager.default.removeItem(at: dest)
+                if movingMembers {
+                    // A move inside the same volume is a rename, so there is no
+                    // size to verify: the bytes never travelled.
+                    try FileManager.default.moveItem(at: member, to: dest)
+                } else {
+                    try FileManager.default.copyItem(at: member, to: dest)
+                    try verifyCopyComplete(source: member, dest: dest)
+                }
+            } catch {
+                abandon()
+                throw ROMImportError.copyFailed
+            }
+            if member.path == group.boot.path { bootDestination = dest }
+        }
+        guard var boot = bootDestination else {
+            abandon()
+            throw ROMImportError.copyFailed
+        }
+
+        // A multi-disc game that arrived without a playlist gets one written for
+        // it, here, from the names the grouper put in disc order.
+        //
+        // ⚠ WHY IT IS WRITTEN RATHER THAN INFERRED AT LAUNCH. The core reads a
+        // playlist and nothing else: without a file naming the discs it sees one
+        // image, reports a single disc, and the pause menu's disc picker never
+        // appears. And the cost of that is not only the picker. A disc game's
+        // memory card and its save states are filed under its FOLDER, so three
+        // separate entries meant three memory cards, and the save from disc one
+        // was not there when disc two started.
+        //
+        // Named after the folder, which is already sanitised and already unique,
+        // so this can never collide with a disc file beside it. Lines are bare
+        // filenames: the core resolves them against the playlist's own
+        // directory, which is this folder.
+        if let discs = group.playlistDiscs, discs.count > 1 {
+            let playlist = folder.appendingPathComponent("\(folderName).m3u")
+            do {
+                try (discs.joined(separator: "\n") + "\n")
+                    .write(to: playlist, atomically: true, encoding: .utf8)
+            } catch {
+                abandon()
+                throw ROMImportError.copyFailed
+            }
+            boot = playlist
+        }
+
+        do {
+            // Measured AFTER the copy, from the folder, because that is what the
+            // launch preflight will measure too. Recording the identity file's
+            // size here (the data track) while pointing `romFilePath` at the
+            // `.cue` is what made a good game report itself damaged.
+            let installed = DiscStorage.installedSize(ofROMAt: boot) ?? info.fileSize
+            let id = try createDiscEntry(boot: boot,
+                                         relativePath: "\(folderName)/\(boot.lastPathComponent)",
+                                         info: info,
+                                         installedSize: installed,
+                                         method: method)
+            group.members.forEach { cleanupInboxFile($0) }
+            return id
+        } catch {
+            abandon()
+            throw error
+        }
+    }
+
+    /// A directory name no existing game is using. Sanitised because it becomes
+    /// a real path AND the key every save, save state and per-game setting is
+    /// filed under.
+    private func uniqueFolderName(for displayName: String) -> String {
+        var base = displayName
+            .components(separatedBy: CharacterSet(charactersIn: "/\\:"))
+            .joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if base.isEmpty { base = "Disc" }
+        var candidate = base
+        var n = 2
+        while FileManager.default.fileExists(atPath: romsDir.appendingPathComponent(candidate).path) {
+            candidate = "\(base) \(n)"
+            n += 1
+        }
+        return candidate
     }
 
     /// Replace a game's on-disk ROM file in place, KEEPING its library entry and
@@ -298,48 +462,118 @@ final class ROMImporter {
         try? FileManager.default.removeItem(at: tempZip)
         try FileManager.default.copyItem(at: sourceURL, to: tempZip)
 
-        let entryNames: [String]
+        // GAMES, not files. An archive holding one PlayStation disc holds it in
+        // as many pieces as the disc had tracks: Tomb Raider is a `.cue` and
+        // fifty-seven `.bin`, and listing those as fifty-eight choices is what
+        // this used to do. Only the descriptors are decompressed to work it out,
+        // so this costs a few hundred bytes whatever the archive weighs.
+        let games: (discs: [DiscNameGroup], cartridges: [String], gaps: [DiscNameGap])
         do {
-            entryNames = try ZIPExtractor.romEntryNames(in: tempZip)
+            games = try ZIPExtractor.gameEntries(in: tempZip)
         } catch {
             try? FileManager.default.removeItem(at: tempZip)
             throw ROMImportError.zipExtractionFailed
         }
 
-        guard !entryNames.isEmpty else {
+        if let gap = games.gaps.first, games.discs.isEmpty, games.cartridges.isEmpty {
+            try? FileManager.default.removeItem(at: tempZip)
+            throw ROMImportError.discMissingFiles(names: gap.missing)
+        }
+
+        let total = games.discs.count + games.cartridges.count
+        guard total > 0 else {
             try? FileManager.default.removeItem(at: tempZip)
             throw ROMImportError.zipNoGBA
         }
 
-        // Several ROMs: hand the temp copy to the caller so the user can
-        // pick which games to add. The temp copy deliberately survives this
-        // throw; importZIPSelection / discardZIPSelection deletes it.
-        guard entryNames.count == 1 else {
+        // Several GAMES: hand the temp copy to the caller so the user can pick
+        // which to add. The temp copy deliberately survives this throw;
+        // importZIPSelection / discardZIPSelection deletes it. What the picker
+        // is given is one name per game, the boot file for a disc, so choosing
+        // "Tomb Raider" quietly brings its fifty-eight files with it.
+        guard total == 1 else {
             cleanupInboxFile(sourceURL)
-            throw ROMImportError.zipNeedsSelection(tempZipURL: tempZip, entryNames: entryNames)
+            let names = games.discs.map(\.boot) + games.cartridges
+            throw ROMImportError.zipNeedsSelection(tempZipURL: tempZip, entryNames: names)
         }
 
         defer { try? FileManager.default.removeItem(at: tempZip) }
-        let id = try importEntry(named: entryNames[0], fromZip: tempZip)
+        let id: NSManagedObjectID
+        if let disc = games.discs.first {
+            id = try importDiscGroup(disc, fromZip: tempZip, method: "picker")
+        } else {
+            id = try importEntry(named: games.cartridges[0], fromZip: tempZip)
+        }
         cleanupInboxFile(sourceURL)
         return id
     }
 
+    /// Import one disc game out of an archive: extract the files it is made of
+    /// into a temp directory, then hand them to the same folder-per-game
+    /// importer the picked-files path uses.
+    ///
+    /// Deliberately routed through `importDiscGroup` rather than given its own
+    /// copy of that logic. The duplicate check, the folder naming, the identity
+    /// hash and the delete-the-whole-folder-on-failure rule are all decisions
+    /// that must not differ by where the disc happened to come from.
+    private func importDiscGroup(_ group: DiscNameGroup, fromZip tempZip: URL,
+                                 method: String) throws -> NSManagedObjectID {
+        let extracted: [URL]
+        do {
+            extracted = try ZIPExtractor.extractEntries(named: group.members, from: tempZip)
+        } catch {
+            throw ROMImportError.zipExtractionFailed
+        }
+        let staging = extracted.first?.deletingLastPathComponent()
+        defer { if let staging { try? FileManager.default.removeItem(at: staging) } }
+
+        let bootName = URL(fileURLWithPath: group.boot).lastPathComponent
+        guard let boot = extracted.first(where: { $0.lastPathComponent == bootName }) else {
+            throw ROMImportError.zipExtractionFailed
+        }
+        // The playlist decision travels with the group: an archive holding three
+        // `.chd` files of one game is the same case as three picked files, and
+        // it would be a poor joke to fix one and not the other.
+        return try importDiscGroup(DiscImportGroup(boot: boot, members: extracted,
+                                                   playlistDiscs: group.playlistDiscs,
+                                                   name: group.name),
+                                   method: method, movingMembers: true)
+    }
+
     /// Import the user's picks from a multi-ROM zip (the ZipROMPickerSheet
     /// outcome). `tempZip` is the temp copy importZIP staged before throwing
-    /// `zipNeedsSelection`; it's deleted here when done. Already-imported
-    /// picks skip silently (batch semantics, the game is in the library);
-    /// other failures come back for the caller's summary alert + error
-    /// signals. Success signals fire per entry inside createGameEntry.
-    func importZIPSelection(entryNames: [String], fromTempZip tempZip: URL) -> [ZipEntryFailure] {
+    /// `zipNeedsSelection`; it's deleted here when done.
+    ///
+    /// Returns the failures for the caller's summary alert AND the picks that
+    /// were already in the library. Those two are separate on purpose: a
+    /// duplicate is not a failure, it is an outcome, and it used to be dropped
+    /// here without a word. From the player's side that was an import that ran
+    /// its loader and then simply did not happen.
+    /// Success signals fire per entry inside createGameEntry.
+    func importZIPSelection(entryNames: [String], fromTempZip tempZip: URL)
+        -> (failures: [ZipEntryFailure], duplicates: [String]) {
         defer { try? FileManager.default.removeItem(at: tempZip) }
+        // Re-grouped rather than remembered: the sheet hands back the names it
+        // was given, and a disc's boot file has to be expanded into its parts
+        // again. Re-reading a few hundred bytes of descriptor is cheaper than
+        // carrying a parallel structure through the picker and keeping the two
+        // in step.
+        let games = (try? ZIPExtractor.gameEntries(in: tempZip))
+        let discsByBoot = Dictionary((games?.discs ?? []).map { ($0.boot, $0) },
+                                     uniquingKeysWith: { a, _ in a })
+
         var failures: [ZipEntryFailure] = []
+        var duplicates: [String] = []
         for name in entryNames {
             let displayName = URL(fileURLWithPath: name).lastPathComponent
             do {
-                _ = try importEntry(named: name, fromZip: tempZip, uniquifyFilename: true)
+                if let disc = discsByBoot[name] {
+                    _ = try importDiscGroup(disc, fromZip: tempZip, method: "picker")
+                } else {
+                    _ = try importEntry(named: name, fromZip: tempZip, uniquifyFilename: true)
+                }
             } catch let error as ROMImportError {
-                if case .alreadyImported = error { continue }
+                if case .alreadyImported = error { duplicates.append(displayName); continue }
                 failures.append(ZipEntryFailure(displayName: displayName,
                                                 reason: error.errorDescription ?? "",
                                                 analyticsID: error.analyticsID))
@@ -349,7 +583,7 @@ final class ROMImporter {
                                                 analyticsID: "unknown"))
             }
         }
-        return failures
+        return (failures, duplicates)
     }
 
     /// Cancel path of the zip picker: drop the temp copy importZIP staged.
@@ -422,6 +656,53 @@ final class ROMImporter {
     }
 
     // MARK: - Core Data
+
+    /// The library entry for a disc game.
+    ///
+    /// Separate from `createGameEntry` for two reasons, both about the fact
+    /// that a disc has already been identified by the time we get here.
+    /// `createGameEntry` re-parses the file it copied, which for a disc would
+    /// mean re-reading the data track after having read it once already; and
+    /// `romFilePath` stores a RELATIVE PATH (`<folder>/<boot>`) rather than a
+    /// bare filename, which is what every reader resolves against `ROMs/`
+    /// anyway and what makes the folder the game's identity.
+    private func createDiscEntry(boot: URL,
+                                 relativePath: String,
+                                 info: ROMInfo,
+                                 installedSize: Int64,
+                                 method: String) throws -> NSManagedObjectID {
+        // A disc's header title is empty by design (see GBAROMParser), so the
+        // name is the boot file's, cleaned exactly as a cartridge filename is.
+        let rawTitle = boot.deletingPathExtension().lastPathComponent
+            .replacingOccurrences(of: "_", with: " ")
+        let title = Self.cleanGameTitle(rawTitle)
+
+        let game = NSEntityDescription.insertNewObject(forEntityName: "GameEntity", into: context)
+        game.setValue(UUID(), forKey: "id")
+        game.setValue(title, forKey: "title")
+        game.setValue(relativePath, forKey: "romFilePath")
+        game.setValue(info.sha256, forKey: "romHash")
+        // Every file the game is made of, not just the one the core is pointed
+        // at. It is what Game Details shows and what the preflight checks.
+        game.setValue(installedSize, forKey: "romSize")
+        game.setValue(Date(), forKey: "importedAt")
+        game.setValue(Date(), forKey: "lastPlayedAt")
+        game.setValue(ROMSystemType.ps1.rawValue, forKey: "systemType")
+        game.setValue("placeholder", forKey: "coverType")
+
+        do {
+            try context.save()
+        } catch {
+            throw ROMImportError.saveFailed
+        }
+
+        Analytics.signal("rom_import", ["result": "success", "system": ROMSystemType.ps1.rawValue, "method": method])
+        if !UserDefaults.standard.bool(forKey: "didImportROM") {
+            UserDefaults.standard.set(true, forKey: "didImportROM")
+            Analytics.signal("import_first")
+        }
+        return game.objectID
+    }
 
     private func createGameEntry(romURL destURL: URL, originalFilename filename: String, method: String) throws -> NSManagedObjectID {
         guard let info = GBAROMParser.parse(fileURL: destURL) else {

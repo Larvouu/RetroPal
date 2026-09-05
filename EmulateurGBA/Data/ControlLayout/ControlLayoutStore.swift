@@ -18,6 +18,7 @@ final class ControlLayoutStore {
     private let activeNDSKey = "activePresetNDS"
     private let activeSNESKey = "activePresetSNES"
     private let activeNESKey = "activePresetNES"
+    private let activePS1Key = "activePresetPS1"
 
     private init() {}
 
@@ -29,6 +30,7 @@ final class ControlLayoutStore {
         case .nds: return activeNDSKey
         case .snes: return activeSNESKey
         case .nes: return activeNESKey
+        case .ps1: return activePS1Key
         }
     }
 
@@ -113,7 +115,11 @@ final class ControlLayoutStore {
         savePresets(presets)
 
         // Clear active references if this preset was active for any system.
-        for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes] where activePresetID(system: system) == id {
+        // `allCases` rather than a list: written out, this one had gone stale by
+        // one console, so deleting a preset that was active on the PlayStation
+        // left its "active preset" key pointing at a preset that no longer
+        // exists.
+        for system in PresetSystem.allCases where activePresetID(system: system) == id {
             setActivePreset(nil, system: system)
         }
     }

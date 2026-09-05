@@ -52,13 +52,20 @@ struct CheatManagerView: View {
     @State private var hasBackedUp = false
     @State private var showOverflowActions = false
     @State private var showRestoreConfirm = false
+    /// The cheat being edited, nil when the edit sheet is closed.
+    @State private var editingCheat: StoredCheat?
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable { case name, code }
 
     struct StoredCheat: Identifiable, Codable {
         let id: UUID
-        let code: String
+        /// Mutable since 1.3.0. Editing was the gap a 3-star review named: a
+        /// saved cheat could be toggled or deleted and nothing else, so fixing
+        /// one wrong character meant deleting the entry and retyping it.
+        /// Still decodes from every JSON written before that, `let` or `var`
+        /// being invisible to Codable.
+        var code: String
         var name: String
         var enabled: Bool
 
@@ -78,10 +85,12 @@ struct CheatManagerView: View {
     /// the bridges, not recalled: mGBA takes GameShark / CodeBreaker / Action Replay,
     /// melonDS takes Action Replay DS pairs, and MesenCE takes Game Genie plus one
     /// raw format per console (`MesenBridge.addCheatCode`, and the converters it
-    /// calls). GB and GBC keep the Game Boy family's answer, which is the default.
+    /// calls), and PCSX-ReARMed reduces whatever is pasted to GameShark / Action
+    /// Replay address-value pairs (`retro_cheat_set` in its own libretro.c).
+    /// GB and GBC keep the Game Boy family's answer, which is the default.
     private var formatKey: String {
         switch systemKey {
-        case "nds", "snes", "nes": return systemKey
+        case "nds", "snes", "nes", "ps1": return systemKey
         default: return "gba"
         }
     }
@@ -91,6 +100,11 @@ struct CheatManagerView: View {
         case "nds":  return "e.g. 94000130 FCFF0000\n    62101D40 00000000"
         case "snes": return "e.g. DD82-64DC"
         case "nes":  return "e.g. SXIOPO"
+        // Eight digits of address then four of value. PCSX-ReARMed's
+        // `retro_cheat_set` rewrites every run of non-hex into a space and a
+        // newline before handing the code to PCSX, so this is the shape it
+        // reduces to whatever separators the player pasted.
+        case "ps1":  return "e.g. 800C1B24 0063"
         default:     return "e.g. 82003884 0001"
         }
     }
@@ -325,6 +339,18 @@ struct CheatManagerView: View {
                     codeAdvisory = CheatCodeFormatter.advisory(in: code, system: systemKey)
                 }
             }
+            .sheet(item: $editingCheat) { target in
+                // Validation is NOT duplicated here: `applyEdit` runs the same
+                // shape check `addCheat` runs and then lets the core answer,
+                // and hands back the message to show. The sheet's only job is
+                // the two fields.
+                CheatEditSheet(
+                    cheat: target,
+                    formatHint: formatHint,
+                    placeholderText: placeholderText,
+                    onSave: { newName, newCode in applyEdit(to: target, name: newName, code: newCode) }
+                )
+            }
             .sheet(isPresented: $showHowTo) {
                 HowToSheet(
                     title: NSLocalizedString("guide.cheats.title", comment: ""),
@@ -425,7 +451,7 @@ struct CheatManagerView: View {
                 cheat.wrappedValue.enabled.toggle()
                 saveCheats()
                 reapplyAll()
-                Analytics.signal("cheat", ["action": "toggled", "enabled": cheat.wrappedValue.enabled ? "true" : "false", "system": systemKey])
+                Analytics.signalOnce("cheat", ["action": "toggled", "enabled": cheat.wrappedValue.enabled ? "true" : "false", "system": systemKey])
             } label: {
                 Image(systemName: cheat.wrappedValue.enabled ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(cheat.wrappedValue.enabled ? .green : .gray)
@@ -433,7 +459,12 @@ struct CheatManagerView: View {
             }
             .buttonStyle(.plain)
 
-            // Name + code
+            // Name + code. Tapping this opens the editor: it is the part of
+            // the row that shows what would be edited, and it keeps the toggle
+            // and the delete button as the two things a tap can still hit
+            // directly. A row-wide tap would put "edit" and "toggle" on the
+            // same gesture in different places, which is how a cheat gets
+            // switched off by someone trying to fix its name.
             VStack(alignment: .leading, spacing: 2) {
                 if !cheat.wrappedValue.name.isEmpty {
                     // NOT one line. libretro puts the instruction in the name
@@ -450,8 +481,12 @@ struct CheatManagerView: View {
                     .foregroundColor(.secondary)
                     .lineLimit(3)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { editingCheat = cheat.wrappedValue }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(NSLocalizedString("cheats.edit.hint", comment: ""))
 
-            Spacer()
 
             // Delete button
             Button {
@@ -476,8 +511,10 @@ struct CheatManagerView: View {
 
     /// Specific when the shape check can name the mistake, generic when only
     /// the core refused it.
-    private var errorMessage: String {
-        switch codeProblem {
+    private var errorMessage: String { errorMessage(for: codeProblem) }
+
+    private func errorMessage(for problem: CheatCodeFormatter.Problem?) -> String {
+        switch problem {
         case .invalidCharacter:
             // The NES is the one console whose alphabet is not hexadecimal, so
             // it is the one console the generic sentence would mislead: Game
@@ -528,6 +565,44 @@ struct CheatManagerView: View {
             codeProblem = nil   // the core refused a well-shaped code
             showError = true
         }
+    }
+
+    /// Commit an edit. Returns nil on success, or the message to show.
+    ///
+    /// The shape check is the same one `addCheat` runs, and then the CORE gets
+    /// the last word exactly as it does on add: a well-shaped code the core
+    /// will not take must fail here rather than be stored and silently do
+    /// nothing in the game. `onAddCheat` is the only per-code answer the bridge
+    /// offers, so it is what asks the question; `reapplyAll` immediately below
+    /// clears and rebuilds the core's whole cheat set from what is stored, so
+    /// the probe leaves nothing behind either way. A refused code cannot leave
+    /// a fragment: both bridges reject outright when no type reads every line.
+    private func applyEdit(to target: StoredCheat, name: String, code: String) -> String? {
+        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty else { return errorMessage(for: nil) }
+        guard let index = cheats.firstIndex(where: { $0.id == target.id }) else { return nil }
+
+        let codeChanged = trimmedCode != target.code
+        if codeChanged {
+            if let problem = CheatCodeFormatter.problem(in: trimmedCode, isNDS: isNDS, system: systemKey) {
+                return errorMessage(for: problem)
+            }
+            // Same guard as adding: the save is backed up before the first
+            // change of this session, not after it.
+            if !hasBackedUp {
+                onBackupSave()
+                hasBackedUp = true
+            }
+            guard onAddCheat(trimmedCode) else { return errorMessage(for: nil) }
+        }
+
+        cheats[index].name = trimmedName
+        cheats[index].code = trimmedCode
+        saveCheats()
+        reapplyAll()
+        Analytics.signal("cheat", ["action": "edited", "system": systemKey])
+        return nil
     }
 
     private func reapplyAll() {

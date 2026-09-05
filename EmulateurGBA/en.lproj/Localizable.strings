@@ -9,7 +9,7 @@
 "library.empty.title" = "Welcome to Retro Pal";
 "library.empty.subtitle" = "Play your retro games on iPhone. No ads, no personal tracking.";
 "library.empty.button" = "Add a game";
-"library.empty.step1" = "Get a game (.gba, .gb, .gbc, .nds, .sfc, .smc or .nes) onto your iPhone, via Safari, AirDrop or iCloud Drive.";
+"library.empty.step1" = "Get a game (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes or .chd) onto your iPhone, via Safari, AirDrop or iCloud Drive.";
 "library.empty.step2" = "Tap %@, then pick the file in the Files app.";
 "library.empty.step3" = "Play. Your progress saves automatically";
 "library.empty.romHint" = "No ROMs yet? Plenty of free, legal games exist. Search \"GBA homebrew\" online.";
@@ -50,10 +50,17 @@
 "overlay.paused" = "PAUSED";
 "overlay.resume" = "Resume";
 "overlay.rewind" = "%@s";
+"overlay.rewind.pick" = "Rewind by";
 "overlay.screenshot" = "Screenshot";
 "overlay.quit" = "Quit Game";
 "overlay.speed" = "SPEED";
 "overlay.saveSlots" = "QUICK-SAVE SLOTS";
+// PlayStation disc picker (pause menu, multi-disc games only)
+"overlay.discs" = "Discs";
+"overlay.disc.numbered" = "Disc %@";
+"overlay.disc.inDrive" = "In drive";
+"overlay.disc.failed.title" = "The disc did not change";
+"overlay.disc.failed.message" = "The console refused the disc change. Open the menu and try again.";
 "overlay.slot" = "Slot %@";
 "overlay.slot.empty" = "Empty";
 "overlay.save" = "Save";
@@ -82,6 +89,8 @@
 "settings.app" = "Retro Pal";
 "settings.version" = "Version";
 "settings.core" = "Emulator Core";
+"settings.engines.footer" = "Licence: %@.";
+"settings.engines.footer.patched" = "Licence: %@. Used with one small change, published as a patch file alongside the source.";
 "settings.rateApp" = "Rate Retro Pal";
 "settings.disclaimer" = "Retro Pal is a local-only emulator. No games are included. Import only files you legally own.";
 "settings.restore" = "Restore Purchases";
@@ -90,7 +99,12 @@
 "pro.title" = "Retro Pal Pro";
 "pro.purchased" = "Purchased";
 "pro.forever" = "%@, forever";
-"pro.monthly" = "or %@/month";
+"pro.monthly" = "%@ / month";
+// pro.lifetime / pro.yearly CARRY THEIR OWN LEADING PUNCTUATION. They follow
+// the price on one line ("9,99 EUR, a vie"), and the comma is not shared: ja and
+// zh-Hant take the ideographic comma. Keep the separator inside the value.
+"pro.lifetime" = ", lifetime";
+"pro.yearly" = ", 1 year";
 "pro.notNow" = "Not Now";
 "pro.restore" = "Restore Purchases";
 "pro.unavailable" = "Pro unavailable. Check your connection.";
@@ -179,7 +193,7 @@
 "legal.melonds" = "melonDS License";
 "legal.importantNotice.title" = "Important Notice";
 "legal.aboutApp.title" = "About This App";
-"legal.aboutApp.description1" = "Retro Pal is a local emulator frontend for Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, and NES games. It does not download, distribute, or provide access to any game content. All ROM files must be imported by the user from their own device storage via the Files app.";
+"legal.aboutApp.description1" = "Retro Pal is a local emulator frontend for Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, and PlayStation games. It does not download, distribute, or provide access to any game content. All ROM files must be imported by the user from their own device storage via the Files app.";
 "legal.aboutApp.description2" = "This app does not provide a game catalog, does not distribute game content, and does not facilitate downloading copyrighted material.";
 "legal.privacy.title" = "Privacy";
 "legal.privacy.description" = "Your games and saves stay on your device. To improve the app, Retro Pal sends only anonymous usage statistics, no personal data, no advertising identifiers.";
@@ -191,10 +205,13 @@
 "legal.mesen" = "MesenCE License";
 "legal.mesen.licenseLine" = "Licensed under the GNU General Public License v3.0 (GPL-3.0)";
 "legal.mesen.description" = "MesenCE is a Super Nintendo and NES emulator used as the emulation engine for SNES and NES games in this app. The source code for MesenCE is available at [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.pcsx" = "PCSX-ReARMed License";
+"legal.pcsx.licenseLine" = "Licensed under the GNU General Public License v2.0 or later (GPL-2.0-or-later)";
+"legal.pcsx.description" = "PCSX-ReARMed is a PlayStation emulator used as the emulation engine for PlayStation games in this app. The source code for PCSX-ReARMed is available at [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.retropal" = "Retro Pal License";
 "legal.retropal.licenseLine" = "Licensed under the GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Retro Pal's complete source code is available at [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). The software is provided without any warranty.";
-"legal.compliance" = "Retro Pal is distributed under the GNU General Public License v3.0. It builds on mGBA (Mozilla Public License 2.0) and melonDS (GPL-3.0), used without modification, and on MesenCE (GPL-3.0), used with one small change that ships as a patch file alongside the source. The complete corresponding source code is available at the repository linked above, and the software comes with no warranty.";
+"legal.compliance" = "Retro Pal is distributed under the GNU General Public License v3.0. It builds on mGBA (Mozilla Public License 2.0), melonDS (GPL-3.0) and PCSX-ReARMed (GPL-2.0 or later), used without modification, and on MesenCE (GPL-3.0), used with one small change that ships as a patch file alongside the source. The complete corresponding source code is available at the repository linked above, and the software comes with no warranty.";
 
 "details.noSaves" = "No quick-saves yet. Make one during gameplay with the menu button.";
 "details.play" = "Play";
@@ -217,12 +234,16 @@
 "cheats.hint.nds" = "Action Replay DS format (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Game Genie (XXXX-XXXX) or Pro Action Replay format";
 "cheats.hint.nes" = "Game Genie (letters) or Pro Action Rocky format";
+"cheats.hint.ps1" = "GameShark or Action Replay format (XXXXXXXX YYYY)";
 "cheats.namePlaceholder" = "Name (optional)";
+"cheats.edit.title" = "Edit Code";
+"cheats.edit.hint" = "Edit this code";
 "cheats.add" = "Add Code";
 "cheats.invalid.gba" = "Unrecognized code. Expected GameShark, CodeBreaker, or Action Replay format.";
 "cheats.invalid.nds" = "Unrecognized code. Expected Action Replay DS format: XXXXXXXX YYYYYYYY (one pair per line).";
 "cheats.invalid.snes" = "Unrecognized code. Expected Game Genie (XXXX-XXXX) or Pro Action Replay (eight characters).";
 "cheats.invalid.nes" = "Unrecognized code. Expected Game Genie (six or eight letters) or Pro Action Rocky (eight characters).";
+"cheats.invalid.ps1" = "Unrecognized code. Expected GameShark or Action Replay format: XXXXXXXX YYYY (one pair per line).";
 "cheats.empty" = "No active cheats";
 "cheats.findHint" = "Codes can be found online. Just search for your game's cheat codes.";
 "cheats.clearAll" = "Clear All";
@@ -332,11 +353,11 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Add a game";
 "guide.importRom.intro" = "Retro Pal contains no games. You provide your own ROM files, which you legally own (your own cartridges, or free and legal homebrew games).";
-"guide.importRom.step1" = "Get the game file (.gba, .gb, .gbc, .nds, .sfc, .smc or .nes) onto your iPhone: download it in Safari, AirDrop it from a computer, or from iCloud Drive.";
+"guide.importRom.step1" = "Get the game file (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, or a PlayStation disc as .chd, or .cue with its .bin) onto your iPhone: download it in Safari, AirDrop it from a computer, or from iCloud Drive.";
 "guide.importRom.step2" = "Check that it appears in the Files app (under Downloads, On My iPhone, or iCloud Drive).";
 "guide.importRom.step3" = "In Retro Pal, tap the + button at the top of the library.";
 "guide.importRom.step4" = "Choose the file. The game appears in your library right away, ready to play.";
-"guide.importRom.footer" = "Supported formats: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, and .zip files containing a single game. .7z and multi-game archives aren't supported; extract a single file first. Only import files you legally own.";
+"guide.importRom.footer" = "Supported formats: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, plus PlayStation discs as .chd, .cue with its .bin, or .m3u. A .zip works too, whether it holds one game, all the files of one disc, or several games to choose from. .7z isn't supported. Only import files you legally own.";
 "settings.guides.section" = "Guides";
 "settings.controller.row" = "Controller";
 "common.done" = "Done";
@@ -429,6 +450,7 @@
 "skin.editor.surround" = "Screen frame";
 "skin.editor.dpad" = "D-pad";
 "skin.editor.abButtons" = "A/B buttons";
+"skin.editor.faceButtons" = "Face buttons";
 "skin.editor.faceA" = "A button";
 "skin.editor.faceB" = "B button";
 "skin.editor.faceX" = "X button";
@@ -498,6 +520,7 @@
 "ra.details.invite.headline" = "Earn achievements in this game";
 "ra.details.invite.caption" = "This game has a RetroAchievements set: challenges to complete as you play, tracked with a free account.";
 "ra.details.unavailable" = "RetroAchievements is not available for this game.";
+"ra.details.unavailable.pbp" = "RetroAchievements cannot read a .pbp file. The same game as .chd, or as .cue with its .bin, earns achievements normally.";
 "ra.library.invite.caption" = "Your games have RetroAchievements sets. Connect a free account to earn achievements as you play.";
 "ra.library.recent" = "Last unlocked";
 "ra.library.noUnlocks" = "Your latest achievements will appear here.";
@@ -520,10 +543,13 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "The selected file can't be accessed. Try importing it from the Files app.";
 "import.error.copyFailed" = "The game couldn't be copied into Retro Pal. Free up some storage and try again.";
-"import.error.invalidROM" = "This file isn't a game Retro Pal can read. Supported games: .gba, .gb, .gbc, .nds, .sfc, .smc and .nes.";
+"import.error.invalidROM" = "This file isn't a game Retro Pal can read. Supported games: .gba, .gb, .gbc, .nds, .sfc, .smc and .nes, plus PlayStation discs as .chd, .cue with its .bin, or .m3u.";
+"import.error.discMissingFiles" = "This disc needs files that weren't selected: %@. Choose the .cue and all of its .bin files together, in one selection.";
 "import.error.zipNoROM" = "No game file was found in this ZIP. Retro Pal reads .gba, .gb, .gbc, .nds, .sfc, .smc and .nes games; other consoles aren't supported.";
 "import.error.zipExtractionFailed" = "This ZIP couldn't be opened. Extract it in the Files app, then import the game file directly.";
 "import.error.alreadyImported" = "This game is already in your library.";
+"import.duplicate.title" = "Already in Your Library";
+"import.duplicate.bodySeveral" = "These games are already in your library:";
 "import.error.saveFailed" = "The game couldn't be added to your library. Please try again.";
 "import.error.differentGame" = "This file is a different game from the one you're replacing.";
 "import.error.batchIntro" = "These files couldn't be imported:";
@@ -538,7 +564,6 @@
 "whatsnew.title" = "What's New";
 "whatsnew.version" = "Version %@";
 "whatsnew.footer" = "You can reread these notes anytime in Settings.";
-"whatsnew.notice.pro" = "A note on Pro: its one-time lifetime price will go up in a coming update. There is no date yet. Everything that is free today stays free, always: no ads, and you never have to pay to play.";
 "whatsnew.dismiss" = "Got it!";
 
 /* --- External display (AirPlay / cable), Pro --- */
@@ -624,25 +649,24 @@
 
 "externalDisplay.idle.hint" = "Launch a game on your iPhone";
 
-/* --- What's New, rewritten each release (see TODOS.md) --- */
-"whatsnew.s1.title" = "Two more consoles";
-"whatsnew.s1.b1" = "Super Nintendo and NES games play in Retro Pal now, and both consoles are free for everyone.";
-"whatsnew.s1.b2" = "Saves, speed, rewind, cheat codes and achievements all work on them from the first day.";
-"whatsnew.s2.title" = "They look like the real thing";
-"whatsnew.s2.b1" = "Each new console wears its own shell around the game, in portrait and in landscape.";
-"whatsnew.s2.b2" = "Build your own skin and give every face button its own color, then share a card of it. {PRO}";
-"whatsnew.s3.title" = "Rewind on every console";
-"whatsnew.s3.b1" = "Rewind reaches Nintendo DS, which needed a much smaller way to keep its much larger snapshots.";
-"whatsnew.s3.b2" = "Five seconds for everyone, thirty with {PRO}, on all six consoles.";
-"whatsnew.s4.title" = "Cheat codes, fixed";
-"whatsnew.s4.b1" = "A code printed on several lines goes in as one entry, and the app says so before you get it wrong.";
-"whatsnew.s4.b2" = "A game whose own release has no codes can borrow them from another region of the same cartridge.";
-"whatsnew.s5.title" = "RetroAchievements";
-"whatsnew.s5.b1" = "A game with several achievement sets now shows each set with its own count and badge.";
-"whatsnew.s5.b2" = "Finishing a set, or a whole game, gets its own moment on screen.";
-"whatsnew.s6.title" = "With a controller attached";
-"whatsnew.s6.b1" = "Move and resize the game screen when a clip-on controller covers part of the display. {PRO}";
-"whatsnew.s6.b2" = "Each console remembers its own arrangement, in portrait and in landscape.";
+/* --- What's New, rewritten each release --- */
+"whatsnew.s1.title" = "The PlayStation";
+"whatsnew.s1.b1" = "PlayStation games play in Retro Pal now, and the console is free for everyone.";
+"whatsnew.s1.b2" = "Saves, save states, rewind, cheat codes and achievements all work on it from the first day.";
+"whatsnew.s1.b3" = "Progress is saved to a memory card, as it was on the console, and it reaches your other devices like every other save.";
+"whatsnew.s1.b4" = "It wears its own shell around the game, in portrait and in landscape. {PRO} repaints that pad in your own colours, down to the ink printed on it.";
+"whatsnew.s2.title" = "Discs, whatever shape yours are";
+"whatsnew.s2.b1" = "A PlayStation game can be one file or a folder of them. Add a .chd, or a .cue with its .bin, or a zip of the whole thing.";
+"whatsnew.s2.b2" = "Retro Pal works out which files belong together and adds one game, not fifty.";
+"whatsnew.s2.b3" = "A game on several discs becomes one game, even when the discs arrive as separate files, and you change disc from the pause menu without leaving it.";
+"whatsnew.s3.title" = "A pad with two sticks";
+"whatsnew.s3.b1" = "The on-screen controls carry both analog sticks and the ANALOG button, so analog games work on glass as well as with a controller.";
+"whatsnew.s3.b2" = "The left stick moves, the right one looks around, exactly as the games expect.";
+"whatsnew.s4.title" = "Cheats";
+"whatsnew.s4.b1" = "A saved cheat can be edited now, so fixing one wrong character no longer means typing the whole code again.";
+"whatsnew.s5.title" = "Controls";
+"whatsnew.s5.b1" = "The on-screen joystick wears the same moulded look as the PlayStation's sticks, in each console's own colours.";
+"whatsnew.s5.b2" = "{PRO} lets you choose how far rewind goes: press and hold the rewind button and pick the number of seconds, up to 30.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "No achievements from this set are loaded.";

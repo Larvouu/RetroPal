@@ -520,6 +520,9 @@ public:
 - (NSInteger)screenHeight { return _bufferHeight; }
 - (NSInteger)bufferStride { return _bufferWidth; }
 - (NSInteger)totalBufferHeight { return _bufferHeight; }
+/// Fixed for the session: the bridge presents SNES hi-res and doubles the
+/// ordinary frames into it, so the buffer never changes size mid-game.
+- (NSInteger)maxBufferHeight { return _bufferHeight; }
 - (BOOL)hasTouchScreen { return NO; }
 
 /// The console's OWN frame with square pixels: SNES 8:7 (256x224), NES 31:30

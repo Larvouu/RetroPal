@@ -7,3 +7,6 @@
 [submodule "Vendor/mesence"]
 	path = Vendor/mesence
 	url = https://github.com/nesdev-org/MesenCE.git
+[submodule "Vendor/pcsx_rearmed"]
+	path = Vendor/pcsx_rearmed
+	url = https://github.com/libretro/pcsx_rearmed.git

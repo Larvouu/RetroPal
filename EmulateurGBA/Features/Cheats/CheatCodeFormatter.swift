@@ -82,7 +82,10 @@ enum CheatCodeFormatter {
             // Action Replay DS, GameShark GBA v3, Action Replay GBA.
             return split(compact, at: 8)
         case 12 where !isNDS:
-            // CodeBreaker GBA: eight digits then four.
+            // CodeBreaker GBA, and the PlayStation's GameShark / Action Replay,
+            // which share the shape: eight digits of address then four of
+            // value. The DS is excluded because its codes come in 8+8 pairs and
+            // a 12-digit run there is a half-typed one, not a whole code.
             return split(compact, at: 8)
         default:
             return line
@@ -99,7 +102,8 @@ enum CheatCodeFormatter {
     /// The shape problem, if there is one we can name. `nil` means "hand it to
     /// the core", not "this code is valid".
     /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
-    ///   `"nds"` / `"snes"` / `"nes"`, for the same reason `advisory` takes one:
+    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"`, for the same reason `advisory`
+    ///   takes one:
     ///   the alphabet a code may use is a fact about the console, and the view's
     ///   `isNDS` flag describes a keyboard layout.
     static func problem(in code: String, isNDS: Bool, system: String = "") -> Problem? {

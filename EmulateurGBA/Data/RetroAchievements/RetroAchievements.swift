@@ -264,7 +264,6 @@ final class RetroAchievements: NSObject, ObservableObject {
                 KeychainStore.set(username, account: Self.keychainUsername)
                 KeychainStore.set(token, account: Self.keychainToken)
                 Analytics.signal("ra_login")    // anonymous funnel: a fresh sign-in
-                Analytics.signal("ra_active")   // this user uses RA (adoption %)
                 self?.refreshProgressIfNeeded(force: true)
             }
             self?.refreshUser()
@@ -290,7 +289,6 @@ final class RetroAchievements: NSObject, ObservableObject {
             if success {
                 // Returning RA user this session — counts toward the adoption %
                 // (unique users on ra_active / all users). Anonymous, no identity.
-                Analytics.signal("ra_active")
                 self.refreshProgressIfNeeded(force: true)
                 // A game may already be running (launched while the login was
                 // still failing) — arm its tracking now.
@@ -714,7 +712,6 @@ extension RetroAchievements: RAClientDelegate {
             PromptTracker.shared.recordAchievementUnlocked()
         }
         // Anonymous adoption signal: no title, no game, no identity — just a count.
-        Analytics.signal("ra_unlock")
         // The unlocked achievement drops out of the measured snapshot (and a
         // multi-step one may have companions that moved).
         snapshotMeasuredProgress()

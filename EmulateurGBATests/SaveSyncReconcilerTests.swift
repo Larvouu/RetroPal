@@ -2,7 +2,7 @@
 //  SaveSyncReconcilerTests.swift
 //  EmulateurGBATests
 //
-//  Branch matrix for the local-first save-state mirror (SAVE_SYNC_LOCAL_FIRST.md).
+//  Branch matrix for the local-first save-state mirror (see SaveSyncReconciler).
 //  Uses two throwaway temp roots with plain files, so no iCloud is involved; the
 //  reconciler's `materialize` default is a plain presence check.
 //

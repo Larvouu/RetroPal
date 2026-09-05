@@ -71,6 +71,12 @@ enum ShareCardStyle: String {
                 case .nes:
                     // The NES's light grey shell (#D2D5DC).
                     return [Color(red: 0.824, green: 0.835, blue: 0.863), Color(red: 0.690, green: 0.700, blue: 0.727)]
+                case .ps1:
+                    // The PlayStation's shell, #BEBEBC — the dress's own body.
+                    // It read #B7B3AB until now, which was the placeholder the
+                    // palette carried before the dress existed; the palette moved
+                    // to the real value and this copy did not follow.
+                    return [Color(red: 0.745, green: 0.745, blue: 0.737), Color(red: 0.604, green: 0.604, blue: 0.596)]
                 }
             }
         }
@@ -124,13 +130,22 @@ extension PresetSystem {
     /// The console for a ROM filename, by extension (the same mapping the emulator
     /// derives from its ROM type). nil for an unknown extension.
     static func forRomFilename(_ filename: String) -> PresetSystem? {
-        switch (filename as NSString).pathExtension.lowercased() {
+        let ext = (filename as NSString).pathExtension.lowercased()
+        switch ext {
         case "gb", "gbc": return .gbc
         case "gba":       return .gba
         case "nds":        return .nds
         case "sfc", "smc": return .snes
         case "nes":        return .nes
-        default:           return nil
+        // A disc has ten possible extensions and they are already enumerated
+        // once, by the importer that has to accept them. Asked rather than
+        // re-listed: written out here, this switch returned nil for every
+        // PlayStation game, and nil is what makes a share card fall back to the
+        // Classic style with no console-skin choices at all. So an achievement
+        // unlocked on this console was the only one in the app that could not
+        // be shared on its own machine.
+        default:
+            return ROMSystemType.discFileExtensions.contains(ext) ? .ps1 : nil
         }
     }
 }
@@ -159,6 +174,7 @@ extension DressVariant {
             case .nds: return NDSSkinPalette.nostalgia.body
             case .snes: return SNESSkinPalette.nostalgia.body
             case .nes: return NESSkinPalette.nostalgia.body
+            case .ps1: return PS1SkinPalette.nostalgia.body
             }
         case .retroPal:
             switch system {
@@ -167,12 +183,14 @@ extension DressVariant {
             case .nds: return RetroPalPalette.ndsBody
             case .snes: return RetroPalPalette.snesBody
             case .nes: return RetroPalPalette.nesBody
+            case .ps1: return PS1SkinPalette.retroPal.body
             }
         case .custom(.gbc(let p)): return p.body
         case .custom(.gba(let p)): return p.body
         case .custom(.nds(let p)): return p.body
         case .custom(.snes(let p)): return p.body
         case .custom(.nes(let p)): return p.body
+        case .custom(.ps1(let p)): return p.body
         }
     }
 
@@ -182,6 +200,13 @@ extension DressVariant {
     /// NDS ink untouched), body −39% luma for a custom body (NintendoDSSkin.ink).
     func cardEdgeColor(for system: PresetSystem) -> UIColor {
         switch system {
+        case .ps1:
+            switch self {
+            case .nostalgia:           return PS1SkinPalette.nostalgia.surround
+            case .retroPal:            return PS1SkinPalette.retroPal.surround
+            case .custom(.ps1(let p)): return p.surround
+            case .custom:              return PS1SkinPalette.nostalgia.surround
+            }
         case .nes:
             switch self {
             case .nostalgia:           return NESSkinPalette.nostalgia.surround
@@ -250,6 +275,8 @@ extension DressVariant {
                                            p.faceAHex, p.faceBHex, p.faceXHex, p.faceYHex])
         case .custom(.nes(let p)):
             return "custom-nes-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex])
+        case .custom(.ps1(let p)):
+            return "custom-ps1-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex])
         }
     }
 }

@@ -47,7 +47,7 @@ struct LibraryStats {
     /// the SAME derivation LibraryRow + GameCoverView use, so look-ups match.
     static func romName(for path: String?) -> String? {
         guard let path = path else { return nil }
-        let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        let name = BatterySaveImporter.romBasename(forStoredFilename: path)
         return name.isEmpty ? nil : name
     }
 

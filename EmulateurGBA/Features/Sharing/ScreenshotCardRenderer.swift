@@ -349,6 +349,26 @@ struct ScreenshotCardRenderer {
     /// wrong in the clip renderer, then correct there and still wrong in the clip PREVIEW. A
     /// switch over the console cannot silently acquire a wrong default, and there is now one
     /// switch rather than three.
+    /// Whether this console has a console-shaped card at all, which is the same
+    /// question as whether it has a DRESS to draw.
+    ///
+    /// Separate from `consoleCard` so a caller can ASK before paying to render
+    /// one: the clip card's live preview has to choose which of two cards to
+    /// build before it builds either, and building the console card just to
+    /// discover it is nil costs a full 1080 composite every layout pass.
+    ///
+    /// The two switches are kept honest by a test rather than by care, because
+    /// this exact mapping has already been copied three times in this feature
+    /// and the copies drifted. See `consoleCardAvailabilityMatchesTheCards`.
+    static func hasConsoleCard(_ system: PresetSystem) -> Bool {
+        switch system {
+        case .gbc, .gba, .nds, .snes, .nes, .ps1: return true
+        }
+    }
+
+    /// The console card and its layout, which are a PAIR and must come from the
+    /// same console. Returns nil for a console with no dress; ask
+    /// `hasConsoleCard` first if you only need to know which card to build.
     static func consoleCard(system: PresetSystem, gameFrame: CGImage?, gameAspect: CGFloat,
                             info: GameInfo, variant: DressVariant,
                             side: CGFloat = 1080) -> (image: UIImage?, layout: GBCardLayout)? {
@@ -370,6 +390,9 @@ struct ScreenshotCardRenderer {
         case .nes:
             return (nesConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
                     GBCardLayout.nes(side: side, gameNativeSize: gameSize))
+        case .ps1:
+            return (ps1ConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.ps1(side: side, gameNativeSize: gameSize))
         }
     }
 
@@ -776,6 +799,78 @@ struct ScreenshotCardRenderer {
         return image
     }
 
+    // MARK: - PlayStation console card
+
+    /// The PlayStation console card: the same composite every console here gets,
+    /// over `GBCardLayout.ps1`.
+    ///
+    /// Kept as its own function rather than folded into `snesConsoleCard` with a
+    /// system parameter, for the reason that one states about the GBA's: what
+    /// differs is the layout call and the system the ink threshold asks about,
+    /// so one shared function with two branches would be the same code under a
+    /// worse name.
+    static func ps1ConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                                variant: DressVariant = .nostalgia) -> UIImage? {
+        let cardW: CGFloat = 1080, cardH: CGFloat = 1080
+        let cardCorner: CGFloat = 48
+        let size = CGSize(width: cardW, height: cardH)
+
+        let layout = GBCardLayout.ps1(side: cardW, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: .ps1, variant: variant)
+
+        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
+        UIColor.black.setFill()
+        ctx.fill(CGRect(origin: .zero, size: size))
+        ctx.saveGState()
+        UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cardCorner).addClip()
+
+        console.draw(in: CGRect(origin: .zero, size: size))
+
+        if let gameFrame {
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            ctx.saveGState()
+            UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
+            game.draw(in: layout.screen)
+            ctx.restoreGState()
+        }
+
+        // The info block is NARROWED to the column between the cross and the
+        // diamond, and placed vertically exactly where every other card places
+        // it. This card's controls fill the whole band below the screen, so the
+        // block has to be kept out of them -- but that is a WIDTH problem: at
+        // the full width of the card the game's name printed straight across the
+        // pad. The column comes from the LAYOUT, so the two agree by
+        // construction rather than by two sets of matching numbers, and `topY`
+        // is left to `drawGBInfoBlock`'s own default so this console's block
+        // sits on the same line as the Classic card's instead of 25 points
+        // below it (device note, 2026-08-27).
+        let columnWidth = GBCardLayout.ps1InfoColumnWidth(layout, side: cardW)
+        // Dark ink on the pale Nostalgia shell, light ink on Retro Pal's near-black one.
+        if variant.bodyColor(for: .ps1).rpLuminance > 0.5 {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info,
+                            maxWidth: columnWidth)
+        } else {
+            drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info,
+                            titleColor: .white, playTimeColor: gold,
+                            labelColor: UIColor.white.withAlphaComponent(0.55),
+                            maxWidth: columnWidth)
+        }
+
+        ctx.restoreGState()
+
+        let inset: CGFloat = 2
+        let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
+        let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
+        variant.cardEdgeColor(for: .ps1).setStroke()
+        edgePath.lineWidth = 3
+        edgePath.stroke()
+
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image
+    }
+
     // MARK: - NDS console card (Nostalgia)
 
     /// The NDS Nostalgia card: the NDS console dress fills the square. The stacked dual-screen image
@@ -884,17 +979,26 @@ struct ScreenshotCardRenderer {
     /// standard card (computed off the screen rect the same way). Colours default to the dark ink
     /// that reads on the light DMG-grey GB/GBC body; a dark-bodied console (GBA) passes the standard
     /// card's light palette (white title, gold play time, muted-white label). The crown stays metal.
+    ///
+    /// `topY` and `maxWidth` override the two things the block normally derives
+    /// from the screen. The PlayStation card needs both: its controls fill three
+    /// rows under the picture, so "below the screen" is inside the pad, and the
+    /// column it actually has is the gap between the cross and the diamond
+    /// rather than the whole card. Both default to the old behaviour, so every
+    /// other card is byte-identical.
     private static func drawGBInfoBlock(in ctx: CGContext, cardW: CGFloat, screen: CGRect, info: GameInfo,
                                         titleColor: UIColor = UIColor(white: 0.12, alpha: 0.92),
                                         playTimeColor: UIColor = UIColor(white: 0.12, alpha: 0.75),
-                                        labelColor: UIColor = UIColor(white: 0.12, alpha: 0.75)) {
+                                        labelColor: UIColor = UIColor(white: 0.12, alpha: 0.75),
+                                        topY: CGFloat? = nil, maxWidth: CGFloat? = nil) {
         let sidePadding: CGFloat = 60
         let bezelPadding: CGFloat = 8
 
         // Same cursor as the standard card: below the framed screen.
-        var cursorY = screen.maxY + bezelPadding + 32
+        var cursorY = topY ?? (screen.maxY + bezelPadding + 32)
         cursorY += drawFittedTitle(info.name, cardW: cardW, y: cursorY,
-                                   maxWidth: cardW - sidePadding * 2, color: titleColor) + 8
+                                   maxWidth: maxWidth ?? (cardW - sidePadding * 2),
+                                   color: titleColor) + 8
 
         drawStatLine(in: ctx, cardW: cardW, y: cursorY, info: info,
                      statColor: playTimeColor, labelColor: labelColor)

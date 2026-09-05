@@ -1,5 +1,5 @@
 # Standalone iOS build of the melonDS user-mode network stack for the WFC
-# spike (see WFC_SPIKE.md at the repo root).
+# spike (see the header of EmulateurGBA/EmulatorCore/Bridge/MelonDSPlatform.cpp).
 #
 # Deliberately NOT the upstream `net-utils` target: that one also builds
 # LocalMP / LAN / Netplay and requires enet + (optionally) pcap. Online WFC
