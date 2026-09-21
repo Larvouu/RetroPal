@@ -340,7 +340,11 @@ private struct SkinColorRow: View {
         .onChange(of: hex) { newHex in if !focused { text = Self.format(newHex) } }
         // Typing: sanitize to <=6 hex chars; apply when a full 6-digit colour is entered.
         .onChange(of: text) { newText in
-            let clean = String(newText.uppercased().filter(\.isHexDigit).prefix(6))
+            // Fold fullwidth digits first: `isHexDigit` accepts them, but
+            // `UInt32(_:radix:)` does not, so a colour typed on a Japanese
+            // keyboard passed the filter and then silently never applied.
+            let ascii = newText.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? newText
+            let clean = String(ascii.uppercased().filter(\.isHexDigit).prefix(6))
             if clean != newText { text = clean }
             if clean.count == 6, let v = UInt32(clean, radix: 16), v != hex { hex = v }
         }

@@ -480,6 +480,25 @@ final class RetroAchievements: NSObject, ObservableObject {
         #endif
     }
 
+    /// The key the library index files a game under: its path RELATIVE to the
+    /// ROMs folder, which is what `GameEntity.romFilePath` stores and what
+    /// `syncLibraryGames` registers. "Game.gba" for a cartridge, and
+    /// "Tomb Raider/Tomb Raider.cue" for a disc, which lives in a folder of its
+    /// own. The session used to key on the last path component alone, so every
+    /// disc game missed its record: no game id, title, box art or unlock count
+    /// was ever written for a PlayStation session (found 2026-09-02).
+    ///
+    /// Derived from the path's components rather than by stripping a known
+    /// prefix, because the same file is reached as `/var/...` and
+    /// `/private/var/...` depending on who built the URL.
+    static func libraryKey(forROMPath path: String) -> String {
+        let components = (path as NSString).pathComponents
+        if let index = components.firstIndex(of: "ROMs"), index + 1 < components.count {
+            return components[(index + 1)...].joined(separator: "/")
+        }
+        return (path as NSString).lastPathComponent
+    }
+
     func startSession(_ session: EmulatorSession, romPath: String) {
         Self.debugLog("[RA] startSession enabled=\(isEnabled) loggedIn=\(client.isLoggedIn) path=\(romPath)")
         guard isEnabled else { return }
@@ -495,8 +514,9 @@ final class RetroAchievements: NSObject, ObservableObject {
         // returns — doFrame no-ops until a game is actually loaded.
         activeSession = session
         activeSessionROMPath = romPath
-        currentROMFilename = (romPath as NSString).lastPathComponent
-        activeSessionROMHash = RAGameIndex.shared.romHash(forFilename: (romPath as NSString).lastPathComponent)
+        let key = Self.libraryKey(forROMPath: romPath)
+        currentROMFilename = key
+        activeSessionROMHash = RAGameIndex.shared.romHash(forFilename: key)
         client.setMemoryReader { [weak session] address, buffer, length in
             guard let session else { return 0 }
             return session.readMemory(at: address, into: buffer, length: length)
@@ -538,7 +558,7 @@ final class RetroAchievements: NSObject, ObservableObject {
             return
         }
         endSession()  // also settles any display load already in flight
-        currentROMFilename = romURL.lastPathComponent
+        currentROMFilename = Self.libraryKey(forROMPath: romURL.path)
         displayLoadCompletion = completion
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, let pending = self.displayLoadCompletion else { return }
@@ -756,8 +776,10 @@ extension RetroAchievements: RAClientDelegate {
             : nil
         // Enrich the library index from the live load: rc_client identification
         // is a positive eligibility signal, and its title / box art / progress
-        // are fresher than any cached server refresh. gameID 0 is ignored (the
-        // load callback cannot tell "no set" from a network failure).
+        // are fresher than any cached server refresh. gameID 0 is ignored. A
+        // nil title is a load RA did not answer (the client's failure path),
+        // a title is an answered one; the index needs that to trust an empty
+        // list (2026-09-08).
         let gameID = client.currentGameID()
         let boxArt = client.currentGameBoxArtURL()
         let filename = currentROMFilename
@@ -782,7 +804,8 @@ extension RetroAchievements: RAClientDelegate {
                     gameID: gameID,
                     title: gameTitle, boxArtURL: boxArt,
                     unlocked: unlocked, total: total,
-                    pointsEarned: pointsEarned, pointsTotal: pointsTotal)
+                    pointsEarned: pointsEarned, pointsTotal: pointsTotal,
+                    loadAnswered: gameTitle != nil)
             }
         }
         displayLoadTimeout?.cancel()

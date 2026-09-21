@@ -189,6 +189,12 @@ final class OverlayMenuView: UIView {
     private func makeSectionLabel(_ text: String) -> UILabel {
         let l = makeCaptionLabel(text.localizedUppercase)
         l.numberOfLines = 1
+        // One line stays, so the overlay's hand-laid heights hold, but the
+        // line shrinks rather than clips: "ESPACIOS DE GUARDADO RÁPIDO" (es-MX)
+        // is 27 uppercase characters against 16 in English. Same pattern as
+        // the rewind-depth pills further down.
+        l.adjustsFontSizeToFitWidth = true
+        l.minimumScaleFactor = 0.7
         return l
     }
 
@@ -306,6 +312,17 @@ final class OverlayMenuView: UIView {
 
     private var isLandscapeLayout = false
     private var slotsWidthConstraint: NSLayoutConstraint?
+    /// The two width sets for the landscape pair, swapped by the window's
+    /// family in `layoutSubviews` (see `setup`). A phone window only ever
+    /// holds the first.
+    private var landscapePhoneWidth: [NSLayoutConstraint] = []
+    private var landscapeTabletWidth: [NSLayoutConstraint] = []
+    private var landscapeTabletWidthConstraint: NSLayoutConstraint?
+    private var isTabletLayout = false
+    /// The landscape pair's width on a tablet (2026-09-05): the same two
+    /// 320-point columns the phone lays out, the gap between them, and room
+    /// to breathe; narrowed to the window when a window is narrower.
+    static let tabletLandscapeWidth: CGFloat = 760
     private var layoutConstraints: [NSLayoutConstraint] = []
 
     // MARK: - Setup
@@ -334,10 +351,24 @@ final class OverlayMenuView: UIView {
 
             landscapeContainer.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 8),
             landscapeContainer.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -8),
+        ])
+        // The landscape pair's width: the phone set spans the scroll view edge to
+        // edge, exactly as before; the tablet set (2026-09-05) centres the pair
+        // and caps it, because two 320-point columns pushed to the edges of a
+        // 1376-point window leave the menu in two far corners. `layoutSubviews`
+        // swaps the two by the window's family, so no phone ever sees the cap.
+        landscapePhoneWidth = [
             landscapeContainer.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 20),
             landscapeContainer.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -20),
             landscapeContainer.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -40),
-        ])
+        ]
+        let tabletWidth = landscapeContainer.widthAnchor.constraint(equalToConstant: Self.tabletLandscapeWidth)
+        landscapeTabletWidthConstraint = tabletWidth
+        landscapeTabletWidth = [
+            landscapeContainer.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
+            tabletWidth,
+        ]
+        NSLayoutConstraint.activate(landscapePhoneWidth)
 
         landscapeContainer.addArrangedSubview(leftColumn)
         landscapeContainer.addArrangedSubview(rightColumn)
@@ -346,11 +377,14 @@ final class OverlayMenuView: UIView {
         // Create speed buttons
         for speed in Self.allSpeeds {
             let btn = UIButton(type: .system)
+            // Locale-formatted: "1,5x" in French or German beside Pro copy
+            // that already says "1,5×". Interpolating the Double wrote "1.5x"
+            // everywhere.
             let title: String
             if speed == floor(speed) {
                 title = "\(Int(speed))x"
             } else {
-                title = "\(speed)x"
+                title = speed.formatted() + "x"
             }
             btn.setTitle(title, for: .normal)
             btn.titleLabel?.font = .preferredFont(forTextStyle: .footnote)
@@ -423,6 +457,17 @@ final class OverlayMenuView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // The family first, so a rebuild below lays out against the right width
+        // set. Checked on every pass, not once: iPadOS 26 resizes windows live.
+        let tablet = LayoutFamily.of(bounds.size) == .tablet
+        if tablet != isTabletLayout {
+            isTabletLayout = tablet
+            NSLayoutConstraint.deactivate(tablet ? landscapePhoneWidth : landscapeTabletWidth)
+            NSLayoutConstraint.activate(tablet ? landscapeTabletWidth : landscapePhoneWidth)
+        }
+        if tablet {
+            landscapeTabletWidthConstraint?.constant = min(Self.tabletLandscapeWidth, bounds.width - 40)
+        }
         let landscape = bounds.width > bounds.height
         if landscape != isLandscapeLayout {
             isLandscapeLayout = landscape
@@ -432,6 +477,25 @@ final class OverlayMenuView: UIView {
                 buildPortraitLayout()
             }
         }
+        centreContentOnTablet(tablet)
+    }
+
+    /// A tablet window centres the menu vertically (decided on device, 2026-09-05):
+    /// the content is shorter than the window in both orientations, and pinned
+    /// to the top it left the lower half of a 13-inch empty. The room above and
+    /// below becomes a symmetric content inset, so the scroll still works the
+    /// day the content outgrows the window. A phone keeps its zero inset.
+    private var appliedCentringInset: CGFloat = 0
+
+    private func centreContentOnTablet(_ tablet: Bool) {
+        scrollView.layoutIfNeeded()
+        let extra = tablet
+            ? max(0, (scrollView.bounds.height - scrollView.contentSize.height) / 2)
+            : 0
+        guard abs(extra - appliedCentringInset) > 0.5 else { return }
+        appliedCentringInset = extra
+        scrollView.contentInset = UIEdgeInsets(top: extra, left: 0, bottom: extra, right: 0)
+        scrollView.contentOffset = CGPoint(x: 0, y: -extra)
     }
 
     private func buildPortraitLayout() {

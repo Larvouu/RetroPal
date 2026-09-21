@@ -46,6 +46,15 @@ struct GameDetailsView: View {
     @State private var pendingCover: PendingCover? = nil
     /// A failed cover save MUST notify (never a silent failure).
     @State private var showCoverError = false
+    /// Landscape opens the photo picker from a menu item rather than from a
+    /// `PhotosPicker` view (a menu can hold buttons only), through the
+    /// `.photosPicker` modifier below; portrait keeps its picker row.
+    @State private var showCoverPicker = false
+    /// The cover chooser (box art, RetroAchievements image, screenshot, or a
+    /// photo), in both orientations; its photo option sets the flag, and the
+    /// picker opens once the chooser is gone.
+    @State private var showCoverChooser = false
+    @State private var pickPhotoAfterChooser = false
     @State private var showSavePicker = false
     /// Drives the ROM-file picker for the save-preserving "Replace game file"
     /// recovery (fixes a corrupted/missing ROM without dropping save states).
@@ -56,6 +65,17 @@ struct GameDetailsView: View {
     /// slot). Mirrors the `gbaSlot2_<rom>` default; kept in @State so the
     /// row refreshes on selection (UserDefaults is not observable).
     @State private var slot2Filename: String?
+
+    // The Nintendo DS settings (moved here from Settings in 1.3.1, so the
+    // settings list does not grow a section per console). The keys are read
+    // straight from UserDefaults by the session (screen swap) and by the
+    // melonDS bridge (clock, language), so this page only edits them.
+    @AppStorage("ndsSwapScreens") private var ndsSwapScreens: Bool = false
+    @AppStorage("ndsLanguage") private var ndsLanguage: String = "auto"
+    @AppStorage("ndsClockManual") private var ndsClockManual: Bool = false
+    /// Manual RTC date/time as seconds since 1970, read by MelonDSBridge.
+    /// 0 means "never set" — the bridge then falls back to the device clock.
+    @AppStorage("ndsManualClockEpoch") private var ndsManualClockEpoch: Double = 0
     /// Single-OK info alert covering both the success and error outcomes of
     /// a save import (one alert binding instead of two stacked on the view).
     @State private var saveInfo: SaveImportInfo?
@@ -83,7 +103,15 @@ struct GameDetailsView: View {
     }
 
     @Environment(\.managedObjectContext) private var viewContext
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    /// A phone on its side, or an iPad window (see `LandscapeSurface`).
+    @LandscapeSurface private var isLandscape
+    /// An upright phone in a chosen look (2026-09-07), for the two toggles:
+    /// the page's tint goes white there and a white toggle reads as nothing,
+    /// so they take the look's accent as the landscape card's do.
+    @ObservedObject private var themeStore = LandscapeThemeStore.shared
+    private var uprightLook: Bool {
+        UprightLook.isActive(isLandscape: isLandscape, store: themeStore)
+    }
 
     /// Canonical basename, via the single source of truth. Deliberately NOT
     /// re-derived here: hand-rolled stripping is what once left GB/GBC/NDS
@@ -181,33 +209,33 @@ struct GameDetailsView: View {
 
     private var coreBody: some View {
         Group {
-            if verticalSizeClass == .compact {
-                // Landscape: game card on the left, everything else on the right.
-                HStack(spacing: 0) {
-                    List {
-                        gameHeaderSection
-                    }
-                    List {
-                        launchButtonsSection
-                        saveStatesSection
-                        slot2Section
-                        manageSection
-                        achievementsSection
-                    }
-                }
+            if isLandscape {
+                // Landscape: the library's dark ground, the screenshot on the
+                // left, cards on the right, the file actions behind an
+                // ellipsis. Its own file; this page stays the owner of every
+                // state, sheet and alert and hands it closures.
+                landscapeBody
             } else {
-                // Portrait: single scrolling list.
+                // Portrait: single scrolling list. In a chosen look
+                // (2026-09-07) the same list in the same order, on the
+                // ground with its sections on glass; nothing moves.
                 List {
-                    gameHeaderSection
-                    launchButtonsSection
-                    saveStatesSection
-                    slot2Section
-                    manageSection
-                    achievementsSection
+                    gameHeaderSection.landscapeGlassRow()
+                    launchButtonsSection.landscapeGlassRow()
+                    saveStatesSection.landscapeGlassRow()
+                    achievementsSection(.belowSlots).landscapeGlassRow()
+                    slot2Section.landscapeGlassRow()
+                    ndsSettingsSection.landscapeGlassRow()
+                    manageSection.landscapeGlassRow()
+                    achievementsSection(.bottom).landscapeGlassRow()
                 }
+                // White for the plain buttons and links: the default blue
+                // does not read on the purple ground (2026-09-07).
+                .uprightLook(tint: .white)
             }
         }
-        .sheet(isPresented: $showAchievements) {
+        // A sheet on a phone, the whole window on an iPad (`pagePresentation`).
+        .pagePresentation(isPresented: $showAchievements) {
             // The sheet opens instantly; it owns the display load (skeleton
             // while fetching, offline/retry state on failure).
             if let filename = game.romFilePath {
@@ -228,8 +256,15 @@ struct GameDetailsView: View {
         }
         .navigationTitle(game.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(verticalSizeClass == .compact ? .visible : .hidden, for: .navigationBar)
-        .toolbarBackground(verticalSizeClass == .compact ? .visible : .automatic, for: .tabBar)
+        // Landscape draws its own top bar (back, title, actions) on the
+        // library's ground, so the system bars are hidden there and only
+        // there; portrait keeps the bars it always had. ⚠ With the bar
+        // hidden the edge-swipe back is not guaranteed; the glass chevron is
+        // the way back.
+        .toolbar(isLandscape ? .hidden : .visible, for: .navigationBar)
+        .toolbar(isLandscape ? .hidden : .visible, for: .tabBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.automatic, for: .tabBar)
         .onAppear {
             refreshSlots()
             slot2Filename = UserDefaults.standard.string(forKey: slot2Key)
@@ -280,6 +315,17 @@ struct GameDetailsView: View {
             }
         }
         .alert(NSLocalizedString("details.cover.error", comment: ""), isPresented: $showCoverError) {}
+        .photosPicker(isPresented: $showCoverPicker, selection: $coverPickerItem, matching: .images)
+        .sheet(isPresented: $showCoverChooser, onDismiss: {
+            // Presented only once the chooser has left, so the crop editor
+            // that follows a pick has nothing to present over.
+            if pickPhotoAfterChooser {
+                pickPhotoAfterChooser = false
+                showCoverPicker = true
+            }
+        }) {
+            CoverChooserSheet(game: game, onPickPhoto: { pickPhotoAfterChooser = true })
+        }
         // Custom cover picked: decode off the picker's Task, then open the
         // square crop editor. An undecodable image alerts right away.
         .onChange(of: coverPickerItem) { item in
@@ -307,13 +353,72 @@ struct GameDetailsView: View {
         }
     }
 
+    // MARK: - Landscape
+
+    /// The landscape layout, fed with this page's facts and one closure per
+    /// action. Every closure does exactly what its portrait row does.
+    private var landscapeBody: some View {
+        GameDetailsLandscapeView(
+            game: game,
+            saveTick: saveTick,
+            slots: slots,
+            autoSlot: autoSlot,
+            playTime: gamePlayTimeFormatted,
+            romName: romName,
+            raState: raState,
+            slot2Game: game.systemType == "nds" ? slot2Game : nil,
+            iCloudUnavailable: iCloudSync.shouldWarnUnavailable,
+            ndsSwapScreens: $ndsSwapScreens,
+            ndsClockManual: $ndsClockManual,
+            ndsManualDate: ndsManualDate,
+            ndsLanguage: $ndsLanguage,
+            ndsAutoLanguageLabel: ndsAutoLanguageLabel,
+            ndsLanguageAutonyms: Self.ndsLanguageAutonyms,
+            actions: GameDetailsLandscapeActions(
+                resume: {
+                    Haptics.tap()
+                    playWithSlot(SaveStateManager.autoSaveSlotIndex)
+                },
+                newGame: {
+                    Haptics.tap()
+                    if autoSlot?.exists == true {
+                        showNewGameConfirm = true
+                    } else {
+                        playFresh()
+                    }
+                },
+                playSlot: { slot in
+                    Haptics.tap()
+                    playWithSlot(slot)
+                },
+                openAchievements: { showAchievements = true },
+                raInfo: { showRAInfo = true },
+                pickSlot2: { showSlot2Picker = true },
+                importSave: { showSavePicker = true },
+                exportSave: { exportSave() },
+                replaceROM: { showROMPicker = true },
+                rename: {
+                    renameDraft = game.title ?? ""
+                    showRenameAlert = true
+                },
+                chooseCover: { showCoverChooser = true },
+                removeCover: { BoxArtManager.shared.removeCustomCover(for: game) },
+                delete: { showDeleteConfirm = true }))
+    }
+
     // MARK: - Sections
 
-    /// RetroAchievements for this game, shown below everything. Four states:
+    /// Where the RetroAchievements section sits on the page. Signed in, the
+    /// dashboard row is part of playing the game and sits right under the save
+    /// slots; the invite to connect and the "not available" note are not, and
+    /// keep the bottom of the page.
+    private enum RAPlacement { case belowSlots, bottom }
+
+    /// RetroAchievements for this game. Four states:
     ///   • eligible + connected → open the dashboard (display-load, no running
-    ///     game needed), with the user's progress as a caption
+    ///     game needed), with the user's progress as a caption; below the slots
     ///   • eligible + not connected → a visible invite to connect, so the
-    ///     feature is discoverable instead of hidden behind Settings
+    ///     feature is discoverable instead of hidden behind Settings; bottom
     ///   • resolved ineligible (no RA set for this ROM), OR identified with an
     ///     EMPTY set → the same small "not available" note. A game RA knows and
     ///     has no achievements for used to get the full section and a dashboard
@@ -321,21 +426,44 @@ struct GameDetailsView: View {
     ///     dressed as a better one. `hasKnownEmptySet` is the shared predicate,
     ///     so this page and the RA profile cannot disagree about the same game.
     ///   • not resolved yet (fresh import, offline) → nothing, no flicker
+    /// The four states above, decided ONCE for both layouts: portrait's
+    /// sections and the landscape card read this and never re-derive it, so
+    /// the two cannot disagree about the same game.
+    private var raState: RADetailsState {
+        guard ra.isEnabled, let filename = game.romFilePath else { return .hidden }
+        let record = raIndex.record(forFilename: filename)
+        if let record, record.isEligible, !record.hasKnownEmptySet {
+            return ra.isLoggedIn ? .dashboard(record) : .invite
+        }
+        if record != nil || RAClient.consoleId(forROMPath: filename) == 0 {
+            return .unavailable(isPBP: Self.isUnhashableDiscContainer(filename))
+        }
+        return .hidden
+    }
+
     @ViewBuilder
-    private var achievementsSection: some View {
-        if ra.isEnabled, let filename = game.romFilePath {
-            let record = raIndex.record(forFilename: filename)
-            if let record, record.isEligible, !record.hasKnownEmptySet {
+    private func achievementsSection(_ placement: RAPlacement) -> some View {
+        switch raState {
+        case .hidden:
+            EmptyView()
+        case .dashboard(let record):
+            if placement == .belowSlots, let filename = game.romFilePath {
                 Section {
-                    if ra.isLoggedIn {
-                        achievementsDashboardRow(filename: filename, record: record)
-                    } else {
-                        achievementsConnectRow
-                    }
+                    achievementsDashboardRow(filename: filename, record: record)
                 } header: {
                     RASectionHeader(onInfo: { showRAInfo = true })
                 }
-            } else if record != nil || RAClient.consoleId(forROMPath: filename) == 0 {
+            }
+        case .invite:
+            if placement == .bottom {
+                Section {
+                    achievementsConnectRow
+                } header: {
+                    RASectionHeader(onInfo: { showRAInfo = true })
+                }
+            }
+        case .unavailable(let isPBP):
+            if placement == .bottom {
                 Section {
                 } header: {
                     RASectionHeader(onInfo: { showRAInfo = true })
@@ -344,7 +472,7 @@ struct GameDetailsView: View {
                     // not the game, and the one a player can act on: the same
                     // game as `.chd` earns achievements normally. "Not
                     // available" would be true and useless.
-                    Text(Self.isUnhashableDiscContainer(filename)
+                    Text(isPBP
                          ? String(localized: "ra.details.unavailable.pbp",
                                   defaultValue: "RetroAchievements cannot read a .pbp file. The same game as .chd, or as .cue with its .bin, earns achievements normally.")
                          : String(localized: "ra.details.unavailable",
@@ -369,35 +497,37 @@ struct GameDetailsView: View {
     /// The signed-in row: the dashboard on tap (the sheet opens instantly and
     /// loads itself). When counts are known, the caption + the gold progress
     /// bar + the points mirror the dashboard header the tap opens — all in the
-    /// Label's TEXT column, so they align with the title, not with the icon.
+    /// text column, so they align with the title, not with the picture.
+    /// The picture is the game's RetroAchievements box art when RA has one
+    /// (the same tile as the RA profile's game list), and the trophy glyph
+    /// in a Label's icon column otherwise, as before.
     private func achievementsDashboardRow(filename: String, record: RAGameRecord) -> some View {
         Button {
             showAchievements = true
         } label: {
             HStack {
-                Label {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(String(localized: "details.achievements", defaultValue: "View achievements"))
-                            .foregroundStyle(.primary)
-                        if record.refreshedAt != nil, record.total > 0 {
-                            HStack {
-                                Text(String(format: String(localized: "ra.dashboard.summary",
-                                                           defaultValue: "%lld of %lld unlocked"),
-                                            record.unlocked, record.total))
-                                Spacer(minLength: 8)
-                                if let earned = record.pointsEarned, let total = record.pointsTotal {
-                                    Text("\(earned) / \(total) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
-                                        .monospacedDigit()
-                                }
+                if let boxArt = record.boxArtURL.flatMap(URL.init(string:)) {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: boxArt) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            ZStack {
+                                Color.gray.opacity(0.15)
+                                Image(systemName: "trophy")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            ProgressView(value: Double(record.unlocked), total: Double(record.total))
-                                .tint(.yellow)
                         }
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        achievementsTextColumn(record: record)
                     }
-                } icon: {
-                    Image(systemName: "trophy")
+                } else {
+                    Label {
+                        achievementsTextColumn(record: record)
+                    } icon: {
+                        Image(systemName: "trophy")
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -407,11 +537,36 @@ struct GameDetailsView: View {
         }
     }
 
+    private func achievementsTextColumn(record: RAGameRecord) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(String(localized: "details.achievements", defaultValue: "View achievements"))
+                .foregroundStyle(.primary)
+            if record.refreshedAt != nil, record.total > 0 {
+                HStack {
+                    Text(String(format: String(localized: "ra.dashboard.summary",
+                                               defaultValue: "%lld of %lld unlocked"),
+                                record.unlocked, record.total))
+                    Spacer(minLength: 8)
+                    if let earned = record.pointsEarned, let total = record.pointsTotal {
+                        Text("\(earned.formatted()) / \(total.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                            .monospacedDigit()
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                ProgressView(value: Double(record.unlocked), total: Double(record.total))
+                    .tint(.yellow)
+            }
+        }
+    }
+
     /// The not-connected invite: this game HAS achievements; one line explains
     /// what that means, the button opens the sign-in sheet.
     private var achievementsConnectRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
+            // 6 between the headline and its note: at 2 the two read as one
+            // block (device, 2026-09-07). Same row in both looks.
+            VStack(alignment: .leading, spacing: 6) {
                 Label(String(localized: "ra.details.invite.headline",
                              defaultValue: "Earn achievements in this game"),
                       systemImage: "trophy")
@@ -448,7 +603,7 @@ struct GameDetailsView: View {
                     .frame(height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                Text(game.title ?? "Unknown Game")
+                Text(game.title ?? NSLocalizedString("library.untitled", comment: ""))
                     .font(.title2)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
@@ -647,6 +802,67 @@ struct GameDetailsView: View {
         }
     }
 
+    // MARK: - Nintendo DS settings (moved here from Settings in 1.3.1)
+
+    /// NDS firmware languages by index (0-6), shown as autonyms — the iOS
+    /// language-picker convention, locale-independent (a language reads best
+    /// in its own name). Order matches the firmware language enum the bridge
+    /// uses, so the index doubles as the stored tag value.
+    private static let ndsLanguageAutonyms = ["日本語", "English", "Français", "Deutsch", "Italiano", "Español", "中文"]
+
+    /// Label for the picker's "auto" option, naming the language it will
+    /// actually use on this device. The DS firmware only speaks these seven
+    /// languages, so a device set to e.g. Slovenian truthfully resolves to
+    /// "Auto (English)" (the firmware fallback), not a Slovenian the hardware
+    /// can't produce. Pulled from the bridge so the label and the real
+    /// behaviour can't drift apart.
+    private var ndsAutoLanguageLabel: String {
+        let index = Int(MelonDSBridge.autoResolvedNDSLanguageIndex())
+        let name = Self.ndsLanguageAutonyms.indices.contains(index) ? Self.ndsLanguageAutonyms[index] : "English"
+        return String(format: NSLocalizedString("settings.nds.language.auto", comment: ""), name)
+    }
+
+    /// Two-way bridge between the stored epoch (Double) and the DatePicker's
+    /// Date. Shows "now" until the user picks a value, so the picker never
+    /// opens on 1970.
+    private var ndsManualDate: Binding<Date> {
+        Binding(
+            get: { ndsManualClockEpoch > 0 ? Date(timeIntervalSince1970: ndsManualClockEpoch) : Date() },
+            set: { ndsManualClockEpoch = $0.timeIntervalSince1970 }
+        )
+    }
+
+    /// The three DS settings, on a DS game's page. They are still app-wide
+    /// (one default each, as in Settings), shown here because this is where a
+    /// DS player looks for them; the game's own rows (save slots, slot 2) sit
+    /// above and the file management below.
+    @ViewBuilder
+    private var ndsSettingsSection: some View {
+        if game.systemType == "nds" {
+            Section(header: Text("Nintendo DS"),
+                    footer: Text(DeviceWording.string("settings.nds.language.footer"))) {
+                Toggle(NSLocalizedString("settings.nds.swapScreens", comment: ""), isOn: $ndsSwapScreens)
+                    .tint(uprightLook ? LibraryLandscapePalette.accent : nil)
+
+                Toggle(NSLocalizedString("settings.nds.clock.manual", comment: ""), isOn: $ndsClockManual)
+                    .tint(uprightLook ? LibraryLandscapePalette.accent : nil)
+                if ndsClockManual {
+                    DatePicker(NSLocalizedString("settings.nds.clock.pickerLabel", comment: ""),
+                               selection: ndsManualDate)
+                }
+
+                // Language last, so the section footer (which describes game
+                // language behaviour) sits directly under it.
+                Picker(NSLocalizedString("settings.nds.language", comment: ""), selection: $ndsLanguage) {
+                    Text(ndsAutoLanguageLabel).tag("auto")
+                    ForEach(Array(Self.ndsLanguageAutonyms.enumerated()), id: \.offset) { index, name in
+                        Text(name).tag(String(index))
+                    }
+                }
+            }
+        }
+    }
+
     /// Single management section. Import/export-save (the per-game battery
     /// save) and rename are non-destructive and sit above the destructive
     /// delete at the bottom.
@@ -673,7 +889,9 @@ struct GameDetailsView: View {
             } label: {
                 Label(NSLocalizedString("details.rename", comment: ""), systemImage: "pencil")
             }
-            PhotosPicker(selection: $coverPickerItem, matching: .images) {
+            Button {
+                showCoverChooser = true
+            } label: {
                 Label(NSLocalizedString("details.cover.choose", comment: ""), systemImage: "photo")
             }
             if game.coverType == BoxArtManager.coverStateCustom {
@@ -893,4 +1111,17 @@ struct GameDetailsView: View {
 private struct PendingCover: Identifiable {
     let id = UUID()
     let image: UIImage
+}
+
+/// RetroAchievements on a game's page, one of four states, decided by
+/// `GameDetailsView.raState` and rendered by both layouts.
+enum RADetailsState {
+    /// Not resolved yet (fresh import, offline), or RA is off: show nothing.
+    case hidden
+    /// Eligible and signed in: the dashboard row with the record's progress.
+    case dashboard(RAGameRecord)
+    /// Eligible and not signed in: the invite to connect.
+    case invite
+    /// No set for this game, or a set RA cannot hash from this file.
+    case unavailable(isPBP: Bool)
 }

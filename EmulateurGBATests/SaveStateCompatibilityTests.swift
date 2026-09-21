@@ -111,6 +111,16 @@ struct SaveStateCompatibilityTests {
             //     "the format is fine" while meaning "nothing was checked".
             //
             //   no manifest -> never captured for this core. No-op, as before.
+            //
+            // One runtime cannot tell the two apart: My Mac (Designed for iPad) runs the
+            // tests in an App Sandbox that answers `fileExists` for the manifest and refuses
+            // to LIST the folder, so the fixture reads as gone while it is there (2026-09-05).
+            // A folder that cannot be listed is a skip, said loudly, never a verdict.
+            if !Self.fixtureFolderIsListable(coreDir: coreDir) {
+                print("[SaveStateCompat] SKIPPED on this runtime: Fixtures/SaveStateCompat/\(coreDir) "
+                      + "cannot be listed (an App Sandbox). This guard covers nothing here.")
+                return
+            }
             if Self.manifestExists(coreDir: coreDir) {
                 Issue.record("Fixtures/SaveStateCompat/\(coreDir) has an EXPECTED-\(coreDir).txt but no fixture beside it, so that core's save-state guard is NOT running. Restore the files the manifest names, or delete it if the fixture is retired on purpose. See CAPTURE.md.")
                 return
@@ -190,6 +200,14 @@ struct SaveStateCompatibilityTests {
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)/EXPECTED-\(coreDir).txt")
         return FileManager.default.fileExists(atPath: manifest.path)
+    }
+
+    /// Whether the fixture folder can be enumerated at all on this runtime.
+    private static func fixtureFolderIsListable(coreDir: String) -> Bool {
+        let dir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)", isDirectory: true)
+        return (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) != nil
     }
 
     private static func locateFixture(coreDir: String, romExtensions: [String]) -> Fixture? {

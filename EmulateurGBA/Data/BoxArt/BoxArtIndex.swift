@@ -122,7 +122,9 @@ final class BoxArtIndex {
         let prefix = String(serial.prefix(3))
         var best: [String: Int] = [:]   // name -> best (lowest) region rank
         for (code, idx) in table.serial where code.count >= 4 && code.hasPrefix(prefix) {
-            guard code != serial else { continue }   // its own name already failed
+            // Its own name has already been tried, by filename AND by this
+            // serial (CheatBrowserSheet asks `serialName` first since 2026-09-10).
+            guard code != serial else { continue }
             let name = table.names[idx]
             let rank = Self.regionRank(ofSerial: code)
             best[name] = min(best[name] ?? Int.max, rank)

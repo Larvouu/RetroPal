@@ -1,0 +1,15 @@
+/* Info.plist strings the system shows on our behalf: the photo-library permission
+   sentence, and the document-type names Files and the share sheet print. Launch
+   Services looks the type names up by their Info.plist VALUE, so the English
+   name is the key. */
+
+"NSPhotoLibraryAddUsageDescription" = "게임 스크린샷을 사진 보관함에 저장합니다";
+
+"Game Boy Advance ROM" = "Game Boy Advance ROM";
+"Game Boy Color ROM" = "Game Boy Color ROM";
+"Game Boy ROM" = "Game Boy ROM";
+"Nintendo DS ROM" = "Nintendo DS ROM";
+"Super Nintendo ROM" = "Super Nintendo ROM";
+"NES ROM" = "NES ROM";
+"PlayStation disc" = "PlayStation 디스크";
+"Retro Pal Skin" = "Retro Pal 스킨";

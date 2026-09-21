@@ -8,17 +8,22 @@
 "library.title" = "Bibliotecă";
 "library.empty.title" = "Bun venit pe Retro Pal";
 "library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire personală.";
+"library.empty.subtitle.ipad" = "Joacă-ți jocurile retro pe iPad. Fără reclame, fără urmărire personală.";
 "library.empty.button" = "Adaugă un joc";
 "library.empty.step1" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes sau .chd) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
+"library.empty.step1.ipad" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes sau .chd) pe iPad, prin Safari, AirDrop sau iCloud Drive.";
 "library.empty.step2" = "Atinge %@, apoi alege fișierul în aplicația Fișiere.";
 "library.empty.step3" = "Joacă. Progresul se salvează automat";
 "library.empty.romHint" = "Încă nu ai ROM-uri? Există multe jocuri gratuite și legale. Caută online \"GBA homebrew\".";
 "library.empty.legal" = "Importă doar fișiere pe care le deții legal.";
 "library.search" = "Caută jocuri";
 "library.sort.lastPlayed" = "Jucat recent";
+"library.theme.classic" = "Clasic";
+"library.hero.toggle" = "Afișează ultimul joc jucat în partea de sus";
 "library.sort.title" = "Titlu";
 "library.sort.dateAdded" = "Data adăugării";
 "library.sort.byConsole" = "După consolă";
+"library.sort.allConsoles" = "Toate consolele";
 "library.played.ago" = "Jucat %@";
 "library.playTime" = "%@h %@m jucate";
 "library.playTime.minutes" = "%@m jucate";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "Alege coperta";
 "details.cover.remove" = "Elimină coperta personalizată";
 "details.cover.error" = "Imaginea nu a putut fi salvată.";
+"cover.choose.boxart" = "Coperta oficială (baza de date libretro)";
+"cover.choose.ra" = "Imagine RetroAchievements";
+"cover.choose.screenshot" = "Captura ultimei salvări rapide";
+"cover.choose.photo" = "O fotografie din galerie";
+"cover.choose.caption" = "Coperta afișată în bibliotecă. Pagina jocului arată întotdeauna ultima captură de ecran.";
 "details.newGame.confirm.title" = "Pornești de la ecranul de titlu?";
 "details.newGame.confirm.message" = "Nu vei relua ultima sesiune, dar salvarea internă a jocului și salvările rapide rămân intacte.";
 "details.launch.footer" = "Pentru a încărca salvarea internă a jocului (cea făcută din meniul jocului), deschide jocul și reia din meniul lui. Este diferită de sloturile de salvare rapidă de mai jos, pe care le creezi chiar tu.";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "Limba jocului";
 "settings.nds.language.auto" = "Auto (%@)";
 "settings.nds.language.footer" = "„Auto” urmează limba iPhone-ului tău sau engleza, dacă DS nu o acceptă. Limba se aplică la pornirea unui joc nou. Majoritatea jocurilor salvează limba în fișierul de salvare și nu o mai modifică ulterior. Limba se schimbă doar dacă ROM-ul permite acest lucru. Multe ROM-uri conțin o singură limbă.";
+"settings.nds.language.footer.ipad" = "„Auto” urmează limba iPad-ului tău sau engleza, dacă DS nu o acceptă. Limba se aplică la pornirea unui joc nou. Majoritatea jocurilor salvează limba în fișierul de salvare și nu o mai modifică ulterior. Limba se schimbă doar dacă ROM-ul permite acest lucru. Multe ROM-uri conțin o singură limbă.";
 "settings.nds.clock.manual" = "Setează data și ora manual";
 "settings.nds.clock.pickerLabel" = "Data și ora";
 "settings.general" = "General";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "Licență: %@.";
 "settings.engines.footer.patched" = "Licență: %@. Folosit cu o mică modificare, publicată ca fișier patch alături de codul sursă.";
 "settings.rateApp" = "Evaluează Retro Pal";
+"review.headline" = "Evaluează Retro Pal";
+"review.body" = "Fiecare recenzie contează pentru noi. Asta ține proiectul în viață. 🙂";
 "settings.disclaimer" = "Retro Pal este un emulator local. Nu include niciun joc. Importă doar fișiere pe care le deții legal.";
 "settings.restore" = "Restaurează achizițiile";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "Filtre video";
 "pro.compare.row.externalDisplay" = "Televizor / AirPlay";
 /* Prompts */
-"prompt.speed.title" = "Ai jucat %@ minute la 1,5x";
+"prompt.speed.title" = "Ai jucat %lld minute la 1,5x";
 "prompt.speed.subtitle" = "La 4x, aceeași sesiune trece într-o clipă. Deblochează toate vitezele, pentru totdeauna.";
 "prompt.slots.title" = "Toate sloturile de salvare sunt pline";
 "prompt.slots.subtitle" = "Deblochează 5 sloturi ca să nu mai suprascrii niciodată. O singură achiziție, pentru totdeauna.";
-"prompt.milestone.title" = "Ai jucat %@ minute de jocuri retro";
+"prompt.milestone.title" = "Ai jucat %lld minute de jocuri retro";
 "prompt.milestone.subtitle" = "E clar că adoră asta. Deblochează experiența completă.";
 "prompt.rewind.title" = "Trebuie să te întorci mai mult?";
 "prompt.rewind.subtitle" = "Pro îți oferă 30 de secunde de derulare înapoi pe orice consolă. Nu mai pierde niciodată o luptă cu un boss.";
@@ -297,6 +310,17 @@
 "remap.action.clip" = "Clip";
 "remap.clear" = "Șterge";
 "remap.actions.footer" = "Aceste scurtături nu au niciun buton implicit. Asociază unul pentru a le folosi. Derularea rapidă se aplică cât timp ții butonul apăsat. Glisează un rând pentru a-l șterge.";
+"settings.remapKeyboard" = "Reasociază tastele tastaturii";
+"keyremap.directions.header" = "Direcții";
+"keyremap.buttons.header" = "Butoane";
+"keyremap.direction.up" = "Sus";
+"keyremap.direction.down" = "Jos";
+"keyremap.direction.left" = "Stânga";
+"keyremap.direction.right" = "Dreapta";
+"keyremap.press" = "Apasă o tastă…";
+"keyremap.noKeyboard" = "Conectează o tastatură pentru a-i reasocia tastele.";
+"keyremap.footer" = "Atinge o comandă, apoi apasă tasta pe care vrei să i-o atribui. O tastă acționează o singură comandă, dar o comandă poate avea mai multe taste. Glisează un rând pentru a-l șterge.";
+"key.space" = "Spațiu";
 "layout.activeLayout" = "Aspect activ";
 "layout.default" = "Implicit";
 "layout.presets" = "Presetări";
@@ -356,7 +380,9 @@
 "guide.importRom.title" = "Adaugă un joc";
 "guide.importRom.intro" = "Retro Pal nu include jocuri. Tu îți furnizezi propriile fișiere ROM, pentru care deții drepturile legal (propriile cartușe sau jocuri homebrew gratuite și legale).";
 "guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes sau un disc PlayStation în format .chd ori .cue cu fișierul .bin) pe iPhone: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
+"guide.importRom.step1.ipad" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes sau un disc PlayStation în format .chd ori .cue cu fișierul .bin) pe iPad: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
 "guide.importRom.step2" = "Verifică să apară în aplicația Fișiere (în Descărcări, Pe iPhone-ul meu sau iCloud Drive).";
+"guide.importRom.step2.ipad" = "Verifică că apare în aplicația Fișiere (în Descărcări, Pe iPad-ul meu sau iCloud Drive).";
 "guide.importRom.step3" = "În Retro Pal, atinge butonul + din partea de sus a bibliotecii.";
 "guide.importRom.step4" = "Alege fișierul. Jocul apare imediat în biblioteca ta, gata de jucat.";
 "guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u. Merge și un .zip, fie că are un singur joc, toate fișierele unui disc sau mai multe jocuri din care să alegi. Formatul .7z nu este acceptat. Importă doar fișiere pe care le deții legal.";
@@ -372,6 +398,7 @@
 "guide.controller.title" = "Conectează un controler";
 "guide.controller.step1" = "Pune controlerul în modul de asociere.";
 "guide.controller.step2" = "Deschide Setări iOS, apoi Bluetooth, și conectează controlerul la iPhone.";
+"guide.controller.step2.ipad" = "Deschide Setări iPadOS, apoi Bluetooth, și conectează controlerul la iPad.";
 "guide.controller.step3" = "Revino în Retro Pal. Controlerul este detectat automat, iar comenzile de pe ecran dispar.";
 "guide.controller.footer" = "Compatibil cu controlere MFi, Xbox, PlayStation, 8BitDo și majoritatea controlerelor Bluetooth.";
 "guide.controller.status.connected" = "Controler conectat: %@";
@@ -404,6 +431,7 @@
 "settings.sync.toggle" = "Sincronizare iCloud";
 "settings.sync.state.disabled" = "Dezactivat";
 "settings.sync.footer" = "Salvările tale rapide și salvările din joc se sincronizează în iCloud-ul tău privat și între dispozitivele tale. Dezactivează această opțiune pentru a le păstra doar pe acest iPhone.";
+"settings.sync.footer.ipad" = "Salvările tale rapide și salvările din joc se sincronizează în iCloud-ul tău privat și între dispozitivele tale. Dezactivează această opțiune pentru a le păstra doar pe acest iPad.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-blocare";
@@ -550,6 +578,8 @@
 "import.error.discMissingFiles" = "Acestui disc îi lipsesc fișiere care nu au fost selectate: %@. Selectează fișierul .cue și toate fișierele .bin împreună, dintr-o singură dată.";
 "import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc, .nds, .sfc, .smc și .nes; alte console nu sunt acceptate.";
 "import.error.zipExtractionFailed" = "Acest ZIP nu a putut fi deschis. Dezarhivează-l în aplicația Fișiere, apoi importă direct fișierul jocului.";
+"import.error.zipUnsupportedCompression" = "Acest ZIP folosește o metodă de compresie pe care Retro Pal nu o poate citi, precum LZMA sau BZIP2. Fișierul nu este deteriorat. Dezarhivează-l în aplicația Fișiere și importă jocul direct, sau creează ZIP-ul din nou cu compresie standard.";
+"import.error.zipEncrypted" = "Acest ZIP este protejat cu parolă. Dezarhivează-l în aplicația Fișiere, apoi importă fișierul jocului direct.";
 "import.error.alreadyImported" = "Acest joc este deja în biblioteca ta.";
 "import.duplicate.title" = "Deja în bibliotecă";
 "import.duplicate.bodySeveral" = "Aceste jocuri sunt deja în biblioteca ta:";
@@ -578,17 +608,23 @@
 "settings.externalDisplay.sideBySide" = "Unul lângă altul";
 "settings.externalDisplay.stacked" = "Unul peste altul";
 "settings.externalDisplay.footer" = "Conectează un televizor prin AirPlay sau prin cablu, iar jocul umple ecranul în timp ce iPhone-ul păstrează comenzile. DS-ul afișează ambele ecrane; cel tactil rămâne pe telefon.";
+"settings.externalDisplay.footer.ipad" = "Conectează un televizor prin AirPlay sau prin cablu, iar jocul umple ecranul în timp ce iPad-ul păstrează comenzile. DS-ul afișează ambele ecrane; cel tactil rămâne pe iPad.";
 "prompt.externalDisplay.title" = "Joacă pe ecranul mare";
 "prompt.externalDisplay.subtitle" = "Trimite jocul pe televizor prin AirPlay sau prin cablu, pe tot ecranul, în timp ce iPhone-ul păstrează comenzile.";
+"prompt.externalDisplay.subtitle.ipad" = "Trimite jocul pe televizor prin AirPlay sau prin cablu, pe tot ecranul, în timp ce iPad-ul păstrează comenzile.";
 "pro.benefit.externalDisplay.short" = "Joacă pe televizor";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "Joacă pe televizor cu AirPlay";
 "guide.airplay.intro" = "Trimite jocul pe un televizor și păstrează iPhone-ul drept controler. Merge prin AirPlay sau cu un adaptor HDMI.";
+"guide.airplay.intro.ipad" = "Trimite jocul pe un televizor și păstrează iPad-ul drept controler. Merge prin AirPlay sau cu un adaptor HDMI.";
 "guide.airplay.step1" = "Pune iPhone-ul și televizorul în aceeași rețea Wi-Fi. Cu un adaptor HDMI, conectează-l și treci la pasul 3.";
+"guide.airplay.step1.ipad" = "Pune iPad-ul și televizorul în aceeași rețea Wi-Fi. Cu un adaptor HDMI, conectează-l și treci la pasul 3.";
 "guide.airplay.step2" = "Deschide centrul de control, atinge Oglindire ecran și alege televizorul.";
 "guide.airplay.step3" = "Pornește un joc. Umple televizorul, iar iPhone-ul păstrează comenzile.";
+"guide.airplay.step3.ipad" = "Pornește un joc. Umple televizorul, iar iPad-ul păstrează comenzile.";
 "guide.airplay.step4" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPhone.";
+"guide.airplay.step4.ipad" = "Pe DS, ambele ecrane apar pe televizor, iar cel tactil rămâne pe iPad.";
 "guide.airplay.step5" = "Conectează un controler și butoanele de pe ecran dispar. Pe telefon mai folosești doar ecranul tactil al DS-ului.";
 "guide.airplay.step6" = "După ce televizorul este conectat, alege cum stau cele două ecrane DS din Setări, Ecran extern.";
 "guide.airplay.footer" = "Sunetul merge odată cu imaginea la televizor prin AirPlay. Cu un controler, meniul de pauză se deschide cu butonul de meniu al controlerului, deci nu trebuie să atingi deloc telefonul.";
@@ -604,6 +640,7 @@
 "guide.widget.step4" = "Așază-l și atinge OK.";
 "guide.widget.step5" = "Pentru cele două pe care le alegi tu: ține apăsat pe widget, atinge Editează widgetul, apoi alege jocul și salvarea pe care o deschide.";
 "guide.widget.footer" = "Copertele apar după ce ai jucat cel puțin o dată, iar widgetul se actualizează când ieși din Retro Pal. Alegerea propriilor jocuri cere iOS 17 sau mai nou; „Continuă jocul” merge pe orice iPhone compatibil.";
+"guide.widget.footer.ipad" = "Copertele apar după ce ai jucat cel puțin o dată, iar widgetul se actualizează când ieși din Retro Pal. Alegerea propriilor jocuri cere iPadOS 17 sau mai nou; „Continuă jocul” merge pe orice iPad compatibil.";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Acest cod conține caractere neașteptate. Codurile folosesc doar 0-9, A-F, spații și liniuțe.";
@@ -651,25 +688,34 @@
 "settings.cheatDB.noGames" = "Adaugă mai întâi un joc în bibliotecă.";
 
 "externalDisplay.idle.hint" = "Pornește un joc pe iPhone";
+"externalDisplay.idle.hint.ipad" = "Pornește un joc pe iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "PlayStation";
-"whatsnew.s1.b1" = "Jocurile PlayStation rulează acum în Retro Pal, iar consola este gratuită pentru toată lumea.";
-"whatsnew.s1.b2" = "Salvările, stările de salvare, derularea înapoi, codurile și realizările funcționează din prima zi.";
-"whatsnew.s1.b3" = "Progresul se salvează pe un card de memorie, ca pe consolă, și ajunge pe celelalte dispozitive ale tale ca orice altă salvare.";
-"whatsnew.s1.b4" = "În jurul jocului poartă propria carcasă, pe verticală și pe orizontală. Cu {PRO} repictezi acel controller în culorile tale, până la scrisul imprimat pe el.";
-"whatsnew.s2.title" = "Discuri, în orice formă ar fi";
-"whatsnew.s2.b1" = "Un joc PlayStation poate încăpea într-un singur fișier sau într-un folder întreg. Adaugă un fișier .chd, un .cue împreună cu .bin-ul lui, ori o arhivă .zip cu tot jocul.";
-"whatsnew.s2.b2" = "Retro Pal își dă seama ce fișiere merg împreună și adaugă un joc, nu cincizeci.";
-"whatsnew.s2.b3" = "Un joc pe mai multe discuri devine un singur joc, chiar și când discurile vin ca fișiere separate, iar discul se schimbă din meniul de pauză, fără să ieși din joc.";
-"whatsnew.s3.title" = "Un controler cu două stick-uri";
-"whatsnew.s3.b1" = "Comenzile de pe ecran au ambele stick-uri analogice și butonul ANALOG, așa că jocurile analogice merg pe ecran la fel ca pe controler.";
-"whatsnew.s3.b2" = "Stick-ul stâng mișcă, cel drept privește în jur, exact cum se așteaptă jocurile.";
-"whatsnew.s4.title" = "Coduri";
-"whatsnew.s4.b1" = "Un cod salvat se poate edita acum: corectarea unui caracter nu mai cere rescrierea întregului cod.";
-"whatsnew.s5.title" = "Comenzi";
-"whatsnew.s5.b1" = "Joystickul de pe ecran capătă relieful stick-urilor PlayStation, în culorile fiecărei console.";
-"whatsnew.s5.b2" = "{PRO} îți lasă să alegi cât de mult derulează înapoi: ține apăsat pe buton și alege câte secunde, până la 30.";
+"whatsnew.s1.title" = "Un nou aspect";
+"whatsnew.s1.b1" = "Întoarce telefonul pe orizontală: biblioteca devine un rând de coperte pe un fundal în mișcare, iar pagina jocului, RetroAchievements și Setările preiau același stil.";
+"whatsnew.s1.b2" = "În modul portret, ultimul joc jucat stă în partea de sus, iar lista se așază sub el, pe un fundal de sticlă. Aspectul se schimbă oricând: butonul paletă {PALETTE} din colțul din dreapta sus al bibliotecii, lângă +, oferă cinci variante, plus Clasic dacă preferi interfața de dinainte.";
+"whatsnew.s1.b3" = "Alege coperta fiecărui joc: coperta oficială, imaginea lui de pe RetroAchievements, ultima ta captură de ecran sau o fotografie.";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro Pal rulează acum pe iPad, cu toate consolele, pe verticală și pe orizontală, cu comenzi pe măsura ecranului mai mare.";
+"whatsnew.s2.b2" = "Dacă micșorezi fereastra lângă o altă aplicație, biblioteca trece la aranjarea de pe iPhone.";
+"whatsnew.s3.title" = "Controlere recunoscute ca tastaturi";
+"whatsnew.s3.b1" = "Controlerele Bluetooth mai vechi pe care iOS le detectează ca tastatură, cum e 8BitDo Zero, funcționează acum fără nicio configurare, iar fiecare tastă se poate reasocia consolă cu consolă, din Setări. Gratuit.";
+"whatsnew.s3.b2" = "Pe iPhone, comenzile tactile dispar cât timp e conectată o tastatură; pe iPad rămân pe ecran.";
+"whatsnew.s4.title" = "Toate limbile";
+"whatsnew.s4.b1" = "Jocurile din arhive ZIP al căror nume conține caractere japoneze, coreene, chinezești sau litere cu diacritice se importă acum sub numele lor adevărat.";
+"whatsnew.s4.b2" = "Ceasul Nintendo DS arată anul corect, indiferent de calendarul setat pe dispozitiv.";
+"whatsnew.s5.title" = "Și în plus";
+"whatsnew.s5.b1" = "Setările Nintendo DS se află acum pe pagina fiecărui joc DS, iar rândul RetroAchievements stă chiar sub sloturile de salvare.";
+"whatsnew.s5.b2" = "Bara bibliotecii arată nivelul bateriei controlerului.";
+"whatsnew.s5.b3" = "Realizările RetroAchievements funcționează acum și în jocurile PlayStation.";
+"whatsnew.s5.b4" = "Coduri de trișare: un joc în versiune europeană sau japoneză își găsește acum propriile coduri, iar codurile jocului original sunt afișate înaintea celor pentru versiunile modificate de fani.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nu este încărcată nicio realizare din această serie.";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "Nu s-a găsit niciun joc cu acest nume. Baza de date listează jocurile după titlul lor în engleză.";
+"cheats.placeholderPrefix" = "ex.";
+"library.untitled" = "Joc fără titlu";
+"guide.controller.keyboard" = "Tastatură fizică: săgețile mișcă, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Tastele sunt citite după poziție, așa că literele sunt cele ale unei tastaturi QWERTY (aranjament american). Controlerele Bluetooth pe care iOS le recunoaște drept tastatură, precum 8BitDo Zero în modul tastatură, funcționează și ele. Fiecare tastă poate fi reasociată în Setări, Controler, cât timp tastatura este conectată. Pe iPhone, comenzile tactile dispar cât timp o tastatură este conectată.";
+"guide.controller.keyboard.ipad" = "Tastatură fizică: săgețile mișcă, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Tastele sunt citite după poziție, așa că literele sunt cele ale unei tastaturi QWERTY (aranjament american). Controlerele Bluetooth pe care iOS le recunoaște drept tastatură, precum 8BitDo Zero în modul tastatură, funcționează și ele. Fiecare tastă poate fi reasociată în Setări, Controler, cât timp tastatura este conectată.";

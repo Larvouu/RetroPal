@@ -27,7 +27,7 @@ final class ExternalScreenViewController: UIViewController {
         idleImageView.alpha = 0.85
         view.addSubview(idleImageView)
 
-        idleLabel.text = NSLocalizedString("externalDisplay.idle.hint", comment: "")
+        idleLabel.text = DeviceWording.string("externalDisplay.idle.hint")
         idleLabel.textAlignment = .center
         idleLabel.textColor = UIColor.white.withAlphaComponent(0.55)
         idleLabel.numberOfLines = 2

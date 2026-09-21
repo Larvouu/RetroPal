@@ -54,7 +54,7 @@ struct ProBenefitStrip: View {
 
             Text(item.label)
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.9)

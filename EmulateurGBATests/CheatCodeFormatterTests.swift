@@ -16,6 +16,28 @@ import Testing
 @Suite("CheatCodeFormatter")
 struct CheatCodeFormatterTests {
 
+    // MARK: - Normalization
+
+    @Test("Fullwidth digits from a CJK keyboard fold to ASCII before validation")
+    func foldsFullwidth() {
+        let typed = "９４０００１３０ ＦＣＦＦ００００"
+        let folded = CheatCodeFormatter.normalized(typed)
+        #expect(folded == "94000130 FCFF0000")
+        #expect(CheatCodeFormatter.problem(in: folded, isNDS: true) == nil)
+    }
+
+    @Test("Invisible spaces and foreign line endings from a paste become plain ones")
+    func foldsInvisibleJunk() {
+        let pasted = "94000130\u{3000}FCFF0000\r\n62101D40\u{00A0}00000000\t"
+        #expect(CheatCodeFormatter.normalized(pasted) == "94000130 FCFF0000\n62101D40 00000000 ")
+    }
+
+    @Test("Formatting folds fullwidth input as it is typed")
+    func formatsFullwidth() {
+        let out = CheatCodeFormatter.formatted("９４０００１３０ＦＣＦＦ００００", previous: "", isNDS: true)
+        #expect(out == "94000130 FCFF0000")
+    }
+
     // MARK: - Formatting
 
     @Test("A pasted 16-digit run is split into two blocks")

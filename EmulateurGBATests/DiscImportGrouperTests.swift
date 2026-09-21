@@ -403,9 +403,7 @@ struct DiscImportGrouperTests {
         let dir = try makeDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         for n in 1...2 { try write("FF7 (Disc \(n)).chd", in: dir, bytes: 64) }
-        let m3u = try write("FF7.m3u", in: dir, text: "FF7 (Disc 1).chd
-FF7 (Disc 2).chd
-")
+        let m3u = try write("FF7.m3u", in: dir, text: "FF7 (Disc 1).chd\nFF7 (Disc 2).chd\n")
         let picked = [m3u,
                       dir.appendingPathComponent("FF7 (Disc 1).chd"),
                       dir.appendingPathComponent("FF7 (Disc 2).chd")]

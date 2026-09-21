@@ -14,6 +14,14 @@ enum ZIPExtractorError: Error {
     case cannotReadZIP
     case noROMFound
     case extractionFailed
+    /// The archive is valid and we cannot read it: it uses a compression
+    /// method beyond store and deflate (LZMA, BZIP2, Deflate64, Zstandard).
+    /// Distinct from `extractionFailed` because the honest sentence is
+    /// different: nothing is broken, and re-zipping fixes it.
+    case unsupportedCompression
+    /// Password-protected entry (general-purpose bit 0). We cannot ask for a
+    /// password and would not want to, so this is its own answer.
+    case encryptedArchive
 }
 
 enum ZIPExtractor {
@@ -160,26 +168,138 @@ enum ZIPExtractor {
         let uncompressedSize: Int
         let method: UInt16       // 0=store, 8=deflate
         let dataOffset: Int      // offset to compressed data in ZIP
+        /// General-purpose bit flag. Bit 0 = encrypted, bit 11 = UTF-8 name.
+        let flags: UInt16
+
+        var isEncrypted: Bool { flags & 0x0001 != 0 }
     }
 
-    /// Read a little-endian UInt32 from data at the given offset.
-    private static func readU32(_ data: Data, at offset: Int) -> UInt32 {
-        data.subdata(in: offset..<offset+4).withUnsafeBytes { $0.load(as: UInt32.self) }
+    // MARK: - Entry names
+
+    /// Decode a ZIP entry name. The format offers three answers and one
+    /// legacy, and they are tried in that order:
+    ///
+    /// 1. **General-purpose bit 11 (0x0800)**: the name is UTF-8. macOS
+    ///    Archive Utility and most current archivers set it.
+    /// 2. **The Info-ZIP Unicode Path extra field (0x7075)**: a UTF-8 copy of
+    ///    the name beside a CRC-32 of the raw header name, trusted only when
+    ///    that CRC matches (APPNOTE 4.6.9). WinRAR, WinZip and Info-ZIP write
+    ///    it, and it is authoritative when present.
+    /// 3. **Strict UTF-8 with no flag**, because plenty of tools write UTF-8
+    ///    without flagging it (`/usr/bin/zip` among them), and valid UTF-8 is
+    ///    unambiguous enough to trust.
+    /// 4. **The legacy codepage.** Windows Explorer's "Compress to ZIP" and
+    ///    7-Zip both write names in the machine's OEM codepage with no flag:
+    ///    CP932 on Japanese Windows, CP949 Korean, CP950 Taiwan, CP936 China,
+    ///    CP850 Western Europe, CP437 US. Nothing in the archive says which.
+    ///    So we do what Windows itself does when reading: the codepage of
+    ///    the user's own language first. That chain lives in
+    ///    `LegacyTextEncoding`, shared with the `.cue` and `.m3u` readers,
+    ///    and the reason it is ordered that way is written there: a Shift-JIS
+    ///    guess for everyone turned a French `Pokémon.gba` into `PokＮon.gba`.
+    static func decodeEntryName(_ nameData: Data, flags: UInt16, extra: Data?,
+                                preferredLanguages: [String] = LegacyTextEncoding.preferredLanguages) -> String {
+        if flags & 0x0800 != 0, let utf8 = String(data: nameData, encoding: .utf8) {
+            return utf8
+        }
+        if let unicodePath = unicodePathExtraField(in: extra, rawName: nameData) {
+            return unicodePath
+        }
+        return LegacyTextEncoding.decode(nameData, preferredLanguages: preferredLanguages)
     }
 
-    /// Read a little-endian UInt16 from data at the given offset.
-    private static func readU16(_ data: Data, at offset: Int) -> UInt16 {
-        data.subdata(in: offset..<offset+2).withUnsafeBytes { $0.load(as: UInt16.self) }
+    /// The UTF-8 name from an Info-ZIP Unicode Path extra field (0x7075), or
+    /// nil when the block is absent, is a version we do not know, or its CRC
+    /// does not match the raw header name (the spec says ignore it then: the
+    /// header name was edited after the block was written).
+    ///
+    /// Layout (APPNOTE 4.6.9): tag u16 · size u16 · version u8 (= 1) ·
+    /// CRC-32 u32 of the header name bytes · UTF-8 name. Extra fields are a
+    /// sequence of such tag/size blocks, walked here on a plain byte array so
+    /// no offset arithmetic depends on `Data`'s index base.
+    static func unicodePathExtraField(in extra: Data?, rawName: Data) -> String? {
+        guard let extra = extra, !extra.isEmpty else { return nil }
+        let bytes = [UInt8](extra)
+        var offset = 0
+        while offset + 4 <= bytes.count {
+            let tag = UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+            let size = Int(UInt16(bytes[offset + 2]) | (UInt16(bytes[offset + 3]) << 8))
+            let body = offset + 4
+            guard body + size <= bytes.count else { return nil }
+            if tag == 0x7075, size >= 5 {
+                let version = bytes[body]
+                let crc = UInt32(bytes[body + 1])
+                    | (UInt32(bytes[body + 2]) << 8)
+                    | (UInt32(bytes[body + 3]) << 16)
+                    | (UInt32(bytes[body + 4]) << 24)
+                if version == 1, crc == crc32(rawName) {
+                    let nameBytes = Data(bytes[(body + 5)..<(body + size)])
+                    return String(data: nameBytes, encoding: .utf8)
+                }
+                return nil
+            }
+            offset = body + size
+        }
+        return nil
+    }
+
+    /// Standard CRC-32 (IEEE 802.3, reflected, polynomial 0xEDB88320), the
+    /// checksum ZIP uses everywhere. Written out rather than imported: a
+    /// twelve-line table beats a dependency for one field.
+    private static let crc32Table: [UInt32] = (0..<256).map { index -> UInt32 in
+        var c = UInt32(index)
+        for _ in 0..<8 {
+            c = (c & 1) != 0 ? (0xEDB88320 ^ (c >> 1)) : (c >> 1)
+        }
+        return c
+    }
+
+    static func crc32(_ data: Data) -> UInt32 {
+        var c: UInt32 = 0xFFFFFFFF
+        for byte in data {
+            c = crc32Table[Int((c ^ UInt32(byte)) & 0xFF)] ^ (c >> 8)
+        }
+        return c ^ 0xFFFFFFFF
+    }
+
+    /// Read a little-endian UInt32, or nil if the range is not inside `data`.
+    ///
+    /// **Bounds-checked, and composed byte by byte on purpose.** Every offset
+    /// here comes from the file being parsed, so it is untrusted: `Data.subdata`
+    /// TRAPS on an out-of-range range rather than throwing, which turned a
+    /// malformed archive into a crash instead of a message. The bytes are
+    /// assembled explicitly rather than with `load(as:)`, which requires an
+    /// alignment this buffer cannot be given, and the shifts state ZIP's
+    /// little-endian layout rather than inheriting the host's.
+    private static func readU32(_ data: Data, at offset: Int) -> UInt32? {
+        guard offset >= 0, offset + 4 <= data.count else { return nil }
+        let b = [UInt8](data.subdata(in: offset..<offset+4))
+        return UInt32(b[0]) | (UInt32(b[1]) << 8) | (UInt32(b[2]) << 16) | (UInt32(b[3]) << 24)
+    }
+
+    /// Read a little-endian UInt16, or nil if the range is not inside `data`.
+    private static func readU16(_ data: Data, at offset: Int) -> UInt16? {
+        guard offset >= 0, offset + 2 <= data.count else { return nil }
+        let b = [UInt8](data.subdata(in: offset..<offset+2))
+        return UInt16(b[0]) | (UInt16(b[1]) << 8)
+    }
+
+    /// A bounds-checked slice. Same reason as the readers above.
+    private static func slice(_ data: Data, at offset: Int, count: Int) -> Data? {
+        guard offset >= 0, count >= 0, offset + count <= data.count else { return nil }
+        return data.subdata(in: offset..<offset+count)
     }
 
     /// Parse entries from the Central Directory (reliable, handles data descriptors).
     private static func findEntriesFromCentralDirectory(in data: Data) throws -> [ZIPEntry] {
-        guard let eocdOffset = findEOCD(in: data) else {
+        guard let eocdOffset = findEOCD(in: data),
+              let cdOffsetRaw = readU32(data, at: eocdOffset + 16),
+              let cdEntriesRaw = readU16(data, at: eocdOffset + 10) else {
             throw ZIPExtractorError.cannotReadZIP
         }
 
-        let cdOffset = Int(readU32(data, at: eocdOffset + 16))  // offset of central directory
-        let cdEntries = Int(readU16(data, at: eocdOffset + 10))  // total entries
+        let cdOffset = Int(cdOffsetRaw)   // offset of central directory
+        let cdEntries = Int(cdEntriesRaw) // total entries
 
         var entries: [ZIPEntry] = []
         var offset = cdOffset
@@ -188,33 +308,44 @@ enum ZIPExtractor {
             guard offset + 46 <= data.count else { break }
 
             // Central directory file header signature: 0x02014b50
-            let sig = readU32(data, at: offset)
-            guard sig == 0x02014b50 else { break }
+            guard readU32(data, at: offset) == 0x02014b50,
+                  let flags = readU16(data, at: offset + 8),
+                  let method = readU16(data, at: offset + 10),
+                  let compressedSizeRaw = readU32(data, at: offset + 20),
+                  let uncompressedSizeRaw = readU32(data, at: offset + 24),
+                  let nameLengthRaw = readU16(data, at: offset + 28),
+                  let extraLengthRaw = readU16(data, at: offset + 30),
+                  let commentLengthRaw = readU16(data, at: offset + 32),
+                  let localHeaderOffsetRaw = readU32(data, at: offset + 42) else { break }
 
-            let method = readU16(data, at: offset + 10)
-            let compressedSize = Int(readU32(data, at: offset + 20))
-            let uncompressedSize = Int(readU32(data, at: offset + 24))
-            let nameLength = Int(readU16(data, at: offset + 28))
-            let extraLength = Int(readU16(data, at: offset + 30))
-            let commentLength = Int(readU16(data, at: offset + 32))
-            let localHeaderOffset = Int(readU32(data, at: offset + 42))
+            let compressedSize = Int(compressedSizeRaw)
+            let uncompressedSize = Int(uncompressedSizeRaw)
+            let nameLength = Int(nameLengthRaw)
+            let extraLength = Int(extraLengthRaw)
+            let commentLength = Int(commentLengthRaw)
+            let localHeaderOffset = Int(localHeaderOffsetRaw)
 
-            let nameData = data.subdata(in: offset+46..<offset+46+nameLength)
-            let name = String(data: nameData, encoding: .utf8)
-                ?? String(data: nameData, encoding: .isoLatin1) ?? ""
+            guard let nameData = slice(data, at: offset + 46, count: nameLength) else { break }
+            let extraData = slice(data, at: offset + 46 + nameLength, count: extraLength)
+            let name = decodeEntryName(nameData, flags: flags, extra: extraData)
 
-            // Compute data offset from local file header
-            let localNameLen = Int(readU16(data, at: localHeaderOffset + 26))
-            let localExtraLen = Int(readU16(data, at: localHeaderOffset + 28))
-            let dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen
+            // Compute data offset from local file header. A header we cannot
+            // read costs us THIS entry and not the archive: `break` here would
+            // throw away every later game in a collection zip because one of
+            // them was malformed.
+            let localNameLen = readU16(data, at: localHeaderOffset + 26)
+            let localExtraLen = readU16(data, at: localHeaderOffset + 28)
+            let dataOffset = localHeaderOffset + 30
+                + Int(localNameLen ?? 0) + Int(localExtraLen ?? 0)
 
-            if !name.hasSuffix("/") {
+            if localNameLen != nil, localExtraLen != nil, !name.hasSuffix("/") {
                 entries.append(ZIPEntry(
                     name: name,
                     compressedSize: compressedSize,
                     uncompressedSize: uncompressedSize,
                     method: method,
-                    dataOffset: dataOffset
+                    dataOffset: dataOffset,
+                    flags: flags
                 ))
             }
 
@@ -230,9 +361,7 @@ enum ZIPExtractor {
         let maxScan = min(data.count, 65557)
         for i in stride(from: 22, through: maxScan, by: 1) {
             let offset = data.count - i
-            if readU32(data, at: offset) == 0x06054b50 {
-                return offset
-            }
+            if readU32(data, at: offset) == 0x06054b50 { return offset }
         }
         return nil
     }
@@ -243,20 +372,22 @@ enum ZIPExtractor {
         var offset = 0
 
         while offset + 30 <= data.count {
-            let sig = readU32(data, at: offset)
-            guard sig == 0x04034b50 else { break }
+            guard readU32(data, at: offset) == 0x04034b50,
+                  let flags = readU16(data, at: offset + 6),
+                  let method = readU16(data, at: offset + 8),
+                  let compressedSizeRaw = readU32(data, at: offset + 18),
+                  let uncompressedSizeRaw = readU32(data, at: offset + 22),
+                  let nameLengthRaw = readU16(data, at: offset + 26),
+                  let extraLengthRaw = readU16(data, at: offset + 28) else { break }
 
-            let method = readU16(data, at: offset + 8)
-            let compressedSize = Int(readU32(data, at: offset + 18))
-            let uncompressedSize = Int(readU32(data, at: offset + 22))
-            let nameLength = Int(readU16(data, at: offset + 26))
-            let extraLength = Int(readU16(data, at: offset + 28))
+            let compressedSize = Int(compressedSizeRaw)
+            let uncompressedSize = Int(uncompressedSizeRaw)
+            let nameLength = Int(nameLengthRaw)
+            let extraLength = Int(extraLengthRaw)
 
-            let nameEnd = offset + 30 + nameLength
-            guard nameEnd <= data.count else { break }
-            let nameData = data.subdata(in: offset+30..<nameEnd)
-            let name = String(data: nameData, encoding: .utf8)
-                ?? String(data: nameData, encoding: .isoLatin1) ?? ""
+            guard let nameData = slice(data, at: offset + 30, count: nameLength) else { break }
+            let extraData = slice(data, at: offset + 30 + nameLength, count: extraLength)
+            let name = decodeEntryName(nameData, flags: flags, extra: extraData)
 
             let dataOffset = offset + 30 + nameLength + extraLength
 
@@ -266,7 +397,8 @@ enum ZIPExtractor {
                     compressedSize: compressedSize,
                     uncompressedSize: uncompressedSize,
                     method: method,
-                    dataOffset: dataOffset
+                    dataOffset: dataOffset,
+                    flags: flags
                 ))
             }
 
@@ -277,7 +409,10 @@ enum ZIPExtractor {
     }
 
     private static func extractEntry(_ entry: ZIPEntry, from data: Data) throws -> Data {
-        let compressed = data.subdata(in: entry.dataOffset..<entry.dataOffset + entry.compressedSize)
+        try check(entry)
+        guard let compressed = slice(data, at: entry.dataOffset, count: entry.compressedSize) else {
+            throw ZIPExtractorError.cannotReadZIP
+        }
 
         switch entry.method {
         case 0: // Store (no compression)
@@ -285,7 +420,23 @@ enum ZIPExtractor {
         case 8: // Deflate
             return try inflate(compressed, expectedSize: entry.uncompressedSize)
         default:
-            throw ZIPExtractorError.extractionFailed
+            throw ZIPExtractorError.unsupportedCompression
+        }
+    }
+
+    /// What an entry we cannot read is, said precisely.
+    ///
+    /// Store and deflate are the two methods this reader implements, and that
+    /// is a deliberate limit rather than a defect. **But "this ZIP couldn't be
+    /// opened" was the wrong sentence for it**: the archive is perfectly valid,
+    /// nothing is corrupt, and the person only needs to know that the
+    /// compression method is not one we read. 7-Zip and WinRAR both write
+    /// LZMA, BZIP2 and Deflate64 into `.zip` containers, so this is a normal
+    /// file to meet, not an edge case.
+    private static func check(_ entry: ZIPEntry) throws {
+        if entry.isEncrypted { throw ZIPExtractorError.encryptedArchive }
+        guard entry.method == 0 || entry.method == 8 else {
+            throw ZIPExtractorError.unsupportedCompression
         }
     }
 
@@ -305,7 +456,10 @@ enum ZIPExtractor {
 
     /// Write one entry to `dest`, choosing how by size.
     private static func writeEntry(_ entry: ZIPEntry, from data: Data, to dest: URL) throws {
-        let compressed = data.subdata(in: entry.dataOffset..<entry.dataOffset + entry.compressedSize)
+        try check(entry)
+        guard let compressed = slice(data, at: entry.dataOffset, count: entry.compressedSize) else {
+            throw ZIPExtractorError.cannotReadZIP
+        }
         switch entry.method {
         case 0:
             // Stored. `compressed` is a slice of the MAPPED archive, so this
@@ -316,7 +470,7 @@ enum ZIPExtractor {
         case 8:
             try inflateToFile(compressed, expectedSize: entry.uncompressedSize, dest: dest)
         default:
-            throw ZIPExtractorError.extractionFailed
+            throw ZIPExtractorError.unsupportedCompression
         }
     }
 

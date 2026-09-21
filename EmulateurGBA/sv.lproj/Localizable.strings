@@ -8,17 +8,22 @@
 "library.title" = "Bibliotek";
 "library.empty.title" = "Välkommen till Retro Pal";
 "library.empty.subtitle" = "Spela dina retrospel på iPhone. Inga annonser, ingen personlig spårning.";
+"library.empty.subtitle.ipad" = "Spela dina retrospel på iPad. Inga annonser, ingen personlig spårning.";
 "library.empty.button" = "Lägg till ett spel";
 "library.empty.step1" = "Få in ett spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes eller .chd) på din iPhone via Safari, AirDrop eller iCloud Drive.";
+"library.empty.step1.ipad" = "Få in ett spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes eller .chd) på din iPad via Safari, AirDrop eller iCloud Drive.";
 "library.empty.step2" = "Tryck på %@ och välj filen i Filer-appen.";
 "library.empty.step3" = "Spela. Dina framsteg sparas automatiskt";
 "library.empty.romHint" = "Inga ROM:er än? Det finns många gratis, lagliga spel. Sök \"GBA homebrew\" online.";
 "library.empty.legal" = "Importera endast filer som du äger lagligt.";
 "library.search" = "Sök spel";
 "library.sort.lastPlayed" = "Senast spelat";
+"library.theme.classic" = "Klassisk";
+"library.hero.toggle" = "Visa senast spelade spel överst";
 "library.sort.title" = "Titel";
 "library.sort.dateAdded" = "Tillagt datum";
 "library.sort.byConsole" = "Efter konsol";
+"library.sort.allConsoles" = "Alla konsoler";
 "library.played.ago" = "Spelat %@";
 "library.playTime" = "%@t %@m spelat";
 "library.playTime.minutes" = "%@m spelat";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "Välj omslag";
 "details.cover.remove" = "Ta bort eget omslag";
 "details.cover.error" = "Bilden kunde inte sparas.";
+"cover.choose.boxart" = "Officiellt omslag (libretro-databasen)";
+"cover.choose.ra" = "RetroAchievements-bild";
+"cover.choose.screenshot" = "Skärmbild från din senaste snabbsparning";
+"cover.choose.photo" = "Ett foto från ditt bildbibliotek";
+"cover.choose.caption" = "Omslaget som visas i ditt bibliotek. Spelsidan visar alltid din senaste skärmbild.";
 "details.newGame.confirm.title" = "Starta från titelskärmen?";
 "details.newGame.confirm.message" = "Du återupptar inte din senaste session, men spelets egen sparfil och dina snabbsparningar är säkra.";
 "details.launch.footer" = "För att läsa in spelets egen sparfil (den du gör i spelets egen sparmeny), starta spelet och fortsätt från dess meny. Den är skild från snabbsparplatserna nedan, som du skapar själv.";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "Spelspråk";
 "settings.nds.language.auto" = "Auto (%@)";
 "settings.nds.language.footer" = "\"Auto\" följer din iPhones språk, eller engelska om DS:en inte stöder det. Språket tillämpas när du startar ett nytt spel. De flesta spel sparar språket i sparfilen och ändrar det inte efteråt. Språket byts bara om ROM-filen stöder det. Många ROM-filer innehåller bara ett enda språk.";
+"settings.nds.language.footer.ipad" = "\"Auto\" följer din iPads språk, eller engelska om DS:en inte stöder det. Språket tillämpas när du startar ett nytt spel. De flesta spel sparar språket i sparfilen och ändrar det inte efteråt. Språket byts bara om ROM-filen stöder det. Många ROM-filer innehåller bara ett enda språk.";
 "settings.nds.clock.manual" = "Ställ in datum och tid manuellt";
 "settings.nds.clock.pickerLabel" = "Datum och tid";
 "settings.general" = "Allmänt";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "Licens: %@.";
 "settings.engines.footer.patched" = "Licens: %@. Används med en liten ändring som publiceras som en patchfil tillsammans med källkoden.";
 "settings.rateApp" = "Betygsätt Retro Pal";
+"review.headline" = "Betygsätt Retro Pal";
+"review.body" = "Varje recension betyder mycket för oss. Det är det som håller projektet vid liv. 🙂";
 "settings.disclaimer" = "Retro Pal är en lokal emulator. Inga spel ingår. Importera bara filer du lagligt äger.";
 "settings.restore" = "Återställ köp";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "Videofilter";
 "pro.compare.row.externalDisplay" = "Tv / AirPlay";
 /* Prompts */
-"prompt.speed.title" = "Du har spelat %@ minuter på 1,5x";
+"prompt.speed.title" = "Du har spelat %lld minuter i 1,5x hastighet";
 "prompt.speed.subtitle" = "På 4x flyger samma session förbi. Lås upp alla hastigheter, för alltid.";
 "prompt.slots.title" = "Alla sparplatser är fulla";
 "prompt.slots.subtitle" = "Lås upp 5 sparplatser så att du aldrig behöver skriva över. Ett köp, för alltid.";
-"prompt.milestone.title" = "Du har spelat %@ minuter retrospel";
+"prompt.milestone.title" = "Du har spelat %lld minuter retrospel";
 "prompt.milestone.subtitle" = "Du älskar det uppenbarligen. Lås upp hela upplevelsen.";
 "prompt.rewind.title" = "Behöver du gå längre tillbaka?";
 "prompt.rewind.subtitle" = "Pro ger dig 30 sekunders tillbakaspolning, på alla konsoler. Förlora aldrig en bossfight igen.";
@@ -297,6 +310,17 @@
 "remap.action.clip" = "Klipp";
 "remap.clear" = "Ta bort";
 "remap.actions.footer" = "De här genvägarna har ingen knapp som standard. Tilldela en för att använda dem. Snabbspolningen gäller så länge knappen hålls in. Svep på en rad för att ta bort den.";
+"settings.remapKeyboard" = "Mappa om tangentbordets tangenter";
+"keyremap.directions.header" = "Riktningar";
+"keyremap.buttons.header" = "Knappar";
+"keyremap.direction.up" = "Upp";
+"keyremap.direction.down" = "Ned";
+"keyremap.direction.left" = "Vänster";
+"keyremap.direction.right" = "Höger";
+"keyremap.press" = "Tryck på en tangent…";
+"keyremap.noKeyboard" = "Anslut ett tangentbord för att mappa om dess tangenter.";
+"keyremap.footer" = "Tryck på en kontroll och tryck sedan på tangenten du vill tilldela den. En tangent styr bara en kontroll, men en kontroll kan ha flera tangenter. Svep på en rad för att rensa den.";
+"key.space" = "Mellanslag";
 "layout.activeLayout" = "Aktiv layout";
 "layout.default" = "Standard";
 "layout.presets" = "Förinställningar";
@@ -356,7 +380,9 @@
 "guide.importRom.title" = "Lägg till ett spel";
 "guide.importRom.intro" = "Retro Pal innehåller inga spel. Du tillhandahåller dina egna ROM-filer, som du äger rättigheterna till (dina egna kassetter eller gratis, lagliga homebrew-spel).";
 "guide.importRom.step1" = "Få spelfilen (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, eller en PlayStation-skiva som .chd, eller .cue med tillhörande .bin) till din iPhone: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
+"guide.importRom.step1.ipad" = "Få spelfilen (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, eller en PlayStation-skiva som .chd, eller .cue med tillhörande .bin) till din iPad: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
 "guide.importRom.step2" = "Kontrollera att den syns i Filer-appen (under Nedladdningar, På min iPhone eller iCloud Drive).";
+"guide.importRom.step2.ipad" = "Kontrollera att den syns i Filer-appen (under Nedladdningar, På min iPad eller iCloud Drive).";
 "guide.importRom.step3" = "Tryck på +-knappen högst upp i biblioteket i Retro Pal.";
 "guide.importRom.step4" = "Välj filen. Spelet dyker genast upp i ditt bibliotek, redo att spelas.";
 "guide.importRom.footer" = "Format som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, plus PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u. En .zip fungerar också, oavsett om den innehåller ett spel, alla filer från en skiva eller flera spel att välja bland. .7z stöds inte. Importera bara filer som du äger rättigheterna till.";
@@ -372,6 +398,7 @@
 "guide.controller.title" = "Anslut en handkontroll";
 "guide.controller.step1" = "Sätt handkontrollen i parkopplingsläge.";
 "guide.controller.step2" = "Öppna iOS-inställningar, sedan Bluetooth, och anslut handkontrollen till din iPhone.";
+"guide.controller.step2.ipad" = "Öppna iPadOS-inställningar, sedan Bluetooth, och anslut handkontrollen till din iPad.";
 "guide.controller.step3" = "Återgå till Retro Pal. Handkontrollen identifieras automatiskt och skärmkontrollerna försvinner.";
 "guide.controller.footer" = "Fungerar med MFi-, Xbox-, PlayStation-, 8BitDo- och de flesta Bluetooth-handkontroller.";
 "guide.controller.status.connected" = "Handkontroll ansluten: %@";
@@ -404,6 +431,7 @@
 "settings.sync.toggle" = "iCloud-synkronisering";
 "settings.sync.state.disabled" = "Av";
 "settings.sync.footer" = "Dina snabbsparningar och dina sparfiler i spelet synkroniseras till ditt privata iCloud och mellan dina enheter. Stäng av detta för att behålla dem endast på den här iPhonen.";
+"settings.sync.footer.ipad" = "Dina snabbsparningar och dina sparfiler i spelet synkroniseras till ditt privata iCloud och mellan dina enheter. Stäng av detta för att behålla dem endast på den här iPaden.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-lås";
@@ -550,6 +578,8 @@
 "import.error.discMissingFiles" = "Den här skivan saknar filer som inte valdes: %@. Välj .cue-filen och alla dess .bin-filer tillsammans, i ett svep.";
 "import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc, .nds, .sfc, .smc och .nes; andra konsoler stöds inte.";
 "import.error.zipExtractionFailed" = "Den här ZIP-filen kunde inte öppnas. Packa upp den i appen Filer och importera spelfilen direkt.";
+"import.error.zipUnsupportedCompression" = "Den här ZIP-filen använder en komprimeringsmetod som Retro Pal inte kan läsa, till exempel LZMA eller BZIP2. Filen är inte skadad. Packa upp den i Filer-appen och importera spelet direkt, eller skapa ZIP-filen på nytt med standardkomprimering.";
+"import.error.zipEncrypted" = "Den här ZIP-filen är lösenordsskyddad. Packa upp den i Filer-appen och importera sedan spelfilen direkt.";
 "import.error.alreadyImported" = "Det här spelet finns redan i ditt bibliotek.";
 "import.duplicate.title" = "Redan i biblioteket";
 "import.duplicate.bodySeveral" = "De här spelen finns redan i ditt bibliotek:";
@@ -578,17 +608,23 @@
 "settings.externalDisplay.sideBySide" = "Sida vid sida";
 "settings.externalDisplay.stacked" = "Ovanför varandra";
 "settings.externalDisplay.footer" = "Anslut en tv via AirPlay eller kabel så fyller spelet skärmen medan din iPhone behåller kontrollerna. DS visar båda skärmarna; pekskärmen stannar på telefonen.";
+"settings.externalDisplay.footer.ipad" = "Anslut en tv via AirPlay eller kabel så fyller spelet skärmen medan din iPad behåller kontrollerna. DS visar båda skärmarna; pekskärmen stannar på iPaden.";
 "prompt.externalDisplay.title" = "Spela på stor skärm";
 "prompt.externalDisplay.subtitle" = "Skicka spelet till din tv via AirPlay eller kabel, i helskärm, medan din iPhone behåller kontrollerna.";
+"prompt.externalDisplay.subtitle.ipad" = "Skicka spelet till din tv via AirPlay eller kabel, i helskärm, medan din iPad behåller kontrollerna.";
 "pro.benefit.externalDisplay.short" = "Spela på en tv";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "Spela på tv:n med AirPlay";
 "guide.airplay.intro" = "Skicka spelet till en tv och behåll din iPhone som handkontroll. Funkar via AirPlay eller med en HDMI-adapter.";
+"guide.airplay.intro.ipad" = "Skicka spelet till en tv och behåll din iPad som handkontroll. Funkar via AirPlay eller med en HDMI-adapter.";
 "guide.airplay.step1" = "Ha din iPhone och din tv på samma wifi-nätverk. Med en HDMI-adapter ansluter du den och hoppar till steg 3.";
+"guide.airplay.step1.ipad" = "Ha din iPad och din tv på samma wifi-nätverk. Med en HDMI-adapter ansluter du den och hoppar till steg 3.";
 "guide.airplay.step2" = "Öppna kontrollcenter, tryck på Skärmdubblering och välj din tv.";
 "guide.airplay.step3" = "Starta ett spel. Det fyller tv:n, och din iPhone behåller kontrollerna.";
+"guide.airplay.step3.ipad" = "Starta ett spel. Det fyller tv:n, och din iPad behåller kontrollerna.";
 "guide.airplay.step4" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPhone.";
+"guide.airplay.step4.ipad" = "På DS visas båda skärmarna på tv:n och pekskärmen stannar på din iPad.";
 "guide.airplay.step5" = "Anslut en handkontroll så försvinner skärmknapparna. Bara DS pekskärm används fortfarande på telefonen.";
 "guide.airplay.step6" = "När din tv är ansluten väljer du hur de två DS-skärmarna ligger under Inställningar, Extern skärm.";
 "guide.airplay.footer" = "Ljudet följer bilden till tv:n via AirPlay. Med en handkontroll öppnas pausmenyn med kontrollens egen menyknapp, så du behöver aldrig röra telefonen.";
@@ -604,6 +640,7 @@
 "guide.widget.step4" = "Placera den och tryck på Klar.";
 "guide.widget.step5" = "För de två du väljer själv: tryck och håll på widgeten, tryck på Redigera widget och välj spelet och sparningen den öppnar.";
 "guide.widget.footer" = "Omslag dyker upp när du har spelat ett spel minst en gång, och widgeten uppdateras när du lämnar Retro Pal. Att välja egna spel kräver iOS 17 eller senare; ”Fortsätt spela” fungerar på alla iPhone som stöds.";
+"guide.widget.footer.ipad" = "Omslag dyker upp när du har spelat ett spel minst en gång, och widgeten uppdateras när du lämnar Retro Pal. Att välja egna spel kräver iPadOS 17 eller senare; ”Fortsätt spela” fungerar på alla iPad som stöds.";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Den här koden innehåller tecken som inte hör hemma. Fuskkoder använder bara 0-9, A-F, mellanslag och bindestreck.";
@@ -651,25 +688,34 @@
 "settings.cheatDB.noGames" = "Lägg först till ett spel i ditt bibliotek.";
 
 "externalDisplay.idle.hint" = "Starta ett spel på din iPhone";
+"externalDisplay.idle.hint.ipad" = "Starta ett spel på din iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "PlayStation";
-"whatsnew.s1.b1" = "PlayStation-spel körs nu i Retro Pal, och konsolen är gratis för alla.";
-"whatsnew.s1.b2" = "Sparfiler, sparlägen, tillbakaspolning, fuskkoder och prestationer fungerar från första dagen.";
-"whatsnew.s1.b3" = "Framstegen sparas på ett minneskort, precis som på konsolen, och når dina andra enheter som vilken annan sparfil som helst.";
-"whatsnew.s1.b4" = "Runt spelet bär den sitt eget hölje, både stående och liggande. Med {PRO} målar du om handkontrollen i dina egna färger, ända ner till trycket på den.";
-"whatsnew.s2.title" = "Skivor, oavsett vilken form dina har";
-"whatsnew.s2.b1" = "Ett PlayStation-spel kan vara en fil eller en hel mapp. Lägg till en .chd, eller en .cue med tillhörande .bin, eller en zip med alltihop.";
-"whatsnew.s2.b2" = "Retro Pal listar ut vilka filer som hör ihop och lägger till ett spel, inte femtio.";
-"whatsnew.s2.b3" = "Ett spel på flera skivor blir ett spel, även när skivorna kommer som separata filer, och du byter skiva från pausmenyn utan att lämna det.";
-"whatsnew.s3.title" = "En handkontroll med två spakar";
-"whatsnew.s3.b1" = "Skärmkontrollerna har båda analoga spakarna och ANALOG-knappen, så analoga spel fungerar på skärmen lika bra som med en handkontroll.";
-"whatsnew.s3.b2" = "Vänster spak går, höger tittar sig omkring, precis som spelen förväntar sig.";
-"whatsnew.s4.title" = "Fusk";
-"whatsnew.s4.b1" = "Ett sparat fusk går att redigera nu. Att rätta ett tecken kräver inte längre att hela koden skrivs om.";
-"whatsnew.s5.title" = "Kontroller";
-"whatsnew.s5.b1" = "Skärmens joystick får samma formade utseende som PlayStation-spakarna, i varje konsols egna färger.";
-"whatsnew.s5.b2" = "Med {PRO} väljer du hur långt tillbaka du spolar: håll in tillbakaspolningsknappen och välj antal sekunder, upp till 30.";
+"whatsnew.s1.title" = "Ett nytt utseende";
+"whatsnew.s1.b1" = "Vrid telefonen till liggande läge: biblioteket blir en rad omslag över en rörlig bakgrund, och spelsidan, RetroAchievements och Inställningar får samma stil.";
+"whatsnew.s1.b2" = "I stående läge ligger spelet du senast spelade överst och listan vilar på glas under det. Utseendet byter du när du vill: palettknappen {PALETTE} uppe till höger i biblioteket, bredvid +, erbjuder fem utseenden, och Klassisk om du föredrar det tidigare gränssnittet.";
+"whatsnew.s1.b3" = "Välj omslag för varje spel: det officiella omslaget, dess RetroAchievements-bild, din senaste skärmbild eller ett foto.";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro Pal fungerar nu på iPad, med alla konsoler, i stående och liggande läge, och med kontroller anpassade för den större skärmen.";
+"whatsnew.s2.b2" = "Gör fönstret mindre bredvid en annan app så växlar biblioteket till sin iPhone-layout.";
+"whatsnew.s3.title" = "Handkontroller som ses som tangentbord";
+"whatsnew.s3.b1" = "Äldre Bluetooth-handkontroller som iOS uppfattar som ett tangentbord, till exempel 8BitDo Zero, fungerar nu utan några inställningar, och varje tangent kan mappas om per konsol i Inställningar. Gratis.";
+"whatsnew.s3.b2" = "På iPhone försvinner pekkontrollerna när ett tangentbord är anslutet; på iPad stannar de kvar på skärmen.";
+"whatsnew.s4.title" = "Alla språk";
+"whatsnew.s4.b1" = "Spel i ZIP-filer vars namn innehåller japanska, koreanska eller kinesiska tecken, eller bokstäver med accenter, importeras nu med sitt riktiga namn.";
+"whatsnew.s4.b2" = "Klockan i Nintendo DS visar rätt år, vilken kalender din enhet än använder.";
+"whatsnew.s5.title" = "Dessutom";
+"whatsnew.s5.b1" = "Inställningarna för Nintendo DS finns nu på varje DS-spels egen sida, och RetroAchievements-raden ligger direkt under sparplatserna.";
+"whatsnew.s5.b2" = "Bibliotekets verktygsfält visar handkontrollens batterinivå.";
+"whatsnew.s5.b3" = "RetroAchievements-prestationer fungerar nu även i PlayStation-spel.";
+"whatsnew.s5.b4" = "Fuskkoder: en europeisk eller japansk utgåva av ett spel hittar nu sina egna koder, och originalspelets koder visas före koderna för versioner som fans har modifierat.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Inga prestationer från den här serien är inlästa.";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "Inget spel hittades med det namnet. Databasen listar spel under deras engelska titel.";
+"cheats.placeholderPrefix" = "t.ex.";
+"library.untitled" = "Spel utan titel";
+"guide.controller.keyboard" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet. På iPhone döljs pekkontrollerna så länge ett tangentbord är anslutet.";
+"guide.controller.keyboard.ipad" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet.";

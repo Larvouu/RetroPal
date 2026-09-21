@@ -64,6 +64,28 @@ MIN_USEFUL_BYTES = 40
 TAG = re.compile(r"\s*\([^)]*\)|\s*\[[^\]]*\]")
 
 
+def is_hack_stem(stem: str) -> bool:
+    """A ROM hack's file carries the hack's name NESTED in a parenthesis of its
+    own ("Base (Europe) (Rev 10) (Hack Name (v1.3.1))"); a retail dump's tags
+    never nest. MUST stay identical to CheatIndex.isHackStem in Swift."""
+    depth = 0
+    for ch in stem:
+        if ch in "([":
+            depth += 1
+            if depth >= 2:
+                return True
+        elif ch in ")]":
+            depth = max(0, depth - 1)
+    return False
+
+
+def retail_first(stems):
+    """Retail dumps before hacks, each group in the order given (the sorted
+    listing). Mirrors CheatIndex.retailFirst, which also re-applies it at read
+    time so an older bundle reads the same way."""
+    return [s for s in stems if not is_hack_stem(s)] + [s for s in stems if is_hack_stem(s)]
+
+
 def bare_title(name: str) -> str:
     """Normalised join key. MUST stay byte-identical to CheatIndex.bareTitle
     in Swift: drop every parenthetical and bracketed tag, read libretro's '_'
@@ -97,6 +119,11 @@ def build(src: str) -> dict:
             stem = filename[:-4]
             titles.setdefault(bare_title(stem), []).append(stem)
             kept += 1
+        # The retail dumps first (2026-09-10): in plain sorted order a hack's
+        # "(Rev 10) (Pokemon - SoothingSilver …" sat above the retail
+        # "(Rev 10).cht" because a space sorts before a dot, and the app's
+        # first section was a hack's patches for a retail cartridge.
+        titles = {k: retail_first(v) for k, v in titles.items()}
         index["systems"][key] = {"folder": folder, "titles": titles}
         print(f"  {key}: {kept} games, {len(titles)} titles "
               f"({skipped} empty files dropped)")

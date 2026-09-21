@@ -21,9 +21,11 @@ struct ControlPresetsView: View {
     private let store = ControlLayoutStore.shared
 
     var body: some View {
-        List {
-            activeLayoutSection
-            presetsSection
+        LandscapeListSwitch(title: NSLocalizedString("settings.customizeControls", comment: "")) {
+            List {
+                activeLayoutSection
+                presetsSection
+            }
         }
         .navigationTitle(NSLocalizedString("settings.customizeControls", comment: ""))
         .navigationBarTitleDisplayMode(.inline)
@@ -65,6 +67,7 @@ struct ControlPresetsView: View {
         } header: {
             Text(NSLocalizedString("layout.activeLayout", comment: ""))
         }
+        .landscapeGlassRow()
     }
 
     /// One "active preset" picker row for a system. `get`/`set` bind the matching
@@ -139,6 +142,7 @@ struct ControlPresetsView: View {
         } footer: {
             Text(NSLocalizedString("layout.presets.footer", comment: ""))
         }
+        .landscapeGlassRow()
     }
 
     // MARK: - New Preset Sheet

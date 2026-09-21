@@ -8,17 +8,22 @@
 "library.title" = "ライブラリ";
 "library.empty.title" = "Retro Pal へようこそ";
 "library.empty.subtitle" = "レトロゲームを iPhone で。広告なし、個人の追跡もありません。";
+"library.empty.subtitle.ipad" = "レトロゲームを iPad で。広告なし、個人の追跡もありません。";
 "library.empty.button" = "ゲームを追加";
 "library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.chd)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
+"library.empty.step1.ipad" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.chd)を Safari、AirDrop、iCloud Drive などで iPad に取り込みます。";
 "library.empty.step2" = "%@ をタップして、「ファイル」アプリでファイルを選びます。";
 "library.empty.step3" = "あとは遊ぶだけ。進行状況は自動で保存されます";
 "library.empty.romHint" = "ROM をお持ちでない場合も、無料で合法なゲームが多数あります。「GBA homebrew」で検索してみてください。";
 "library.empty.legal" = "合法的に所有しているファイルのみ読み込んでください。";
 "library.search" = "ゲームを検索";
 "library.sort.lastPlayed" = "最近遊んだ順";
+"library.theme.classic" = "クラシック";
+"library.hero.toggle" = "最後に遊んだゲームをリストの一番上に表示";
 "library.sort.title" = "タイトル順";
 "library.sort.dateAdded" = "追加日順";
 "library.sort.byConsole" = "機種別";
+"library.sort.allConsoles" = "すべての機種";
 "library.played.ago" = "%@にプレイ";
 "library.playTime" = "プレイ時間 %@時間%@分";
 "library.playTime.minutes" = "プレイ時間 %@分";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "カバー画像を選択";
 "details.cover.remove" = "カスタムカバーを削除";
 "details.cover.error" = "画像を保存できませんでした。";
+"cover.choose.boxart" = "パッケージ画像（libretroデータベース）";
+"cover.choose.ra" = "RetroAchievementsの画像";
+"cover.choose.screenshot" = "最新のクイックセーブのスクリーンショット";
+"cover.choose.photo" = "写真ライブラリから選ぶ";
+"cover.choose.caption" = "ライブラリに表示されるカバー画像です。ゲームのページには常に最新のスクリーンショットが表示されます。";
 "details.newGame.confirm.title" = "タイトル画面から始めますか？";
 "details.newGame.confirm.message" = "前回の続きからは再開されませんが、ゲーム内セーブとクイックセーブはそのまま残ります。";
 "details.launch.footer" = "ゲーム内セーブ(ゲーム自体のセーブメニューで作ったもの)を読み込むには、ゲームを起動してゲーム内のメニューから再開してください。下のクイックセーブスロットとは別のものです。";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "ゲームの言語";
 "settings.nds.language.auto" = "自動(%@)";
 "settings.nds.language.footer" = "「自動」は iPhone の言語に合わせます。DS が対応していない場合は英語になります。言語は新しくゲームを始めるときに適用されます。多くのゲームは言語をセーブファイルに保存するため、あとから変更されません。切り替わるのは ROM 自体が対応している場合のみで、1つの言語しか収録されていない ROM も多くあります。";
+"settings.nds.language.footer.ipad" = "「自動」は iPad の言語に合わせます。DS が対応していない場合は英語になります。言語は新しくゲームを始めるときに適用されます。多くのゲームは言語をセーブファイルに保存するため、あとから変更されません。切り替わるのは ROM 自体が対応している場合のみで、1つの言語しか収録されていない ROM も多くあります。";
 "settings.nds.clock.manual" = "日付と時刻を手動で設定";
 "settings.nds.clock.pickerLabel" = "日付と時刻";
 "settings.general" = "一般";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "ライセンス：%@。";
 "settings.engines.footer.patched" = "ライセンス：%@。小さな変更を加えて使用しており、その変更はソースコードとともにパッチファイルとして公開しています。";
 "settings.rateApp" = "Retro Pal を評価する";
+"review.headline" = "Retro Pal を評価する";
+"review.body" = "ひとつひとつのレビューが私たちの力になり、このプロジェクトを支えています。🙂";
 "settings.disclaimer" = "Retro Pal はローカルで動作するエミュレータです。ゲームは含まれていません。合法的に所有しているファイルのみ読み込んでください。";
 "settings.restore" = "購入を復元";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "ビデオフィルター";
 "pro.compare.row.externalDisplay" = "テレビ / AirPlay";
 /* Pro Prompts */
-"prompt.speed.title" = "1.5倍速で%@分プレイしました";
+"prompt.speed.title" = "1.5倍速で%lld分プレイしました";
 "prompt.speed.subtitle" = "4倍速なら同じ時間があっという間。全速度を一度の購入でずっと使えます。";
 "prompt.slots.title" = "セーブスロットがすべて埋まっています";
 "prompt.slots.subtitle" = "スロットを5個に増やせば、上書きに悩む必要はもうありません。一度の購入で、ずっと。";
-"prompt.milestone.title" = "レトロゲームを%@分プレイしました";
+"prompt.milestone.title" = "レトロゲームを%lld分プレイしました";
 "prompt.milestone.subtitle" = "すっかり夢中ですね。すべての機能を解放しましょう。";
 "prompt.rewind.title" = "もっと前に戻りたいときは？";
 "prompt.rewind.subtitle" = "Pro ならどの機種でも30秒の巻き戻しが使えます。ボス戦でもう負けません。";
@@ -295,6 +308,17 @@
 "remap.action.clip" = "クリップ";
 "remap.clear" = "解除";
 "remap.actions.footer" = "これらのショートカットには初期状態でボタンが割り当てられていません。使うにはボタンを割り当ててください。早送りはボタンを押している間だけ有効です。行をスワイプすると解除できます。";
+"settings.remapKeyboard" = "キーボードのキー割り当て";
+"keyremap.directions.header" = "方向";
+"keyremap.buttons.header" = "ボタン";
+"keyremap.direction.up" = "上";
+"keyremap.direction.down" = "下";
+"keyremap.direction.left" = "左";
+"keyremap.direction.right" = "右";
+"keyremap.press" = "キーを押してください…";
+"keyremap.noKeyboard" = "キーを割り当てるにはキーボードを接続してください。";
+"keyremap.footer" = "操作をタップしてから、割り当てたいキーを押してください。1つのキーに割り当てられる操作は1つだけですが、1つの操作には複数のキーを割り当てられます。行をスワイプすると割り当てを消去できます。";
+"key.space" = "スペース";
 "layout.activeLayout" = "使用中のレイアウト";
 "layout.default" = "デフォルト";
 "layout.presets" = "プリセット";
@@ -354,7 +378,9 @@
 "guide.importRom.title" = "ゲームを追加";
 "guide.importRom.intro" = "Retro Pal にゲームは含まれていません。ROM ファイルは、合法的に所有しているもの(お持ちのカートリッジや、無料で合法な自作ゲームなど)をご自身で用意してください。";
 "guide.importRom.step1" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPhone に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
+"guide.importRom.step1.ipad" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPad に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
 "guide.importRom.step2" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPhone 内、iCloud Drive のいずれか)。";
+"guide.importRom.step2.ipad" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPad 内、iCloud Drive のいずれか)。";
 "guide.importRom.step3" = "Retro Pal でライブラリ上部の + ボタンをタップします。";
 "guide.importRom.step4" = "ファイルを選択すると、すぐにライブラリに追加され、プレイできます。";
 "guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、およびプレイステーションのディスク（.chd、.cue と .bin、.m3u）。.zip も使えます。ゲーム1本でも、ディスク1枚分のファイルすべてでも、選べる複数のゲームでもかまいません。.7z には対応していません。合法的に所有しているファイルだけを取り込んでください。";
@@ -370,6 +396,7 @@
 "guide.controller.title" = "コントローラーを接続";
 "guide.controller.step1" = "コントローラーをペアリングモードにします。";
 "guide.controller.step2" = "iOS の設定から Bluetooth を開き、コントローラーを iPhone に接続します。";
+"guide.controller.step2.ipad" = "iPadOS の設定から Bluetooth を開き、コントローラーを iPad に接続します。";
 "guide.controller.step3" = "Retro Pal に戻ります。コントローラーは自動的に認識され、画面上の操作ボタンが消えます。";
 "guide.controller.footer" = "MFi、Xbox、PlayStation、8BitDo など、ほとんどの Bluetooth コントローラーに対応しています。";
 "guide.controller.status.connected" = "接続中のコントローラー：%@";
@@ -402,6 +429,7 @@
 "settings.sync.toggle" = "iCloud 同期";
 "settings.sync.state.disabled" = "オフ";
 "settings.sync.footer" = "クイックセーブとゲーム内セーブはあなたのプライベートな iCloud に同期され、他のデバイスでも使えます。オフにすると、この iPhone にのみ保存されます。";
+"settings.sync.footer.ipad" = "クイックセーブとゲーム内セーブはあなたのプライベートな iCloud に同期され、他のデバイスでも使えます。オフにすると、この iPad にのみ保存されます。";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "自動ホールド";
@@ -547,6 +575,8 @@
 "import.error.discMissingFiles" = "このディスクには、選択されていないファイルが必要です：%@。.cue とすべての .bin ファイルを一度にまとめて選択してください。";
 "import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes のゲームで、他の機種には対応していません。";
 "import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
+"import.error.zipUnsupportedCompression" = "このZIPは、LZMAやBZIP2など、Retro Palが読み込めない圧縮方式を使っています。ファイルが壊れているわけではありません。「ファイル」アプリで展開してゲームを直接読み込むか、標準の圧縮でZIPを作り直してください。";
+"import.error.zipEncrypted" = "このZIPはパスワードで保護されています。「ファイル」アプリで展開してから、ゲームファイルを直接読み込んでください。";
 "import.error.alreadyImported" = "このゲームはすでにライブラリにあります。";
 "import.duplicate.title" = "すでにライブラリにあります";
 "import.duplicate.bodySeveral" = "これらのゲームはすでにライブラリにあります：";
@@ -575,17 +605,23 @@
 "settings.externalDisplay.sideBySide" = "横に並べる";
 "settings.externalDisplay.stacked" = "上下に並べる";
 "settings.externalDisplay.footer" = "AirPlayまたはケーブルでテレビにつなぐと、ゲームが画面いっぱいに映り、iPhoneは操作用として使えます。DSは2画面とも表示され、タッチ操作は手元の画面のままです。";
+"settings.externalDisplay.footer.ipad" = "AirPlayまたはケーブルでテレビにつなぐと、ゲームが画面いっぱいに映り、iPadは操作用として使えます。DSは2画面とも表示され、タッチ操作は手元の画面のままです。";
 "prompt.externalDisplay.title" = "大画面で遊ぶ";
 "prompt.externalDisplay.subtitle" = "AirPlayまたはケーブルで、ゲームをテレビに全画面で映せます。iPhoneはそのまま操作用に使えます。";
+"prompt.externalDisplay.subtitle.ipad" = "AirPlayまたはケーブルで、ゲームをテレビに全画面で映せます。iPadはそのまま操作用に使えます。";
 "pro.benefit.externalDisplay.short" = "テレビで遊ぶ";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "AirPlayでテレビで遊ぶ";
 "guide.airplay.intro" = "ゲームをテレビに映し、iPhoneはコントローラーとして使えます。AirPlayでも、HDMIアダプタでも使えます。";
+"guide.airplay.intro.ipad" = "ゲームをテレビに映し、iPadはコントローラーとして使えます。AirPlayでも、HDMIアダプタでも使えます。";
 "guide.airplay.step1" = "iPhoneとテレビを同じWi-Fiにつなぎます。HDMIアダプタを使う場合は接続して手順3へ進んでください。";
+"guide.airplay.step1.ipad" = "iPadとテレビを同じWi-Fiにつなぎます。HDMIアダプタを使う場合は接続して手順3へ進んでください。";
 "guide.airplay.step2" = "コントロールセンターを開き、「画面ミラーリング」をタップして、テレビを選びます。";
 "guide.airplay.step3" = "ゲームを起動します。テレビに大きく映り、iPhoneは操作用のままです。";
+"guide.airplay.step3.ipad" = "ゲームを起動します。テレビに大きく映り、iPadは操作用のままです。";
 "guide.airplay.step4" = "DSでは2画面ともテレビに表示され、タッチ操作はiPhoneに残ります。";
+"guide.airplay.step4.ipad" = "DSでは2画面ともテレビに表示され、タッチ操作はiPadに残ります。";
 "guide.airplay.step5" = "コントローラーをつなぐと画面上のボタンは消えます。手元で使うのはDSのタッチ画面だけになります。";
 "guide.airplay.step6" = "テレビを接続すると、2画面の並べ方を設定の「外部ディスプレイ」で選べます。";
 "guide.airplay.footer" = "音声もAirPlayで映像と一緒にテレビへ流れます。コントローラー使用時はコントローラーのメニューボタンでポーズメニューを開けるので、iPhoneに触れる必要はありません。";
@@ -601,6 +637,7 @@
 "guide.widget.step4" = "配置して「完了」をタップします。";
 "guide.widget.step5" = "自分で選ぶ2種類の場合：ウィジェットを長押しして「ウィジェットを編集」をタップし、ゲームと開くセーブデータを選びます。";
 "guide.widget.footer" = "パッケージ画像は一度そのゲームを遊ぶと表示され、ウィジェットはRetro Palを離れたときに更新されます。ゲームを自分で選ぶにはiOS 17以降が必要です。「つづきから」は対応するすべてのiPhoneで使えます。";
+"guide.widget.footer.ipad" = "パッケージ画像は一度そのゲームを遊ぶと表示され、ウィジェットはRetro Palを離れたときに更新されます。ゲームを自分で選ぶにはiPadOS 17以降が必要です。「つづきから」は対応するすべてのiPadで使えます。";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "このコードには使われない文字が含まれています。チートコードは0-9、A-F、スペース、ハイフンのみです。";
@@ -648,25 +685,34 @@
 "settings.cheatDB.noGames" = "まずライブラリにゲームを追加してください。";
 
 "externalDisplay.idle.hint" = "iPhoneでゲームを起動してください";
+"externalDisplay.idle.hint.ipad" = "iPadでゲームを起動してください";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "プレイステーション";
-"whatsnew.s1.b1" = "プレイステーションのゲームが Retro Pal で遊べるようになりました。この機種も全員無料です。";
-"whatsnew.s1.b2" = "セーブ、セーブステート、巻き戻し、チートコード、実績のすべてが初日から使えます。";
-"whatsnew.s1.b3" = "進行状況はメモリーカードに保存されます。実機と同じで、ほかの端末にも、ほかのセーブと同じように届きます。";
-"whatsnew.s1.b4" = "ゲームのまわりには、この機種自身の筐体が表示されます。縦向きでも横向きでも同じです。{PRO} なら、そのパッドを好きな色に塗り替えられます。印刷された文字までです。";
-"whatsnew.s2.title" = "ディスクは、どんな形でも";
-"whatsnew.s2.b1" = "プレイステーションのゲームは 1 つのファイルのことも、フォルダ 1 つ分のこともあります。.chd でも、.cue と .bin の組み合わせでも、まとめた zip でも追加できます。";
-"whatsnew.s2.b2" = "どのファイルが 1 つのゲームなのかは Retro Pal が判断します。50 個ではなく 1 個として追加されます。";
-"whatsnew.s2.b3" = "複数枚のディスクのゲームは、ディスクがばらばらのファイルで届いても 1 つのゲームになります。ディスクの入れ替えはポーズメニューから、ゲームを終了せずにできます。";
-"whatsnew.s3.title" = "スティックが 2 本あるコントローラー";
-"whatsnew.s3.b1" = "画面上のコントロールには 2 本のアナログスティックと ANALOG ボタンがあります。アナログ対応のゲームが、コントローラーと同じように指でも遊べます。";
-"whatsnew.s3.b2" = "左スティックで移動、右スティックで視点。ゲームが想定しているとおりです。";
-"whatsnew.s4.title" = "チート";
-"whatsnew.s4.b1" = "保存したチートを編集できるようになりました。1 文字直すためにコード全体を打ち直す必要はもうありません。";
-"whatsnew.s5.title" = "操作";
-"whatsnew.s5.b1" = "画面上のジョイスティックが、PlayStation のスティックと同じ立体的な見た目になりました。色は各機種のものです。";
-"whatsnew.s5.b2" = "{PRO} なら巻き戻す長さを選べます。巻き戻しボタンを長押しして秒数を選び、最大30秒まで戻せます。";
+"whatsnew.s1.title" = "新しい見た目";
+"whatsnew.s1.b1" = "端末を横にすると、ライブラリは動く背景の上にカバー画像が並ぶ棚になり、ゲームのページ、RetroAchievements、設定も同じスタイルになります。";
+"whatsnew.s1.b2" = "縦向きでは、最後に遊んだゲームが一番上に表示され、その下のガラス調のパネルにリストが並びます。見た目は好みに合わせて変えられます。ライブラリ右上、＋の横にあるパレットボタン {PALETTE} から5つのテーマを選べます。以前の画面がよければ「クラシック」を選んでください。";
+"whatsnew.s1.b3" = "ゲームごとにカバー画像を選べます。公式のパッケージ画像、RetroAchievementsの画像、最新のスクリーンショット、お手持ちの写真から選べます。";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro PalがiPadでも使えるようになりました。すべての機種に対応し、縦向きでも横向きでも遊べ、操作ボタンは大きな画面に合わせたサイズになります。";
+"whatsnew.s2.b2" = "別のアプリと並べてウインドウを小さくすると、ライブラリはiPhoneと同じ配置になります。";
+"whatsnew.s3.title" = "キーボードとして認識されるコントローラー";
+"whatsnew.s3.b1" = "8BitDo ZeroのようにiOSがキーボードとして認識する古いBluetoothコントローラーが、何も設定しなくてもそのまま使えるようになりました。各キーは「設定」から機種ごとに割り当て直せます。無料です。";
+"whatsnew.s3.b2" = "iPhoneではキーボード接続中はタッチ操作のボタンが非表示になり、iPadでは表示されたままです。";
+"whatsnew.s4.title" = "すべての言語";
+"whatsnew.s4.b1" = "ファイル名に日本語、韓国語、中国語、アクセント付きの文字を含むZIPのゲームも、本来の名前で読み込まれるようになりました。";
+"whatsnew.s4.b2" = "端末のカレンダー設定にかかわらず、ニンテンドーDSの時計が正しい年を示します。";
+"whatsnew.s5.title" = "そのほか";
+"whatsnew.s5.b1" = "ニンテンドーDSの設定は各DSゲームのページに移り、RetroAchievementsの項目はセーブスロットのすぐ下に表示されます。";
+"whatsnew.s5.b2" = "ライブラリのバーにコントローラーのバッテリー残量が表示されます。";
+"whatsnew.s5.b3" = "RetroAchievementsの実績が、PlayStationのゲームでも獲得できるようになりました。";
+"whatsnew.s5.b4" = "チートコード：欧州版や日本版のゲームでも、その版に合ったコードが見つかるようになりました。また、元のゲームのコードが、ファンによる改造版のコードより先に表示されます。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "このセットの実績は読み込まれていません。";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "その名前のゲームは見つかりませんでした。データベースにはゲームが英語のタイトルで登録されています。";
+"cheats.placeholderPrefix" = "例:";
+"library.untitled" = "タイトルのないゲーム";
+"guide.controller.keyboard" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。iPhoneでは、キーボードが接続されている間はタッチ操作が非表示になります。";
+"guide.controller.keyboard.ipad" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。";

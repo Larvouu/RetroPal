@@ -202,7 +202,8 @@ final class InGameLayoutPreviewView: UIView {
         controls.layoutIfNeeded()
         controls.applyDefaultLayout(isLandscape: isLandscape, system: system.layoutSystem,
                                     deviceScale: k, safeLeftInset: insets.left,
-                                    safeRightInset: insets.right)
+                                    safeRightInset: insets.right,
+                                    family: LayoutFamily.of(bounds.size))
         // Dress the buttons for the systems whose buttons have a dress, matching the skin.
         // NDS shows its body/screen dress before its buttons are dressed (later slice).
         controls.setDressed(ConsoleSkinView.hasDressedControls(for: system.layoutSystem),
@@ -255,7 +256,7 @@ private final class HitboxOverlayView: UIView {
     }
 }
 
-private struct InGameLayoutPreviewRepresentable: UIViewRepresentable {
+struct InGameLayoutPreviewRepresentable: UIViewRepresentable {
     let system: PreviewSystem
     let isLandscape: Bool
     let safeInsets: UIEdgeInsets

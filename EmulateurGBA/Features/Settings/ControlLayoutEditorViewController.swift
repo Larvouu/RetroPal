@@ -655,9 +655,17 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
     }
 
     private func updateSliderValueLabels() {
-        sizeValueLabel.text = "\(Int(round(sizeSlider.value * 100)))%"
-        opacityValueLabel.text = "\(Int(round(opacitySlider.value * 100)))%"
+        // The locale writes the percent sign (French wants a space before it).
+        sizeValueLabel.text = Self.percentFormatter.string(from: NSNumber(value: round(Double(sizeSlider.value) * 100) / 100))
+        opacityValueLabel.text = Self.percentFormatter.string(from: NSNumber(value: round(Double(opacitySlider.value) * 100) / 100))
     }
+
+    private static let percentFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .percent
+        f.maximumFractionDigits = 0
+        return f
+    }()
 
     private func updateSelectionRing(on v: UIView, show: Bool) {
         v.layer.sublayers?.removeAll { $0.name == "selectionRing" }

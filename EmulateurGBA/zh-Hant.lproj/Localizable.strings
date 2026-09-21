@@ -8,17 +8,22 @@
 "library.title" = "遊戲庫";
 "library.empty.title" = "歡迎使用 Retro Pal";
 "library.empty.subtitle" = "在 iPhone 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
+"library.empty.subtitle.ipad" = "在 iPad 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
 "library.empty.button" = "加入遊戲";
 "library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes 或 .chd）放到 iPhone 上。";
+"library.empty.step1.ipad" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes 或 .chd）放到 iPad 上。";
 "library.empty.step2" = "點一下 %@，再到「檔案」App 選取檔案。";
 "library.empty.step3" = "開始玩吧。進度會自動儲存";
 "library.empty.romHint" = "還沒有 ROM？網路上有許多免費且合法的遊戲，搜尋「GBA homebrew」看看。";
 "library.empty.legal" = "請只匯入你合法持有的檔案。";
 "library.search" = "搜尋遊戲";
 "library.sort.lastPlayed" = "最近遊玩";
+"library.theme.classic" = "經典";
+"library.hero.toggle" = "在清單最上方顯示最近遊玩的遊戲";
 "library.sort.title" = "名稱";
 "library.sort.dateAdded" = "加入日期";
 "library.sort.byConsole" = "依主機";
+"library.sort.allConsoles" = "所有主機";
 "library.played.ago" = "%@玩過";
 "library.playTime" = "已遊玩 %@ 小時 %@ 分鐘";
 "library.playTime.minutes" = "已遊玩 %@ 分鐘";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "選擇封面圖片";
 "details.cover.remove" = "移除自訂封面";
 "details.cover.error" = "無法儲存圖片。";
+"cover.choose.boxart" = "官方封面（libretro 資料庫）";
+"cover.choose.ra" = "RetroAchievements 圖片";
+"cover.choose.screenshot" = "最近一次即時存檔的截圖";
+"cover.choose.photo" = "從照片圖庫選擇";
+"cover.choose.caption" = "遊戲庫中顯示的封面。遊戲頁面一律顯示你最近的截圖。";
 "details.newGame.confirm.title" = "要從標題畫面開始嗎？";
 "details.newGame.confirm.message" = "將不會接續上次的進度，但遊戲內存檔與即時存檔都會保留。";
 "details.launch.footer" = "要載入遊戲內存檔（在遊戲本身的儲存選單建立的那種），請啟動遊戲並從遊戲選單接續。它與下方的即時存檔欄位是分開的，即時存檔由你自己建立。";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "遊戲語言";
 "settings.nds.language.auto" = "自動（%@）";
 "settings.nds.language.footer" = "「自動」會跟隨 iPhone 的語言；若 DS 不支援則使用英文。語言會在開始新遊戲時套用。大多數遊戲會把語言寫進存檔，之後就不會再變更。只有 ROM 本身支援時語言才會切換，許多 ROM 只內建單一語言。";
+"settings.nds.language.footer.ipad" = "「自動」會跟隨 iPad 的語言；若 DS 不支援則使用英文。語言會在開始新遊戲時套用。大多數遊戲會把語言寫進存檔，之後就不會再變更。只有 ROM 本身支援時語言才會切換，許多 ROM 只內建單一語言。";
 "settings.nds.clock.manual" = "手動設定日期與時間";
 "settings.nds.clock.pickerLabel" = "日期與時間";
 "settings.general" = "一般";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "授權：%@。";
 "settings.engines.footer.patched" = "授權：%@。使用時做了一項小修改，該修改以修補檔的形式與原始碼一同公開。";
 "settings.rateApp" = "為 Retro Pal 評分";
+"review.headline" = "為 Retro Pal 評分";
+"review.body" = "每一則評論對我們都很重要，這是專案得以延續的動力。🙂";
 "settings.disclaimer" = "Retro Pal 是純本機運作的模擬器，不內含任何遊戲。請只匯入你合法持有的檔案。";
 "settings.restore" = "回復購買項目";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "視訊濾鏡";
 "pro.compare.row.externalDisplay" = "電視 / AirPlay";
 /* Pro Prompts */
-"prompt.speed.title" = "你已用 1.5 倍速玩了 %@ 分鐘";
+"prompt.speed.title" = "你已用 1.5 倍速玩了 %lld 分鐘";
 "prompt.speed.subtitle" = "用 4 倍速，同樣的進度一下就跑完。解鎖全部速度，一次購買，永久使用。";
 "prompt.slots.title" = "存檔欄位都滿了";
 "prompt.slots.subtitle" = "解鎖 5 個存檔欄位，再也不必覆蓋舊檔。一次購買，永久擁有。";
-"prompt.milestone.title" = "你已經玩了 %@ 分鐘的復古遊戲";
+"prompt.milestone.title" = "你已經玩了 %lld 分鐘的復古遊戲";
 "prompt.milestone.subtitle" = "看得出你玩得超投入。解鎖完整體驗吧。";
 "prompt.rewind.title" = "需要回到更久之前嗎？";
 "prompt.rewind.subtitle" = "Pro 讓你在每一台主機上都能倒帶 30 秒。魔王戰再也不用怕。";
@@ -295,6 +308,17 @@
 "remap.action.clip" = "短片";
 "remap.clear" = "清除";
 "remap.actions.footer" = "這些快速功能預設沒有按鈕。指定按鈕後才會生效。快轉在按住按鈕時生效。滑動列即可清除。";
+"settings.remapKeyboard" = "重新對應鍵盤按鍵";
+"keyremap.directions.header" = "方向";
+"keyremap.buttons.header" = "按鈕";
+"keyremap.direction.up" = "上";
+"keyremap.direction.down" = "下";
+"keyremap.direction.left" = "左";
+"keyremap.direction.right" = "右";
+"keyremap.press" = "請按下按鍵…";
+"keyremap.noKeyboard" = "請先連接鍵盤，再重新對應按鍵。";
+"keyremap.footer" = "點一下操作項目，再按下要指派給它的按鍵。一個按鍵只能對應一個操作，但一個操作可以對應多個按鍵。向左滑動即可清除該列。";
+"key.space" = "空格";
 "layout.activeLayout" = "使用中的佈局";
 "layout.default" = "預設";
 "layout.presets" = "預設組";
@@ -354,7 +378,9 @@
 "guide.importRom.title" = "加入遊戲";
 "guide.importRom.intro" = "Retro Pal 不內含任何遊戲。ROM 檔案由你自行提供，且必須是你合法持有的（自己的卡帶，或免費合法的自製遊戲）。";
 "guide.importRom.step1" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPhone：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
+"guide.importRom.step1.ipad" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPad：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
 "guide.importRom.step2" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPhone」或「iCloud 雲碟」）。";
+"guide.importRom.step2.ipad" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPad」或「iCloud 雲碟」）。";
 "guide.importRom.step3" = "在 Retro Pal 中，點遊戲庫上方的 + 按鈕。";
 "guide.importRom.step4" = "選取檔案，遊戲立即出現在遊戲庫中，馬上可以玩。";
 "guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，以及 PlayStation 光碟的 .chd、.cue 搭配 .bin，或 .m3u。.zip 也可以，不論裡面是一款遊戲、一張光碟的全部檔案，還是多款遊戲讓你挑選。不支援 .7z。請只匯入你合法持有的檔案。";
@@ -370,6 +396,7 @@
 "guide.controller.title" = "連接控制器";
 "guide.controller.step1" = "把控制器切換到配對模式。";
 "guide.controller.step2" = "開啟 iOS 設定，進入藍牙，把控制器連接到 iPhone。";
+"guide.controller.step2.ipad" = "開啟 iPadOS 設定，進入藍牙，把控制器連接到 iPad。";
 "guide.controller.step3" = "回到 Retro Pal。控制器會自動偵測，螢幕上的操作按鈕隨即消失。";
 "guide.controller.footer" = "支援 MFi、Xbox、PlayStation、8BitDo 與大多數藍牙控制器。";
 "guide.controller.status.connected" = "已連接控制器：%@";
@@ -402,6 +429,7 @@
 "settings.sync.toggle" = "iCloud 同步";
 "settings.sync.state.disabled" = "關閉";
 "settings.sync.footer" = "你的即時存檔和遊戲內存檔會同步到你的私人 iCloud，並在你的裝置之間共用。關閉後只會保留在這支 iPhone 上。";
+"settings.sync.footer.ipad" = "你的即時存檔和遊戲內存檔會同步到你的私人 iCloud，並在你的裝置之間共用。關閉後只會保留在這台 iPad 上。";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "自動按住";
@@ -547,6 +575,8 @@
 "import.error.discMissingFiles" = "這張光碟需要未被選取的檔案：%@。請一次選取 .cue 和所有 .bin 檔案。";
 "import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes 遊戲，不支援其他主機。";
 "import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
+"import.error.zipUnsupportedCompression" = "這個 ZIP 使用了 Retro Pal 無法讀取的壓縮方式，例如 LZMA 或 BZIP2。檔案本身沒有損壞。請在「檔案」App 中解壓縮後直接匯入遊戲，或以標準壓縮重新製作 ZIP。";
+"import.error.zipEncrypted" = "這個 ZIP 有密碼保護。請在「檔案」App 中解壓縮後，再直接匯入遊戲檔案。";
 "import.error.alreadyImported" = "這個遊戲已經在你的遊戲庫裡了。";
 "import.duplicate.title" = "已在你的遊戲庫中";
 "import.duplicate.bodySeveral" = "這些遊戲已經在你的遊戲庫中：";
@@ -575,17 +605,23 @@
 "settings.externalDisplay.sideBySide" = "並排";
 "settings.externalDisplay.stacked" = "上下排列";
 "settings.externalDisplay.footer" = "以 AirPlay 或連接線接上電視，遊戲畫面即可佔滿螢幕，iPhone 則作為操作介面。DS 會顯示兩個畫面，觸控畫面仍留在手機上。";
+"settings.externalDisplay.footer.ipad" = "以 AirPlay 或連接線接上電視，遊戲畫面即可佔滿螢幕，iPad 則作為操作介面。DS 會顯示兩個畫面，觸控畫面仍留在 iPad 上。";
 "prompt.externalDisplay.title" = "在大螢幕上遊玩";
 "prompt.externalDisplay.subtitle" = "透過 AirPlay 或連接線把遊戲全螢幕送到電視上，iPhone 保留操作。";
+"prompt.externalDisplay.subtitle.ipad" = "透過 AirPlay 或連接線把遊戲全螢幕送到電視上，iPad 保留操作。";
 "pro.benefit.externalDisplay.short" = "在電視上遊玩";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "用 AirPlay 在電視上遊玩";
 "guide.airplay.intro" = "把遊戲送到電視上，iPhone 則作為手把使用。可透過 AirPlay，也可使用 HDMI 轉接器。";
+"guide.airplay.intro.ipad" = "把遊戲送到電視上，iPad 則作為手把使用。可透過 AirPlay，也可使用 HDMI 轉接器。";
 "guide.airplay.step1" = "讓 iPhone 和電視連上同一個 Wi-Fi。若使用 HDMI 轉接器，接上後直接跳到步驟 3。";
+"guide.airplay.step1.ipad" = "讓 iPad 和電視連上同一個 Wi-Fi。若使用 HDMI 轉接器，接上後直接跳到步驟 3。";
 "guide.airplay.step2" = "打開控制中心，點一下「螢幕鏡像輸出」，然後選擇你的電視。";
 "guide.airplay.step3" = "啟動遊戲。畫面會佔滿電視，iPhone 保留操作。";
+"guide.airplay.step3.ipad" = "啟動遊戲。畫面會佔滿電視，iPad 保留操作。";
 "guide.airplay.step4" = "DS 的兩個畫面都會顯示在電視上，觸控畫面仍留在 iPhone 上。";
+"guide.airplay.step4.ipad" = "DS 的兩個畫面都會顯示在電視上，觸控畫面仍留在 iPad 上。";
 "guide.airplay.step5" = "接上手把後，畫面上的按鍵會隱藏。手機上只會再用到 DS 的觸控畫面。";
 "guide.airplay.step6" = "電視連接後，可在「設定」的「外接顯示器」中選擇兩個 DS 畫面的排列方式。";
 "guide.airplay.footer" = "聲音會隨畫面一起透過 AirPlay 傳到電視。使用手把時，可用手把本身的選單鍵開啟暫停選單，完全不需要碰手機。";
@@ -601,6 +637,7 @@
 "guide.widget.step4" = "放好位置後點一下「完成」。";
 "guide.widget.step5" = "自己挑選的那兩種：長按小工具，點一下「編輯小工具」，接著選擇遊戲和要開啟的存檔。";
 "guide.widget.footer" = "封面會在你玩過該遊戲一次之後出現，小工具則會在你離開 Retro Pal 時更新。自行挑選遊戲需要 iOS 17 或以上；「繼續遊玩」在所有支援的 iPhone 上都能使用。";
+"guide.widget.footer.ipad" = "封面會在你玩過該遊戲一次之後出現，小工具則會在你離開 Retro Pal 時更新。自行挑選遊戲需要 iPadOS 17 或以上；「繼續遊玩」在所有支援的 iPad 上都能使用。";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "這組代碼含有不會用到的字元。密技代碼只使用 0-9、A-F、空格和連字號。";
@@ -648,25 +685,34 @@
 "settings.cheatDB.noGames" = "請先在收藏庫中加入遊戲。";
 
 "externalDisplay.idle.hint" = "請在 iPhone 上啟動遊戲";
+"externalDisplay.idle.hint.ipad" = "請在 iPad 上啟動遊戲";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "PlayStation";
-"whatsnew.s1.b1" = "PlayStation 遊戲現在可以在 Retro Pal 上遊玩，這台主機對所有人免費。";
-"whatsnew.s1.b2" = "存檔、即時存檔、倒帶、金手指與成就，全都從第一天起就能用。";
-"whatsnew.s1.b3" = "進度會存在記憶卡上，和當年的主機一樣，也會像其他存檔一樣傳到你的其他裝置。";
-"whatsnew.s1.b4" = "遊戲周圍會顯示這台主機自己的機殼，直向與橫向都是。{PRO} 可以把手把重新上色，連印在上面的字都能換。";
-"whatsnew.s2.title" = "光碟，不論你的是什麼形式";
-"whatsnew.s2.b1" = "一款 PlayStation 遊戲可能是一個檔案，也可能是一整個資料夾。可以加入 .chd，或 .cue 搭配 .bin，或整包的 zip。";
-"whatsnew.s2.b2" = "哪些檔案屬於同一款遊戲，交給 Retro Pal 判斷，加進來的是一款遊戲，不是五十個。";
-"whatsnew.s2.b3" = "分成多張光碟的遊戲會變成一款遊戲，就算光碟是分開的檔案也一樣；換片直接從暫停選單進行，不必離開遊戲。";
-"whatsnew.s3.title" = "有兩根搖桿的手把";
-"whatsnew.s3.b1" = "螢幕上的操作有兩根類比搖桿和 ANALOG 鍵，需要類比的遊戲用手指玩，就和用實體手把一樣。";
-"whatsnew.s3.b2" = "左搖桿移動，右搖桿轉視角，正是遊戲預期的方式。";
-"whatsnew.s4.title" = "金手指";
-"whatsnew.s4.b1" = "已儲存的代碼現在可以編輯，改一個字元不必再重打整組代碼。";
-"whatsnew.s5.title" = "操作";
-"whatsnew.s5.b1" = "螢幕上的搖桿採用與 PlayStation 類比搖桿相同的立體外觀，並使用各主機自己的顏色。";
-"whatsnew.s5.b2" = "{PRO} 可以自己決定倒帶多久：長按倒帶按鈕選擇秒數，最多 30 秒。";
+"whatsnew.s1.title" = "全新外觀";
+"whatsnew.s1.b1" = "把手機轉成橫向，遊戲庫就變成一整排封面，襯在會動的背景上；遊戲頁面、RetroAchievements 和設定也採用同樣的風格。";
+"whatsnew.s1.b2" = "在直向模式下，你最近玩過的遊戲會放在最上方，下方的清單則襯在一層玻璃質感的底板上。外觀隨時可以更換：遊戲庫右上角、+ 旁邊的調色盤按鈕 {PALETTE} 提供五種外觀，如果你偏好先前的介面，也可以選「經典」。";
+"whatsnew.s1.b3" = "為每款遊戲挑選封面：官方封面、RetroAchievements 圖片、你最近的截圖或一張照片。";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro Pal 現在也能在 iPad 上使用，所有主機都支援，直向橫向皆可，操作按鈕也依大螢幕調整了大小。";
+"whatsnew.s2.b2" = "把視窗縮窄放在另一個 App 旁邊，遊戲庫就會像在 iPhone 上一樣排列。";
+"whatsnew.s3.title" = "被當成鍵盤的手把";
+"whatsnew.s3.b1" = "被 iOS 當成鍵盤的舊款藍牙手把，例如 8BitDo Zero，不用設定就能直接玩，每個按鍵都能在設定裡依主機重新指派。免費。";
+"whatsnew.s3.b2" = "在 iPhone 上，接著鍵盤時觸控按鈕會隱藏；在 iPad 上則會留在畫面上。";
+"whatsnew.s4.title" = "每一種語言";
+"whatsnew.s4.b1" = "ZIP 壓縮檔裡檔名含日文、韓文、中文或重音字母的遊戲，現在會以正確的名稱匯入。";
+"whatsnew.s4.b2" = "不論這台裝置使用哪種曆法，Nintendo DS 的時鐘都會顯示正確的年份。";
+"whatsnew.s5.title" = "此外";
+"whatsnew.s5.b1" = "Nintendo DS 的設定移到了 DS 遊戲自己的頁面，RetroAchievements 則緊接在存檔欄位下方。";
+"whatsnew.s5.b2" = "遊戲庫的工具列會顯示控制器的電量。";
+"whatsnew.s5.b3" = "RetroAchievements 成就現在也支援 PlayStation 遊戲了。";
+"whatsnew.s5.b4" = "金手指代碼：歐版或日版遊戲現在能找到自己的代碼，而且原版遊戲的代碼會排在玩家自製改版的代碼之前。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "這個系列沒有載入任何成就。";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "找不到這個名稱的遊戲。資料庫以英文標題收錄遊戲。";
+"cheats.placeholderPrefix" = "例：";
+"library.untitled" = "未命名的遊戲";
+"guide.controller.keyboard" = "實體鍵盤：方向鍵移動，X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。按鍵依位置判定，所以字母以美式 QWERTY 鍵盤配置為準。iOS 視為鍵盤的藍牙手把（例如鍵盤模式下的 8BitDo Zero）也能使用。鍵盤連接期間，可在「設定」的「控制器」中重新對應每個按鍵。在 iPhone 上，鍵盤連接期間會隱藏觸控操作。";
+"guide.controller.keyboard.ipad" = "實體鍵盤：方向鍵移動，X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。按鍵依位置判定，所以字母以美式 QWERTY 鍵盤配置為準。iOS 視為鍵盤的藍牙手把（例如鍵盤模式下的 8BitDo Zero）也能使用。鍵盤連接期間，可在「設定」的「控制器」中重新對應每個按鍵。";

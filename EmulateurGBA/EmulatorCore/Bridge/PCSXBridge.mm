@@ -1461,10 +1461,23 @@ static int16_t PCSXClampAxis(float v) {
         // The fallback is a number and not a filename: the core's label comes
         // from the .m3u the player wrote, and if there is none, a bare "Disc 2"
         // reads better than a dump's filename. It is localized by the caller.
-        NSString *text = gotLabel ? @(label) : [NSString stringWithFormat:@"%u", i + 1];
+        // `@(label)` is stringWithUTF8String:, which returns nil for bytes
+        // that are not UTF-8, and `label` is nonnull on the Swift side: a
+        // playlist line the core cut mid-character at its 255-byte buffer, or
+        // one it read from a non-UTF-8 file, crashed the app the moment the
+        // pause menu asked for the disc list. Latin-1 decodes every byte, so
+        // the row shows something rather than nothing; a label that still
+        // comes back empty falls through to the number.
+        NSString *labelText = nil;
+        if (gotLabel) {
+            labelText = [NSString stringWithUTF8String:label]
+                     ?: [NSString stringWithCString:label encoding:NSISOLatin1StringEncoding];
+        }
+        BOOL hasLabel = labelText.length > 0;
+        NSString *text = hasLabel ? labelText : [NSString stringWithFormat:@"%u", i + 1];
         [result addObject:[[PS1Disc alloc] initWithIndex:i
                                                    label:text
-                                         labelIsFallback:!gotLabel]];
+                                         labelIsFallback:!hasLabel]];
     }
     return result;
 }

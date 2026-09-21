@@ -585,11 +585,13 @@ class TouchControlsView: UIView {
     /// the global (no-preset) opacity and scale. Reads the container from `bounds`,
     /// so the caller must size the view first.
     func applyDefaultLayout(isLandscape: Bool, system: PresetSystem, deviceScale: CGFloat,
-                            safeLeftInset: CGFloat = 0, safeRightInset: CGFloat = 0) {
+                            safeLeftInset: CGFloat = 0, safeRightInset: CGFloat = 0,
+                            family: LayoutFamily = .phone) {
         let isNDS = (system == .nds)
         var layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: bounds.size,
-            scale: deviceScale, safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
+            scale: deviceScale, safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
+            family: family)
         let globals = Self.globalOpacityScale()
         // The built-in default layout uses the global Settings choices.
         let useJoystick = UserDefaults.standard.bool(forKey: "useJoystick")

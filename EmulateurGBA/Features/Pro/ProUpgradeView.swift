@@ -39,7 +39,10 @@ struct ProUpgradeView: View {
 
     var body: some View {
         ZStack {
-            ProPalette.bgGradient.ignoresSafeArea()
+            // The library's moving ground in the chosen look, under a dark
+            // film (2026-09-07), in place of the flat night gradient: the
+            // sheet joins the redesign; its gold stays its own.
+            LibraryLandscapeBackground(isPaused: reduceMotion, dimmed: true)
 
             if verticalSizeClass == .compact {
                 landscapeLayout
@@ -47,6 +50,7 @@ struct ProUpgradeView: View {
                 portraitLayout
             }
         }
+        .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showComparison) {
             // Nested comparison sheet (from "See all benefits" link).
             // Same view re-presented with the comparison context — inherits
@@ -130,7 +134,7 @@ struct ProUpgradeView: View {
                         Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
                             .font(.caption2.weight(.bold))
                             .tracking(1.2)
-                            .foregroundStyle(.white.opacity(0.4))
+                            .foregroundStyle(.white.opacity(0.55))
                         ProBenefitStrip(items: otherBenefits.map {
                             ProBenefitStrip.Item(icon: $0.icon, label: $0.shortText)
                         })
@@ -146,7 +150,7 @@ struct ProUpgradeView: View {
                     } label: {
                         Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.white.opacity(0.65))
                             .underline()
                     }
 
@@ -252,7 +256,7 @@ struct ProUpgradeView: View {
             Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
                 .font(.caption2.weight(.bold))
                 .tracking(1.2)
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(.white.opacity(0.55))
                 .frame(maxWidth: .infinity, alignment: .center)
 
             benefitRows(allBenefits, compact: dense)
@@ -307,11 +311,17 @@ struct ProUpgradeView: View {
 
     // MARK: - Shared premium card chrome
 
+    /// Glass over the ground, tinted with the night purple the card used to
+    /// be painted in (2026-09-07), so the gold border keeps its contrast and
+    /// the look shows through.
     private var proCardSurface: some View {
-        LinearGradient(
-            colors: [Color(red: 0.12, green: 0.08, blue: 0.22),
-                     Color(red: 0.05, green: 0.03, blue: 0.11)],
-            startPoint: .topLeading, endPoint: .bottomTrailing)
+        ZStack {
+            Color.white.opacity(LandscapeChrome.cardFill)
+            LinearGradient(
+                colors: [Color(red: 0.12, green: 0.08, blue: 0.22).opacity(0.55),
+                         Color(red: 0.05, green: 0.03, blue: 0.11).opacity(0.55)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
     }
 
     private var proCardBorder: some View {
@@ -360,7 +370,7 @@ struct ProUpgradeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
                             .font(.caption2.weight(.bold)).tracking(1.2)
-                            .foregroundStyle(.white.opacity(0.4))
+                            .foregroundStyle(.white.opacity(0.55))
                             .frame(maxWidth: .infinity, alignment: .center)
                         benefitRows(otherBenefits, compact: true)
 
@@ -369,7 +379,7 @@ struct ProUpgradeView: View {
                         } label: {
                             Text(NSLocalizedString("pro.seeAllBenefits", comment: ""))
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.white.opacity(0.65))
                                 .underline()
                         }
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -553,9 +563,9 @@ struct ProUpgradeView: View {
                 .padding(.horizontal, 12)
                 .frame(width: w * 0.28)
                 .frame(maxHeight: .infinity)
-                .background(Color.white.opacity(0.03))
+                .background(Color.white.opacity(LandscapeChrome.cardFill * 0.5))
                 .overlay(alignment: .leading) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                    Rectangle().fill(Color.white.opacity(LandscapeChrome.cardStroke)).frame(width: 1)
                 }
             }
         }
@@ -589,7 +599,7 @@ struct ProUpgradeView: View {
             }
         }
         .font(.caption2)
-        .foregroundColor(.white.opacity(0.55))
+        .foregroundColor(.white.opacity(0.72))
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
     }
@@ -616,7 +626,7 @@ struct ProUpgradeView: View {
             }
         }
         .font(.caption2)
-        .foregroundColor(.white.opacity(0.55))
+        .foregroundColor(.white.opacity(0.72))
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
     }
@@ -641,7 +651,7 @@ struct ProUpgradeView: View {
     private var headline: String {
         switch context {
         case .speedMoment(let minutes):
-            return String(format: NSLocalizedString("prompt.speed.title", comment: ""), "\(minutes)")
+            return String(format: NSLocalizedString("prompt.speed.title", comment: ""), minutes)
         case .speedTapped:
             return NSLocalizedString("prompt.speedTapped.title", comment: "")
         case .saveSlotFull:
@@ -649,7 +659,7 @@ struct ProUpgradeView: View {
         case .saveSlotTapped:
             return NSLocalizedString("prompt.slotsTapped.title", comment: "")
         case .sessionMilestone(let minutes):
-            return String(format: NSLocalizedString("prompt.milestone.title", comment: ""), "\(minutes)")
+            return String(format: NSLocalizedString("prompt.milestone.title", comment: ""), minutes)
         case .rewindLimit:
             return NSLocalizedString("prompt.rewind.title", comment: "")
         case .cheatCodes(let gameName):
@@ -696,7 +706,7 @@ struct ProUpgradeView: View {
         case .videoFilters:
             return NSLocalizedString("prompt.filters.subtitle", comment: "")
         case .externalDisplay:
-            return NSLocalizedString("prompt.externalDisplay.subtitle", comment: "")
+            return DeviceWording.string("prompt.externalDisplay.subtitle")
         }
     }
 
@@ -877,7 +887,7 @@ struct ProUpgradeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(NSLocalizedString("pro.compare.header.free", comment: ""))
                     .font((cellWidth < 60 ? Font.caption2 : Font.caption).bold())
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(0.65))
                     .lineLimit(1).minimumScaleFactor(0.6)
                     .frame(width: cellWidth)
                 Text(NSLocalizedString("pro.compare.header.pro", comment: ""))
@@ -898,7 +908,7 @@ struct ProUpgradeView: View {
                     Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
                     Text(NSLocalizedString("pro.compare.sectionDivider", comment: ""))
                         .font(.caption2.bold())
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.65))
                         .tracking(1)
                     Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
                 }
@@ -941,7 +951,7 @@ struct ProUpgradeView: View {
             } else {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(0.65))
             }
         case .none:
             Text("—")
@@ -957,7 +967,7 @@ struct ProUpgradeView: View {
             } else {
                 Text(value)
                     .font(.caption.bold())
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.white.opacity(0.78))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
             }

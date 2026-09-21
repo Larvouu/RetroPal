@@ -50,15 +50,20 @@ struct WhatsNewContent {
     /// site reads in, which is the order the sheet draws in.
     let noticeKey: String?
     let sections: [ContentSection]
+    /// The sheet dressed in the app's new look (asked 2026-09-10): the
+    /// moving ground under it, the sections on glass, dark type. On for
+    /// 1.3.1 because the look IS the release; a later release turns it off
+    /// here without touching the sheet.
+    var wearsTheNewLook: Bool = false
 
-    /// The CURRENT release's notes, and they are OPEN.
-    ///
-    /// The 1.3.0 train carries more than the PlayStation, and only the
-    /// PlayStation is built. These three sections are true today and nothing
-    /// here describes anything that is not; the rest of the train appends s4
-    /// onward as it lands. **This release must not submit while these notes
-    /// describe less than it ships** — the once-per-update gate compares
-    /// against `version`, so stale notes fail silent rather than loudly.
+    /// The CURRENT release's notes, written 2026-09-10 for 1.3.1 with the
+    /// train's scope settled (four items deferred to 1.3.2 the same day).
+    /// Every bullet describes something in the tree and device-verified;
+    /// nothing here is planned. **This release must not submit while these
+    /// notes describe less than it ships** — the once-per-update gate
+    /// compares against `version`, so stale notes fail silent rather than
+    /// loudly. No Pro line this release, so no `{PRO}` token: the looks,
+    /// the cover chooser and the keyboard remap are all free.
     ///
     /// The 1.2.5 sections were removed rather than left in place. A leftover
     /// section is copy about a release the player already has, sitting in a
@@ -77,36 +82,26 @@ struct WhatsNewContent {
     /// them, it is an apology to nobody. Do not reinstate it, and do not
     /// replace it with a "prices have changed" line.
     static let current = WhatsNewContent(
-        version: "1.3.0",
+        version: "1.3.1",
         noticeKey: nil,
         sections: [
-            // The machine, carrying its art, for the same reason the two
-            // machines did in 1.2.5: this is the section whose news is a THING
-            // rather than a behaviour.
-            // s1.b4 added 2026-08-30: the console's LOOK had no bullet at all,
-            // and the dress plus the repaintable pad were a large part of this
-            // build. 1.2.5 gave its two new consoles a whole section for the
-            // same thing. It sits here rather than in s5 because it is about
-            // THIS machine, while s5's moulded joystick is a change every
-            // console gets.
+            // The look first, because it is what a player meets before
+            // anything else in this release; then the new device; then the
+            // pads a support mail asked for; then the language work, which
+            // is invisible until it is yours; then the rest.
             ContentSection(titleKey: "whatsnew.s1.title",
-                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2",
-                                        "whatsnew.s1.b3", "whatsnew.s1.b4"],
-                           artNames: ["console-ps1"]),
+                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2", "whatsnew.s1.b3"]),
             ContentSection(titleKey: "whatsnew.s2.title",
-                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2",
-                                        "whatsnew.s2.b3"]),
+                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2"]),
             ContentSection(titleKey: "whatsnew.s3.title",
                            bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2"]),
-            // The things this train added that are not the PlayStation, in TWO
-            // sections rather than one: cheats and controls were sharing a
-            // heading and they are not the same subject, so a player scanning
-            // for one was reading past the other.
             ContentSection(titleKey: "whatsnew.s4.title",
-                           bulletKeys: ["whatsnew.s4.b1"]),
+                           bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2"]),
             ContentSection(titleKey: "whatsnew.s5.title",
-                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2"]),
-        ]
+                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2", "whatsnew.s5.b3",
+                                        "whatsnew.s5.b4"]),
+        ],
+        wearsTheNewLook: true
     )
 }
 
@@ -171,11 +166,33 @@ struct WhatsNewSheet: View {
     /// row at all. The standing rule is also written into the release checklist, beside the
     /// per-release obligation to rewrite these strings.
     private static let proToken = "{PRO}"
+    /// A second token (2026-09-10): the palette symbol the library's bar
+    /// wears, drawn INSIDE the sentence that tells the reader where the looks
+    /// are, so the bullet shows the button rather than describing it. Same
+    /// symbol as `paletteButton` and the themed bars' circle, by name.
+    private static let paletteToken = "{PALETTE}"
+    private static let paletteSymbol = "paintpalette"
     /// The product's full name, deliberately not localized: it is a proper noun,
     /// and it is the same three words on every store in the world.
     static let proTagName = "Retro Pal Pro"
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
+        if content.wearsTheNewLook {
+            // The library's moving ground under the notes, the sections on
+            // glass, the subtree dark: the release's look, worn by the sheet
+            // that announces it. Scoped to this subtree, never the window.
+            sheetBody
+                .background(LibraryLandscapeBackground(isPaused: reduceMotion, dimmed: true)
+                                .ignoresSafeArea())
+                .environment(\.colorScheme, .dark)
+        } else {
+            sheetBody
+        }
+    }
+
+    private var sheetBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -245,7 +262,17 @@ struct WhatsNewSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
+    /// A section, on a glass card in the new look, bare otherwise.
+    @ViewBuilder
     private func sectionView(_ section: WhatsNewContent.ContentSection) -> some View {
+        if content.wearsTheNewLook {
+            LandscapeChrome.card(nil) { sectionContent(section) }
+        } else {
+            sectionContent(section)
+        }
+    }
+
+    private func sectionContent(_ section: WhatsNewContent.ContentSection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(NSLocalizedString(section.titleKey, comment: ""))
                 .font(.headline)
@@ -281,25 +308,56 @@ struct WhatsNewSheet: View {
     /// Falls back to the words alone if the render fails, so the sentence is
     /// never left with a hole in it.
     private func bulletText(_ raw: String) -> Text {
-        let parts = raw.components(separatedBy: Self.proToken)
-        guard parts.count > 1, let tag = proTagImage else {
-            return Text(Self.plainText(raw))
-        }
-        var result = Text(parts[0])
-        for part in parts.dropFirst() {
-            // If the tag ever reads as sitting too high on the line, the knob is
-            // `.baselineOffset(_:)` on THIS Text and nothing else: an image
-            // interpolated into a run hangs its bottom edge on the baseline, so a
-            // capsule taller than the cap height rides above it by design. Left at
-            // the natural default rather than nudged by a number nobody measured.
-            result = result + Text("\(tag)") + Text(part)
+        // Walk the string, emitting the words up to the next token, then the
+        // token's own Text, until none is left. Two tokens, the same walk.
+        var result = Text("")
+        var rest = raw[...]
+        while !rest.isEmpty {
+            let pro = rest.range(of: Self.proToken)
+            let palette = rest.range(of: Self.paletteToken)
+            var next: (range: Range<Substring.Index>, text: Text)?
+            if let pro, let palette {
+                next = pro.lowerBound <= palette.lowerBound ? (pro, proText) : (palette, paletteText)
+            } else if let pro {
+                next = (pro, proText)
+            } else if let palette {
+                next = (palette, paletteText)
+            }
+            guard let next else {
+                result = result + Text(String(rest))
+                break
+            }
+            result = result + Text(String(rest[rest.startIndex..<next.range.lowerBound])) + next.text
+            rest = rest[next.range.upperBound...]
         }
         return result
     }
 
-    /// The bullet as words only: the VoiceOver reading, and the fallback.
+    /// The Pro tag as a Text run; the words alone if the render failed, so the
+    /// sentence is never left with a hole in it.
+    ///
+    /// If the tag ever reads as sitting too high on the line, the knob is
+    /// `.baselineOffset(_:)` on THIS Text and nothing else: an image
+    /// interpolated into a run hangs its bottom edge on the baseline, so a
+    /// capsule taller than the cap height rides above it by design. Left at
+    /// the natural default rather than nudged by a number nobody measured.
+    private var proText: Text {
+        guard let tag = proTagImage else { return Text(Self.proTagName) }
+        return Text("\(tag)")
+    }
+
+    /// The palette symbol as a Text run, at the bullet's own type size.
+    private var paletteText: Text {
+        Text(Image(systemName: Self.paletteSymbol))
+    }
+
+    /// The bullet as words only: the VoiceOver reading, and the fallback. The
+    /// palette token leaves no word behind: its sentence already says "the
+    /// palette button".
     private static func plainText(_ raw: String) -> String {
         raw.replacingOccurrences(of: proToken, with: proTagName)
+           .replacingOccurrences(of: " " + paletteToken, with: "")
+           .replacingOccurrences(of: paletteToken, with: "")
     }
 
     /// The tag, rendered at the bullet's own type size so it grows with the

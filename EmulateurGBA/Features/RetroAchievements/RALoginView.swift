@@ -16,57 +16,77 @@ struct RALoginView: View {
     @State private var password = ""
     @State private var isLoggingIn = false
     @State private var errorMessage: String?
+    /// The explainer, reachable before an account exists (2026-09-08): the
+    /// classic library card carries an (i) beside its invite, but the
+    /// landscape surface and the upright look go straight to this sheet,
+    /// which offered no way to it.
+    @State private var showAbout = false
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField(String(localized: "ra.login.username", defaultValue: "Username"), text: $username)
-                        .textContentType(.username)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    SecureField(String(localized: "ra.login.password", defaultValue: "Password"), text: $password)
-                        .textContentType(.password)
-                } footer: {
-                    Text(String(localized: "ra.login.footer",
-                                defaultValue: "Sign in with your RetroAchievements account. Your password is sent once to RetroAchievements to sign in and is never stored on this device."))
-                }
-
-                if let errorMessage {
+            LandscapeListSwitch(title: "RetroAchievements", leading: .cancel) {
+                Form {
                     Section {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        TextField(String(localized: "ra.login.username", defaultValue: "Username"), text: $username)
+                            .textContentType(.username)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        SecureField(String(localized: "ra.login.password", defaultValue: "Password"), text: $password)
+                            .textContentType(.password)
+                    } footer: {
+                        Text(String(localized: "ra.login.footer",
+                                    defaultValue: "Sign in with your RetroAchievements account. Your password is sent once to RetroAchievements to sign in and is never stored on this device."))
                     }
-                }
+                    .landscapeGlassRow()
 
-                if !ra.isOnline {
+                    if let errorMessage {
+                        Section {
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                        .landscapeGlassRow()
+                    }
+
+                    if !ra.isOnline {
+                        Section {
+                            Label(String(localized: "ra.offline", defaultValue: "No internet connection."),
+                                  systemImage: "wifi.slash")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .landscapeGlassRow()
+                    }
+
                     Section {
-                        Label(String(localized: "ra.offline", defaultValue: "No internet connection."),
-                              systemImage: "wifi.slash")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        Button {
+                            signIn()
+                        } label: {
+                            HStack {
+                                if isLoggingIn { ProgressView().padding(.trailing, 4) }
+                                Text(String(localized: "ra.login.signIn", defaultValue: "Sign In"))
+                            }
+                        }
+                        .disabled(username.trimmingCharacters(in: .whitespaces).isEmpty
+                                  || password.isEmpty || isLoggingIn || !ra.isOnline)
                     }
-                }
+                    .landscapeGlassRow()
 
-                Section {
-                    Button {
-                        signIn()
-                    } label: {
-                        HStack {
-                            if isLoggingIn { ProgressView().padding(.trailing, 4) }
-                            Text(String(localized: "ra.login.signIn", defaultValue: "Sign In"))
+                    Section {
+                        Link(destination: URL(string: "https://retroachievements.org/createaccount.php")!) {
+                            Text(String(localized: "ra.login.createAccount",
+                                        defaultValue: "Create a RetroAchievements account"))
+                                .font(.footnote)
+                        }
+                        Button {
+                            showAbout = true
+                        } label: {
+                            Label(String(localized: "ra.about.title", defaultValue: "About RetroAchievements"),
+                                  systemImage: "info.circle")
+                                .font(.footnote)
                         }
                     }
-                    .disabled(username.isEmpty || password.isEmpty || isLoggingIn || !ra.isOnline)
-                }
-
-                Section {
-                    Link(destination: URL(string: "https://retroachievements.org/createaccount.php")!) {
-                        Text(String(localized: "ra.login.createAccount",
-                                    defaultValue: "Create a RetroAchievements account"))
-                            .font(.footnote)
-                    }
+                    .landscapeGlassRow()
                 }
             }
             .navigationTitle("RetroAchievements")
@@ -76,6 +96,7 @@ struct RALoginView: View {
                     Button(String(localized: "common.cancel", defaultValue: "Cancel")) { dismiss() }
                 }
             }
+            .sheet(isPresented: $showAbout) { RAAboutSheet() }
         }
     }
 

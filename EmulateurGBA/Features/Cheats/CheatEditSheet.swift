@@ -87,6 +87,7 @@ struct CheatEditSheet: View {
                             .font(.system(.body, design: .monospaced))
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.characters)
+                            .keyboardType(.asciiCapable)
                             .frame(minHeight: 96)
                             .focused($codeFocused)
                     }

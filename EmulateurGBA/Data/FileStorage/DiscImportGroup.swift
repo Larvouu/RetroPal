@@ -243,29 +243,50 @@ enum DiscImportGrouper {
             else { gaps.append(DiscNameGap(boot: boot, missing: dedupe(missing))) }
         }
 
+        // The two descriptor formats that name their tracks: a `.cue`, and a
+        // cdrdao `.toc`, which the core also boots from.
+        func tracks(of descriptor: String) -> [String] {
+            ext(descriptor) == "toc" ? tocTracks(descriptorText(descriptor))
+                                     : cueTracks(descriptorText(descriptor))
+        }
+
         // --- 1. playlists first: they claim the descriptors they name --------
         for name in sorted where ext(name) == "m3u" {
             guard !claimed.contains(name) else { continue }
             let (descriptors, missingDescriptors) = resolve(lines(descriptorText(name)))
             var members = [name] + descriptors
             var missing = missingDescriptors
-            for descriptor in descriptors where ext(descriptor) == "cue" {
-                let (tracks, missingTracks) = resolve(cueTracks(descriptorText(descriptor)))
-                members += tracks
+            for descriptor in descriptors where ext(descriptor) == "cue" || ext(descriptor) == "toc" {
+                let (found, missingTracks) = resolve(tracks(of: descriptor))
+                members += found
                 missing += missingTracks
             }
             close(boot: name, members: members, missing: missing)
         }
 
         // --- 2. descriptors: they claim their tracks -------------------------
-        for name in sorted where ext(name) == "cue" {
+        for name in sorted where ext(name) == "cue" || ext(name) == "toc" {
             guard !claimed.contains(name) else { continue }
-            let (tracks, missing) = resolve(cueTracks(descriptorText(name)))
-            close(boot: name, members: [name] + tracks, missing: missing)
+            let (found, missing) = resolve(tracks(of: name))
+            close(boot: name, members: [name] + found, missing: missing)
         }
 
         // --- 3. whatever is left and can boot on its own ---------------------
         for name in sorted where !claimed.contains(name) {
+            // A CloneCD descriptor is a sidecar of its image (the core boots the
+            // `.img` and reads the `.ccd` beside it), so it rides along when the
+            // image is here. Alone, it is not a harmless patch file: the person
+            // has half a game, and the missing half is named.
+            if ext(name) == "ccd" {
+                if byKey[stem(name) + ".img"] == nil {
+                    // The lookup is case-insensitive, but the name reaches the
+                    // person in the error, so it keeps the file's own spelling.
+                    let ownStem = ((name as NSString).lastPathComponent as NSString).deletingPathExtension
+                    gaps.append(DiscNameGap(boot: name, missing: [ownStem + ".img"]))
+                    claimed.insert(name)
+                }
+                continue
+            }
             // A lone sidecar is dropped rather than failed: the person picked a
             // patch file, which is a harmless mistake and not a broken game.
             if sidecarExtensions.contains(ext(name)) { continue }
@@ -474,6 +495,32 @@ enum DiscImportGrouper {
         return names
     }
 
+    /// The data files a cdrdao `.toc` points at, in order.
+    ///
+    /// The file references are `FILE`, `DATAFILE` and `AUDIOFILE` statements,
+    /// each followed by a quoted name and then offsets and lengths the core
+    /// deals with (`DATAFILE "track01.bin" 0`, `FILE "track02.bin" 0 03:00:00`).
+    /// A `.toc` written by a Japanese Windows tool reaches here through the
+    /// same decoder as a `.cue`.
+    static func tocTracks(_ text: String?) -> [String] {
+        guard let text else { return [] }
+        var names: [String] = []
+        for rawLine in text.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            guard let keyword = ["DATAFILE", "AUDIOFILE", "FILE"].first(where: {
+                line.uppercased().hasPrefix($0)
+            }) else { continue }
+            let rest = String(line.dropFirst(keyword.count)).trimmingCharacters(in: .whitespaces)
+            guard rest.hasPrefix("\"") else { continue }
+            let afterQuote = rest.dropFirst()
+            if let end = afterQuote.firstIndex(of: "\"") {
+                let name = String(afterQuote[..<end])
+                if !name.isEmpty, !names.contains(name) { names.append(name) }
+            }
+        }
+        return names
+    }
+
     /// The discs a `.m3u` lists, in order. Blank lines and `#` comments skipped.
     static func lines(_ text: String?) -> [String] {
         guard let text else { return [] }
@@ -482,11 +529,15 @@ enum DiscImportGrouper {
             .filter { !$0.isEmpty && !$0.hasPrefix("#") }
     }
 
-    /// Decode a descriptor's bytes. UTF-8 then Latin-1: `.cue` files are old,
-    /// frequently written by Windows tools, and a European game title with an
-    /// accent in it is exactly the case that is not valid UTF-8.
+    /// Decode a descriptor's bytes. `.cue` files are old and frequently
+    /// written by Windows tools in the machine's OEM codepage, and the text
+    /// that matters is the `FILE` line naming the `.bin`: decoded wrong, it
+    /// names a file that does not exist and the game is reported as missing
+    /// its own discs. Straight to Latin-1 after UTF-8 did exactly that for
+    /// every Japanese cue sheet. Same chain as ZIP entry names, so a disc
+    /// extracted under a decoded name is found by its decoded descriptor.
     static func decode(_ data: Data) -> String? {
-        String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+        LegacyTextEncoding.decode(data)
     }
 
     /// Reads a small text file from a picked URL. The security scope is opened

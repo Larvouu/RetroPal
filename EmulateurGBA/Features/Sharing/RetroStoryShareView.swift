@@ -304,6 +304,12 @@ struct ActivityShareSheet: UIViewControllerRepresentable {
     var onComplete: (() -> Void)? = nil
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        // An iPad shows this as a popover wherever it is not the root of a sheet,
+        // and a popover with no anchor is a crash. Anchored to its own view's
+        // centre, the same insurance `SkinSharing` carries; inert on a phone.
+        controller.popoverPresentationController?.sourceView = controller.view
+        controller.popoverPresentationController?.sourceRect = CGRect(
+            x: controller.view.bounds.midX, y: controller.view.bounds.midY, width: 0, height: 0)
         controller.completionWithItemsHandler = { _, completed, _, _ in
             if tracked {
                 Analytics.signal("share", ["cardType": cardType, "completed": completed ? "true" : "false"])

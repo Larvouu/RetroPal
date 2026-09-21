@@ -37,20 +37,36 @@ enum EmulatorLayoutGeometry {
     /// current iPhone (the smallest, the SE at 375x667, lands at ~0.78). Comfort
     /// for touch targets is enforced separately, per button, by `minButtonDimension`.
     static let minDeviceScale: CGFloat = 0.7
-    /// Upper bound for very large / future devices. Does NOT engage on any current
-    /// iPhone (the Pro Max lands at ~1.12); it only guards against an iPad or a
-    /// future jumbo device blowing the controls up absurdly.
+    /// Upper bound for the PHONE family. Does NOT engage on any current iPhone
+    /// (the Pro Max lands at ~1.12); it guards against a future jumbo phone
+    /// blowing the controls up absurdly. A tablet window never reaches this
+    /// clamp: it has its own pair below.
     static let maxDeviceScale: CGFloat = 1.25
+
+    /// The tablet family's clamp (2026-09-05). A tablet's raw ratio runs from
+    /// ~1.33 (iPad mini, 744x1133) to ~1.61 (13-inch, 1032x1376), and a pad
+    /// drawn at phone size on a 13-inch screen is a pad the thumbs hunt for,
+    /// so the range is allowed to be larger than the phones'. Both named so
+    /// the device review can move them without touching a formula.
+    static let tabletMinDeviceScale: CGFloat = 1.25
+    static let tabletMaxDeviceScale: CGFloat = 1.6
 
     /// Uniform scale for `deviceSize` relative to the iPhone 14 Pro.
     /// Orientation-independent: compares short side to short side and long to long,
     /// then takes the tighter ratio so the scaled layout always fits the device.
+    /// The clamp pair depends on the window's `LayoutFamily`; a phone window's
+    /// answer is unchanged by the tablet family's existence.
     static func deviceScale(for deviceSize: CGSize) -> CGFloat {
         let shortSide = min(deviceSize.width, deviceSize.height)
         let longSide = max(deviceSize.width, deviceSize.height)
         guard shortSide > 0, longSide > 0 else { return 1 }
         let raw = min(shortSide / referenceShortSide, longSide / referenceLongSide)
-        return min(max(raw, minDeviceScale), maxDeviceScale)
+        switch LayoutFamily.of(deviceSize) {
+        case .phone:
+            return min(max(raw, minDeviceScale), maxDeviceScale)
+        case .tablet:
+            return min(max(raw, tabletMinDeviceScale), tabletMaxDeviceScale)
+        }
     }
 
     // MARK: - Button sizing
@@ -229,6 +245,47 @@ enum EmulatorLayoutGeometry {
     /// Fraction of the view height given to the two screens in NDS landscape.
     static let ndsLandscapeScreenRatio: CGFloat = 0.60
 
+    // MARK: - Tablet reserves (2026-09-05, the iPad family; unused by any phone)
+
+    /// Tablet landscape, single-screen consoles: the picture is height-bound
+    /// between the safe area and a band below it for the SELECT · MENU · START
+    /// row (the GBA, GB/GBC, NES and PlayStation stick that row to the picture's
+    /// bottom edge). This is the gap kept above and below the row, in reference
+    /// points; the row's own height comes from the element's landscape size.
+    /// The SNES keeps its own two reserves, which already do this job.
+    static let tabletLandscapeRowGap: CGFloat = 8
+    /// Tablet portrait, single-screen consoles: the band kept under the picture
+    /// for the pad is the 14 Pro's OWN band for this console, scaled. The pads
+    /// are the 14 Pro's page scaled by the device factor, anchored to the top
+    /// and the bottom of their band, so a band shorter than the reference band
+    /// times the factor closes the two anchors on each other: a flat reserve of
+    /// 300 reference points put Clip 58 points into A on a 13-inch (the first
+    /// sweep, 2026-09-05). Computed through the phone page itself at the
+    /// reference size and insets, so it can never drift from the page it
+    /// scales.
+    static let referencePortraitInsets = UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)
+
+    /// Tablet portrait, the DS: the band under the two screens is the 14
+    /// Pro's WHOLE band, scaled (2026-09-08). On the phone that band is the
+    /// reserve above plus the phone's 34-point bottom inset, 314 points, and
+    /// `ControlLayoutDefaults.ndsPortrait` was tuned against it; a tablet's
+    /// inset is 20, so the reserve alone left the band seven percent short in
+    /// reference points and closed the D-pad on the SELECT · START row: the
+    /// dress's slot-2 well between the two needs twelve reference points of
+    /// room and had two on a 13-inch, so it was never drawn.
+    static var referenceNDSPortraitControlsHeight: CGFloat {
+        ndsPortraitControlsReserve + referencePortraitInsets.bottom
+    }
+
+    static func referencePortraitControlsHeight(gameAspect: CGFloat, system: PresetSystem) -> CGFloat {
+        let reference = CGSize(width: referenceShortSide, height: referenceLongSide)
+        let picture = screenFrame(deviceSize: reference, safeInsets: referencePortraitInsets,
+                                  hasTouchScreen: false, isLandscape: false,
+                                  gameAspect: gameAspect, system: system,
+                                  controllerConnected: false, deviceScale: 1)
+        return referenceLongSide - picture.maxY
+    }
+
     /// SNES landscape only: the gap above the picture, so the dress's inlaid panel has a top
     /// edge to draw, and the height reserved below it for the SELECT · MENU · START row (that
     /// row's gap, its height, and the panel's bottom margin). The device's bottom safe inset is
@@ -309,6 +366,13 @@ enum EmulatorLayoutGeometry {
                               width: deviceSize.width - leftInset - rightInset,
                               height: screenAreaH)
             } else {
+                // A tablet window without a controller takes the tablet page below;
+                // with one, the picture fills the window as it does on a phone.
+                if LayoutFamily.of(deviceSize) == .tablet, !controllerConnected {
+                    return tabletLandscapeScreenFrame(
+                        deviceSize: deviceSize, safeInsets: safeInsets,
+                        gameAspect: gameAspect, system: system, deviceScale: k)
+                }
                 // GBA + GB/GBC landscape: game between two side control panels. They SHARE the
                 // panel width AND the on-screen WIDTH (derived from the GB/GBC display shape),
                 // so the two console dresses line up; each system then takes its own HEIGHT from
@@ -350,19 +414,27 @@ enum EmulatorLayoutGeometry {
             }
         } else {
             let availW = deviceSize.width
-            let minControlsH: CGFloat = hasTouchScreen
-                ? (controllerConnected ? menuStrip : ndsPortraitControlsReserve * k)
-                : 0
+            // The DS keeps a band under its screens on every family; a tablet
+            // window keeps the reference band whole (see
+            // `referenceNDSPortraitControlsHeight`). The window's bottom inset
+            // is subtracted here and comes back below the picture, so the band
+            // measures the same whatever inset the caller passes.
+            let minControlsH: CGFloat
+            if !hasTouchScreen {
+                minControlsH = 0
+            } else if controllerConnected {
+                minControlsH = menuStrip
+            } else if LayoutFamily.of(deviceSize) == .tablet {
+                minControlsH = max(0, referenceNDSPortraitControlsHeight * k - safeInsets.bottom)
+            } else {
+                minControlsH = ndsPortraitControlsReserve * k
+            }
             // GB/GBC portrait uses its own screen-height fraction + top padding, so
             // GBA portrait can be tuned without moving GB/GBC.
             let portraitRatio = (system == .gbc) ? gbcPortraitScreenRatio : gbaPortraitScreenRatio
-            let maxH: CGFloat = hasTouchScreen
+            let phoneMaxH: CGFloat = hasTouchScreen
                 ? deviceSize.height - safeInsets.top - safeInsets.bottom - minControlsH
                 : deviceSize.height * portraitRatio
-            var fitH = availW / heightAspect
-            if fitH > maxH { fitH = maxH }
-            var fitW = fitH * gameAspect
-            var x = (availW - fitW) / 2
             // Three answers, not two: the PlayStation joined with its own so the
             // other five keep theirs to the point.
             let portraitPad: CGFloat
@@ -372,6 +444,23 @@ enum EmulatorLayoutGeometry {
             default:   portraitPad = gbaPortraitTopPadding
             }
             let extraPadding: CGFloat = hasTouchScreen ? 0 : portraitPad * k
+            // A tablet window keeps the 14 Pro's band for the pad, scaled (see
+            // `referencePortraitControlsHeight`), instead of the phone's fraction;
+            // the DS already reserves a band on every family and is unchanged. The
+            // flat status band stands in for the top inset so the cap is the same
+            // whether the caller passes real insets or the zero ones
+            // `ControlLayoutDefaults` recomputes with; the reference band already
+            // holds the phone's bottom inset, which is deeper than an iPad's.
+            let maxH: CGFloat = (LayoutFamily.of(deviceSize) == .tablet && !hasTouchScreen)
+                ? deviceSize.height - tabletLandscapeTopReserve - extraPadding
+                    - (controllerConnected
+                        ? menuStrip
+                        : referencePortraitControlsHeight(gameAspect: gameAspect, system: system) * k)
+                : phoneMaxH
+            var fitH = availW / heightAspect
+            if fitH > maxH { fitH = maxH }
+            var fitW = fitH * gameAspect
+            var x = (availW - fitW) / 2
             var y = safeInsets.top + extraPadding
             // The NES fills the WIDTH, always, and grows upward to do it.
             //
@@ -382,7 +471,11 @@ enum EmulatorLayoutGeometry {
             // controls container is untouched and the cap keeps the room it was defending, and
             // a taller picture above it. Every other console is unchanged, and so is the NES
             // wherever the cap never bound (a 14 Pro reaches full width on its own).
-            if system == .nes, !hasTouchScreen, fitW < availW {
+            // A tablet window keeps the cap's answer as it is: the margin it leaves
+            // is a few points each side of a picture over 800 points tall, and
+            // growing upward would spend the very band the tablet cap reserves.
+            if system == .nes, !hasTouchScreen, fitW < availW,
+               LayoutFamily.of(deviceSize) == .phone {
                 let bottom = y + fitH
                 fitW = availW
                 fitH = fitW / gameAspect
@@ -396,6 +489,58 @@ enum EmulatorLayoutGeometry {
             }
             return CGRect(x: x, y: y, width: fitW, height: fitH)
         }
+    }
+
+    /// Tablet landscape, single-screen consoles (2026-09-05). The phone page keeps
+    /// the picture at 74 % of the room between the two panels so the GB and GBA
+    /// dresses share a width; on a tablet that room is over 800 points wide and
+    /// the picture would sit small in the middle of it, so here it takes the
+    /// whole width between the panels and is capped by the height instead: the
+    /// window minus a status-bar band at the top, a home-indicator band at the
+    /// bottom, and the SELECT · MENU · START row the single-screen consoles stick
+    /// under the picture. Then it is centred in what is left, every console alike.
+    ///
+    /// Inset-free ON PURPOSE, like the phone page: `ControlLayoutDefaults`
+    /// recomputes this frame with zero insets to place the row against it, and
+    /// a frame that moved with the insets would put the row against a picture
+    /// the app does not draw. The two bands are flat reference points for that
+    /// reason, the same reason `snesLandscapeIndicatorReserve` is flat.
+    static let tabletLandscapeTopReserve: CGFloat = 24
+    static let tabletLandscapeBottomReserve: CGFloat = 20
+    /// The side panel, in reference points. Ten wider than the phone's 170: the
+    /// D-pad is centred in the gutter between the LEFT SAFE INSET and the
+    /// picture, and on a phone the island's 59 points push it clear of the edge;
+    /// a tablet has no side inset, and at 170 the scaled D-pad's hit rect ran
+    /// three points off the window. At 180 it keeps four to five on every size.
+    static let tabletLandscapePanel: CGFloat = 180
+    /// The SNES's diamond is the DS's four buttons centred in the right gutter,
+    /// and it needs about 195 reference points of gutter; on a phone the picture
+    /// is narrower than the room between the panels, so the diamond borrows the
+    /// unused margin, and on a tablet the picture takes all of it. Its panel is
+    /// wider by this much (the first sweep had A seven points off the window).
+    static let tabletLandscapeSNESPanelExtra: CGFloat = 20
+
+    private static func tabletLandscapeScreenFrame(deviceSize: CGSize, safeInsets: UIEdgeInsets,
+                                                   gameAspect: CGFloat, system: PresetSystem,
+                                                   deviceScale k: CGFloat) -> CGRect {
+        let isSNES = (system == .snes)
+        let panelWidth = (tabletLandscapePanel + (isSNES ? tabletLandscapeSNESPanelExtra : 0)) * k
+        let availW = deviceSize.width - panelWidth * 2
+        let topInset = tabletLandscapeTopReserve + (isSNES ? snesLandscapeTopMargin * k : 0)
+        let rowH = buttonSize(.btnStart, system: system, isLandscape: true, deviceScale: k).height
+        // The PlayStation does not stick its row to the picture: it centres it in
+        // whatever band is left below its skirt, indicator band included, so its
+        // band gets one gap more or the row's bottom edge lands in the indicator.
+        let rowBand = isSNES
+            ? snesLandscapeBottomReserve * k
+            : tabletLandscapeRowGap * k * (system == .ps1 ? 3 : 2) + rowH
+        let availH = deviceSize.height - topInset - tabletLandscapeBottomReserve - rowBand
+        var fitW = availW
+        var fitH = fitW / gameAspect
+        if fitH > availH { fitH = availH; fitW = fitH * gameAspect }
+        let x = panelWidth + (availW - fitW) / 2
+        let y = topInset + (availH - fitH) / 2
+        return CGRect(x: x, y: y, width: fitW, height: fitH)
     }
 
     /// The controls container frame for a given device + screen frame: the area the

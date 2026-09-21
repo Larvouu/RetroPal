@@ -16,6 +16,67 @@ import Testing
 @Suite("Cheat database")
 struct CheatLibraryTests {
 
+    // MARK: - Retail before hacks, the own release before the siblings (2026-09-10)
+
+    @Test("A hack's stem nests a parenthesis, a retail dump's never does")
+    func hackStemsNest() {
+        #expect(CheatIndex.isHackStem("Pokemon - SoulSilver Version (Europe) (Rev 10) (Pokemon - SoothingSilver Version (v1.3.1))"))
+        #expect(CheatIndex.isHackStem("Pocket Monsters - SoulSilver (Japan) (Pokemon - Absolute SoulSilver - The End (v1.0))"))
+        #expect(!CheatIndex.isHackStem("Pokemon - SoulSilver Version (Europe) (Rev 10)"))
+        #expect(!CheatIndex.isHackStem("Pokemon - Silberne Edition SoulSilver (Germany)"))
+        #expect(!CheatIndex.isHackStem("Legend of Zelda, The - A Link to the Past (USA) [T-Fr]"))
+    }
+
+    @Test("Retail dumps come first and each group keeps its order")
+    func retailStemsComeFirst() {
+        let sorted = CheatIndex.retailFirst([
+            "Pokemon - SoulSilver Version (Europe) (Rev 10) (Pokemon - SoothingSilver Version (v1.3.1))",
+            "Pokemon - SoulSilver Version (Europe) (Rev 10)",
+            "Pokemon - SoulSilver Version (USA) (Pokemon - MoonSilver Version (20160416))",
+            "Pokemon - SoulSilver Version (USA)",
+        ])
+        #expect(sorted == [
+            "Pokemon - SoulSilver Version (Europe) (Rev 10)",
+            "Pokemon - SoulSilver Version (USA)",
+            "Pokemon - SoulSilver Version (Europe) (Rev 10) (Pokemon - SoothingSilver Version (v1.3.1))",
+            "Pokemon - SoulSilver Version (USA) (Pokemon - MoonSilver Version (20160416))",
+        ])
+    }
+
+    @Test("The bundled index serves the retail SoulSilver before its hacks")
+    func bundledSoulSilverLeadsWithRetail() {
+        let stems = CheatIndex.shared.candidates(forTitle: "Pokemon - SoulSilver Version", system: "nds")
+        #expect(stems.count > 2)
+        #expect(stems.first == "Pokemon - SoulSilver Version (Europe) (Rev 10)")
+        // Every retail stem precedes every hack.
+        if let firstHack = stems.firstIndex(where: CheatIndex.isHackStem) {
+            #expect(!stems[firstHack...].contains { !CheatIndex.isHackStem($0) })
+        }
+    }
+
+    @Test("A numbered set's filename resolves through its cartridge code to its own release")
+    func numberedFilenameResolvesThroughTheSerial() {
+        let filename = "4828 - Pokemon - Silberne Edition SoulSilver (G)"
+        // The filename alone keys nothing: the catalogue number survives the tag strip.
+        #expect(CheatIndex.shared.candidates(forTitle: filename, system: "nds").isEmpty)
+        // The serial names the German release, and that name has its own file.
+        let own = BoxArtIndex.shared.serialName("IPGD", system: .nds)
+        #expect(own == "Pokemon - Silberne Edition SoulSilver (Germany)")
+        guard let own else { return }
+        let title = CheatIndex.ownReleaseTitle(forROMName: filename, serialName: own)
+        #expect(title == own)
+        #expect(CheatIndex.shared.candidates(forTitle: own, system: "nds")
+                == ["Pokemon - Silberne Edition SoulSilver (Germany)"])
+    }
+
+    @Test("A filename that already keys its own release asks nothing more of the serial")
+    func wellNamedFileNeedsNoSerialStep() {
+        #expect(CheatIndex.ownReleaseTitle(forROMName: "Pokemon - Silberne Edition SoulSilver (Germany)",
+                                           serialName: "Pokemon - Silberne Edition SoulSilver (Germany)") == nil)
+        #expect(CheatIndex.ownReleaseTitle(forROMName: "Pokemon Silberne Edition SoulSilver",
+                                           serialName: "Pokemon - Silberne Edition SoulSilver (Germany)") == nil)
+    }
+
     // MARK: - Title normalisation (mirrors build_cheat_index.bare_title)
 
     @Test("Region and language tags are dropped")

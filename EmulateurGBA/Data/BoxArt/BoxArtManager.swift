@@ -64,6 +64,16 @@ final class BoxArtManager {
     /// Never adopted over a byte-exact CRC match or a custom cover.
     static let coverStateRA = "ra"
     static let coverStateNone = "none"
+    /// The player CHOSE the downloaded box art (over an adopted RA image, or
+    /// simply as a choice), from the cover chooser (2026-09-05). Like
+    /// `custom`, a decision and not a verdict: no sweep, no adoption and no
+    /// matching-rules bump overrides it. Only a missing file re-resolves.
+    static let coverStateBoxArtChosen = "boxart_chosen"
+    /// The player chose the living screenshot as the library cover. Same
+    /// standing as `boxart_chosen`: nothing automatic overrides it, which is
+    /// what tells it apart from `none`, the sweep's own "no match" verdict
+    /// that RA adoption is allowed to upgrade.
+    static let coverStateScreenshot = "screenshot"
     /// A cover the user picked themselves. Beats every automatic source,
     /// is never touched by sweeps or resolution-version resets, and is the
     /// answer for games no database covers (ROM hacks, homebrew).
@@ -174,10 +184,64 @@ final class BoxArtManager {
             return customImageURL(forROMHash: romHash)
         case Self.coverStateRA:
             return raImageURL(forROMHash: romHash)
-        case Self.coverStateBoxArt, Self.coverStateBoxArtHeuristic:
+        case Self.coverStateBoxArt, Self.coverStateBoxArtHeuristic, Self.coverStateBoxArtChosen:
             return imageURL(forROMHash: romHash)
         default:
             return nil
+        }
+    }
+
+    // MARK: - The player's choice (main thread; called from the cover chooser)
+
+    /// Whether the downloaded box art exists on disk for this game.
+    func hasDownloadedArt(forROMHash romHash: String) -> Bool {
+        FileManager.default.fileExists(atPath: imageURL(forROMHash: romHash).path)
+    }
+
+    /// Whether the RetroAchievements image exists on disk for this game.
+    func hasRAArt(forROMHash romHash: String) -> Bool {
+        FileManager.default.fileExists(atPath: raImageURL(forROMHash: romHash).path)
+    }
+
+    /// The RetroAchievements image this game could show, when RA has one and
+    /// it is not the generic controller placeholder.
+    func raArtURL(forROMHash romHash: String) -> URL? {
+        guard let art = RAGameIndex.shared.record(forROMHash: romHash)?.boxArtURL,
+              !art.hasSuffix("/000001.png") else { return nil }
+        return URL(string: art)
+    }
+
+    /// The player picked one of the covers already on disk, or the
+    /// screenshot. `state` is `boxart_chosen`, `ra` or `screenshot`.
+    func choose(coverState state: String, for game: NSManagedObject) {
+        game.setValue(state, forKey: "coverType")
+        try? game.managedObjectContext?.save()
+    }
+
+    /// The player picked the RetroAchievements image. Present on disk, it is
+    /// chosen at once; absent (the sweep never adopts over a byte-exact box
+    /// art match, so a CRC-matched game has none), it is fetched once, then
+    /// chosen. `completion(false)` means nothing could be fetched, which the
+    /// caller must say out loud.
+    func chooseRAArt(for game: NSManagedObject, completion: @escaping (Bool) -> Void) {
+        guard let romHash = game.value(forKey: "romHash") as? String else { completion(false); return }
+        if hasRAArt(forROMHash: romHash) {
+            choose(coverState: Self.coverStateRA, for: game)
+            completion(true)
+            return
+        }
+        guard let url = raArtURL(forROMHash: romHash) else { completion(false); return }
+        let target = raImageURL(forROMHash: romHash)
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            var written = false
+            if case .image(let data) = self.fetch(url: url) {
+                written = (try? data.write(to: target, options: .atomic)) != nil
+            }
+            DispatchQueue.main.async {
+                if written { self.choose(coverState: Self.coverStateRA, for: game) }
+                completion(written)
+            }
         }
     }
 
@@ -260,6 +324,7 @@ final class BoxArtManager {
             guard game.coverState != Self.coverStateNone,
                   game.coverState != Self.coverStateCustom,
                   game.coverState != Self.coverStateRA,
+                  game.coverState != Self.coverStateScreenshot,
                   !FileManager.default.fileExists(atPath: imageURL(forROMHash: game.romHash).path),
                   !inFlight.contains(game.romHash),
                   !attemptedThisLaunch.contains(game.romHash)
@@ -313,9 +378,10 @@ final class BoxArtManager {
         // a matching-logic bump must never touch them. Adopted RA covers come
         // from RA's byte-hash identification, not our matching rules, so a
         // matching-logic bump can't overturn them either.
-        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@ AND coverType != %@",
+        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@",
                                         Self.coverStatePlaceholder, Self.coverStateCustom,
-                                        Self.coverStateRA)
+                                        Self.coverStateRA, Self.coverStateBoxArtChosen,
+                                        Self.coverStateScreenshot)
         if let stale = try? context.fetch(request), !stale.isEmpty {
             for entity in stale {
                 entity.setValue(Self.coverStatePlaceholder, forKey: "coverType")
@@ -502,6 +568,8 @@ final class BoxArtManager {
             // yields only to a byte-exact CRC match (defensive: inFlight
             // serializes resolve and adoption per game, so they can't race).
             guard current != Self.coverStateCustom,
+                  current != Self.coverStateBoxArtChosen,
+                  current != Self.coverStateScreenshot,
                   current != Self.coverStateRA || state == Self.coverStateBoxArt
             else { return }
             entity.setValue(state, forKey: "coverType")

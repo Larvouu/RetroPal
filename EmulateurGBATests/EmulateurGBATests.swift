@@ -8,6 +8,7 @@
 //
 
 import Testing
+import GameController
 @testable import EmulateurGBA
 
 // MARK: - ControllerManager button-mapping tests
@@ -192,5 +193,149 @@ struct ControllerManagerTests {
         #expect(ControllerMappingStore.stored(for: .gbc) == mapping)
         ControllerMappingStore.reset(for: .gbc)
         #expect(ControllerMappingStore.stored(for: .gbc) == nil)
+    }
+}
+
+// MARK: - Keyboard mapping (1.3.1, free)
+//
+// The keyboard side of input became remappable for a Bluetooth pad iOS only
+// knows as a keyboard (the 8BitDo Zero in keyboard mode). These pin the
+// built-in layout (the 1.2.4 keys plus that pad's letters), the pure mask
+// function the manager feeds with the live key states, the one-key-one-input
+// rule, and the store.
+
+@Suite("KeyboardMapping", .serialized)
+struct KeyboardMappingTests {
+
+    /// The built-in layout is the 1.2.4 keyboard key for key, plus the twelve
+    /// 8BitDo keyboard-mode letters, and nothing else.
+    @Test
+    func test_builtIn_classicKeysAndEightBitDoLetters() {
+        let m = KeyboardMapping.builtIn
+        // The classic layout, by position.
+        #expect(m.input(for: .upArrow) == .up)
+        #expect(m.input(for: .downArrow) == .down)
+        #expect(m.input(for: .leftArrow) == .left)
+        #expect(m.input(for: .rightArrow) == .right)
+        #expect(m.input(for: .keyX) == .a)
+        #expect(m.input(for: .keyZ) == .b)
+        #expect(m.input(for: .keyS) == .x)
+        #expect(m.input(for: .keyA) == .y)
+        #expect(m.input(for: .keyQ) == .l)
+        #expect(m.input(for: .keyW) == .r)
+        #expect(m.input(for: .returnOrEnter) == .start)
+        #expect(m.input(for: .leftShift) == .select)
+        #expect(m.input(for: .rightShift) == .select)
+        // 8BitDo Zero (START+B) and Zero 2 keyboard mode.
+        #expect(m.input(for: .keyC) == .up)
+        #expect(m.input(for: .keyD) == .down)
+        #expect(m.input(for: .keyE) == .left)
+        #expect(m.input(for: .keyF) == .right)
+        #expect(m.input(for: .keyG) == .a)
+        #expect(m.input(for: .keyJ) == .b)
+        #expect(m.input(for: .keyH) == .x)
+        #expect(m.input(for: .keyI) == .y)
+        #expect(m.input(for: .keyK) == .l)
+        #expect(m.input(for: .keyM) == .r)
+        #expect(m.input(for: .keyN) == .select)
+        #expect(m.input(for: .keyO) == .start)
+        // Thirteen plus twelve, so the two layouts never collided.
+        #expect(m.keys.count == 25)
+        #expect(m.input(for: .spacebar) == nil)
+    }
+
+    /// The mask is the OR of every bound key that is down; unbound keys and
+    /// keys that are up contribute nothing.
+    @Test
+    func test_mask_orsPressedBoundKeys_ignoresTheRest() {
+        let m = KeyboardMapping.builtIn
+        let down: Set<GCKeyCode> = [.keyG, .keyC, .spacebar]
+        #expect(KeyboardMapping.mask(m) { down.contains($0) }
+                == (GBAInput.a.rawValue | GBAInput.up.rawValue))
+        #expect(KeyboardMapping.mask(m) { _ in false } == 0)
+        // Two keys on one input: releasing one leaves the input held by the other.
+        #expect(KeyboardMapping.mask(m) { $0 == .rightShift } == GBAInput.select.rawValue)
+        #expect(KeyboardMapping.mask(m) { $0 == .leftShift || $0 == .rightShift }
+                == GBAInput.select.rawValue)
+    }
+
+    /// One key drives one input: binding a key already bound elsewhere MOVES
+    /// it; clearing an input drops every key on it and only those.
+    @Test
+    func test_bind_movesAKey_clear_dropsEveryKeyOnTheInput() {
+        var m = KeyboardMapping.builtIn
+        m.bind(.keyX, to: .b)
+        #expect(m.input(for: .keyX) == .b)
+        #expect(!m.keyCodes(for: .a).contains(.keyX))
+        #expect(m.keyCodes(for: .a) == [.keyG])
+        #expect(m.keyCodes(for: .b).contains(.keyX))
+        #expect(m.keyCodes(for: .b).contains(.keyZ))
+        #expect(m.keyCodes(for: .b).contains(.keyJ))
+
+        m.clear(.b)
+        #expect(m.keyCodes(for: .b).isEmpty)
+        #expect(m.input(for: .keyX) == nil)
+        #expect(m.input(for: .keyZ) == nil)
+        #expect(m.input(for: .keyJ) == nil)
+        #expect(m.input(for: .keyG) == .a, "clearing B must not touch A")
+        #expect(m.keys.count == 22)
+    }
+
+    /// The keys of an input come back in a stable order, so a row reads the
+    /// same way every time.
+    @Test
+    func test_keyCodes_stableOrder() {
+        let codes = KeyboardMapping.builtIn.keyCodes(for: .select)
+        #expect(codes.count == 3)
+        #expect(Set(codes) == [.keyN, .leftShift, .rightShift])
+        #expect(codes.map(\.rawValue) == codes.map(\.rawValue).sorted())
+    }
+
+    /// Letters and arrows have their own marks; Space is a localized word.
+    @Test
+    func test_keyNames() {
+        #expect(KeyboardKeyName.name(for: .keyC) == "C")
+        #expect(KeyboardKeyName.name(for: .upArrow) == "↑")
+        #expect(KeyboardKeyName.name(for: .leftShift) == "⇧")
+        #expect(!KeyboardKeyName.name(for: .spacebar).isEmpty)
+    }
+
+    /// The rows a console offers are its own buttons, the pad page's list,
+    /// plus the four directions everywhere.
+    @Test
+    func test_buttons_followTheConsole() {
+        #expect(KeyboardInput.buttons(on: .gbc) == [.a, .b, .select, .start])
+        #expect(KeyboardInput.buttons(on: .gba) == [.a, .b, .l, .r, .select, .start])
+        #expect(KeyboardInput.buttons(on: .ps1).count == 12)
+        #expect(KeyboardInput.buttons(on: .ps1).contains(.l3))
+        #expect(KeyboardInput.directions == [.up, .down, .left, .right])
+        // Every pad-remappable input has a keyboard twin under the same name.
+        for input in RemappableInput.allCases {
+            #expect(KeyboardInput(rawValue: input.rawValue) != nil, "\(input) has no keyboard twin")
+        }
+    }
+
+    /// Save/load round-trips through JSON (Int-keyed dictionary included), per
+    /// console; reset returns that console to the built-in layout and leaves
+    /// the others alone; effective() is never nil.
+    @Test
+    func test_store_perConsole_roundTripAndReset() {
+        defer {
+            KeyboardMappingStore.reset(for: .gba)
+            KeyboardMappingStore.reset(for: .snes)
+        }
+        var m = KeyboardMapping.builtIn
+        m.bind(.spacebar, to: .start)
+        KeyboardMappingStore.save(m, for: .gba)
+        #expect(KeyboardMappingStore.stored(for: .gba) == m)
+        #expect(KeyboardMappingStore.effective(for: .gba) == m)
+        #expect(KeyboardMappingStore.effective(for: .gba).input(for: .spacebar) == .start)
+        // Another console is untouched by it.
+        #expect(KeyboardMappingStore.stored(for: .snes) == nil)
+        #expect(KeyboardMappingStore.effective(for: .snes) == .builtIn)
+
+        KeyboardMappingStore.reset(for: .gba)
+        #expect(KeyboardMappingStore.stored(for: .gba) == nil)
+        #expect(KeyboardMappingStore.effective(for: .gba) == .builtIn)
     }
 }

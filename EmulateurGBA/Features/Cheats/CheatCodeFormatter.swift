@@ -55,6 +55,38 @@ enum CheatCodeFormatter {
     /// (DF4709156BC8A23E) happens to be a subset of hex.
     private static let nesGameGenieLetters = Set("APZLGITYEOXUKSVNapzlgityeoxuksvn")
 
+    // MARK: - Normalization
+
+    /// The code as the validator and the core should see it, whatever keyboard
+    /// or web page it came from.
+    ///
+    /// Two things happen here and both are about LANGUAGE, not about typos.
+    /// A Japanese, Chinese or Korean keyboard left in its native mode types
+    /// FULLWIDTH digits and letters (`９４０００１３０`, U+FF10 onward). Swift's
+    /// `Character.isHexDigit` accepts those, so the formatter below happily
+    /// split such a code into neat blocks while the validator, which checks
+    /// against an ASCII set, then refused it with a sentence saying only 0-9
+    /// and A-F are allowed. The screen showed nothing but 0-9 and A-F. The
+    /// `fullwidthToHalfwidth` transform folds them to ASCII first.
+    ///
+    /// The second is the invisible junk a paste carries: a non-breaking space
+    /// or a CJK ideographic space between the two blocks of a line, a tab, a
+    /// zero-width space, a byte-order mark, Windows line endings. The session
+    /// already stripped most of these, but only AFTER the validator had
+    /// rejected the code for containing them, so the cleanup never ran on the
+    /// codes that needed it. It now runs first, and in one place.
+    static func normalized(_ code: String) -> String {
+        var s = code.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? code
+        s = s.replacingOccurrences(of: "\u{00A0}", with: " ")   // non-breaking space
+        s = s.replacingOccurrences(of: "\u{3000}", with: " ")   // ideographic space
+        s = s.replacingOccurrences(of: "\t", with: " ")         // tab
+        s = s.replacingOccurrences(of: "\u{200B}", with: "")    // zero-width space
+        s = s.replacingOccurrences(of: "\u{FEFF}", with: "")    // byte-order mark
+        s = s.replacingOccurrences(of: "\r\n", with: "\n")      // Windows line endings
+        s = s.replacingOccurrences(of: "\r", with: "\n")        // old Mac line endings
+        return s
+    }
+
     // MARK: - Formatting
 
     /// Tidies `new` given what the field held before.
@@ -68,7 +100,9 @@ enum CheatCodeFormatter {
         guard previous.isEmpty || (new.count > previous.count && new.hasPrefix(previous)) else {
             return new
         }
-        let lines = new.components(separatedBy: "\n")
+        // Fold fullwidth input as it is typed, so the field shows the code the
+        // validator will read rather than one that only looks like it.
+        let lines = normalized(new).components(separatedBy: "\n")
         return lines.map { regroup($0.uppercased(), isNDS: isNDS) }.joined(separator: "\n")
     }
 

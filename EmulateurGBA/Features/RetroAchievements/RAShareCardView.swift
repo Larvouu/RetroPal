@@ -147,9 +147,9 @@ struct RAAchievementScreenView: View {
 
     private var rarityText: String? {
         guard content.rarity > 0 else { return nil }
-        let pct = content.rarity >= 10 ? String(format: "%.0f%%", content.rarity)
-                                       : String(format: "%.1f%%", content.rarity)
-        return String(format: String(localized: "ra.dashboard.rarity", defaultValue: "%@ of players"), pct)
+        // One definition of the sentence, shared with the dashboard row, so
+        // the image and the screen agree on number format in every locale.
+        return RAAchievementRow.rarityLabel(content.rarity)
     }
 
     var body: some View {

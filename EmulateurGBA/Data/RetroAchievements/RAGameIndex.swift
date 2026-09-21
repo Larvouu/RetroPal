@@ -142,8 +142,11 @@ final class RAGameIndex: ObservableObject {
     /// re-renders the RA surfaces that display library titles).
     @Published private(set) var libraryEntries: [String: RALibraryEntry] = [:]
 
-    /// ROM filename -> romHash. Lets core-level events (which only know the
-    /// ROM path) find their record.
+    /// Library key -> romHash. The key is `GameEntity.romFilePath`, the path
+    /// relative to the ROMs folder ("Game.gba", "Tomb Raider/Tomb Raider.cue"
+    /// for a disc), so a caller holding an absolute path derives it with
+    /// `RetroAchievements.libraryKey(forROMPath:)` rather than taking the last
+    /// path component, which misses every disc game.
     private var hashByFilename: [String: String] = [:]
 
     private static let unlockLogCap = 50
@@ -284,12 +287,22 @@ final class RAGameIndex: ObservableObject {
     }
 
     /// Enrich a record from an rc_client game load (title, box art, live
-    /// progress). Only called with a POSITIVE identification (gameID > 0):
-    /// the load callback cannot distinguish "no set" from a network failure,
-    /// so ineligibility is only ever written by the resolver path.
+    /// progress). Only called with a POSITIVE identification (gameID > 0);
+    /// ineligibility is only ever written by the resolver path.
+    ///
+    /// `loadAnswered` is whether RA answered the load at all (the client hands
+    /// the delegate a title on `RC_OK` and nil on any failure), and it is what
+    /// makes an EMPTY list trustworthy (2026-09-08): a positive id with no
+    /// achievements on an answered load is RA's own "Unsupported Game
+    /// Version" placeholder, the regional release the base set never covered
+    /// (a French FireRed, on his iPad). Until this flag the zero was never
+    /// written, so such a game was eligible, had no counts, and the profile
+    /// listed it nowhere at all, neither among the games with achievements
+    /// nor among the unavailable ones. Written, it reads as `hasKnownEmptySet`
+    /// and lands under "not on RetroAchievements", which is the truth of it.
     func applyLoadedGame(romHash: String, consoleID: UInt32, gameID: UInt32,
                          title: String?, boxArtURL: String?, unlocked: Int, total: Int,
-                         pointsEarned: Int, pointsTotal: Int) {
+                         pointsEarned: Int, pointsTotal: Int, loadAnswered: Bool) {
         // consoleID 0 = a console with no RA memory bridge here (unknown
         // extension): never record it as an RA game, whatever rc_client
         // identified.
@@ -316,11 +329,23 @@ final class RAGameIndex: ObservableObject {
         // raises `unlocked`, clamped by `min(entry.unlocked, record.total)`,
         // which is 0 when the total is 0. So one empty load pinned a game at
         // 0 of 0 forever and moved it into "no achievements" with no way back.
+        //
+        // The one zero that IS a statement: an ANSWERED load with an empty
+        // list (see `loadAnswered` above). Written only over a record that
+        // does not already carry a positive loaded total, so a known set can
+        // never be emptied by this branch, and the repair branch of
+        // `applyProgress` still restores a total from the server if RA ever
+        // fills the placeholder in.
         if total > 0 {
             record.unlocked = unlocked
             record.total = total
             record.pointsEarned = pointsEarned
             record.pointsTotal = pointsTotal
+        } else if loadAnswered, !(record.countsFromLoad && record.total > 0) {
+            record.unlocked = 0
+            record.total = 0
+            record.pointsEarned = 0
+            record.pointsTotal = 0
         }
         record.refreshedAt = Date()
         records[romHash] = record

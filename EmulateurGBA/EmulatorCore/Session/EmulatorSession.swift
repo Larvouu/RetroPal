@@ -535,13 +535,11 @@ final class EmulatorSession: ObservableObject {
 
     /// Clean cheat code input for reliable parsing.
     static func sanitizeCheatCode(_ code: String) -> String {
-        var s = code
-        // Replace non-breaking spaces, zero-width chars, and other invisible junk from copy-paste
-        s = s.replacingOccurrences(of: "\u{00A0}", with: " ")  // non-breaking space
-        s = s.replacingOccurrences(of: "\u{200B}", with: "")   // zero-width space
-        s = s.replacingOccurrences(of: "\u{FEFF}", with: "")   // BOM
-        s = s.replacingOccurrences(of: "\r\n", with: "\n")     // Windows line endings
-        s = s.replacingOccurrences(of: "\r", with: "\n")       // Old Mac line endings
+        // Character-level cleanup (fullwidth digits, invisible spaces, line
+        // endings) lives in `CheatCodeFormatter.normalized`, the same step the
+        // cheat sheet runs BEFORE validating, so the two can never disagree
+        // about what a clean code is.
+        var s = CheatCodeFormatter.normalized(code)
         // Collapse multiple spaces into one
         while s.contains("  ") {
             s = s.replacingOccurrences(of: "  ", with: " ")

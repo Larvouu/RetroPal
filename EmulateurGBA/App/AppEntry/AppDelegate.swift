@@ -13,12 +13,17 @@
 
 import UIKit
 
-/// The orientations the app currently permits. Defaults to "all but upside
-/// down" (the library and any auto-rotating game). The emulator narrows it to
-/// a single orientation while a game is pinned to Landscape or Portrait, then
-/// restores the default when the game is dismissed.
+/// The orientations the app currently permits. Defaults to `unlocked` (the
+/// library and any auto-rotating game). The emulator narrows it to a single
+/// orientation while a game is pinned to Landscape or Portrait, then restores
+/// the default when the game is dismissed.
 enum AppOrientationLock {
-    static var mask: UIInterfaceOrientationMask = .allButUpsideDown
+    /// The resting mask. A phone never turns upside down; an iPad does, the
+    /// way every iPad app does (2026-09-05, with the iPad build), and
+    /// `Info.plist` already lists the four iPad orientations.
+    static let unlocked: UIInterfaceOrientationMask =
+        UIDevice.current.userInterfaceIdiom == .pad ? .all : .allButUpsideDown
+    static var mask: UIInterfaceOrientationMask = unlocked
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {

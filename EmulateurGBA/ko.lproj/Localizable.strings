@@ -8,17 +8,22 @@
 "library.title" = "라이브러리";
 "library.empty.title" = "Retro Pal에 오신 것을 환영합니다";
 "library.empty.subtitle" = "레트로 게임을 iPhone에서. 광고도, 개인 추적도 없습니다.";
+"library.empty.subtitle.ipad" = "레트로 게임을 iPad에서. 광고도, 개인 추적도 없습니다.";
 "library.empty.button" = "게임 추가";
 "library.empty.step1" = "게임 파일(.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .chd)을 Safari, AirDrop 또는 iCloud Drive로 iPhone에 가져오세요.";
+"library.empty.step1.ipad" = "게임 파일(.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .chd)을 Safari, AirDrop 또는 iCloud Drive로 iPad에 가져오세요.";
 "library.empty.step2" = "%@을(를) 탭한 다음 파일 앱에서 파일을 선택하세요.";
 "library.empty.step3" = "이제 플레이하세요. 진행 상황은 자동으로 저장됩니다";
 "library.empty.romHint" = "ROM이 아직 없으신가요? 무료로 즐길 수 있는 합법 게임이 많이 있습니다. \"GBA homebrew\"를 검색해 보세요.";
 "library.empty.legal" = "합법적으로 소유한 파일만 가져오세요.";
 "library.search" = "게임 검색";
 "library.sort.lastPlayed" = "최근 플레이";
+"library.theme.classic" = "클래식";
+"library.hero.toggle" = "마지막으로 플레이한 게임을 상단에 표시";
 "library.sort.title" = "제목순";
 "library.sort.dateAdded" = "추가한 날짜";
 "library.sort.byConsole" = "기종별";
+"library.sort.allConsoles" = "모든 기종";
 "library.played.ago" = "%@에 플레이";
 "library.playTime" = "%@시간 %@분 플레이";
 "library.playTime.minutes" = "%@분 플레이";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "커버 이미지 선택";
 "details.cover.remove" = "사용자 지정 커버 제거";
 "details.cover.error" = "이미지를 저장하지 못했습니다.";
+"cover.choose.boxart" = "공식 박스 아트 (libretro 데이터베이스)";
+"cover.choose.ra" = "RetroAchievements 이미지";
+"cover.choose.screenshot" = "마지막 퀵 세이브 스크린샷";
+"cover.choose.photo" = "사진 보관함에서 선택";
+"cover.choose.caption" = "라이브러리에 표시되는 커버입니다. 게임 페이지에는 항상 마지막 스크린샷이 표시됩니다.";
 "details.newGame.confirm.title" = "타이틀 화면부터 시작할까요?";
 "details.newGame.confirm.message" = "마지막 세션은 이어지지 않지만, 게임 내 저장과 퀵 세이브는 안전하게 유지됩니다.";
 "details.launch.footer" = "게임 내 저장(게임 자체의 저장 메뉴에서 만든 것)을 불러오려면 게임을 실행한 뒤 게임 메뉴에서 이어서 플레이하세요. 아래의 퀵 세이브 슬롯과는 별개이며, 퀵 세이브는 직접 만드는 것입니다.";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "게임 언어";
 "settings.nds.language.auto" = "자동(%@)";
 "settings.nds.language.footer" = "\"자동\"은 iPhone의 언어를 따르며, DS가 지원하지 않으면 영어가 됩니다. 언어는 새 게임을 시작할 때 적용됩니다. 대부분의 게임은 언어를 세이브 파일에 저장하므로 이후에는 바뀌지 않습니다. ROM 자체가 지원하는 경우에만 전환되며, 하나의 언어만 담긴 ROM도 많습니다.";
+"settings.nds.language.footer.ipad" = "\"자동\"은 iPad의 언어를 따르며, DS가 지원하지 않으면 영어가 됩니다. 언어는 새 게임을 시작할 때 적용됩니다. 대부분의 게임은 언어를 세이브 파일에 저장하므로 이후에는 바뀌지 않습니다. ROM 자체가 지원하는 경우에만 전환되며, 하나의 언어만 담긴 ROM도 많습니다.";
 "settings.nds.clock.manual" = "날짜와 시간 직접 설정";
 "settings.nds.clock.pickerLabel" = "날짜 및 시간";
 "settings.general" = "일반";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "라이선스: %@.";
 "settings.engines.footer.patched" = "라이선스: %@. 작은 변경을 적용해 사용하며, 해당 변경은 소스 코드와 함께 패치 파일로 공개합니다.";
 "settings.rateApp" = "Retro Pal 평가하기";
+"review.headline" = "Retro Pal 평가하기";
+"review.body" = "리뷰 하나하나가 저희에게 소중합니다. 프로젝트를 이어가게 하는 힘입니다. 🙂";
 "settings.disclaimer" = "Retro Pal은 로컬 전용 에뮬레이터입니다. 게임은 포함되어 있지 않습니다. 합법적으로 소유한 파일만 가져오세요.";
 "settings.restore" = "구입 항목 복원";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "비디오 필터";
 "pro.compare.row.externalDisplay" = "TV / AirPlay";
 /* Pro Prompts */
-"prompt.speed.title" = "1.5배속으로 %@분 플레이했어요";
+"prompt.speed.title" = "1.5배속으로 %lld분 플레이했어요";
 "prompt.speed.subtitle" = "4배속이면 같은 플레이도 순식간에 끝나요. 모든 속도를 한 번의 구입으로 평생 이용하세요.";
 "prompt.slots.title" = "세이브 슬롯이 모두 찼어요";
 "prompt.slots.subtitle" = "슬롯을 5개로 늘리면 덮어쓰기 걱정이 사라져요. 한 번의 구입으로, 평생.";
-"prompt.milestone.title" = "레트로 게임을 %@분 플레이했어요";
+"prompt.milestone.title" = "레트로 게임을 %lld분 플레이했어요";
 "prompt.milestone.subtitle" = "이 게임들을 정말 사랑하시는군요. 모든 기능을 잠금 해제해 보세요.";
 "prompt.rewind.title" = "더 뒤로 돌아가고 싶으신가요?";
 "prompt.rewind.subtitle" = "Pro에서는 모든 기기에서 30초 되감기를 사용할 수 있어요. 보스전에서 다시는 좌절하지 마세요.";
@@ -295,6 +308,17 @@
 "remap.action.clip" = "클립";
 "remap.clear" = "해제";
 "remap.actions.footer" = "이 단축 버튼에는 기본적으로 지정된 버튼이 없습니다. 사용하려면 버튼을 지정하세요. 빨리 감기는 버튼을 누르고 있는 동안만 적용됩니다. 행을 스와이프하면 해제됩니다.";
+"settings.remapKeyboard" = "키보드 키 매핑";
+"keyremap.directions.header" = "방향";
+"keyremap.buttons.header" = "버튼";
+"keyremap.direction.up" = "위";
+"keyremap.direction.down" = "아래";
+"keyremap.direction.left" = "왼쪽";
+"keyremap.direction.right" = "오른쪽";
+"keyremap.press" = "키를 누르세요…";
+"keyremap.noKeyboard" = "키를 매핑하려면 키보드를 연결하세요.";
+"keyremap.footer" = "조작을 탭한 뒤 지정할 키를 누르세요. 한 키는 하나의 조작에만 쓸 수 있지만, 한 조작에 여러 키를 지정할 수는 있습니다. 행을 스와이프하면 지정이 해제됩니다.";
+"key.space" = "스페이스";
 "layout.activeLayout" = "사용 중인 레이아웃";
 "layout.default" = "기본";
 "layout.presets" = "프리셋";
@@ -354,7 +378,9 @@
 "guide.importRom.title" = "게임 추가";
 "guide.importRom.intro" = "Retro Pal에는 게임이 포함되어 있지 않습니다. 합법적으로 소유한 ROM 파일(직접 소장한 카트리지 또는 무료 합법 홈브루 게임)을 직접 준비하세요.";
 "guide.importRom.step1" = "게임 파일(.gba, .gb, .gbc, .nds, .sfc, .smc, .nes 또는 플레이스테이션 디스크의 경우 .chd나 .cue와 .bin 조합)을 iPhone으로 옮기세요. Safari에서 내려받거나, 컴퓨터에서 AirDrop으로 보내거나, iCloud Drive를 사용하면 됩니다.";
+"guide.importRom.step1.ipad" = "게임 파일(.gba, .gb, .gbc, .nds, .sfc, .smc, .nes 또는 플레이스테이션 디스크의 경우 .chd나 .cue와 .bin 조합)을 iPad으로 옮기세요. Safari에서 내려받거나, 컴퓨터에서 AirDrop으로 보내거나, iCloud Drive를 사용하면 됩니다.";
 "guide.importRom.step2" = "파일 앱에 표시되는지 확인하세요(다운로드, 나의 iPhone 또는 iCloud Drive).";
+"guide.importRom.step2.ipad" = "파일 앱에 표시되는지 확인하세요(다운로드, 나의 iPad 또는 iCloud Drive).";
 "guide.importRom.step3" = "Retro Pal에서 라이브러리 상단의 + 버튼을 탭하세요.";
 "guide.importRom.step4" = "파일을 선택하면 게임이 바로 라이브러리에 추가되어 플레이할 수 있습니다.";
 "guide.importRom.footer" = "지원 형식: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, 그리고 플레이스테이션 디스크의 .chd, .cue와 .bin 조합, .m3u. .zip도 됩니다. 게임 하나든, 디스크 한 장의 파일 전부든, 골라서 넣을 여러 게임이든 상관없습니다. .7z은 지원하지 않습니다. 합법적으로 소유한 파일만 가져오세요.";
@@ -370,6 +396,7 @@
 "guide.controller.title" = "컨트롤러 연결";
 "guide.controller.step1" = "컨트롤러를 페어링 모드로 전환하세요.";
 "guide.controller.step2" = "iOS 설정에서 Bluetooth를 열고 컨트롤러를 iPhone에 연결하세요.";
+"guide.controller.step2.ipad" = "iPadOS 설정에서 Bluetooth를 열고 컨트롤러를 iPad에 연결하세요.";
 "guide.controller.step3" = "Retro Pal로 돌아오세요. 컨트롤러가 자동으로 인식되고 화면 조작 버튼이 사라집니다.";
 "guide.controller.footer" = "MFi, Xbox, PlayStation, 8BitDo 등 대부분의 Bluetooth 컨트롤러와 호환됩니다.";
 "guide.controller.status.connected" = "연결된 컨트롤러: %@";
@@ -402,6 +429,7 @@
 "settings.sync.toggle" = "iCloud 동기화";
 "settings.sync.state.disabled" = "끔";
 "settings.sync.footer" = "퀵 세이브와 게임 내 세이브가 나의 iCloud에 동기화되어 다른 기기에서도 사용할 수 있습니다. 끄면 이 iPhone에만 저장됩니다.";
+"settings.sync.footer.ipad" = "퀵 세이브와 게임 내 세이브가 나의 iCloud에 동기화되어 다른 기기에서도 사용할 수 있습니다. 끄면 이 iPad에만 저장됩니다.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "자동 홀드";
@@ -547,6 +575,8 @@
 "import.error.discMissingFiles" = "이 디스크에는 선택하지 않은 파일이 필요합니다: %@. .cue 파일과 모든 .bin 파일을 한 번에 함께 선택하세요.";
 "import.error.zipNoROM" = "이 ZIP에서 게임 파일을 찾지 못했습니다. Retro Pal은 .gba, .gb, .gbc, .nds, .sfc, .smc, .nes 게임만 읽을 수 있으며, 다른 콘솔은 지원하지 않습니다.";
 "import.error.zipExtractionFailed" = "이 ZIP을 열지 못했습니다. '파일' 앱에서 압축을 푼 뒤 게임 파일을 직접 가져와 주세요.";
+"import.error.zipUnsupportedCompression" = "이 ZIP은 LZMA나 BZIP2처럼 Retro Pal이 읽을 수 없는 압축 방식을 사용합니다. 파일이 손상된 것은 아닙니다. 파일 앱에서 압축을 풀어 게임을 직접 가져오거나, 표준 압축으로 ZIP을 다시 만들어 주세요.";
+"import.error.zipEncrypted" = "이 ZIP은 암호로 보호되어 있습니다. 파일 앱에서 압축을 푼 다음 게임 파일을 직접 가져와 주세요.";
 "import.error.alreadyImported" = "이 게임은 이미 라이브러리에 있습니다.";
 "import.duplicate.title" = "이미 라이브러리에 있음";
 "import.duplicate.bodySeveral" = "이 게임들은 이미 라이브러리에 있습니다:";
@@ -575,17 +605,23 @@
 "settings.externalDisplay.sideBySide" = "나란히";
 "settings.externalDisplay.stacked" = "위아래로";
 "settings.externalDisplay.footer" = "AirPlay나 케이블로 TV를 연결하면 게임이 화면을 가득 채우고 iPhone은 조작을 담당합니다. DS는 두 화면을 모두 표시하며, 터치 화면은 휴대폰에 남습니다.";
+"settings.externalDisplay.footer.ipad" = "AirPlay나 케이블로 TV를 연결하면 게임이 화면을 가득 채우고 iPad은 조작을 담당합니다. DS는 두 화면을 모두 표시하며, 터치 화면은 iPad에 남습니다.";
 "prompt.externalDisplay.title" = "큰 화면에서 플레이";
 "prompt.externalDisplay.subtitle" = "AirPlay나 케이블로 게임을 TV에 전체 화면으로 보내고, iPhone은 조작을 담당합니다.";
+"prompt.externalDisplay.subtitle.ipad" = "AirPlay나 케이블로 게임을 TV에 전체 화면으로 보내고, iPad은 조작을 담당합니다.";
 "pro.benefit.externalDisplay.short" = "TV에서 플레이";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "AirPlay로 TV에서 플레이";
 "guide.airplay.intro" = "게임을 TV로 보내고 iPhone은 컨트롤러로 사용하세요. AirPlay나 HDMI 어댑터로 모두 가능합니다.";
+"guide.airplay.intro.ipad" = "게임을 TV로 보내고 iPad은 컨트롤러로 사용하세요. AirPlay나 HDMI 어댑터로 모두 가능합니다.";
 "guide.airplay.step1" = "iPhone과 TV를 같은 Wi-Fi에 연결하세요. HDMI 어댑터를 쓴다면 연결한 뒤 3단계로 넘어가세요.";
+"guide.airplay.step1.ipad" = "iPad과 TV를 같은 Wi-Fi에 연결하세요. HDMI 어댑터를 쓴다면 연결한 뒤 3단계로 넘어가세요.";
 "guide.airplay.step2" = "제어 센터를 열고 화면 미러링을 탭한 다음 TV를 선택하세요.";
 "guide.airplay.step3" = "게임을 실행하세요. TV를 가득 채우고, iPhone은 조작을 담당합니다.";
+"guide.airplay.step3.ipad" = "게임을 실행하세요. TV를 가득 채우고, iPad은 조작을 담당합니다.";
 "guide.airplay.step4" = "DS에서는 두 화면이 모두 TV에 표시되고 터치 화면은 iPhone에 남습니다.";
+"guide.airplay.step4.ipad" = "DS에서는 두 화면이 모두 TV에 표시되고 터치 화면은 iPad에 남습니다.";
 "guide.airplay.step5" = "컨트롤러를 연결하면 화면의 버튼이 사라집니다. 휴대폰에서는 DS 터치 화면만 계속 사용합니다.";
 "guide.airplay.step6" = "TV를 연결하면 설정의 외부 디스플레이에서 DS 두 화면의 배치를 선택할 수 있습니다.";
 "guide.airplay.footer" = "소리도 AirPlay로 영상과 함께 TV로 전달됩니다. 컨트롤러를 쓰면 컨트롤러의 메뉴 버튼으로 일시정지 메뉴를 열 수 있어 휴대폰을 만질 필요가 없습니다.";
@@ -596,11 +632,12 @@
 "guide.widget.title" = "홈 화면에 위젯 추가하기";
 "guide.widget.intro" = "게임을 커버 이미지로 홈 화면에 놓을 수 있습니다. 한 번 탭하면 멈춘 곳부터 바로 시작됩니다.";
 "guide.widget.step1" = "홈 화면의 빈 곳을 길게 눌러 아이콘이 흔들릴 때까지 기다리세요.";
-"guide.widget.step2" = "화면 위쪽의 + 를 탭한 다음 Retro Pal 을 검색하세요.";
+"guide.widget.step2" = "화면 위쪽의 +를 탭한 다음 Retro Pal을 검색하세요.";
 "guide.widget.step3" = "위젯을 고르세요. ‘이어서 하기’는 최근 게임으로 알아서 채워지고, ‘게임 하나’와 ‘게임 네 개’는 직접 고를 수 있습니다.";
 "guide.widget.step4" = "배치한 뒤 완료를 탭하세요.";
 "guide.widget.step5" = "직접 고르는 두 가지는: 위젯을 길게 눌러 ‘위젯 편집’을 탭하고, 게임과 불러올 저장 데이터를 선택하세요.";
-"guide.widget.footer" = "커버는 해당 게임을 한 번이라도 플레이하면 나타나고, 위젯은 Retro Pal 을 나갈 때 갱신됩니다. 직접 게임을 고르려면 iOS 17 이상이 필요하며, ‘이어서 하기’는 지원되는 모든 iPhone 에서 작동합니다.";
+"guide.widget.footer" = "커버는 해당 게임을 한 번이라도 플레이하면 나타나고, 위젯은 Retro Pal을 나갈 때 갱신됩니다. 직접 게임을 고르려면 iOS 17 이상이 필요하며, ‘이어서 하기’는 지원되는 모든 iPhone에서 작동합니다.";
+"guide.widget.footer.ipad" = "커버는 해당 게임을 한 번이라도 플레이하면 나타나고, 위젯은 Retro Pal을 나갈 때 갱신됩니다. 직접 게임을 고르려면 iPadOS 17 이상이 필요하며, ‘이어서 하기’는 지원되는 모든 iPad에서 작동합니다.";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "이 코드에는 사용되지 않는 문자가 있습니다. 치트 코드는 0-9, A-F, 공백, 하이픈만 사용합니다.";
@@ -648,25 +685,34 @@
 "settings.cheatDB.noGames" = "먼저 라이브러리에 게임을 추가하세요.";
 
 "externalDisplay.idle.hint" = "iPhone에서 게임을 실행하세요";
+"externalDisplay.idle.hint.ipad" = "iPad에서 게임을 실행하세요";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "플레이스테이션";
-"whatsnew.s1.b1" = "플레이스테이션 게임이 Retro Pal에서 실행됩니다. 이 콘솔은 모두에게 무료입니다.";
-"whatsnew.s1.b2" = "저장, 상태 저장, 되감기, 치트 코드, 업적이 모두 첫날부터 작동합니다.";
-"whatsnew.s1.b3" = "진행 상황은 메모리 카드에 저장됩니다. 실제 본체와 같고, 다른 기기에도 다른 저장 데이터처럼 전달됩니다.";
-"whatsnew.s1.b4" = "게임 주위에는 이 기기 고유의 본체가 표시됩니다. 세로에서도 가로에서도 마찬가지입니다. {PRO}에서는 그 패드를 원하는 색으로 다시 칠할 수 있습니다. 인쇄된 글자까지요.";
-"whatsnew.s2.title" = "디스크는 어떤 형태든";
-"whatsnew.s2.b1" = "플레이스테이션 게임은 파일 하나일 수도, 폴더 하나일 수도 있습니다. .chd나 .cue와 .bin 조합, 또는 전체를 담은 zip으로 추가하세요.";
-"whatsnew.s2.b2" = "어떤 파일이 한 게임인지는 Retro Pal이 알아냅니다. 쉰 개가 아니라 하나로 추가됩니다.";
-"whatsnew.s2.b3" = "여러 장의 디스크로 된 게임은 디스크가 따로따로 들어와도 하나의 게임이 됩니다. 디스크 교체는 게임을 끝내지 않고 일시정지 메뉴에서 할 수 있습니다.";
-"whatsnew.s3.title" = "스틱이 두 개인 컨트롤러";
-"whatsnew.s3.b1" = "화면 컨트롤에 아날로그 스틱 두 개와 ANALOG 버튼이 있어, 아날로그 게임이 컨트롤러와 똑같이 손가락으로도 동작합니다.";
-"whatsnew.s3.b2" = "왼쪽 스틱은 이동, 오른쪽 스틱은 시점. 게임이 기대하는 그대로입니다.";
-"whatsnew.s4.title" = "치트";
-"whatsnew.s4.b1" = "저장한 치트를 편집할 수 있습니다. 한 글자를 고치려고 코드 전체를 다시 입력하지 않아도 됩니다.";
-"whatsnew.s5.title" = "조작";
-"whatsnew.s5.b1" = "화면 조이스틱이 PlayStation 스틱과 같은 입체적인 모습이 되었습니다. 색은 기기마다 다릅니다.";
-"whatsnew.s5.b2" = "{PRO}에서는 되감을 시간을 고를 수 있습니다. 되감기 버튼을 길게 눌러 초를 고르면 최대 30초까지 돌아갑니다.";
+"whatsnew.s1.title" = "새로운 모습";
+"whatsnew.s1.b1" = "기기를 가로로 돌리면 라이브러리가 움직이는 배경 위에 커버가 늘어선 진열대로 바뀌고, 게임 페이지와 RetroAchievements, 설정도 같은 스타일이 됩니다.";
+"whatsnew.s1.b2" = "세로 모드에서는 마지막으로 플레이한 게임이 맨 위에 놓이고, 그 아래로 목록이 반투명한 유리 패널 위에 이어집니다. 테마는 언제든 바꿀 수 있습니다. 라이브러리 오른쪽 위, + 옆의 팔레트 버튼 {PALETTE}에서 다섯 가지 테마를 고르거나, 이전 화면이 더 좋다면 클래식을 선택하세요.";
+"whatsnew.s1.b3" = "게임마다 커버를 직접 고를 수 있습니다. 공식 박스 아트, RetroAchievements 이미지, 마지막 스크린샷, 내 사진 중에서 선택하세요.";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "이제 Retro Pal을 iPad에서도 쓸 수 있습니다. 모든 기종을 가로와 세로 모두 지원하고, 조작 버튼은 큰 화면에 맞춰 조정됩니다.";
+"whatsnew.s2.b2" = "다른 앱 옆에서 창을 좁히면 라이브러리가 iPhone에서처럼 배치됩니다.";
+"whatsnew.s3.title" = "키보드로 인식되는 컨트롤러";
+"whatsnew.s3.b1" = "8BitDo Zero처럼 iOS가 키보드로 인식하는 오래된 Bluetooth 컨트롤러가 이제 별도 설정 없이 바로 작동하며, 설정에서 기종별로 키를 다시 지정할 수 있습니다. 무료입니다.";
+"whatsnew.s3.b2" = "iPhone에서는 키보드가 연결되면 터치 조작이 숨겨지고, iPad에서는 그대로 남습니다.";
+"whatsnew.s4.title" = "모든 언어";
+"whatsnew.s4.b1" = "이름에 일본어, 한국어, 중국어나 악센트 문자가 들어간 ZIP 파일 속 게임도 이제 원래 이름 그대로 가져옵니다.";
+"whatsnew.s4.b2" = "기기의 달력 설정과 관계없이 닌텐도 DS 시계가 올바른 연도를 표시합니다.";
+"whatsnew.s5.title" = "그 밖에";
+"whatsnew.s5.b1" = "닌텐도 DS 설정은 이제 각 DS 게임의 페이지에 있고, RetroAchievements 항목은 세이브 슬롯 바로 아래에 자리합니다.";
+"whatsnew.s5.b2" = "라이브러리 상단 바에 컨트롤러의 배터리 잔량이 표시됩니다.";
+"whatsnew.s5.b3" = "RetroAchievements 도전 과제를 이제 PlayStation 게임에서도 달성할 수 있습니다.";
+"whatsnew.s5.b4" = "치트 코드: 유럽판이나 일본판 게임도 이제 자기 버전에 맞는 코드를 찾으며, 원본 게임의 코드가 팬이 만든 개조판의 코드보다 먼저 나옵니다.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "이 세트의 업적이 불러와지지 않았습니다.";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "해당 이름의 게임을 찾을 수 없습니다. 데이터베이스에는 게임이 영어 제목으로 등록되어 있습니다.";
+"cheats.placeholderPrefix" = "예:";
+"library.untitled" = "제목 없는 게임";
+"guide.controller.keyboard" = "하드웨어 키보드: 방향키로 이동, X = A, Z = B, S = X, A = Y, Q = L, W = R, Return = Start, Shift = Select. 키는 위치로 인식되므로 위 글자는 미국식 QWERTY 배열 기준입니다. iOS가 키보드로 인식하는 Bluetooth 컨트롤러(키보드 모드의 8BitDo Zero 등)도 사용할 수 있습니다. 키보드가 연결된 동안 설정의 컨트롤러에서 모든 키를 다시 지정할 수 있습니다. iPhone에서는 키보드가 연결된 동안 터치 조작이 숨겨집니다.";
+"guide.controller.keyboard.ipad" = "하드웨어 키보드: 방향키로 이동, X = A, Z = B, S = X, A = Y, Q = L, W = R, Return = Start, Shift = Select. 키는 위치로 인식되므로 위 글자는 미국식 QWERTY 배열 기준입니다. iOS가 키보드로 인식하는 Bluetooth 컨트롤러(키보드 모드의 8BitDo Zero 등)도 사용할 수 있습니다. 키보드가 연결된 동안 설정의 컨트롤러에서 모든 키를 다시 지정할 수 있습니다.";

@@ -26,7 +26,7 @@ import SwiftUI
 /// Hosts a real OverlayMenuView populated with dummy state, under a chosen set
 /// of safe-area insets. The menu reads its portrait/landscape decision from its
 /// own bounds, so the host view is simply pinned edge-to-edge.
-private final class OverlayMenuPreviewController: UIViewController {
+final class OverlayMenuPreviewController: UIViewController {
     private let isNDS: Bool
     private let insets: UIEdgeInsets
     private let menu = OverlayMenuView()
@@ -92,7 +92,7 @@ private final class OverlayMenuPreviewController: UIViewController {
     }
 }
 
-private struct OverlayMenuPreviewRepresentable: UIViewControllerRepresentable {
+struct OverlayMenuPreviewRepresentable: UIViewControllerRepresentable {
     let isNDS: Bool
     let safeInsets: UIEdgeInsets
     func makeUIViewController(context: Context) -> OverlayMenuPreviewController {

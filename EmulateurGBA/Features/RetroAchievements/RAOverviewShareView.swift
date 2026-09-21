@@ -79,7 +79,7 @@ struct RAOverviewCardView: View {
                     // participle read as nothing in FR (settled).
                     stat(value: "\(unlockedTotal)",
                          label: String(localized: "ra.card.game", defaultValue: "ACHIEVEMENTS"))
-                    stat(value: "\(points)",
+                    stat(value: "\(points.formatted())",
                          label: String(localized: "ra.pointsSuffix", defaultValue: "pts"))
                 }
                 .padding(.bottom, 3)
@@ -191,7 +191,7 @@ struct RAOverviewCardView: View {
                         .minimumScaleFactor(0.5)
                     Spacer(minLength: 4)
                     if let points = game.points {
-                        Text("\(points) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                        Text("\(points.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                             .font(.system(size: 10.5, weight: .heavy))
                             .foregroundStyle(Self.gold)
                             .monospacedDigit()
@@ -233,7 +233,7 @@ struct RAOverviewCardView: View {
                     .minimumScaleFactor(0.5)
                 Spacer(minLength: 4)
                 if let points = game.points {
-                    Text("\(points) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                    Text("\(points.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                         .font(.system(size: 9, weight: .heavy))
                         .foregroundStyle(Self.gold)
                         .monospacedDigit()

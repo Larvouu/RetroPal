@@ -21,12 +21,25 @@ struct AppShellView: View {
     @State private var pendingPlayRequest: WidgetSharing.PlayRequest?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.layoutDirection) private var layoutDirection
+    /// The window's safe-area insets, measured here and handed to every
+    /// surface that lays out against them (`surfaceSafeAreaInsets`,
+    /// 2026-09-08): a surface that read the window itself was never told
+    /// when a game gave the status bar back.
+    @State private var surfaceInsets: UIEdgeInsets?
+
+    private func uiInsets(_ edges: EdgeInsets) -> UIEdgeInsets {
+        let rtl = layoutDirection == .rightToLeft
+        return UIEdgeInsets(top: edges.top, left: rtl ? edges.trailing : edges.leading,
+                            bottom: edges.bottom, right: rtl ? edges.leading : edges.trailing)
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 LibraryView(pendingOpenURL: $pendingOpenURL,
                             pendingPlayRequest: $pendingPlayRequest,
+                            selectedTab: $selectedTab,
                             isActiveTab: selectedTab == .library)
             }
             .tabItem {
@@ -35,7 +48,8 @@ struct AppShellView: View {
             .tag(AppTab.library)
 
             NavigationStack {
-                SettingsView()
+                SettingsView(selectedTab: $selectedTab,
+                             isActiveTab: selectedTab == .settings)
             }
             .tabItem {
                 Label(NSLocalizedString("tab.settings", comment: ""), systemImage: "gearshape")
@@ -79,6 +93,17 @@ struct AppShellView: View {
         .onChange(of: selectedTab) { _ in
             Haptics.tap()
         }
+        // Measured from behind the tab view so nothing about its layout
+        // changes. Until the first pass lands the value is nil and the
+        // surfaces read the window, as they always did.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { surfaceInsets = uiInsets(geo.safeAreaInsets) }
+                    .onChange(of: geo.safeAreaInsets) { edges in surfaceInsets = uiInsets(edges) }
+            }
+        )
+        .environment(\.surfaceSafeAreaInsets, surfaceInsets)
     }
 }
 

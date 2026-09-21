@@ -66,8 +66,19 @@ struct RAAchievementRow: View {
     let ach: RAAchievementInfo
 
     /// "12% of players" / "1.5% of players" (one decimal under 10%).
+    ///
+    /// Formatted by the locale, not by `%f`: `String(format:)` always writes
+    /// an English decimal point, so a French or German player read "1.5 %"
+    /// where everything else on their phone says "1,5 %", and that text is
+    /// baked into the shared achievement image. `NumberFormatter`'s percent
+    /// style writes the separator, the digits and the space before the sign
+    /// the way each language does.
     static func rarityLabel(_ rarity: Double) -> String {
-        let pct = rarity >= 10 ? String(format: "%.0f%%", rarity) : String(format: "%.1f%%", rarity)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = rarity >= 10 ? 0 : 1
+        let pct = formatter.string(from: NSNumber(value: rarity / 100)) ?? "\(rarity)%"
         return String(format: String(localized: "ra.dashboard.rarity", defaultValue: "%@ of players"), pct)
     }
 

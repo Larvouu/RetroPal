@@ -268,9 +268,9 @@ struct RetroStoryCardView: View {
         HStack(alignment: .top, spacing: 10) {
             statCell(value: Self.durationString(stats.totalSeconds),
                      label: NSLocalizedString("library.stats.totalTime", comment: ""))
-            statCell(value: "\(stats.playedCount)",
+            statCell(value: "\(stats.playedCount.formatted())",
                      label: NSLocalizedString("library.stats.gamesPlayed", comment: ""))
-            statCell(value: "\(stats.sessionCount)",
+            statCell(value: "\(stats.sessionCount.formatted())",
                      label: NSLocalizedString("library.stats.sessions", comment: ""))
         }
     }

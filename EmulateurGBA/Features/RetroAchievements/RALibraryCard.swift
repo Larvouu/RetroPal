@@ -90,7 +90,7 @@ struct RALibraryCard: View {
                 Text(ra.displayName ?? ra.username ?? "")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text("\(ra.softcoreScore) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                Text("\(ra.softcoreScore.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()

@@ -154,7 +154,7 @@ struct ProCTAStrip: View {
                         .font(.subheadline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.white.opacity(0.65))
                         .padding(.vertical, 4)
                         .contentShape(Rectangle())
                 }
@@ -187,11 +187,11 @@ struct ProCTAStrip: View {
             Button(action: onDismiss) {
                 Text(NSLocalizedString("pro.notNow", comment: ""))
                     .font(.subheadline.bold())
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white.opacity(0.65))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, compact ? 0 : 12)
                     .frame(height: compact ? 40 : nil)
-                    .background(Color.white.opacity(0.06))
+                    .background(Color.white.opacity(LandscapeChrome.cardFill))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .contentShape(Rectangle())
             }

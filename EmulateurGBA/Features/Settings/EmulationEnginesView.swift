@@ -46,27 +46,30 @@ struct EmulationEnginesView: View {
     ]
 
     var body: some View {
-        List {
-            ForEach(engines) { engine in
-                Section {
-                    ForEach(engine.consoles, id: \.self) { console in
-                        HStack(spacing: 12) {
-                            PixelConsoleIcon(console: console)
-                                .frame(width: 36, height: 36)
-                            Text(console.label)
-                            Spacer()
+        LandscapeListSwitch(title: NSLocalizedString("settings.core", comment: "")) {
+            List {
+                ForEach(engines) { engine in
+                    Section {
+                        ForEach(engine.consoles, id: \.self) { console in
+                            HStack(spacing: 12) {
+                                PixelConsoleIcon(console: console)
+                                    .frame(width: 36, height: 36)
+                                Text(console.label)
+                                Spacer()
+                            }
                         }
+                    } header: {
+                        // Core names are project names and stay unlocalized, the
+                        // same rule the old row followed.
+                        Text(engine.name)
+                    } footer: {
+                        Text(engine.patched
+                             ? String(format: NSLocalizedString("settings.engines.footer.patched", comment: ""),
+                                      engine.licence)
+                             : String(format: NSLocalizedString("settings.engines.footer", comment: ""),
+                                      engine.licence))
                     }
-                } header: {
-                    // Core names are project names and stay unlocalized, the
-                    // same rule the old row followed.
-                    Text(engine.name)
-                } footer: {
-                    Text(engine.patched
-                         ? String(format: NSLocalizedString("settings.engines.footer.patched", comment: ""),
-                                  engine.licence)
-                         : String(format: NSLocalizedString("settings.engines.footer", comment: ""),
-                                  engine.licence))
+                    .landscapeGlassRow()
                 }
             }
         }

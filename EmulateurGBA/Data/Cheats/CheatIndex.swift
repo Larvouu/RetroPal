@@ -62,15 +62,78 @@ struct CheatIndex {
         // ASCII-only on purpose: the Python side keeps [a-z0-9], so anything
         // that keeps accented or CJK letters here would key "Pokémon"
         // differently on each side and every lookup would silently miss.
-        return out.lowercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        // Walked by UNICODE SCALAR, not by Character, for the same reason:
+        // Python filters code points, so a decomposed "é" (e + combining
+        // accent, the form a Mac or iCloud writes) keeps its "e" there. A
+        // Character-level filter dropped the whole grapheme and keyed
+        // "pokmon" for a name the builder keyed "pokemon".
+        var key = ""
+        for scalar in out.lowercased().unicodeScalars
+        where ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar) {
+            key.unicodeScalars.append(scalar)
+        }
+        return key
     }
 
     /// Every libretro cheat file that covers this title, most often one, but
     /// several when a game has regional dumps or codes from more than one tool.
-    /// The player chooses; we never pick for them.
+    /// The player chooses; we never pick for them. Retail dumps come first
+    /// (see `retailFirst`), so the first section on screen is the game the
+    /// player holds and not a hack of it.
     func candidates(forTitle title: String, system: String) -> [String] {
         guard let system = payload?.systems[system] else { return [] }
-        return system.titles[Self.bareTitle(title)] ?? []
+        return Self.retailFirst(system.titles[Self.bareTitle(title)] ?? [])
+    }
+
+    /// The stems of one title, the retail dumps before the ROM hacks, each
+    /// group in the order it arrived (2026-09-10).
+    ///
+    /// libretro names a hack's file after its base dump with the hack's own
+    /// name NESTED in a parenthesis of its own, "Pokemon - SoulSilver Version
+    /// (Europe) (Rev 10) (Pokemon - SoothingSilver Version (v1.3.1))", while a
+    /// retail dump's tags never nest: region, revision, version, language,
+    /// one level deep. So "nests" is the whole test, and it needs no list of
+    /// hack names. The builder sorts the same way at build time; this is kept
+    /// here too so a bundle built before the rule still reads right: the
+    /// bundled index listed the SoothingSilver hack ABOVE the retail Europe
+    /// file (a space sorts before a dot), and a German player with a retail
+    /// cartridge was served a hack's anti-piracy patches as the first section.
+    static func retailFirst(_ stems: [String]) -> [String] {
+        let retail = stems.filter { !isHackStem($0) }
+        let hacks = stems.filter { isHackStem($0) }
+        return retail + hacks
+    }
+
+    /// Whether a libretro cheat-file stem names a ROM hack: any parenthesis
+    /// nested inside another one.
+    static func isHackStem(_ stem: String) -> Bool {
+        var depth = 0
+        for ch in stem {
+            switch ch {
+            case "(", "[": depth += 1; if depth >= 2 { return true }
+            case ")", "]": depth = max(0, depth - 1)
+            default: break
+            }
+        }
+        return false
+    }
+
+    /// The title to try when the filename's own lookup missed: the game's OWN
+    /// release name, read from the cartridge code, when it keys differently
+    /// from the filename (2026-09-10). nil when it keys the same, since that
+    /// lookup has just failed and would fail again.
+    ///
+    /// The case that names it: `4828 - Pokemon - Silberne Edition SoulSilver
+    /// (G).nds`, a numbered set's filename. `bareTitle` strips tags only, so
+    /// the catalogue number survived and the key became
+    /// "4828pokemonsilberneeditionsoulsilver", a miss, while libretro's
+    /// German file sat in the index under the serial's own name. The browser
+    /// then went to the REGIONAL SIBLINGS, which skip the game's own code on
+    /// the assumption that its own name already failed, true only when the
+    /// file is named like the DAT. The cartridge code is the identity that
+    /// survives any filename, so it is asked before the siblings.
+    static func ownReleaseTitle(forROMName romName: String, serialName: String) -> String? {
+        bareTitle(serialName) == bareTitle(romName) ? nil : serialName
     }
 
     /// Where a given cheat file lives. Every path segment is escaped: these

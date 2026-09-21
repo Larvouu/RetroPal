@@ -493,7 +493,8 @@ enum PresetLayoutResolver {
         let defaultLayout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape,
             containerSize: controlsFrame.size, scale: k,
-            safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right)
+            safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right,
+            family: LayoutFamily.of(viewSize))
 
         var buttons: [ControlElement: (center: CGPoint, baseSize: CGSize)] = [:]
         for element in ControlElement.elements(for: system) {

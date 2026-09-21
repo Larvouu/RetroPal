@@ -49,12 +49,13 @@ struct ProFeatureHeroCard: View {
                 VStack(spacing: 3) {
                     Text(NSLocalizedString("pro.compare.header.free", comment: ""))
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(.white.opacity(0.55))
                     if let freeLabel {
                         Text(freeLabel)
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .foregroundStyle(.white.opacity(0.78))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2).minimumScaleFactor(0.7)
                     } else {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 15))
@@ -71,10 +72,14 @@ struct ProFeatureHeroCard: View {
                     Text(NSLocalizedString("pro.compare.header.pro", comment: ""))
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(ProPalette.crownGradient)
+                    // Two lines, not one: "5 emplacements de sauvegarde" (fr) is
+                    // 2.3x the English and "Alle Geschwindigkeiten" (de) 2.2x,
+                    // more than a 0.7 scale factor can absorb on one line.
                     Text(proLabel)
                         .font((compact ? Font.headline : Font.title3).weight(.bold))
                         .foregroundStyle(ProPalette.crownGradient)
-                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2).minimumScaleFactor(0.7)
                 }
             }
         }
@@ -105,11 +110,14 @@ struct ProFeatureHeroCard: View {
         }
     }
 
+    /// Tinted glass over the ground since 2026-09-07 (the sheet sits on the
+    /// library's moving ground); the gold glow rides on top as before.
     private var cardBackground: some View {
         ZStack {
+            Color.white.opacity(LandscapeChrome.cardFill)
             LinearGradient(
-                colors: [Color(red: 0.12, green: 0.08, blue: 0.22),
-                         Color(red: 0.05, green: 0.03, blue: 0.11)],
+                colors: [Color(red: 0.12, green: 0.08, blue: 0.22).opacity(0.55),
+                         Color(red: 0.05, green: 0.03, blue: 0.11).opacity(0.55)],
                 startPoint: .topLeading, endPoint: .bottomTrailing)
             RadialGradient(
                 colors: [gold.opacity(0.18), .clear],

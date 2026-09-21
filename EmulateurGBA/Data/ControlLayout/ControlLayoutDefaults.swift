@@ -182,7 +182,7 @@ enum ControlLayoutDefaults {
     /// Vertical positions are untouched. `safeLeftInset` is the leading safe-area inset
     /// (0 on phones without an island, ~59pt when the island is on the leading edge).
     static func gbcLandscape(containerSize: CGSize, scale k: CGFloat,
-                             safeLeftInset: CGFloat) -> OrientationLayout {
+                             safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
         var layout = baseLandscape(containerSize: containerSize, scale: k,
                                    panel: EmulatorLayoutGeometry.gbcLandscapePanel)
         layout.buttons[ControlElement.btnL.rawValue] = nil
@@ -222,7 +222,17 @@ enum ControlLayoutDefaults {
             let bCx = b.centerX * w
             let blocLeft = min(aCx - aH * k, bCx - bH * k)
             let blocRight = max(aCx + aH * k, bCx + bH * k)
-            let center = (blocLeft + blocRight) / 2
+            var center = (blocLeft + blocRight) / 2
+            // A tablet window centres the pair in the SAFE right gutter, the
+            // mirror of the D-pad's rule above. The inherited spot is measured
+            // from the window's right edge, which on a phone leaves the pair
+            // clear of a picture that takes 74 % of the room between the panels;
+            // on a tablet the picture takes all of it, and the pair's B sat 35
+            // points on the game (the first sweep, 2026-09-05). In landscape the
+            // container is the window, so the family is read from it directly.
+            if LayoutFamily.of(containerSize) == .tablet {
+                center = (screen.maxX + dressFrame + (w - safeRightInset)) / 2
+            }
             layout.buttons[ControlElement.btnB.rawValue] = ButtonLayout(
                 centerX: (center - bH * k) / w, centerY: b.centerY, isHidden: b.isHidden)
             layout.buttons[ControlElement.btnA.rawValue] = ButtonLayout(
@@ -271,8 +281,9 @@ enum ControlLayoutDefaults {
     /// screen's bottom (the GBA screen shares GB/GBC's width but keeps its own 3:2 height, so it
     /// is shorter).
     static func gbaLandscape(containerSize: CGSize, scale k: CGFloat,
-                             safeLeftInset: CGFloat) -> OrientationLayout {
-        var layout = gbcLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+                             safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        var layout = gbcLandscape(containerSize: containerSize, scale: k,
+                                  safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
         let w = containerSize.width, h = containerSize.height
         guard w > 0, h > 0 else { return layout }
 
@@ -300,7 +311,11 @@ enum ControlLayoutDefaults {
         }
 
         // Clip: nudge left so A's right edge meets Clip's left edge (A.maxX == clip.minX).
-        if let a = layout.buttons[ControlElement.btnA.rawValue],
+        // Not on a tablet: there the pair is centred in the gutter (gbcLandscape), so a
+        // Clip on A's right walked 43 points off the window on the second sweep; the
+        // base spot under R, which the pair never reaches on a tablet, is the one kept.
+        if LayoutFamily.of(containerSize) == .phone,
+           let a = layout.buttons[ControlElement.btnA.rawValue],
            let clip = layout.buttons[ControlElement.btnClip.rawValue] {
             let aHalf = ControlElement.btnA.defaultLandscapeSize.width / 2
             let clipHalf = ControlElement.btnClip.defaultLandscapeSize.width / 2
@@ -370,7 +385,10 @@ enum ControlLayoutDefaults {
     // MARK: - NDS Landscape
 
     /// Default NDS landscape layout, normalized to the container, scaled for the device.
-    static func ndsLandscape(containerSize: CGSize, scale k: CGFloat) -> OrientationLayout {
+    /// `family` is the WINDOW's, passed in because this container is the band
+    /// under the screens and its own short side says nothing about the window.
+    static func ndsLandscape(containerSize: CGSize, scale k: CGFloat,
+                             family: LayoutFamily = .phone) -> OrientationLayout {
         let w = containerSize.width
         let h = containerSize.height
         guard w > 0 && h > 0 else { return OrientationLayout() }
@@ -398,12 +416,28 @@ enum ControlLayoutDefaults {
             centerX: bCenterX / w, centerY: bCenterY / h)
         buttons[ControlElement.btnY.rawValue] = ButtonLayout(
             centerX: yCenterX / w, centerY: bCenterY / h)
-        // btnL/R extend above the controls area (negative normalized Y is valid).
-        // leading +65, center at (65 + 20, -50)
-        buttons[ControlElement.btnL.rawValue] = ButtonLayout(
-            centerX: (65 + 20) * k / w, centerY: -50 * k / h)
-        buttons[ControlElement.btnR.rawValue] = ButtonLayout(
-            centerX: (w - (65 + 20) * k) / w, centerY: -50 * k / h)
+        if family == .tablet {
+            // A tablet window (2026-09-05): the two screens are wider than tall
+            // enough to fill the window's width side by side, so the gutters the
+            // phone keeps its L/R bars in do not exist. The bars stand inside the
+            // band instead, upright against its outer edges, top-aligned: the
+            // band is over twice the reference band's height once scaled, the
+            // D-pad's left edge sits 110 reference points in, and the diamond's
+            // right edge 140, so both bars clear their neighbour by a wide margin.
+            let barW = ControlElement.btnL.defaultNDSLandscapeSize.width
+            let barH = ControlElement.btnL.defaultNDSLandscapeSize.height
+            buttons[ControlElement.btnL.rawValue] = ButtonLayout(
+                centerX: (8 + barW / 2) * k / w, centerY: (10 + barH / 2) * k / h)
+            buttons[ControlElement.btnR.rawValue] = ButtonLayout(
+                centerX: (w - (8 + barW / 2) * k) / w, centerY: (10 + barH / 2) * k / h)
+        } else {
+            // btnL/R extend above the controls area (negative normalized Y is valid).
+            // leading +65, center at (65 + 20, -50)
+            buttons[ControlElement.btnL.rawValue] = ButtonLayout(
+                centerX: (65 + 20) * k / w, centerY: -50 * k / h)
+            buttons[ControlElement.btnR.rawValue] = ButtonLayout(
+                centerX: (w - (65 + 20) * k) / w, centerY: -50 * k / h)
+        }
         // Bottom row, centered: SELECT · CLIP · START. Clip takes the centered slot
         // between Select and Start (the spot Mic used to hold). Select/Start keep their
         // ±66k spots — ×k so they shrink toward center on the iPhone SE and stay clear
@@ -427,7 +461,10 @@ enum ControlLayoutDefaults {
         // 0.5 — the prime, most-reachable spot for the most-used button. centerY sits
         // the row ~10pt below the screens (the container top), using the rendered
         // half-height 18 so it lands the same on every device.
-        let topLineY = (10 + 18) / h
+        // A tablet scales the 28 too: unscaled, the Menu's scaled half-height
+        // outgrows the 28 and its top edge crosses into the screen band (a
+        // point on a 13-inch, the first sweep). Phones keep the flat 28.
+        let topLineY = family == .tablet ? (10 + 18) * k / h : (10 + 18) / h
         buttons[ControlElement.btnMenu.rawValue] = ButtonLayout(
             centerX: 0.5, centerY: topLineY)
 
@@ -441,22 +478,29 @@ enum ControlLayoutDefaults {
     /// removed (GB/GBC hardware has none), so those views stay hidden in-game.
     /// `safeLeftInset` is the leading safe-area inset (only GB/GBC landscape uses it,
     /// to keep the D-pad clear of the Dynamic Island); 0 elsewhere has no effect.
+    /// `family` is the WINDOW's family (2026-09-05, the iPad build). Only the DS
+    /// on its side needs it told: every other landscape container is the window
+    /// itself and reads the family from its own size. Defaults to the phone so
+    /// every caller that never heard of tablets is unchanged.
     static func defaultLayout(system: PresetSystem, isLandscape: Bool,
                               containerSize: CGSize, scale: CGFloat,
                               safeLeftInset: CGFloat = 0,
-                              safeRightInset: CGFloat = 0) -> OrientationLayout {
+                              safeRightInset: CGFloat = 0,
+                              family: LayoutFamily = .phone) -> OrientationLayout {
         switch system {
         case .nds:
-            return isLandscape ? ndsLandscape(containerSize: containerSize, scale: scale)
+            return isLandscape ? ndsLandscape(containerSize: containerSize, scale: scale, family: family)
                                : ndsPortrait(containerSize: containerSize, scale: scale)
         case .gba:
             return isLandscape ? gbaLandscape(containerSize: containerSize, scale: scale,
-                                              safeLeftInset: safeLeftInset)
+                                              safeLeftInset: safeLeftInset,
+                                              safeRightInset: safeRightInset)
                                : gbaPortrait(containerSize: containerSize, scale: scale)
         case .gbc:
             // GB/GBC has its own layout in both orientations (no L/R by construction).
             return isLandscape ? gbcLandscape(containerSize: containerSize, scale: scale,
-                                              safeLeftInset: safeLeftInset)
+                                              safeLeftInset: safeLeftInset,
+                                              safeRightInset: safeRightInset)
                                : gbcPortrait(containerSize: containerSize, scale: scale)
         case .snes:
             return snes(containerSize: containerSize, scale: scale,
@@ -464,7 +508,8 @@ enum ControlLayoutDefaults {
                         safeRightInset: safeRightInset)
         case .nes:
             return nes(containerSize: containerSize, scale: scale,
-                       isLandscape: isLandscape, safeLeftInset: safeLeftInset)
+                       isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                       safeRightInset: safeRightInset)
         case .ps1:
             return ps1(containerSize: containerSize, scale: scale,
                        isLandscape: isLandscape, safeLeftInset: safeLeftInset,
@@ -939,7 +984,8 @@ enum ControlLayoutDefaults {
         // The GBA layout is the base: it already places L/R, Menu and Clip around
         // a single screen, which is the shape of this console's page.
         var layout = isLandscape
-            ? gbaLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+            ? gbaLandscape(containerSize: containerSize, scale: k,
+                           safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
             : gbaPortrait(containerSize: containerSize, scale: k)
 
         // The pad: D-pad and diamond, straight from the DS. In LANDSCAPE the D-pad is the
@@ -1144,9 +1190,11 @@ enum ControlLayoutDefaults {
     /// Clip a clear gap above A and does nothing at all where there is room, so the layout
     /// stays the Game Boy's on every other device.
     static func nes(containerSize: CGSize, scale k: CGFloat,
-                    isLandscape: Bool, safeLeftInset: CGFloat) -> OrientationLayout {
+                    isLandscape: Bool, safeLeftInset: CGFloat,
+                    safeRightInset: CGFloat = 0) -> OrientationLayout {
         var layout = isLandscape
-            ? gbcLandscape(containerSize: containerSize, scale: k, safeLeftInset: safeLeftInset)
+            ? gbcLandscape(containerSize: containerSize, scale: k,
+                           safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
             : gbcPortrait(containerSize: containerSize, scale: k)
         let h = containerSize.height
         guard h > 0 else { return layout }

@@ -298,8 +298,15 @@ static int resolveNDSLanguageFromLocale(void) {
         }
     }
     // The DS RTC stores local wall-clock time, so extract components in the
-    // device's current calendar/time zone.
-    NSCalendar *cal = [NSCalendar currentCalendar];
+    // device's time zone. The calendar is pinned to Gregorian on purpose:
+    // `currentCalendar` follows Settings > Language & Region > Calendar, and
+    // its `year` is that calendar's era year. melonDS keeps `year % 100`, so
+    // a device on the Japanese calendar (Reiwa 8) told every DS game it was
+    // 2008, a Thai device on the Buddhist calendar (2569) said 2069, and the
+    // Islamic calendar handed over a lunar month and day as well. The DS
+    // itself only ever counted Gregorian years, so that is what it gets.
+    NSCalendar *cal = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+    cal.timeZone = [NSTimeZone localTimeZone];
     NSDateComponents *c = [cal components:(NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay |
                                            NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond)
                                  fromDate:when];

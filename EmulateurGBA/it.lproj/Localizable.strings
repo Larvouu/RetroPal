@@ -8,17 +8,22 @@
 "library.title" = "Libreria";
 "library.empty.title" = "Benvenuto su Retro Pal";
 "library.empty.subtitle" = "Gioca ai tuoi giochi retrò su iPhone. Niente pubblicità, nessun tracciamento personale.";
+"library.empty.subtitle.ipad" = "Gioca ai tuoi giochi retrò su iPad. Niente pubblicità, nessun tracciamento personale.";
 "library.empty.button" = "Aggiungi un gioco";
 "library.empty.step1" = "Porta un gioco (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes o .chd) sul tuo iPhone, tramite Safari, AirDrop o iCloud Drive.";
+"library.empty.step1.ipad" = "Porta un gioco (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes o .chd) sul tuo iPad, tramite Safari, AirDrop o iCloud Drive.";
 "library.empty.step2" = "Tocca %@, poi scegli il file nell'app File.";
 "library.empty.step3" = "Gioca. I tuoi progressi si salvano automaticamente";
 "library.empty.romHint" = "Ancora nessuna ROM? Esistono tanti giochi gratuiti e legali. Cerca \"GBA homebrew\" online.";
 "library.empty.legal" = "Importa solo file che possiedi legalmente.";
 "library.search" = "Cerca giochi";
 "library.sort.lastPlayed" = "Giocato di recente";
+"library.theme.classic" = "Classico";
+"library.hero.toggle" = "Mostra in cima alla lista l'ultimo gioco a cui hai giocato";
 "library.sort.title" = "Titolo";
 "library.sort.dateAdded" = "Data di aggiunta";
 "library.sort.byConsole" = "Per console";
+"library.sort.allConsoles" = "Tutte le console";
 "library.played.ago" = "Giocato %@";
 "library.playTime" = "%@h %@m giocato";
 "library.playTime.minutes" = "%@m giocato";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "Scegli copertina";
 "details.cover.remove" = "Rimuovi copertina personalizzata";
 "details.cover.error" = "Impossibile salvare l'immagine.";
+"cover.choose.boxart" = "Copertina ufficiale (database libretro)";
+"cover.choose.ra" = "Immagine RetroAchievements";
+"cover.choose.screenshot" = "Screenshot del tuo ultimo salvataggio rapido";
+"cover.choose.photo" = "Una foto dalla tua libreria foto";
+"cover.choose.caption" = "La copertina mostrata nella tua libreria. La pagina del gioco mostra sempre il tuo ultimo screenshot.";
 "details.newGame.confirm.title" = "Avviare dalla schermata del titolo?";
 "details.newGame.confirm.message" = "Non riprenderai l'ultima sessione, ma il salvataggio interno del gioco e gli slot di salvataggio rapido restano al sicuro.";
 "details.launch.footer" = "Per caricare il salvataggio interno del gioco (quello che fai dal menu del gioco), avvia il gioco e riprendi dal suo menu. È diverso dagli slot di salvataggio rapido qui sotto, che crei tu.";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "Lingua del gioco";
 "settings.nds.language.auto" = "Auto (%@)";
 "settings.nds.language.footer" = "«Auto» segue la lingua del tuo iPhone, o l'inglese se il DS non la supporta. La lingua si applica all'avvio di una nuova partita. La maggior parte dei giochi salva la lingua nel file di salvataggio e non la modifica più. La lingua cambia solo se la ROM lo consente. Molte ROM contengono una sola lingua.";
+"settings.nds.language.footer.ipad" = "«Auto» segue la lingua del tuo iPad, o l'inglese se il DS non la supporta. La lingua si applica all'avvio di una nuova partita. La maggior parte dei giochi salva la lingua nel file di salvataggio e non la modifica più. La lingua cambia solo se la ROM lo consente. Molte ROM contengono una sola lingua.";
 "settings.nds.clock.manual" = "Imposta data e ora manualmente";
 "settings.nds.clock.pickerLabel" = "Data e ora";
 "settings.general" = "Generali";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "Licenza: %@.";
 "settings.engines.footer.patched" = "Licenza: %@. Usato con una piccola modifica, pubblicata come file patch insieme al codice sorgente.";
 "settings.rateApp" = "Valuta Retro Pal";
+"review.headline" = "Valuta Retro Pal";
+"review.body" = "Ogni recensione conta per noi. È ciò che tiene in vita il progetto. 🙂";
 "settings.disclaimer" = "Retro Pal è un emulatore locale. Non include giochi. Importa solo file di cui possiedi legalmente i diritti.";
 "settings.restore" = "Ripristina acquisti";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "Filtri video";
 "pro.compare.row.externalDisplay" = "TV / AirPlay";
 /* Prompts */
-"prompt.speed.title" = "Hai giocato %@ minuti a 1,5x";
+"prompt.speed.title" = "Hai giocato %lld minuti a 1,5x";
 "prompt.speed.subtitle" = "A 4x, la stessa sessione vola via. Sblocca tutte le velocità, per sempre.";
 "prompt.slots.title" = "Tutti gli slot di salvataggio sono pieni";
 "prompt.slots.subtitle" = "Sblocca 5 slot per non dover mai sovrascrivere. Un solo acquisto, per sempre.";
-"prompt.milestone.title" = "Hai giocato %@ minuti a giochi retro";
+"prompt.milestone.title" = "Hai passato %lld minuti sui tuoi giochi retrò";
 "prompt.milestone.subtitle" = "Ti piace davvero. Sblocca l'esperienza completa.";
 "prompt.rewind.title" = "Devi tornare più indietro?";
 "prompt.rewind.subtitle" = "Pro ti dà 30 secondi di riavvolgimento su tutte le console. Non perdere mai più una boss fight.";
@@ -297,6 +310,17 @@
 "remap.action.clip" = "Clip";
 "remap.clear" = "Rimuovi";
 "remap.actions.footer" = "Queste scorciatoie non hanno un tasto per impostazione predefinita. Assegnane uno per usarle. L'avanzamento rapido vale finché tieni premuto il tasto. Scorri una riga per rimuoverla.";
+"settings.remapKeyboard" = "Rimappa i tasti della tastiera";
+"keyremap.directions.header" = "Direzioni";
+"keyremap.buttons.header" = "Pulsanti";
+"keyremap.direction.up" = "Su";
+"keyremap.direction.down" = "Giù";
+"keyremap.direction.left" = "Sinistra";
+"keyremap.direction.right" = "Destra";
+"keyremap.press" = "Premi un tasto…";
+"keyremap.noKeyboard" = "Collega una tastiera per rimapparne i tasti.";
+"keyremap.footer" = "Tocca un controllo, poi premi il tasto da assegnargli. Un tasto comanda un solo controllo, ma un controllo può avere più tasti. Scorri una riga di lato per cancellarla.";
+"key.space" = "Spazio";
 "layout.activeLayout" = "Layout attivo";
 "layout.default" = "Predefinito";
 "layout.presets" = "Preset";
@@ -356,7 +380,9 @@
 "guide.importRom.title" = "Aggiungi un gioco";
 "guide.importRom.intro" = "Retro Pal non include giochi. Sei tu a fornire i tuoi file ROM, di cui possiedi legalmente i diritti (le tue cartucce o giochi homebrew gratuiti e legali).";
 "guide.importRom.step1" = "Porta il file del gioco (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, o un disco PlayStation in .chd, o .cue con il suo .bin) sul tuo iPhone: scaricalo da Safari, mandalo con AirDrop da un computer o usa iCloud Drive.";
+"guide.importRom.step1.ipad" = "Porta il file del gioco (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, o un disco PlayStation in .chd, o .cue con il suo .bin) sul tuo iPad: scaricalo da Safari, mandalo con AirDrop da un computer o usa iCloud Drive.";
 "guide.importRom.step2" = "Controlla che compaia nell'app File (in Download, Su iPhone o iCloud Drive).";
+"guide.importRom.step2.ipad" = "Controlla che compaia nell'app File (in Download, Su iPad o iCloud Drive).";
 "guide.importRom.step3" = "In Retro Pal, tocca il pulsante + in alto nella libreria.";
 "guide.importRom.step4" = "Scegli il file. Il gioco compare subito nella tua libreria, pronto da giocare.";
 "guide.importRom.footer" = "Formati supportati: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, più i dischi PlayStation in .chd, .cue con il suo .bin, o .m3u. Va bene anche uno .zip, che contenga un gioco solo, tutti i file di un disco o più giochi tra cui scegliere. Il .7z non è supportato. Importa solo file di cui possiedi i diritti.";
@@ -372,6 +398,7 @@
 "guide.controller.title" = "Collegare un controller";
 "guide.controller.step1" = "Metti il controller in modalità di abbinamento.";
 "guide.controller.step2" = "Apri Impostazioni iOS, poi Bluetooth, e collega il controller al tuo iPhone.";
+"guide.controller.step2.ipad" = "Apri Impostazioni iPadOS, poi Bluetooth, e collega il controller al tuo iPad.";
 "guide.controller.step3" = "Torna in Retro Pal. Il controller viene rilevato automaticamente e i comandi a schermo scompaiono.";
 "guide.controller.footer" = "Compatibile con controller MFi, Xbox, PlayStation, 8BitDo e la maggior parte dei controller Bluetooth.";
 "guide.controller.status.connected" = "Controller collegato: %@";
@@ -404,6 +431,7 @@
 "settings.sync.toggle" = "Sincronizzazione iCloud";
 "settings.sync.state.disabled" = "Disattivato";
 "settings.sync.footer" = "I tuoi salvataggi rapidi e i salvataggi di gioco si sincronizzano nel tuo iCloud privato e tra i tuoi dispositivi. Disattiva questa opzione per conservarli solo su questo iPhone.";
+"settings.sync.footer.ipad" = "I tuoi salvataggi rapidi e i salvataggi di gioco si sincronizzano nel tuo iCloud privato e tra i tuoi dispositivi. Disattiva questa opzione per conservarli solo su questo iPad.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Blocco auto";
@@ -550,6 +578,8 @@
 "import.error.discMissingFiles" = "A questo disco mancano file che non hai selezionato: %@. Seleziona il .cue e tutti i suoi file .bin insieme, in una sola volta.";
 "import.error.zipNoROM" = "Nessun file di gioco trovato in questo ZIP. Retro Pal legge giochi .gba, .gb, .gbc, .nds, .sfc, .smc e .nes; le altre console non sono supportate.";
 "import.error.zipExtractionFailed" = "Impossibile aprire questo ZIP. Estrailo nell'app File, poi importa direttamente il file di gioco.";
+"import.error.zipUnsupportedCompression" = "Questo ZIP usa un metodo di compressione che Retro Pal non riesce a leggere, come LZMA o BZIP2. Il file non è danneggiato. Estrailo nell'app File e importa il gioco direttamente, oppure ricrea lo ZIP con compressione standard.";
+"import.error.zipEncrypted" = "Questo ZIP è protetto da password. Estrailo nell'app File, poi importa il file del gioco direttamente.";
 "import.error.alreadyImported" = "Questo gioco è già nella tua libreria.";
 "import.duplicate.title" = "Già nella libreria";
 "import.duplicate.bodySeveral" = "Questi giochi sono già nella tua libreria:";
@@ -578,17 +608,23 @@
 "settings.externalDisplay.sideBySide" = "Affiancati";
 "settings.externalDisplay.stacked" = "Uno sopra l'altro";
 "settings.externalDisplay.footer" = "Collega una TV con AirPlay o via cavo e il gioco riempie lo schermo mentre il tuo iPhone tiene i comandi. Il DS mostra entrambi gli schermi; quello tattile resta sul telefono.";
+"settings.externalDisplay.footer.ipad" = "Collega una TV con AirPlay o via cavo e il gioco riempie lo schermo mentre il tuo iPad tiene i comandi. Il DS mostra entrambi gli schermi; quello tattile resta sull'iPad.";
 "prompt.externalDisplay.title" = "Gioca sul grande schermo";
 "prompt.externalDisplay.subtitle" = "Manda il gioco sulla tua TV con AirPlay o via cavo, a tutto schermo, mentre il tuo iPhone tiene i comandi.";
+"prompt.externalDisplay.subtitle.ipad" = "Manda il gioco sulla tua TV con AirPlay o via cavo, a tutto schermo, mentre il tuo iPad tiene i comandi.";
 "pro.benefit.externalDisplay.short" = "Giocare su una TV";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "Giocare sulla TV con AirPlay";
 "guide.airplay.intro" = "Manda il gioco su un televisore e tieni il tuo iPhone come controller. Funziona con AirPlay o con un adattatore HDMI.";
+"guide.airplay.intro.ipad" = "Manda il gioco su un televisore e tieni il tuo iPad come controller. Funziona con AirPlay o con un adattatore HDMI.";
 "guide.airplay.step1" = "Metti iPhone e TV sulla stessa rete Wi-Fi. Con un adattatore HDMI, collegalo e passa al punto 3.";
+"guide.airplay.step1.ipad" = "Metti iPad e TV sulla stessa rete Wi-Fi. Con un adattatore HDMI, collegalo e passa al punto 3.";
 "guide.airplay.step2" = "Apri il centro di controllo, tocca Duplica schermo e scegli la tua TV.";
 "guide.airplay.step3" = "Avvia un gioco. Riempie il televisore e il tuo iPhone tiene i comandi.";
+"guide.airplay.step3.ipad" = "Avvia un gioco. Riempie il televisore e il tuo iPad tiene i comandi.";
 "guide.airplay.step4" = "Su DS entrambi gli schermi appaiono sulla TV e quello tattile resta sul tuo iPhone.";
+"guide.airplay.step4.ipad" = "Su DS entrambi gli schermi appaiono sulla TV e quello tattile resta sul tuo iPad.";
 "guide.airplay.step5" = "Collega un controller e i pulsanti a schermo spariscono. Sul telefono resta utile solo lo schermo tattile del DS.";
 "guide.airplay.step6" = "Quando la tua TV è collegata, scegli come stanno i due schermi DS in Impostazioni, Schermo esterno.";
 "guide.airplay.footer" = "L'audio segue l'immagine fino al televisore con AirPlay. Con un controller, il menu di pausa si apre con il suo tasto menu, quindi non devi mai toccare il telefono.";
@@ -604,6 +640,7 @@
 "guide.widget.step4" = "Posizionalo e tocca Fine.";
 "guide.widget.step5" = "Per i due che scegli tu: tocca e tieni premuto il widget, tocca Modifica widget, poi scegli il gioco e il salvataggio che apre.";
 "guide.widget.footer" = "Le copertine compaiono dopo aver giocato almeno una volta, e il widget si aggiorna quando esci da Retro Pal. Scegliere i propri giochi richiede iOS 17 o successivo; «Continua a giocare» funziona su ogni iPhone supportato.";
+"guide.widget.footer.ipad" = "Le copertine compaiono dopo aver giocato almeno una volta, e il widget si aggiorna quando esci da Retro Pal. Scegliere i propri giochi richiede iPadOS 17 o successivo; «Continua a giocare» funziona su ogni iPad supportato.";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Questo codice contiene caratteri inattesi. I trucchi usano solo 0-9, A-F, spazi e trattini.";
@@ -651,25 +688,34 @@
 "settings.cheatDB.noGames" = "Aggiungi prima un gioco alla tua libreria.";
 
 "externalDisplay.idle.hint" = "Avvia un gioco sul tuo iPhone";
+"externalDisplay.idle.hint.ipad" = "Avvia un gioco sul tuo iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "La PlayStation";
-"whatsnew.s1.b1" = "I giochi PlayStation girano in Retro Pal, e la console è gratuita per tutti.";
-"whatsnew.s1.b2" = "Salvataggi, stati di salvataggio, riavvolgimento, trucchi e obiettivi funzionano dal primo giorno.";
-"whatsnew.s1.b3" = "I progressi finiscono su una memory card, come sulla console, e arrivano sugli altri tuoi dispositivi come ogni altro salvataggio.";
-"whatsnew.s1.b4" = "Attorno al gioco indossa la sua scocca, in verticale e in orizzontale. Con {PRO} ridipingi quel pad con i tuoi colori, fino alle scritte stampate sopra.";
-"whatsnew.s2.title" = "Dischi, di qualsiasi forma siano";
-"whatsnew.s2.b1" = "Un gioco PlayStation può stare in un solo file o in un'intera cartella. Aggiungi un file .chd, un .cue con il suo .bin accanto, oppure uno .zip con tutto dentro.";
-"whatsnew.s2.b2" = "Retro Pal capisce quali file vanno insieme e aggiunge un gioco, non cinquanta.";
-"whatsnew.s2.b3" = "Un gioco su più dischi diventa un gioco solo, anche quando i dischi arrivano come file separati, e cambi disco dal menu di pausa senza uscire dalla partita.";
-"whatsnew.s3.title" = "Un controller con due levette";
-"whatsnew.s3.b1" = "I comandi a schermo hanno entrambe le levette analogiche e il tasto ANALOG, così i giochi analogici funzionano a dito come con un controller.";
-"whatsnew.s3.b2" = "La levetta sinistra muove, la destra guarda intorno, esattamente come si aspettano i giochi.";
-"whatsnew.s4.title" = "Trucchi";
-"whatsnew.s4.b1" = "Un trucco salvato ora si può modificare: correggere un carattere non richiede più di riscrivere tutto il codice.";
-"whatsnew.s5.title" = "Comandi";
-"whatsnew.s5.b1" = "Il joystick a schermo assume lo stesso rilievo delle levette PlayStation, nei colori di ogni console.";
-"whatsnew.s5.b2" = "Con {PRO} scegli quanto tornare indietro: tieni premuto il pulsante e scegli i secondi, fino a 30.";
+"whatsnew.s1.title" = "Un nuovo look";
+"whatsnew.s1.b1" = "Metti il telefono in orizzontale: la libreria diventa una fila di copertine su uno sfondo animato, e la scheda del gioco, la pagina RetroAchievements e le Impostazioni adottano lo stesso stile.";
+"whatsnew.s1.b2" = "In verticale, l'ultimo gioco a cui hai giocato resta in cima e, sotto, la lista poggia su un pannello di vetro. Puoi cambiare look quando vuoi: il pulsante tavolozza {PALETTE} in alto a destra nella libreria, accanto al +, propone cinque stili, e Classico se preferisci l'interfaccia precedente.";
+"whatsnew.s1.b3" = "Scegli la copertina di ogni gioco: quella ufficiale, la sua immagine RetroAchievements, il tuo ultimo screenshot o una foto.";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro Pal ora funziona anche su iPad, con tutte le console, in verticale e in orizzontale, e con controlli adatti allo schermo più grande.";
+"whatsnew.s2.b2" = "Restringi la finestra accanto a un'altra app e la libreria si dispone come su un telefono.";
+"whatsnew.s3.title" = "Controller riconosciuti come tastiere";
+"whatsnew.s3.b1" = "I vecchi controller Bluetooth che iOS riconosce come una tastiera, per esempio l'8BitDo Zero, ora funzionano senza alcuna configurazione, e ogni tasto si può riassegnare console per console nelle Impostazioni. Gratis.";
+"whatsnew.s3.b2" = "Su iPhone i controlli touch scompaiono finché una tastiera è collegata; su iPad restano sullo schermo.";
+"whatsnew.s4.title" = "Tutte le lingue";
+"whatsnew.s4.b1" = "I giochi in file ZIP il cui nome contiene caratteri giapponesi, coreani, cinesi o accentati ora vengono importati con il loro vero nome.";
+"whatsnew.s4.b2" = "L'orologio del Nintendo DS mostra l'anno giusto, qualunque sia il calendario impostato sul tuo dispositivo.";
+"whatsnew.s5.title" = "E inoltre";
+"whatsnew.s5.b1" = "Le impostazioni Nintendo DS ora si trovano nella scheda di ogni gioco DS, e la riga RetroAchievements è subito sotto gli slot di salvataggio.";
+"whatsnew.s5.b2" = "La barra della libreria mostra il livello di batteria del tuo controller.";
+"whatsnew.s5.b3" = "Gli obiettivi RetroAchievements ora funzionano anche con i giochi PlayStation.";
+"whatsnew.s5.b4" = "Codici trucco: un gioco in versione europea o giapponese ora trova i propri codici, e i codici del gioco originale vengono elencati prima di quelli delle versioni modificate dai fan.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nessun obiettivo di questa serie è caricato.";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "Nessun gioco trovato con questo nome. Il database elenca i giochi con il loro titolo inglese.";
+"cheats.placeholderPrefix" = "es.";
+"library.untitled" = "Gioco senza titolo";
+"guide.controller.keyboard" = "Tastiera fisica: le frecce muovono, X = A, Z = B, S = X, A = Y, Q = L, W = R, Invio = Start, Maiusc = Select. I tasti vengono letti in base alla posizione, quindi le lettere sono quelle di una tastiera QWERTY. Funzionano anche i controller Bluetooth che iOS riconosce come tastiera, ad esempio l'8BitDo Zero in modalità tastiera. Ogni tasto può essere rimappato in Impostazioni, Controller, mentre la tastiera è collegata. Su iPhone, i controlli touch scompaiono finché una tastiera è collegata.";
+"guide.controller.keyboard.ipad" = "Tastiera fisica: le frecce muovono, X = A, Z = B, S = X, A = Y, Q = L, W = R, Invio = Start, Maiusc = Select. I tasti vengono letti in base alla posizione, quindi le lettere sono quelle di una tastiera QWERTY. Funzionano anche i controller Bluetooth che iOS riconosce come tastiera, ad esempio l'8BitDo Zero in modalità tastiera. Ogni tasto può essere rimappato in Impostazioni, Controller, mentre la tastiera è collegata.";

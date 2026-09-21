@@ -33,43 +33,47 @@ struct ControllerLayoutView: View {
     private static let systems: [PresetSystem] = ConsoleChoiceList.all
 
     var body: some View {
-        List {
-            Section {
-                ForEach(Self.systems, id: \.rawValue) { system in
-                    Button {
-                        editing = EditTarget(system: system)
-                    } label: {
-                        HStack {
-                            Label(Self.name(system), systemImage: Self.icon(system))
-                                .foregroundColor(.primary)
-                            Spacer(minLength: 8)
-                            if customised.contains(system) {
-                                Text(NSLocalizedString("controllerLayout.customised", comment: ""))
-                                    .font(.footnote)
+        LandscapeListSwitch(title: NSLocalizedString("settings.controllerLayout", comment: "")) {
+            List {
+                Section {
+                    ForEach(Self.systems, id: \.rawValue) { system in
+                        Button {
+                            editing = EditTarget(system: system)
+                        } label: {
+                            HStack {
+                                Label(Self.name(system), systemImage: Self.icon(system))
+                                    .foregroundColor(.primary)
+                                Spacer(minLength: 8)
+                                if customised.contains(system) {
+                                    Text(NSLocalizedString("controllerLayout.customised", comment: ""))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             }
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
-                    }
-                }
-            } footer: {
-                Text(NSLocalizedString("controllerLayout.footer", comment: ""))
-            }
-
-            if !customised.isEmpty {
-                Section {
-                    Button(role: .destructive) {
-                        for system in Self.systems { store.resetControllerLayout(system: system) }
-                        refresh()
-                    } label: {
-                        Label(NSLocalizedString("controllerLayout.resetAll", comment: ""),
-                              systemImage: "arrow.counterclockwise")
                     }
                 } footer: {
-                    Text(NSLocalizedString("controllerLayout.reset.footer", comment: ""))
+                    Text(NSLocalizedString("controllerLayout.footer", comment: ""))
+                }
+                .landscapeGlassRow()
+
+                if !customised.isEmpty {
+                    Section {
+                        Button(role: .destructive) {
+                            for system in Self.systems { store.resetControllerLayout(system: system) }
+                            refresh()
+                        } label: {
+                            Label(NSLocalizedString("controllerLayout.resetAll", comment: ""),
+                                  systemImage: "arrow.counterclockwise")
+                        }
+                    } footer: {
+                        Text(NSLocalizedString("controllerLayout.reset.footer", comment: ""))
+                    }
+                    .landscapeGlassRow()
                 }
             }
         }

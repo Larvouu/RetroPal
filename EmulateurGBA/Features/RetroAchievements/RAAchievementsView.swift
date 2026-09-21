@@ -31,6 +31,8 @@ struct RAAchievementsView: View {
 
     @ObservedObject private var ra = RetroAchievements.shared
     @Environment(\.dismiss) private var dismiss
+    /// A phone on its side, or an iPad window (see `LandscapeSurface`).
+    @LandscapeSurface private var isLandscape
     @State private var achievements: [RAAchievementInfo] = []
     /// The game's sets, EMPTY for the ordinary single-set game. Non-empty is
     /// the only thing that makes the per-set block appear, so a game without
@@ -51,7 +53,8 @@ struct RAAchievementsView: View {
         let ach: RAAchievementInfo
     }
 
-    private enum LoadState { case loading, loaded, failed }
+    /// Shared with the landscape layout, which renders the same three states.
+    private typealias LoadState = RAAchievementsLandscapeView.LoadState
     @State private var loadState: LoadState = .loading
 
     // Earned list sorted from the most-achieved (highest % of players) down to
@@ -79,20 +82,19 @@ struct RAAchievementsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                switch loadState {
-                case .loading:
-                    skeletonContent
-                case .failed:
-                    Section {
-                        RAOfflineRow(isOffline: !ra.isOnline, onRetry: load)
-                    }
-                case .loaded:
-                    loadedContent
+            Group {
+                if isLandscape {
+                    landscapeBody
+                } else {
+                    portraitList
+                        .uprightLook()
                 }
             }
             .navigationTitle(String(localized: "ra.dashboard.title", defaultValue: "Achievements"))
             .navigationBarTitleDisplayMode(.inline)
+            // Landscape draws its own bar (about, Done) on the library's
+            // ground, so the system bar is hidden there and only there.
+            .toolbar(isLandscape ? .hidden : .visible, for: .navigationBar)
             .toolbar {
                 // Only the (i) remains up here (share + layout moved under the
                 // header); on iOS 26 it shows RAW, without the glass capsule.
@@ -126,6 +128,47 @@ struct RAAchievementsView: View {
                 RABadgeDetailSheet(ach: detail.ach)
             }
         }
+    }
+
+    private var portraitList: some View {
+        List {
+            switch loadState {
+            case .loading:
+                skeletonContent
+            case .failed:
+                Section {
+                    RAOfflineRow(isOffline: !ra.isOnline, onRetry: load)
+                }
+                .landscapeGlassRow()
+            case .loaded:
+                loadedContent
+            }
+        }
+    }
+
+    /// The landscape layout, fed with this sheet's facts and one closure per
+    /// action. Every closure does exactly what its portrait row does.
+    private var landscapeBody: some View {
+        RAAchievementsLandscapeView(
+            loadState: loadState,
+            isOffline: !ra.isOnline,
+            pendingSync: ra.pendingSync,
+            gameTitle: ra.currentGame?.title,
+            boxArtURL: ra.currentGameBoxArtURL(),
+            achievements: achievements,
+            subsets: subsets,
+            wallLayout: $wallLayout,
+            onRetry: load,
+            onShareGame: { showGameShare = true },
+            onShare: { ach in
+                shareTarget = RAShareTarget(achievement: ach,
+                                            gameName: ra.currentGame?.title ?? "",
+                                            boxArtURL: ra.currentGameBoxArtURL(),
+                                            romFilename: romURL?.lastPathComponent)
+            },
+            onBadgeDetail: { ach in badgeDetail = BadgeDetail(ach: ach) },
+            onAbout: { showAbout = true },
+            onDone: { dismiss() })
     }
 
     private var aboutButton: some View {
@@ -179,6 +222,7 @@ struct RAAchievementsView: View {
                 RAAchievementSkeletonRow()
             }
         }
+        .landscapeGlassRow()
     }
 
     @ViewBuilder
@@ -237,6 +281,7 @@ struct RAAchievementsView: View {
                     } header: {
                         setHeader(subset)
                     }
+                    .landscapeGlassRow()
                 }
             } else {
             Section {
@@ -259,6 +304,7 @@ struct RAAchievementsView: View {
                                 defaultValue: "Tap an unlocked achievement to share it."))
                 }
             }
+            .landscapeGlassRow()
             }
         } else if isSplitBySet {
             // One list per set, earned first inside each, same order the flat
@@ -288,6 +334,7 @@ struct RAAchievementsView: View {
                 } header: {
                     setHeader(subset)
                 }
+                .landscapeGlassRow()
             }
         } else {
             // Earned achievements first, so the player sees what they've done
@@ -311,6 +358,7 @@ struct RAAchievementsView: View {
                     Text(String(localized: "ra.dashboard.shareHint",
                                 defaultValue: "Tap an unlocked achievement to share it."))
                 }
+                .landscapeGlassRow()
             }
 
             Section {
@@ -327,6 +375,7 @@ struct RAAchievementsView: View {
                                 defaultValue: "This game has no achievements, or none are loaded yet."))
                 }
             }
+            .landscapeGlassRow()
         }
     }
 
@@ -408,7 +457,7 @@ struct RAAchievementsView: View {
                 Text(String(format: String(localized: "ra.dashboard.summary",
                                            defaultValue: "%lld of %lld unlocked"),
                             unlockedCount, achievements.count))
-                Text("\(earnedPoints) / \(totalPoints) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                Text("\(earnedPoints.formatted()) / \(totalPoints.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                     .monospacedDigit()
             }
             .font(.subheadline)

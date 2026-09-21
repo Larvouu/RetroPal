@@ -83,7 +83,13 @@ enum ROMSystemType: String {
     /// **This matters more to us than to most: LibCrypt is a PAL practice, and
     /// we are FR-first, so our players hold disproportionately many of exactly
     /// these discs.**
-    static let discSidecarExtensions: Set<String> = ["sbi", "sub"]
+    /// `.ccd` joined the sidecars 2026-09-03: a CloneCD set is a `.ccd`
+    /// descriptor beside a `.img` image (and often a `.sub`), and the core
+    /// boots from the IMAGE, finding the descriptor by name next to it, so the
+    /// image is the game and the descriptor travels with it, the way a `.sbi`
+    /// does. The grouper still names a missing `.img` rather than dropping a
+    /// lone `.ccd` silently.
+    static let discSidecarExtensions: Set<String> = ["sbi", "sub", "ccd"]
 
     /// Everything the file pickers offer. Sidecars are included so they can be
     /// selected ALONGSIDE their disc; the grouper drops any that arrive alone.
@@ -138,13 +144,16 @@ enum GBAROMParser {
         let gameCode: String
         switch system {
         case .nds:
-            title = readASCII(data, 0x000, 0x00C)
+            // The banner names the game properly, in the phone's language when
+            // the cartridge has it; the 12-byte code name at 0x000 is the
+            // fallback it used to be the whole answer.
+            title = ndsBannerTitle(data) ?? readASCII(data, 0x000, 0x00C)
             gameCode = readASCII(data, 0x00C, 0x010)
         case .snes:
             // The 21-byte title sits inside the cartridge header, whose position
             // depends on the mapping (LoROM vs HiROM) and on whether a copier
             // header shifts everything by 512 bytes. `snesHeaderOffset` finds it.
-            title = snesHeaderOffset(data).map { readASCII(data, $0, $0 + 21) } ?? ""
+            title = snesHeaderOffset(data).map { readJISX0201(data, $0, $0 + 21) } ?? ""
             gameCode = ""
         case .nes:
             // An iNES header carries no title. The filename is the only name a
@@ -205,7 +214,12 @@ enum GBAROMParser {
         guard let header = try? handle.read(upToCount: 0x200) else { return nil }
         let title: String
         switch system {
-        case .nds:      title = readASCII(header, 0x000, 0x00C)
+        case .nds:
+            // Same answer as `parse(data:)`, so a library title taken from the
+            // banner reads as the echo it is. The banner sits past the 0x200
+            // bytes read above, so the file is mapped, as for the SNES.
+            guard let full = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+            title = ndsBannerTitle(full) ?? readASCII(full, 0x000, 0x00C)
         case .gb, .gbc: title = readASCII(header, 0x134, 0x143)
         case .gba:      title = readASCII(header, 0x0A0, 0x0AC)
         case .snes:
@@ -213,7 +227,7 @@ enum GBAROMParser {
             // in, so the 0x200 bytes read above cannot reach it. Map instead.
             guard let full = try? Data(contentsOf: url, options: .mappedIfSafe),
                   let offset = snesHeaderOffset(full) else { return nil }
-            title = readASCII(full, offset, offset + 21)
+            title = readJISX0201(full, offset, offset + 21)
         case .nes:      title = ""   // an iNES header carries no title
         // Nor does a disc, at any offset this function could read. Its caller
         // is box-art matching, which asks "does the library title merely echo
@@ -394,8 +408,12 @@ enum GBAROMParser {
     /// code that happens to sit where a header would be.
     private static func looksLikeSNESTitle(_ data: Data, at offset: Int) -> Bool {
         guard offset + 21 <= data.count else { return false }
+        // Printable means JIS X 0201: ASCII, or half-width katakana in
+        // 0xA1-0xDF. Counting ASCII alone scored a Japanese cartridge's real
+        // header at zero and let a mirrored candidate win the tie.
         var printable = 0
-        for i in offset..<(offset + 21) where data[i] >= 0x20 && data[i] < 0x7F {
+        for i in offset..<(offset + 21)
+        where (data[i] >= 0x20 && data[i] < 0x7F) || (0xA1...0xDF).contains(data[i]) {
             printable += 1
         }
         return printable >= 18
@@ -419,6 +437,67 @@ enum GBAROMParser {
     /// and load addresses must land in known DS memory regions — a set of
     /// constraints a GB/GBC/GBA ROM cannot satisfy across all six address
     /// fields at once. The logo is kept only as a fast-accept path.
+    /// The game's title from the DS cartridge banner, in the phone's language.
+    ///
+    /// Every DS cartridge carries a banner (its offset is at 0x68 of the
+    /// header): an icon, and the title in Japanese, English, French, German,
+    /// Italian and Spanish, 128 UTF-16 characters each, with Chinese added by
+    /// banner version 2 and Korean by version 3. Each title is written on two
+    /// or three lines: the name, an optional subtitle, and the publisher last
+    /// ("Pokémon\nVersion Platine\nNintendo"). The publisher is dropped and
+    /// the rest joined, which keeps "Version Platine" where a first-line-only
+    /// read would have filed every Pokémon under "Pokémon".
+    ///
+    /// The language is the phone's first preferred one when the banner has it,
+    /// then English, then Japanese (every banner has both). Nil when the banner
+    /// is absent, points outside the file, or holds no printable title, in
+    /// which case the caller keeps the 12-byte code name.
+    static func ndsBannerTitle(_ data: Data,
+                               preferredLanguages: [String] = LegacyTextEncoding.preferredLanguages) -> String? {
+        guard data.count >= 0x200 else { return nil }
+        let bannerOffset = Int(readUInt32LE(data, 0x68))
+        // Version 1 holds six titles; the banner header itself is 0x20 bytes.
+        guard bannerOffset >= 0x200, bannerOffset + 0x840 <= data.count else { return nil }
+        let version = Int(readUInt16LE(data, bannerOffset)) & 0xFF
+        var slots: [String: Int] = ["ja": 0x240, "en": 0x340, "fr": 0x440,
+                                    "de": 0x540, "it": 0x640, "es": 0x740]
+        if version >= 2, bannerOffset + 0x940 <= data.count { slots["zh"] = 0x840 }
+        if version >= 3, bannerOffset + 0xA40 <= data.count { slots["ko"] = 0x940 }
+
+        let wanted = preferredLanguages.first.map { tag -> String in
+            String(tag.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first ?? "")
+        }
+        for language in [wanted ?? "", "en", "ja"] {
+            guard let slot = slots[language],
+                  let title = bannerTitleField(data, at: bannerOffset + slot) else { continue }
+            return title
+        }
+        return nil
+    }
+
+    /// One 0x100-byte UTF-16LE title field, reduced to the game's name.
+    private static func bannerTitleField(_ data: Data, at offset: Int) -> String? {
+        guard offset + 0x100 <= data.count else { return nil }
+        var units: [UInt16] = []
+        units.reserveCapacity(128)
+        var i = offset
+        while i + 1 < offset + 0x100 {
+            let unit = UInt16(data[i]) | (UInt16(data[i + 1]) << 8)
+            if unit == 0 { break }
+            units.append(unit)
+            i += 2
+        }
+        guard !units.isEmpty else { return nil }
+        let text = String(decoding: units, as: UTF16.self)
+        let lines = text.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let first = lines.first else { return nil }
+        // Two lines: name and publisher. Three or more: name, subtitle(s), publisher.
+        let name = lines.count >= 3 ? lines.dropLast().joined(separator: " ") : first
+        return name.isEmpty ? nil : name
+    }
+
     static func isValidNDSFile(data: Data) -> Bool {
         guard data.count >= 0x200 else { return false }
 
@@ -499,11 +578,30 @@ enum GBAROMParser {
         isInMainRAM(address) || (address >= 0x0300_0000 && address < 0x0381_0000)
     }
 
-    /// Reads an ASCII string from `data[start..<end]`, trimming control and
-    /// whitespace padding. Returns "" on any out-of-range or decode failure.
+    /// Reads an ASCII string from `data[start..<end]`, cut at the first NUL
+    /// and trimmed of control and whitespace padding. Returns "" on any
+    /// out-of-range or decode failure. The cut matters on the Game Boy, whose
+    /// field holds a NUL-padded title followed by a manufacturer code: trimming
+    /// only the ends kept the code glued to the title.
     private static func readASCII(_ data: Data, _ start: Int, _ end: Int) -> String {
         guard start >= 0, start < end, end <= data.count else { return "" }
-        guard let raw = String(bytes: data[start..<end], encoding: .ascii) else { return "" }
+        let field = data[start..<end].prefix { $0 != 0 }
+        guard let raw = String(bytes: field, encoding: .ascii) else { return "" }
+        return raw.trimmingCharacters(in: .controlCharacters)
+                  .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The SNES internal name is JIS X 0201: ASCII plus half-width katakana in
+    /// 0xA1-0xDF. Read as strict ASCII, every Japanese cartridge's title came
+    /// back empty and the game was named after its file instead. Shift-JIS
+    /// (CP932) contains JIS X 0201 as its single-byte half, so it decodes
+    /// exactly those bytes; anything outside that range is not a title and
+    /// returns "" as before.
+    private static func readJISX0201(_ data: Data, _ start: Int, _ end: Int) -> String {
+        guard start >= 0, start < end, end <= data.count else { return "" }
+        let field = data[start..<end].prefix { $0 != 0 }
+        guard field.allSatisfy({ $0 < 0x80 || (0xA1...0xDF).contains($0) }),
+              let raw = String(bytes: field, encoding: .shiftJIS) else { return "" }
         return raw.trimmingCharacters(in: .controlCharacters)
                   .trimmingCharacters(in: .whitespaces)
     }

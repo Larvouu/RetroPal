@@ -18,8 +18,8 @@
       "internalID": "90D8B919",
       "localizations": [
         {
-          "description": "",
-          "displayName": "",
+          "description": "Every Pro feature. One payment.",
+          "displayName": "Retro Pal Pro, lifetime",
           "locale": "en_US"
         }
       ],
@@ -81,7 +81,13 @@
   "subscriptionGroups": [
     {
       "id": "2AF222E4",
-      "localizations": [],
+      "localizations": [
+        {
+          "description": "",
+          "displayName": "Retro Pal Pro",
+          "locale": "en_US"
+        }
+      ],
       "name": "Pro",
       "subscriptions": [
         {
@@ -94,8 +100,8 @@
           "introductoryOffer": null,
           "localizations": [
             {
-              "description": "",
-              "displayName": "",
+              "description": "Every Pro feature. Renews yearly.",
+              "displayName": "Retro Pal Pro, 1 year",
               "locale": "en_US"
             }
           ],
@@ -116,8 +122,8 @@
           "introductoryOffer": null,
           "localizations": [
             {
-              "description": "",
-              "displayName": "",
+              "description": "Every Pro feature. Renews monthly.",
+              "displayName": "Retro Pal Pro, 1 month",
               "locale": "en_US"
             }
           ],

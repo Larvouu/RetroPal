@@ -96,16 +96,20 @@ struct CheatManagerView: View {
     }
 
     private var placeholderText: String {
+        // "e.g." is the one word in this placeholder, so it is the one part
+        // that is localized; the example codes are the same in every language.
+        let prefix = NSLocalizedString("cheats.placeholderPrefix", comment: "") + " "
+        let indent = String(repeating: " ", count: prefix.count)
         switch formatKey {
-        case "nds":  return "e.g. 94000130 FCFF0000\n    62101D40 00000000"
-        case "snes": return "e.g. DD82-64DC"
-        case "nes":  return "e.g. SXIOPO"
+        case "nds":  return prefix + "94000130 FCFF0000\n" + indent + "62101D40 00000000"
+        case "snes": return prefix + "DD82-64DC"
+        case "nes":  return prefix + "SXIOPO"
         // Eight digits of address then four of value. PCSX-ReARMed's
         // `retro_cheat_set` rewrites every run of non-hex into a space and a
         // newline before handing the code to PCSX, so this is the shape it
         // reduces to whatever separators the player pasted.
-        case "ps1":  return "e.g. 800C1B24 0063"
-        default:     return "e.g. 82003884 0001"
+        case "ps1":  return prefix + "800C1B24 0063"
+        default:     return prefix + "82003884 0001"
         }
     }
 
@@ -148,6 +152,7 @@ struct CheatManagerView: View {
                             .font(.system(.body, design: .monospaced))
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.characters)
+                            .keyboardType(.asciiCapable)
                             .scrollContentBackground(.hidden)
                             .focused($focusedField, equals: .code)
                             .onChange(of: codeInput) { newValue in
@@ -531,7 +536,11 @@ struct CheatManagerView: View {
     }
 
     private func addCheat() {
-        let code = codeInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Normalize BEFORE the shape check: fullwidth digits from a CJK
+        // keyboard and the invisible spaces a paste carries are folded here,
+        // so the validator judges the code and not the keyboard it came from.
+        let code = CheatCodeFormatter.normalized(codeInput)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty else { return }
 
         // Say why, when we can. The core still has the last word on everything
@@ -578,7 +587,8 @@ struct CheatManagerView: View {
     /// the probe leaves nothing behind either way. A refused code cannot leave
     /// a fragment: both bridges reject outright when no type reads every line.
     private func applyEdit(to target: StoredCheat, name: String, code: String) -> String? {
-        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCode = CheatCodeFormatter.normalized(code)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedCode.isEmpty else { return errorMessage(for: nil) }
         guard let index = cheats.firstIndex(where: { $0.id == target.id }) else { return nil }

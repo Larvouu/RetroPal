@@ -247,7 +247,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Release any per-game orientation lock so the library rotates freely
         // again. This fires on dismiss (quit), not on app backgrounding, so a
         // locked game keeps its lock across background/foreground.
-        AppOrientationLock.mask = .allButUpsideDown
+        AppOrientationLock.mask = AppOrientationLock.unlocked
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -277,7 +277,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     private func applyOrientation(_ mode: GameOrientationMode) {
         let mask: UIInterfaceOrientationMask
         switch mode {
-        case .auto: mask = .allButUpsideDown
+        case .auto: mask = AppOrientationLock.unlocked
         case .landscape: mask = .landscape
         case .portrait: mask = .portrait
         }
@@ -319,7 +319,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// behaviour for no benefit.
     ///
     /// A hardware keyboard counts too (audit, 2026-07-27). It never sets
-    /// `isConnected` — by design, so the touch controls stay visible — but a
+    /// `isConnected`; on a phone it hides the touch controls through
+    /// `hidesTouchControls` and on an iPad it does not, but either way a
     /// keyboard player touches the screen no more than a pad player does, and
     /// would have hit exactly the same lock-out.
     private func updateIdleTimer() {
@@ -522,7 +523,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     override var prefersHomeIndicatorAutoHidden: Bool { chromeHidden }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         switch currentOrientationMode {
-        case .auto: return .allButUpsideDown
+        case .auto: return AppOrientationLock.unlocked
         case .landscape: return .landscape
         case .portrait: return .portrait
         }
@@ -1209,12 +1210,13 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     ///
     /// Two ways in, one reason. A touch preset frees the screens from the default
     /// geometry the dress is drawn around. A controller layout does exactly the
-    /// same thing, and only while a controller is actually attached — otherwise
-    /// customising the controller layout would silently strip the dress from
-    /// touch play, which the player never asked for.
+    /// same thing, and only while the touch controls are actually out of the
+    /// way (a pad, or a keyboard on a phone) — otherwise customising the
+    /// controller layout would silently strip the dress from touch play, which
+    /// the player never asked for.
     var skinLockedToInvisible: Bool {
         if ControlLayoutStore.shared.activePreset(system: presetSystem) != nil { return true }
-        return ControllerManager.shared.isConnected
+        return ControllerManager.shared.hidesTouchControls
             && ControlLayoutStore.shared.activeControllerLayout(system: presetSystem) != nil
     }
 
@@ -1498,12 +1500,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     // MARK: - Game Controller
 
     /// Route a connected controller's input through the same path as touch
-    /// input, and hide the on-screen controls while a controller is connected.
+    /// input, and hide the on-screen controls while a controller is connected
+    /// (or, on a phone, a keyboard is attached: `hidesTouchControls`).
     private func setupController() {
         let manager = ControllerManager.shared
         // This console family's custom button mapping (Pro; nil = built-in).
         manager.activeMapping = ControllerMappingStore.effective(for: presetSystem)
         manager.activeSystem = presetSystem
+        // And the keyboard's, per console like the pad's (free; the built-in
+        // layout when never customized).
+        manager.activeKeyboardMapping = KeyboardMappingStore.effective(for: presetSystem)
         manager.onButtonsChanged = { [weak self] mask in
             self?.session.setKeys(mask)
         }
@@ -1622,7 +1628,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// stylus overlay is left alone — a controller cannot replace the touchscreen.
     private func updateControlsVisibility() {
         controls.isHidden = !overlay.isHidden
-        controls.controllerModeActive = ControllerManager.shared.isConnected
+        controls.controllerModeActive = ControllerManager.shared.hidesTouchControls
     }
 
     // MARK: - NDSTouchOverlayDelegate
@@ -1663,7 +1669,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // screen-size feature was removed; preset-driven free screen layout
         // replaces it).
         let isNDS = session.hasTouchScreen
-        let controllerConnected = ControllerManager.shared.isConnected
+        // A pad, or a keyboard on a phone: the same layout serves both, since
+        // both mean the controls are gone and the screen takes the room.
+        let controllerConnected = ControllerManager.shared.hidesTouchControls
 
         let key = GameLayoutKey(size: viewSize, insets: safeInsets,
                                 controllerConnected: controllerConnected,
@@ -1909,7 +1917,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // No preset: the built-in default layout with the global opacity/size.
             controls.applyDefaultLayout(isLandscape: isLandscape, system: presetSystem,
                                         deviceScale: deviceScale, safeLeftInset: safeLeftInset,
-                                        safeRightInset: safeRightInset)
+                                        safeRightInset: safeRightInset,
+                                        family: LayoutFamily.of(view.bounds.size))
         }
 
         // Dress the buttons (maroon A/B, grey pills, charcoal cross) when the system's buttons
@@ -1929,7 +1938,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Controller mode: the dress hides/repositions its controls-relative decorations. It also
         // needs the hidden buttons' frames (still laid out at their normal spots) to anchor to.
         consoleSkin.allButtonFrames = controls.allButtonFrames(in: consoleSkin)
-        consoleSkin.controllerConnected = ControllerManager.shared.isConnected
+        consoleSkin.controllerConnected = ControllerManager.shared.hidesTouchControls
     }
 
     // MARK: - Emulation

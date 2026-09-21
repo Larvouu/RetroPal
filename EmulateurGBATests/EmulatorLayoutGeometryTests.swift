@@ -94,8 +94,12 @@ struct EmulatorLayoutGeometryTests {
     }
 
     @Test func deviceScaleClamps() {
-        #expect(EmulatorLayoutGeometry.deviceScale(for: CGSize(width: 2000, height: 3000))
+        // A jumbo PHONE window (short side under the tablet threshold) clamps at the phone
+        // ceiling; a jumbo TABLET window clamps at the tablet family's own (2026-09-05).
+        #expect(EmulatorLayoutGeometry.deviceScale(for: CGSize(width: 599, height: 3000))
                 == EmulatorLayoutGeometry.maxDeviceScale)
+        #expect(EmulatorLayoutGeometry.deviceScale(for: CGSize(width: 2000, height: 3000))
+                == EmulatorLayoutGeometry.tabletMaxDeviceScale)
         #expect(EmulatorLayoutGeometry.deviceScale(for: CGSize(width: 100, height: 150))
                 == EmulatorLayoutGeometry.minDeviceScale)
     }

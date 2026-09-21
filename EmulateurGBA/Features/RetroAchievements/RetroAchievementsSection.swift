@@ -28,7 +28,7 @@ struct RetroAchievementsSection: View {
                     HStack {
                         Text(ra.displayName ?? ra.username ?? "")
                         Spacer()
-                        Text("\(ra.softcoreScore) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                        Text("\(ra.softcoreScore.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }

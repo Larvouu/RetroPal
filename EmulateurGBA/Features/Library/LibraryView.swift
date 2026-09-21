@@ -52,6 +52,15 @@ struct LibraryView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \GameEntity.lastPlayedAt, ascending: false),
                           NSSortDescriptor(keyPath: \GameEntity.importedAt, ascending: false)]
     ) private var games: FetchedResults<GameEntity>
+    /// Settings ▸ Debug ▸ Presentation mode (2026-09-10): the fake library
+    /// stands in for the real one everywhere this page reads its games, and
+    /// every action on a game is a no-op while it is on. See `LibraryPresentation`.
+    @AppStorage(LibraryPresentation.key) private var presentationFlag = false
+    private var presenting: Bool { LibraryPresentation.isOn(presentationFlag) }
+    /// The games this page shows: the fetch, or the fake library.
+    private var displayedGames: [GameEntity] {
+        presenting ? LibraryPresentation.games : Array(games)
+    }
 
     /// URL inbox for the Files → "Open in Retro Pal" flow. Set by
     /// AppShellView.onOpenURL; consumed (set back to nil) here once the
@@ -61,22 +70,40 @@ struct LibraryView: View {
     /// Game launch requested from a home-screen widget. Same binding-driven
     /// shape as `pendingOpenURL` so a cold launch still lands.
     @Binding var pendingPlayRequest: WidgetSharing.PlayRequest?
+    /// The shell's tab selection. Landscape draws its own Library / Settings
+    /// switch at the right edge (the system tab bar is hidden there), and it
+    /// needs to move the shell to Settings.
+    @Binding var selectedTab: AppTab
     /// Whether the Library is the selected tab (passed by AppShellView). Gates
     /// the screenshot-to-share detection so it never fires from the Settings tab.
     var isActiveTab: Bool = true
 
-    /// Landscape on iPhone is the only place the games render as a 2-column grid
-    /// (there's horizontal room); portrait keeps the single-column List.
-    @Environment(\.verticalSizeClass) private var vSizeClass
-    private var isLandscape: Bool { vSizeClass == .compact }
+    /// Landscape on iPhone renders the games as one line of covers with the
+    /// selected game centred (`LibraryLandscapeView`, since 1.3.1); portrait
+    /// keeps the single-column List. An iPad window takes the line in both
+    /// orientations (see `LandscapeSurface`).
+    @LandscapeSurface private var isLandscape
+    /// An upright PHONE takes the same surface, the hero and the List on
+    /// glass, when the player picks a look from the palette beside the plus
+    /// (2026-09-07); "Classic" in that picker is the List, and the default.
+    /// An iPad window narrowed to a phone's width (windowed, Stage Manager)
+    /// is an upright phone here too (decided on device, 2026-09-08): it used
+    /// to keep the List whatever the look, which read as a forced Classic.
+    /// An iPad window wide enough to be one shows the surface either way up.
+    @ObservedObject private var themeStore = LandscapeThemeStore.shared
 
-    /// Two equal, flexible columns for the landscape game grid.
-    private let gridColumns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
-    ]
+    private var usesThemedPortrait: Bool {
+        !isLandscape && !themeStore.portraitClassic
+    }
 
     @State private var showFilePicker = false
+    /// The two glass panels of the List's bar (2026-09-07): the sort and the
+    /// look. They used to be system menus, and every switch between the List
+    /// and a look left a stale menu interaction behind the bar that UIKit
+    /// then tried to refresh ("updateVisibleMenuWithBlock while no context
+    /// menu is visible", once more per switch). The panels are plain views.
+    @State private var showSortPicker = false
+    @State private var showThemePicker = false
     @State private var launchRequest: LaunchRequest?
     @State private var importError: String?
     @State private var showImportError = false
@@ -92,6 +119,10 @@ struct LibraryView: View {
     /// user gets the same library arrangement next open). RawRepresentable<String>
     /// enums are AppStorage-backed natively on iOS 16+.
     @AppStorage("library.sortOrder") private var sortOrder: SortOrder = .lastPlayed
+    /// With the "By console" sort, the one console shown, "" for all of them
+    /// (2026-09-07): the sort menu lists the consoles the library holds as a
+    /// submenu so a player taps the one they are looking for.
+    @AppStorage("library.consoleFilter") private var consoleFilter: String = ""
     /// Bottom-of-library stats block. Recomputed on appear, on save changes
     /// (returning from a game), and on add/delete — PromptTracker lives in
     /// UserDefaults, which SwiftUI can't observe, so we refresh explicitly.
@@ -191,23 +222,47 @@ struct LibraryView: View {
         let sorted: [GameEntity]
         switch sortOrder {
         case .lastPlayed:
-            sorted = games.sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }
+            sorted = displayedGames.sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }
         case .alphabetical:
-            sorted = games.sorted { ($0.title ?? "") < ($1.title ?? "") }
+            // `localizedStandardCompare` is the Finder ordering: case- and
+            // diacritic-aware in the user's language. Plain `<` compares code
+            // points, which filed "Pokémon Émeraude" after "Zelda" (É sorts
+            // past Z) and every uppercase title before every lowercase one.
+            // The widget's game picker already sorted this way; the library
+            // did not, so the same collection read in two different orders.
+            sorted = displayedGames.sorted { Self.titleOrdered($0, before: $1) }
         case .dateAdded:
-            sorted = games.sorted { ($0.importedAt ?? .distantPast) > ($1.importedAt ?? .distantPast) }
+            sorted = displayedGames.sorted { ($0.importedAt ?? .distantPast) > ($1.importedAt ?? .distantPast) }
         case .byConsole:
             let rank = consoleDisplayRank
-            sorted = games.sorted { a, b in
+            sorted = displayedGames.sorted { a, b in
                 let ra = rank[a.systemType ?? "gba"] ?? Int.max
                 let rb = rank[b.systemType ?? "gba"] ?? Int.max
                 if ra != rb { return ra < rb }
                 // Within one console, A-Z by title.
-                return (a.title ?? "") < (b.title ?? "")
+                return Self.titleOrdered(a, before: b)
             }
         }
-        if searchText.isEmpty { return sorted }
-        return sorted.filter { ($0.title ?? "").localizedCaseInsensitiveContains(searchText) }
+        let narrowed = (sortOrder == .byConsole && !consoleFilter.isEmpty)
+            ? sorted.filter { ($0.systemType ?? "gba") == consoleFilter }
+            : sorted
+        if searchText.isEmpty { return narrowed }
+        // `localizedStandardContains` folds case, diacritics AND width, which
+        // `localizedCaseInsensitiveContains` did not: "pokemon" could not
+        // find "Pokémon", and a fullwidth query from a Japanese keyboard
+        // matched nothing at all. Same folding the box-art matcher uses.
+        return narrowed.filter { ($0.title ?? "").localizedStandardContains(searchText) }
+    }
+
+    /// The consoles the library holds, in the canonical order, for the sort
+    /// menu's submenu. Read from every game, never from the narrowed list.
+    private var consolesInLibrary: [String] {
+        let present = Set(displayedGames.map { $0.systemType ?? "gba" })
+        return Self.consoleFallbackOrder.filter { present.contains($0) }
+    }
+
+    private static func titleOrdered(_ a: GameEntity, before b: GameEntity) -> Bool {
+        (a.title ?? "").localizedStandardCompare(b.title ?? "") == .orderedAscending
     }
 
     /// Per-console ordering for the "Par console" sort: consoles the user has
@@ -217,7 +272,7 @@ struct LibraryView: View {
     /// rank index per systemType raw value (0 = shown first).
     private var consoleDisplayRank: [String: Int] {
         var secondsPerConsole: [String: TimeInterval] = [:]
-        for game in games {
+        for game in displayedGames {
             let system = game.systemType ?? "gba"
             let seconds = LibraryStats.romName(for: game.romFilePath)
                 .map { PromptTracker.shared.gamePlayTime(romName: $0) } ?? 0
@@ -297,7 +352,11 @@ struct LibraryView: View {
     /// the library list is the foreground (active tab, no game, no sheet up) and
     /// the stats panel is actually visible (its appearance condition is met).
     private func handleLibraryScreenshot() {
-        guard isActiveTab,
+        // The List only: the condition below reads "the stats card is on
+        // screen", and on the themed surface, either way up, the card is an
+        // icon in the bar, so a screenshot of the line opened the story
+        // sheet (audit, 2026-09-05).
+        guard isActiveTab, !isLandscape, !usesThemedPortrait,
               detailViewCount == 0,
               launchRequest == nil,
               !showStoryShare, !showFilePicker, !showSaveRedirect,
@@ -370,13 +429,55 @@ struct LibraryView: View {
 
     private var bodyCore: some View {
         Group {
-            if showEmptyState {
+            if showEmptyState, isLandscape {
+                // The welcome on its side: the library's ground and bar, so a
+                // new user turning the phone does not meet the one light page
+                // of the tab. Its bar carries the import plus the system bar
+                // used to.
+                LibraryEmptyLandscapeView(isActive: isActiveTab,
+                                          onImport: { showFilePicker = true },
+                                          onSettings: { selectedTab = .settings })
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbar(.hidden, for: .tabBar)
+            } else if showEmptyState, usesThemedPortrait {
+                // The welcome upright in a chosen look: same ground and bar,
+                // stacked; the tab bar stays as it does on the game list.
+                LibraryEmptyLandscapeView(upright: true,
+                                          isActive: isActiveTab,
+                                          onImport: { showFilePicker = true },
+                                          onSettings: { selectedTab = .settings })
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .tabBar)
+                    .toolbarColorScheme(.dark, for: .tabBar)
+            } else if showEmptyState {
                 // Onboarding: no large title, no search bar — the whole
                 // pitch (headline, consoles, steps, CTA) fits without
                 // scrolling. The toolbar stays reachable.
                 emptyState
                     .navigationTitle("")
                     .navigationBarTitleDisplayMode(.inline)
+            } else if isLandscape {
+                // No title, no system search bar and no navigation bar at
+                // all: the landscape surface draws its own top bar (sort,
+                // search, import) and its own Settings circle, so the system
+                // bars are hidden here and only here. Game Details and
+                // portrait keep theirs. On an iPad, either way up, the
+                // surface draws the Library · Settings pill at its bottom in
+                // the circle's place (2026-09-08): the system tab bar would
+                // stand at the TOP there, over the surface's own bar, and
+                // cannot be moved (see `LandscapeChrome.tabPill`).
+                gameList
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbar(.hidden, for: .tabBar)
+            } else if usesThemedPortrait {
+                // Upright in a look: the surface draws its own bar, so the
+                // navigation bar goes; the TAB bar stays, dark to sit on the
+                // ground, because portrait keeps its navigation model and
+                // Settings is a tab.
+                gameList
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .tabBar)
+                    .toolbarColorScheme(.dark, for: .tabBar)
             } else {
                 gameList
                     .navigationTitle(NSLocalizedString("library.title", comment: ""))
@@ -384,6 +485,7 @@ struct LibraryView: View {
             }
         }
         .toolbar { libraryToolbar }
+        .overlay { barPanels }
         .sheet(isPresented: $showFilePicker) {
             DocumentPickerView(allowsMultipleSelection: true) { urls in
                 // Stage the skeleton row the instant a ROM is picked, so the
@@ -428,8 +530,9 @@ struct LibraryView: View {
         }
     }
 
-    /// Destination view for the programmatic Files → "Open in Retro Pal"
-    /// flow when the opened ROM already exists in the library.
+    /// Destination view for the programmatic pushes: the Files → "Open in
+    /// Retro Pal" flow when the opened ROM already exists in the library, and
+    /// the (i) button of the landscape surface.
     @ViewBuilder
     private var navigationDestinationView: some View {
         if let game = navigateToGame {
@@ -449,22 +552,42 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private var libraryToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
-            Menu {
-                ForEach(SortOrder.allCases, id: \.self) { order in
-                    Button {
-                        sortOrder = order
-                    } label: {
-                        HStack {
-                            Text(order.displayName)
-                            if sortOrder == order {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
+            Button {
+                showSortPicker = true
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
             }
+            .accessibilityLabel(sortOrder.displayName)
+        }
+        // Two items, not one HStack: iOS 26 draws one glass pill around a
+        // whole item, and the badge is not a button (decided on device, 2026-09-04). The
+        // badge is declared first so it sits left of the plus, and its shared
+        // background is hidden on iOS 26 the way the RetroAchievements pages
+        // hide the about button's.
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ControllerStatusBadge(tint: .primary, compact: true)
+            }
+            .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ControllerStatusBadge(tint: .primary, compact: true)
+            }
+        }
+        // The look of the library, left of the plus (2026-09-07): the
+        // five looks of the themed surface, which turn it on upright, and
+        // "Classic", this List. This bar is only ever the upright one, on a
+        // phone or in an iPad window narrowed to a phone's width, and both
+        // take the look (2026-09-08; the narrow window used to keep the List
+        // and hid this button).
+        // On iOS 26 two adjacent items share one glass pill, and the
+        // palette and the plus are two actions, not one: a fixed spacer
+        // between them gives each its own pill (2026-09-07).
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .navigationBarTrailing) { paletteButton }
+            ToolbarSpacer(.fixed, placement: .navigationBarTrailing)
+        } else {
+            ToolbarItem(placement: .navigationBarTrailing) { paletteButton }
         }
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
@@ -472,6 +595,33 @@ struct LibraryView: View {
             } label: {
                 Image(systemName: "plus")
             }
+        }
+    }
+
+    /// The palette in the List's bar: opens the same look panel the themed
+    /// surfaces use (Classic, the five looks, the hero switch once a look is
+    /// on), so the List and the looks pick the look the same way.
+    private var paletteButton: some View {
+        Button {
+            showThemePicker = true
+        } label: {
+            Image(systemName: "paintpalette")
+        }
+        .accessibilityLabel(themeStore.portraitClassic
+                            ? NSLocalizedString("library.theme.classic", comment: "")
+                            : themeStore.theme.name)
+    }
+
+    /// The two panels over whichever surface the page shows; only the
+    /// List's bar sets their state, the themed bars keep their own.
+    @ViewBuilder
+    private var barPanels: some View {
+        if showSortPicker {
+            LibrarySortPicker(upright: true, sortOrder: $sortOrder, consoleFilter: $consoleFilter,
+                              consoles: consolesInLibrary, onClose: { showSortPicker = false })
+        }
+        if showThemePicker {
+            LandscapeThemePicker(offersClassic: true, onClose: { showThemePicker = false })
         }
     }
 
@@ -524,9 +674,9 @@ struct LibraryView: View {
     /// the Settings → Debug toggle to preview the screen with games present.
     private var showEmptyState: Bool {
         #if DEBUG
-        return games.isEmpty || debugForceEmptyState
+        return displayedGames.isEmpty || debugForceEmptyState
         #else
-        return games.isEmpty
+        return displayedGames.isEmpty
         #endif
     }
 
@@ -542,7 +692,7 @@ struct LibraryView: View {
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
 
-                Text(NSLocalizedString("library.empty.subtitle", comment: ""))
+                Text(DeviceWording.string("library.empty.subtitle"))
                     .font(.subheadline)
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
@@ -595,7 +745,7 @@ struct LibraryView: View {
 
     private var stepsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepRow(num: 1, text: NSLocalizedString("library.empty.step1", comment: ""))
+            stepRow(num: 1, text: DeviceWording.string("library.empty.step1"))
             stepRow(num: 2, text: NSLocalizedString("library.empty.step2", comment: ""))
             stepRow(num: 3, text: NSLocalizedString("library.empty.step3", comment: ""))
         }
@@ -614,7 +764,7 @@ struct LibraryView: View {
                 .background(Color.primary.opacity(0.1))
                 .clipShape(Circle())
 
-            stepLabel(text: text)
+            LibraryStepLabel(text: text)
                 .font(.subheadline)
                 .foregroundColor(.primary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -622,65 +772,16 @@ struct LibraryView: View {
         }
     }
 
-    /// Step text with optional %@ placeholder replaced inline by the same SF
-    /// Symbol that backs the toolbar's import button. Lets the user visually
-    /// connect step 1 ("Tap %@ to add a game file") to the actual + button in
-    /// the navigation bar, instead of staring at a plain "+" character.
-    @ViewBuilder
-    private func stepLabel(text: String) -> some View {
-        if text.contains("%@") {
-            let parts = text.components(separatedBy: "%@")
-            let before = parts.first ?? ""
-            let after = parts.dropFirst().joined(separator: "%@")
-            Text(before)
-                + Text(Image(systemName: "plus"))
-                    .foregroundColor(.accentColor)
-                    .fontWeight(.semibold)
-                + Text(after)
-        } else {
-            Text(text)
-        }
-    }
-
-    /// Import is a FREE action, not a Pro feature. Purple-dominant so it
-    /// never pattern-matches to the app's gold "Pro" signal; a 1pt gold
-    /// hairline at 40% opacity warms the edge just enough to keep the
-    /// brand identity.
+    /// The shared call to action (`LibraryImportCTA`), also the welcome on its side's.
     private var importCTA: some View {
-        Button {
-            showFilePicker = true
-        } label: {
-            Label(NSLocalizedString("library.empty.button", comment: ""), systemImage: "plus")
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.45, green: 0.2, blue: 0.85),
-                            Color(red: 0.55, green: 0.3, blue: 1.0)
-                        ],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(
-                            Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.4),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color(red: 0.45, green: 0.2, blue: 0.85).opacity(0.3), radius: 10)
-        }
+        LibraryImportCTA { showFilePicker = true }
     }
 
 
-    /// The games surface. Portrait keeps the single-column List; landscape (where
-    /// there's horizontal room) switches to a 2-column grid of cards. The shared
-    /// data hooks + the story-share sheet + the rename alert live on the wrapper
-    /// so both layouts get them without duplication.
+    /// The games surface. Portrait keeps the single-column List; landscape is
+    /// the one-line carousel (`LibraryLandscapeView`). The shared data hooks +
+    /// the story-share sheet + the rename alert live on the wrapper so both
+    /// layouts get them without duplication.
     private var gameList: some View {
         gameListContent
             .onAppear { refreshStats() }
@@ -715,7 +816,9 @@ struct LibraryView: View {
     @ViewBuilder
     private var gameListContent: some View {
         if isLandscape {
-            landscapeGameGrid
+            themedSurface(upright: false)
+        } else if usesThemedPortrait {
+            themedSurface(upright: true)
         } else {
             portraitGameList
         }
@@ -723,6 +826,13 @@ struct LibraryView: View {
 
     /// Portrait: the original single-column List (swipe-to-delete, grouped style).
     private var portraitGameList: some View {
+        gameList(settlingWith: nil)
+    }
+
+    /// The List itself. `proxy` is the themed surface's: with one, the List
+    /// re-seats itself at its top once it is on screen (see
+    /// `settleAtTop(_:)`); the Classic List keeps its bar and needs none.
+    private func gameList(settlingWith proxy: ScrollViewProxy?) -> some View {
         List {
             // Games in their own section(s) so the group keeps its rounded corners
             // (the stats block below must not join this section, or the last
@@ -743,6 +853,7 @@ struct LibraryView: View {
                             onPlay: { url, slot in playGame(game, url: url, slot: slot) },
                             onDelete: { deleteGame(game) },
                             onRename: {
+                                guard !presenting else { return }
                                 renameDraft = game.title ?? ""
                                 renamingGame = game
                             },
@@ -751,13 +862,17 @@ struct LibraryView: View {
                     }
                     .onDelete { offsets in deleteGames(in: group, at: offsets) }
                 }
+                // Glass under a look (the scaffold's flag), the system row
+                // background on the List; nothing changes in the rows.
+                .landscapeGlassRow()
             }
 
             // "Retro story" stats card, anchored at the bottom after the games
             // (no positioning tricks — for a library worth showing stats, the
             // games scroll, so it's naturally a discovery). Hidden while
-            // searching; appears once at least two games are played.
-            if searchText.isEmpty, let stats, stats.hasData {
+            // searching; appears once at least two games are played. In a
+            // look the card and RetroAchievements are circles in the bar.
+            if searchText.isEmpty, !usesThemedPortrait, !presenting, let stats, stats.hasData {
                 Section {
                     LibraryStatsCard(stats: stats)   // library face
                         .contentShape(Rectangle())
@@ -771,12 +886,74 @@ struct LibraryView: View {
             // RetroAchievements card below the stats: appears as soon as one
             // imported game has an RA set (as an invite when not connected),
             // and disappears with the last eligible game.
-            if searchText.isEmpty, ra.isEnabled, raIndex.hasEligibleGame {
+            if searchText.isEmpty, !usesThemedPortrait, !presenting, ra.isEnabled, raIndex.hasEligibleGame {
                 Section {
                     raLibraryCard
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 16, trailing: 16))
+                }
+            }
+        }
+        // Inside the `.id` below on purpose: a rebuilt List is a new view and
+        // appears again, so every List this page creates gets seated.
+        .onAppear {
+            if let proxy { settleAtTop(proxy) }
+        }
+        // A new order or a new console rebuilds the List, so it opens at its
+        // top as if the page had been reloaded (2026-09-07), the way the rack
+        // on its side goes back to its first cover. The hero switch rebuilds
+        // it too (device report, 2026-09-07): a List takes its top inset from
+        // where it sits when it is CREATED, so one created with the hero off
+        // kept a zero inset once the hero appeared above it, and the gap
+        // between the two was gone until a sort or a relaunch rebuilt it.
+        .id("\(sortOrder.rawValue)#\(consoleFilter)#\(themeStore.showsHero)")
+    }
+
+    /// The List as the upright surface shows it (2026-09-07): the same rows,
+    /// the same swipe and links, its scroll background gone so the ground
+    /// shows, its sections on glass. The bar above it carries the search.
+    private var themedPortraitList: some View {
+        ScrollViewReader { proxy in
+            gameList(settlingWith: proxy)
+                .scrollContentBackground(.hidden)
+                .environment(\.landscapeGlassRows, true)
+                // The space above the first section is OURS, not UIKit's (device
+                // log, 2026-09-07): a grouped List reserves a default header
+                // height above a first section with no header, 35 points, and a
+                // List created while the Classic navigation bar is still going
+                // away got none of it, so the rows sat 35 points closer to the
+                // bar until the next rebuild. Reserve nothing, then pad.
+                .environment(\.defaultMinListHeaderHeight, 0)
+        }
+    }
+
+    /// Seats the themed List at its top, twice: the moment it is on screen,
+    /// and again once the navigation bar's hide animation has run its course.
+    ///
+    /// The second device report of 2026-09-07 evening: with the hero on, the
+    /// List first RESTS too low and snaps to the right height at the first
+    /// scroll, and that height is the one every other state shows. A scroll
+    /// view does that when its top inset shrank after it was laid out while
+    /// its content offset stayed where the larger inset had put it: the
+    /// empty band above the first row is that dead offset, and the first
+    /// scroll clamps it away. The inset that shrinks here is the one the
+    /// navigation bar lends the page while it is still going away at the
+    /// moment the List is created, at launch and on every rebuild. Rather
+    /// than guess at UIKit's timing once more, the List is told to show its
+    /// first section at the top after the bar is gone, with no animation, so
+    /// it rests where a scroll would have left it. Hero on or off, the same
+    /// call; a List with no section (a search with no hit) has nothing to
+    /// scroll to and is left alone.
+    private func settleAtTop(_ proxy: ScrollViewProxy) {
+        for delay in [0.0, 0.45] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    // The sections are identified by their offset, so the first
+                    // one is 0 under every sort, headers included.
+                    proxy.scrollTo(0, anchor: .top)
                 }
             }
         }
@@ -790,63 +967,57 @@ struct LibraryView: View {
             onShareUnlock: { raShareUnlock = $0 })
     }
 
-    /// Landscape: a 2-column grid of game cards (reusing LibraryRow in its card
-    /// variant). Delete/rename move to the per-card long-press menu (no swipe in
-    /// a grid). The stats card spans full width below the grid, as in portrait.
-    private var landscapeGameGrid: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // One grid per console block under the "Par console" sort; the
-                // extra top padding on blocks after the first IS the small gap
-                // between consoles (no titles). Every other sort is one block, so
-                // the layout is unchanged.
-                ForEach(Array(gameGroups.enumerated()), id: \.offset) { groupIndex, group in
-                    LazyVGrid(columns: gridColumns, spacing: 12) {
-                        if isImporting && groupIndex == 0 {
-                            LibrarySkeletonRow()
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color(.secondarySystemGroupedBackground))
-                                )
-                        }
-                        ForEach(group, id: \.self) { game in
-                            LibraryRow(
-                                game: game,
-                                onPlay: { url, slot in playGame(game, url: url, slot: slot) },
-                                onDelete: { deleteGame(game) },
-                                onRename: {
-                                    renameDraft = game.title ?? ""
-                                    renamingGame = game
-                                },
-                                detailViewCount: $detailViewCount,
-                                cardStyle: true
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, groupIndex == 0 ? 12 : 24)
-                }
-
-                if searchText.isEmpty, let stats, stats.hasData {
-                    LibraryStatsCard(stats: stats)
-                        .contentShape(Rectangle())
-                        .onTapGesture { Haptics.tap(); showStoryShare = true }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 16)
-                }
-
-                if searchText.isEmpty, ra.isEnabled, raIndex.hasEligibleGame {
-                    raLibraryCard
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-                }
-            }
-        }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+    /// The themed surface: the line of covers on its side, or the rack on
+    /// end upright. The library keeps deciding WHAT is on it (sort, search;
+    /// the per-console blocks flatten, since a line has no sections, and the
+    /// console badge on each tile keeps the grouping readable) and hands the
+    /// surface everything it can trigger: play, details, rename, delete,
+    /// import, the Retro story card, RetroAchievements, and the tab switch.
+    /// Rename and delete live on the tile's long-press menu, as they did on
+    /// the grid cards this replaced.
+    private func themedSurface(upright: Bool) -> some View {
+        LibraryLandscapeView(
+            upright: upright,
+            uprightList: upright ? { AnyView(themedPortraitList) } : nil,
+            libraryCount: displayedGames.count,
+            games: filteredGames,
+            isImporting: isImporting,
+            sortOrder: $sortOrder,
+            consoleFilter: $consoleFilter,
+            consoles: consolesInLibrary,
+            searchText: $searchText,
+            showsStats: searchText.isEmpty && !presenting && (stats?.hasData ?? false),
+            showsRA: searchText.isEmpty && !presenting && ra.isEnabled && raIndex.hasEligibleGame,
+            // Also paused while a page sits over the library (a game's page,
+            // the RetroAchievements profile): the pushed page draws the same
+            // ground from the same clock, so the one underneath can rest.
+            isActive: isActiveTab && detailViewCount == 0 && !showNavigateDestination && !showRAProfile,
+            onPlay: { game, slot in
+                guard !presenting, let filename = game.romFilePath else { return }
+                playGame(game, url: romsDir.appendingPathComponent(filename), slot: slot)
+            },
+            onOpenDetails: { game in
+                guard !presenting else { return }
+                navigateToGame = game
+                showNavigateDestination = true
+            },
+            onRename: { game in
+                guard !presenting else { return }
+                renameDraft = game.title ?? ""
+                renamingGame = game
+            },
+            onDelete: { game in deleteGame(game) },
+            onImport: { showFilePicker = true },
+            onStats: {
+                Haptics.tap()
+                showStoryShare = true
+            },
+            onRA: {
+                Haptics.tap()
+                if ra.isLoggedIn { showRAProfile = true } else { showRALogin = true }
+            },
+            onSettings: { selectedTab = .settings }
+        )
     }
 
     /// Commit the rename from the library context-menu alert. Trims, rejects
@@ -1083,6 +1254,7 @@ struct LibraryView: View {
     /// from the Files-URL duplicate flow. Re-detects systemType from the ROM
     /// header so a misclassified legacy import gets corrected before launch.
     private func playGame(_ game: GameEntity, url: URL, slot: Int?) {
+        guard !presenting else { return }
         if let detected = GBAROMParser.detectSystemType(url: url),
            detected.rawValue != game.systemType {
             game.systemType = detected.rawValue
@@ -1214,6 +1386,7 @@ struct LibraryView: View {
     }
 
     private func deleteGame(_ game: GameEntity) {
+        guard !presenting else { return }
         if let filename = game.romFilePath {
             let url = romsDir.appendingPathComponent(filename)
             // A disc game is a FOLDER, so deleting only the file the core is
@@ -1251,6 +1424,7 @@ struct LibraryView: View {
     /// non-default sort (or an active search, or a console block) would map the
     /// swiped row to the wrong game.
     private func deleteGames(in group: [GameEntity], at offsets: IndexSet) {
+        guard !presenting else { return }
         for index in offsets {
             deleteGame(group[index])
         }
@@ -1299,6 +1473,10 @@ private struct LibrarySkeletonRow: View {
 }
 
 private struct LibraryRow: View {
+    /// Settings ▸ Debug ▸ Presentation mode: a demo game's row is not a
+    /// link and draws its bundled cover (see `LibraryPresentation`).
+    @AppStorage(LibraryPresentation.key) private var presentationFlag = false
+    private var presenting: Bool { LibraryPresentation.isOn(presentationFlag) }
     @ObservedObject var game: GameEntity
     let onPlay: (URL, Int?) -> Void
     let onDelete: () -> Void
@@ -1306,15 +1484,13 @@ private struct LibraryRow: View {
     /// Push depth of Game Details, owned by LibraryView; bumped while this row's
     /// detail view is on screen so the library screenshot prompt won't fire there.
     @Binding var detailViewCount: Int
-    /// When true (landscape grid), the row draws itself as a self-contained card
-    /// (own background + padding, fills its cell). In the List (false) the List
-    /// supplies the row background/insets, so we add neither.
-    var cardStyle: Bool = false
-
     /// Bumped on `.saveStatesDidChange` so the cover re-reads the freshly
     /// written auto-save preview. lastPlayedAt alone refreshes the cover too
     /// early — it is re-stamped at dismiss, before the async write lands.
     @State private var saveTick = 0
+    /// True inside the upright look (the List's rows sit on glass there):
+    /// the console tag is the console's drawing rather than the lettered pill.
+    @Environment(\.landscapeGlassRows) private var inLook
 
     /// Local cover file by priority: the user-picked custom cover beats the
     /// adopted RA image (which BoxArtManager only grants over a heuristic
@@ -1327,73 +1503,19 @@ private struct LibraryRow: View {
     }
 
     var body: some View {
-        NavigationLink {
-            GameDetailsView(game: game, onPlay: onPlay, onDelete: onDelete)
-                .onAppear { detailViewCount += 1 }
-                .onDisappear { detailViewCount -= 1 }
-        } label: {
-            HStack(spacing: 12) {
-                // .id keyed on lastPlayedAt + saveTick forces a fresh
-                // GameCoverView (a fresh disk read of the auto-save preview)
-                // when the game is played AND when the auto-save write actually
-                // lands (.saveStatesDidChange bumps saveTick) — the write
-                // completes after lastPlayedAt is re-stamped at dismiss.
-                // coverType joins the key so the row re-reads the cover the
-                // moment BoxArtManager persists a downloaded one.
-                // fixedWidth: every cover spans the width a GBA screenshot
-                // occupies (GB/GBC/NDS and box art no longer shrink inside
-                // a 3:2 frame); the view derives its own height from the
-                // image's ratio, square-capped so rows don't stretch.
-                GameCoverView(romFilePath: game.romFilePath,
-                              boxArtURL: coverFileURL,
-                              fixedWidth: cardStyle ? 80 : 60)
-                    .id("\((game.lastPlayedAt ?? .distantPast).timeIntervalSinceReferenceDate)#\(saveTick)#\(game.coverType ?? "")")
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(game.title ?? "Unknown")
-                            .font(.headline)
-                            // Explicit primary: a NavigationLink outside a List
-                            // (the landscape grid) otherwise tints its label blue.
-                            .foregroundColor(.primary)
-                        if let sys = game.systemType {
-                            Text(sys.uppercased())
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(systemBadgeColor(sys))
-                                .cornerRadius(4)
-                        }
-                    }
-                    if let lastPlayed = game.lastPlayedAt {
-                        Text(lastPlayed, formatter: relativeDateFormatter)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    let playTime = gamePlayTime
-                    if playTime >= 60 {
-                        Text(formatPlayTime(playTime))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                // Fill the cell so the grid card's whole width is tappable
-                // (harmless in the List, where the row is already full-width).
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, cardStyle ? 10 : 4)
-            .padding(.horizontal, cardStyle ? 12 : 0)
-            // In the grid, stretch to the row's height so two paired cards (one
-            // with more metadata than the other) stay equal height.
-            .frame(maxHeight: cardStyle ? .infinity : nil)
-            .background {
-                if cardStyle {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
+        Group {
+            if presenting {
+                // A demo game has no page: the row is its label alone.
+                rowLabel
+            } else {
+                NavigationLink {
+                    GameDetailsView(game: game, onPlay: onPlay, onDelete: onDelete)
+                        .onAppear { detailViewCount += 1 }
+                        .onDisappear { detailViewCount -= 1 }
+                } label: {
+                    rowLabel
                 }
             }
-            .contentShape(Rectangle())
         }
         .contextMenu {
             Button {
@@ -1415,8 +1537,60 @@ private struct LibraryRow: View {
         }
     }
 
-    private func systemBadgeColor(_ systemType: String) -> Color {
-        SystemColor.color(systemType)
+    private var rowLabel: some View {
+            HStack(spacing: 12) {
+                // .id keyed on lastPlayedAt + saveTick forces a fresh
+                // GameCoverView (a fresh disk read of the auto-save preview)
+                // when the game is played AND when the auto-save write actually
+                // lands (.saveStatesDidChange bumps saveTick) — the write
+                // completes after lastPlayedAt is re-stamped at dismiss.
+                // coverType joins the key so the row re-reads the cover the
+                // moment BoxArtManager persists a downloaded one.
+                // fixedWidth: every cover spans the width a GBA screenshot
+                // occupies (GB/GBC/NDS and box art no longer shrink inside
+                // a 3:2 frame); the view derives its own height from the
+                // image's ratio, square-capped so rows don't stretch.
+                if let demo = LibraryPresentation.cover(forROMPath: game.romFilePath) {
+                    Image(uiImage: demo)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    GameCoverView(romFilePath: game.romFilePath,
+                                  boxArtURL: coverFileURL,
+                                  fixedWidth: 60)
+                        .id("\((game.lastPlayedAt ?? .distantPast).timeIntervalSinceReferenceDate)#\(saveTick)#\(game.coverType ?? "")")
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(game.title ?? NSLocalizedString("library.untitled", comment: ""))
+                            .font(.headline)
+                            // Explicit primary, so the label never takes the
+                            // link tint.
+                            .foregroundColor(.primary)
+                        if let sys = game.systemType {
+                            ConsoleTagBadge(systemType: sys, drawing: inLook)
+                        }
+                    }
+                    if let lastPlayed = game.lastPlayedAt {
+                        Text(lastPlayed, formatter: relativeDateFormatter)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    let playTime = gamePlayTime
+                    if playTime >= 60 {
+                        Text(formatPlayTime(playTime))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                // Fill the row so its whole width is tappable.
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
     }
 
     private var gamePlayTime: TimeInterval {

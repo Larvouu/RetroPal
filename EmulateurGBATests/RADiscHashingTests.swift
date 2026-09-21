@@ -110,8 +110,7 @@ struct RADiscHashingTests {
     /// game still identifies and still lists its set.
     @Test func aPlaylistReportsItsConsoleSoAchievementsSurviveValidation() {
         #expect(RAClient.consoleId(forROMPath: "/games/Final Fantasy VII.m3u") == 12,
-                "a playlist must resolve to the PlayStation before the load, or "
-                + "rc_client_validate_addresses invalidates every memref")
+                "a playlist must resolve to the PlayStation before the load, or rc_client_validate_addresses invalidates every memref")
         #expect(RAClient.consoleId(forROMPath: "/games/FF7.M3U") == 12,
                 "and case must not change the answer: Files hands back what the user typed")
     }

@@ -10,73 +10,79 @@ import SwiftUI
 
 struct LegalView: View {
     var body: some View {
-        List {
-            Section {
-                Text(NSLocalizedString("legal.disclaimer", comment: ""))
-                    .font(.body)
-                    .listRowBackground(Color.yellow.opacity(0.12))
-            } header: {
-                sectionHeader("legal.importantNotice.title", systemImage: "exclamationmark.triangle")
-            }
+        LandscapeListSwitch(title: NSLocalizedString("legal.title", comment: "")) {
+            List {
+                Section {
+                    Text(NSLocalizedString("legal.disclaimer", comment: ""))
+                        .font(.body)
+                        .listRowBackground(Color.yellow.opacity(0.12))
+                } header: {
+                    sectionHeader("legal.importantNotice.title", systemImage: "exclamationmark.triangle")
+                }
+                .landscapeGlassRow()
 
-            Section {
-                Text(NSLocalizedString("legal.aboutApp.description1", comment: ""))
-                    .font(.body)
-                Text(NSLocalizedString("legal.aboutApp.description2", comment: ""))
-                    .font(.body)
-            } header: {
-                sectionHeader("legal.aboutApp.title", systemImage: "info.circle")
-            }
+                Section {
+                    Text(NSLocalizedString("legal.aboutApp.description1", comment: ""))
+                        .font(.body)
+                    Text(NSLocalizedString("legal.aboutApp.description2", comment: ""))
+                        .font(.body)
+                } header: {
+                    sectionHeader("legal.aboutApp.title", systemImage: "info.circle")
+                }
+                .landscapeGlassRow()
 
-            Section {
-                Text(NSLocalizedString("legal.privacy.description", comment: ""))
-                    .font(.body)
-            } header: {
-                sectionHeader("legal.privacy.title", systemImage: "lock.shield")
-            }
+                Section {
+                    Text(NSLocalizedString("legal.privacy.description", comment: ""))
+                        .font(.body)
+                } header: {
+                    sectionHeader("legal.privacy.title", systemImage: "lock.shield")
+                }
+                .landscapeGlassRow()
 
-            Section {
-                licenseRow(
-                    titleKey: "legal.retropal",
-                    copyright: "Copyright (c) 2026 Retro Pal",
-                    licenseKey: "legal.retropal.licenseLine",
-                    descriptionKey: "legal.retropal.description"
-                )
-                licenseRow(
-                    titleKey: "legal.mgba",
-                    copyright: "Copyright (c) 2013-2024 Jeffrey Pfau",
-                    licenseKey: "legal.mgba.licenseLine",
-                    descriptionKey: "legal.mgba.description"
-                )
-                licenseRow(
-                    titleKey: "legal.melonds",
-                    copyright: "Copyright (c) 2016-2025 melonDS team",
-                    licenseKey: "legal.melonds.licenseLine",
-                    descriptionKey: "legal.melonds.description"
-                )
-                licenseRow(
-                    titleKey: "legal.mesen",
-                    // Verbatim from the project's own README, not paraphrased:
-                    // an attribution is the one line that must be theirs.
-                    copyright: "Copyright (C) 2014-2026 Sour, 2026 contributors",
-                    licenseKey: "legal.mesen.licenseLine",
-                    descriptionKey: "legal.mesen.description"
-                )
-                licenseRow(
-                    titleKey: "legal.pcsx",
-                    // Both halves of a fork chain, from the source files' own
-                    // headers rather than from a summary: the PCSX lineage this
-                    // core descends from, and notaz, who made it the ReARMed one.
-                    copyright: "Copyright (C) 2007 Ryan Schultz, PCSX-df Team, "
-                             + "PCSX team; (C) notaz",
-                    licenseKey: "legal.pcsx.licenseLine",
-                    descriptionKey: "legal.pcsx.description"
-                )
-                Text(NSLocalizedString("legal.compliance", comment: ""))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } header: {
-                sectionHeader("legal.licenses.title", systemImage: "doc.text")
+                Section {
+                    licenseRow(
+                        titleKey: "legal.retropal",
+                        copyright: "Copyright (c) 2026 Retro Pal",
+                        licenseKey: "legal.retropal.licenseLine",
+                        descriptionKey: "legal.retropal.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.mgba",
+                        copyright: "Copyright (c) 2013-2024 Jeffrey Pfau",
+                        licenseKey: "legal.mgba.licenseLine",
+                        descriptionKey: "legal.mgba.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.melonds",
+                        copyright: "Copyright (c) 2016-2025 melonDS team",
+                        licenseKey: "legal.melonds.licenseLine",
+                        descriptionKey: "legal.melonds.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.mesen",
+                        // Verbatim from the project's own README, not paraphrased:
+                        // an attribution is the one line that must be theirs.
+                        copyright: "Copyright (C) 2014-2026 Sour, 2026 contributors",
+                        licenseKey: "legal.mesen.licenseLine",
+                        descriptionKey: "legal.mesen.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.pcsx",
+                        // Both halves of a fork chain, from the source files' own
+                        // headers rather than from a summary: the PCSX lineage this
+                        // core descends from, and notaz, who made it the ReARMed one.
+                        copyright: "Copyright (C) 2007 Ryan Schultz, PCSX-df Team, "
+                                 + "PCSX team; (C) notaz",
+                        licenseKey: "legal.pcsx.licenseLine",
+                        descriptionKey: "legal.pcsx.description"
+                    )
+                    Text(NSLocalizedString("legal.compliance", comment: ""))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } header: {
+                    sectionHeader("legal.licenses.title", systemImage: "doc.text")
+                }
+                .landscapeGlassRow()
             }
         }
         .listStyle(.insetGrouped)

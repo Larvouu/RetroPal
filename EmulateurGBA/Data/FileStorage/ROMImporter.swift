@@ -22,6 +22,18 @@ enum ROMImportResult {
     case existed(NSManagedObjectID)
 }
 
+/// Carry the ZIP reader's REASON out to the person instead of flattening every
+/// failure into "couldn't be opened". A valid archive we cannot read is a
+/// different sentence from a broken one, and the 2026-09-02 Japanese 1-star
+/// review is what made that distinction worth the code.
+private func importError(for error: Error) -> ROMImportError {
+    switch error {
+    case ZIPExtractorError.unsupportedCompression: return .zipUnsupportedCompression
+    case ZIPExtractorError.encryptedArchive: return .zipEncrypted
+    default: return .zipExtractionFailed
+    }
+}
+
 enum ROMImportError: LocalizedError {
     case fileAccessDenied
     case copyFailed
@@ -33,6 +45,12 @@ enum ROMImportError: LocalizedError {
     /// `importZIPSelection` (or `discardZIPSelection` on cancel) deletes it.
     case zipNeedsSelection(tempZipURL: URL, entryNames: [String])
     case zipExtractionFailed
+    /// The archive is valid and uses a compression method we do not read
+    /// (LZMA, BZIP2, Deflate64, Zstandard). Separate from `zipExtractionFailed`
+    /// because nothing is broken and the fix is different.
+    case zipUnsupportedCompression
+    /// Password-protected archive.
+    case zipEncrypted
     case alreadyImported
     case saveFailed
     /// The file picked to replace a game's ROM is a different game (its hash
@@ -53,6 +71,8 @@ enum ROMImportError: LocalizedError {
         case .zipNoGBA: return NSLocalizedString("import.error.zipNoROM", comment: "")
         case .zipNeedsSelection: return nil   // never shown; handled by the picker flow
         case .zipExtractionFailed: return NSLocalizedString("import.error.zipExtractionFailed", comment: "")
+        case .zipUnsupportedCompression: return NSLocalizedString("import.error.zipUnsupportedCompression", comment: "")
+        case .zipEncrypted: return NSLocalizedString("import.error.zipEncrypted", comment: "")
         case .alreadyImported: return NSLocalizedString("import.error.alreadyImported", comment: "")
         case .saveFailed: return NSLocalizedString("import.error.saveFailed", comment: "")
         case .differentGame: return NSLocalizedString("import.error.differentGame", comment: "")
@@ -71,6 +91,8 @@ enum ROMImportError: LocalizedError {
         case .zipNoGBA: return "zipNoGBA"
         case .zipNeedsSelection: return "zipNeedsSelection"   // never signaled; picker flow
         case .zipExtractionFailed: return "zipExtractionFailed"
+        case .zipUnsupportedCompression: return "zipUnsupportedCompression"
+        case .zipEncrypted: return "zipEncrypted"
         case .alreadyImported: return "alreadyImported"
         case .saveFailed: return "saveFailed"
         case .differentGame: return "differentGame"
@@ -294,6 +316,25 @@ final class ROMImporter {
                 abandon()
                 throw ROMImportError.copyFailed
             }
+            // A `.cue` or `.m3u` that was not UTF-8 is rewritten as UTF-8, in
+            // place, with the text the grouper decoded. The core opens the
+            // files a descriptor names by the BYTES in the descriptor, and the
+            // discs beside it were just written under their decoded, UTF-8
+            // names: a Shift-JIS cue copied verbatim names a `.bin` that no
+            // longer exists on this disk, and the game boots to nothing with
+            // a library entry that looks fine. A descriptor that already is
+            // UTF-8 is copied byte for byte and never touched.
+            if Self.isDescriptor(dest),
+               let bytes = try? Data(contentsOf: dest),
+               !LegacyTextEncoding.isUTF8(bytes) {
+                do {
+                    try LegacyTextEncoding.decodeLegacy(bytes)
+                        .write(to: dest, atomically: true, encoding: .utf8)
+                } catch {
+                    abandon()
+                    throw ROMImportError.copyFailed
+                }
+            }
             if member.path == group.boot.path { bootDestination = dest }
         }
         guard var boot = bootDestination else {
@@ -347,6 +388,12 @@ final class ROMImporter {
         }
     }
 
+    /// The text descriptors a disc game can carry.
+    private static func isDescriptor(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ext == "cue" || ext == "m3u" || ext == "toc"
+    }
+
     /// A directory name no existing game is using. Sanitised because it becomes
     /// a real path AND the key every save, save state and per-game setting is
     /// filed under.
@@ -395,7 +442,7 @@ final class ROMImporter {
             do {
                 entryNames = try ZIPExtractor.romEntryNames(in: tempZip)
             } catch {
-                throw ROMImportError.zipExtractionFailed
+                throw importError(for: error)
             }
             guard !entryNames.isEmpty else { throw ROMImportError.zipNoGBA }
 
@@ -472,7 +519,7 @@ final class ROMImporter {
             games = try ZIPExtractor.gameEntries(in: tempZip)
         } catch {
             try? FileManager.default.removeItem(at: tempZip)
-            throw ROMImportError.zipExtractionFailed
+            throw importError(for: error)
         }
 
         if let gap = games.gaps.first, games.discs.isEmpty, games.cartridges.isEmpty {
@@ -522,7 +569,7 @@ final class ROMImporter {
         do {
             extracted = try ZIPExtractor.extractEntries(named: group.members, from: tempZip)
         } catch {
-            throw ROMImportError.zipExtractionFailed
+            throw importError(for: error)
         }
         let staging = extracted.first?.deletingLastPathComponent()
         defer { if let staging { try? FileManager.default.removeItem(at: staging) } }
@@ -604,7 +651,7 @@ final class ROMImporter {
         do {
             extractedURL = try ZIPExtractor.extractROM(named: name, from: tempZip)
         } catch {
-            throw ROMImportError.zipExtractionFailed
+            throw importError(for: error)
         }
         defer { try? FileManager.default.removeItem(at: extractedURL.deletingLastPathComponent()) }
 

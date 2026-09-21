@@ -19,6 +19,8 @@ import SwiftUI
 struct RetroAchievementsView: View {
     @ObservedObject private var ra = RetroAchievements.shared
     @ObservedObject private var raIndex = RAGameIndex.shared
+    /// A phone on its side, or an iPad window (see `LandscapeSurface`).
+    @LandscapeSurface private var isLandscape
 
     /// Rows or badge wall for the expanded games, user-switchable from the
     /// toolbar (persisted; independent from the dashboard's own choice).
@@ -114,50 +116,21 @@ struct RetroAchievementsView: View {
     private var totalAchievements: Int { gamesWithAchievements.reduce(0) { $0 + $1.total } }
 
     var body: some View {
-        List {
-            // Share + layout choice as the profile section's FOOTER: outside
-            // the section card, straight on the view background. As a list ROW
-            // iOS 26 clipped its content to the card's big concentric corner,
-            // which lopsided the share pill's left edge.
-            Section {
-                profileHeader
-            } footer: {
-                RAActionsRow(shareDisabled: gamesWithAchievements.isEmpty,
-                             onShare: { showOverviewShare = true },
-                             wallLayout: $wallLayout)
-                    .padding(.top, 8)
-            }
-
-            Section {
-                ForEach(gamesWithAchievements, id: \.romHash) { record in
-                    gameGroup(record)
-                }
-            } header: {
-                Text(String(localized: "ra.profile.games", defaultValue: "Games with achievements"))
-            } footer: {
-                Text(String(localized: "ra.dashboard.shareHint",
-                            defaultValue: "Tap an unlocked achievement to share it."))
-            }
-
-            if !unsupportedEntries.isEmpty {
-                Section {
-                    ForEach(unsupportedEntries, id: \.romHash) { entry in
-                        Text(entry.title)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text(String(localized: "ra.profile.unsupported",
-                                defaultValue: "Not on RetroAchievements"))
-                } footer: {
-                    Text(String(localized: "ra.profile.unsupported.footer",
-                                defaultValue: "These games have no achievements on RetroAchievements. Sometimes only the English version of a game is covered."))
-                }
+        Group {
+            if isLandscape {
+                landscapeBody
+            } else {
+                portraitList
+                    .uprightLook()
             }
         }
         // Large title, mirroring the Library: the inline bar truncated
         // "RetroAchievements" on smaller widths.
         .navigationTitle("RetroAchievements")
+        // Landscape draws its own bar (back, about) on the library's ground,
+        // so the system bars are hidden there and only there.
+        .toolbar(isLandscape ? .hidden : .visible, for: .navigationBar)
+        .toolbar(isLandscape ? .hidden : .visible, for: .tabBar)
         .toolbar {
             // Only the (i) remains up here (share + layout moved into the
             // list); on iOS 26 it shows RAW, without the Liquid Glass capsule.
@@ -182,7 +155,8 @@ struct RetroAchievementsView: View {
                                 records: gamesWithAchievements,
                                 onClose: { showOverviewShare = false })
         }
-        .sheet(item: $gameDashboard) { target in
+        // A sheet on a phone, the whole window on an iPad (`pagePresentation`).
+        .pagePresentation(item: $gameDashboard) { target in
             // The game's full RA dashboard (it owns the per-game share).
             RAAchievementsView(romURL: target.romURL)
         }
@@ -190,6 +164,75 @@ struct RetroAchievementsView: View {
             RABadgeDetailSheet(ach: detail.ach)
         }
         .onAppear { ra.refreshProgressIfNeeded() }
+    }
+
+    /// The landscape layout, fed with this page's facts and one closure per
+    /// action; the open game's body is built here so both layouts show the
+    /// same loading, offline and loaded shapes.
+    private var landscapeBody: some View {
+        RetroAchievementsLandscapeView(
+            username: ra.displayName ?? ra.username ?? "",
+            points: ra.softcoreScore,
+            totalUnlocked: totalUnlocked,
+            totalAchievements: totalAchievements,
+            games: gamesWithAchievements,
+            unsupported: unsupportedEntries,
+            expandedHash: expandedHash,
+            wallLayout: $wallLayout,
+            displayTitle: { displayTitle($0) },
+            onToggle: { record in
+                if expandedHash == record.romHash { expandedHash = nil } else { expand(record) }
+            },
+            onShareOverview: { showOverviewShare = true },
+            onAbout: { showAbout = true },
+            expandedContent: { record in expandedBody(record) })
+    }
+
+    private var portraitList: some View {
+        List {
+            // Share + layout choice as the profile section's FOOTER: outside
+            // the section card, straight on the view background. As a list ROW
+            // iOS 26 clipped its content to the card's big concentric corner,
+            // which lopsided the share pill's left edge.
+            Section {
+                profileHeader
+            } footer: {
+                RAActionsRow(shareDisabled: gamesWithAchievements.isEmpty,
+                             onShare: { showOverviewShare = true },
+                             wallLayout: $wallLayout)
+                    .padding(.top, 8)
+            }
+            .landscapeGlassRow()
+
+            Section {
+                ForEach(gamesWithAchievements, id: \.romHash) { record in
+                    gameGroup(record)
+                }
+            } header: {
+                Text(String(localized: "ra.profile.games", defaultValue: "Games with achievements"))
+            } footer: {
+                Text(String(localized: "ra.dashboard.shareHint",
+                            defaultValue: "Tap an unlocked achievement to share it."))
+            }
+            .landscapeGlassRow()
+
+            if !unsupportedEntries.isEmpty {
+                Section {
+                    ForEach(unsupportedEntries, id: \.romHash) { entry in
+                        Text(entry.title)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text(String(localized: "ra.profile.unsupported",
+                                defaultValue: "Not on RetroAchievements"))
+                } footer: {
+                    Text(String(localized: "ra.profile.unsupported.footer",
+                                defaultValue: "These games have no achievements on RetroAchievements. Sometimes only the English version of a game is covered."))
+                }
+                .landscapeGlassRow()
+            }
+        }
     }
 
     private var aboutButton: some View {
@@ -212,7 +255,7 @@ struct RetroAchievementsView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(ra.displayName ?? ra.username ?? "")
                         .font(.headline)
-                    Text("\(ra.softcoreScore) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
+                    Text("\(ra.softcoreScore.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -246,29 +289,36 @@ struct RetroAchievementsView: View {
                 }
             }
         )) {
-            if loadingHash == record.romHash {
-                // Loading placeholder in the chosen layout's shape.
-                if wallLayout {
-                    RABadgeWallSkeleton()
-                } else {
-                    ForEach(0..<3, id: \.self) { _ in
-                        RAAchievementSkeletonRow()
-                    }
-                }
-            } else if failedHashes.contains(record.romHash) {
-                RAOfflineRow(isOffline: !ra.isOnline, onRetry: { expand(record) })
-            } else if let achievements = loadedAchievements[record.romHash] {
-                if achievements.isEmpty {
-                    Text(String(localized: "ra.dashboard.empty",
-                                defaultValue: "This game has no achievements, or none are loaded yet."))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    achievementRows(achievements, record: record)
-                }
-            }
+            expandedBody(record)
         } label: {
             gameRowLabel(record)
+        }
+    }
+
+    /// What an open game shows, in both layouts: the loading placeholder in
+    /// the chosen layout's shape, the offline row with its retry, or the
+    /// achievements.
+    @ViewBuilder
+    private func expandedBody(_ record: RAGameRecord) -> some View {
+        if loadingHash == record.romHash {
+            if wallLayout {
+                RABadgeWallSkeleton()
+            } else {
+                ForEach(0..<3, id: \.self) { _ in
+                    RAAchievementSkeletonRow()
+                }
+            }
+        } else if failedHashes.contains(record.romHash) {
+            RAOfflineRow(isOffline: !ra.isOnline, onRetry: { expand(record) })
+        } else if let achievements = loadedAchievements[record.romHash] {
+            if achievements.isEmpty {
+                Text(String(localized: "ra.dashboard.empty",
+                            defaultValue: "This game has no achievements, or none are loaded yet."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                achievementRows(achievements, record: record)
+            }
         }
     }
 
@@ -376,7 +426,9 @@ struct RetroAchievementsView: View {
     /// no metadata): fall back to the imported file's name.
     private func fallbackTitle(_ record: RAGameRecord) -> String {
         guard let filename = raIndex.filename(forROMHash: record.romHash) else { return "" }
-        return (filename as NSString).deletingPathExtension
+        // The key is a path relative to the ROMs folder; a disc game's carries
+        // its folder, which is not part of a title.
+        return ((filename as NSString).lastPathComponent as NSString).deletingPathExtension
     }
 
     private func expand(_ record: RAGameRecord) {

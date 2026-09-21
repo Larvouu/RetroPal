@@ -141,8 +141,6 @@ struct ControllerStatusView: View {
             Text(label)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
         }
     }
 

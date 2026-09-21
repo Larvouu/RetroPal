@@ -14,16 +14,10 @@ struct SettingsView: View {
     @AppStorage("hapticStrength") private var hapticStrength: Int = 3
     @AppStorage("useJoystick") private var useJoystick: Bool = false
     @AppStorage("showClipButton") private var showClipButton: Bool = true
-    @AppStorage("ndsSwapScreens") private var ndsSwapScreens: Bool = false
     /// TV layout for the DS on an external display. Default matches
     /// ExternalDisplayManager's own default when the key is absent.
     @AppStorage(ExternalDisplayManager.ndsSideBySideKey)
     private var externalNDSSideBySide: Bool = true
-    @AppStorage("ndsLanguage") private var ndsLanguage: String = "auto"
-    @AppStorage("ndsClockManual") private var ndsClockManual: Bool = false
-    /// Manual RTC date/time as seconds since 1970, read by MelonDSBridge.
-    /// 0 means "never set" — the bridge then falls back to the device clock.
-    @AppStorage("ndsManualClockEpoch") private var ndsManualClockEpoch: Double = 0
     @ObservedObject private var proManager = ProManager.shared
     @ObservedObject private var controllers = ControllerManager.shared
     @ObservedObject private var iCloudSync = iCloudSaveSync.shared
@@ -32,6 +26,29 @@ struct SettingsView: View {
     /// no position change). Disabled under Reduce Motion.
     @State private var proGlowShift = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// A phone on its side, or an iPad window (see `LandscapeSurface`).
+    @LandscapeSurface private var isLandscape
+    /// An iPad window: the list is capped to a readable width there.
+    @TabletSurface private var isTablet
+    @Environment(\.surfaceSafeAreaInsets) private var surfaceInsets
+    /// The shell's tab selection, so the landscape bar can go back to the
+    /// library (the system tab bar is hidden there).
+    @Binding var selectedTab: AppTab
+    /// Whether this is the showing tab; pauses the landscape ground otherwise.
+    var isActiveTab: Bool = true
+    /// An upright phone in a chosen look (2026-09-07): the same list, the
+    /// same positions, on the ground with its rows on glass.
+    @ObservedObject private var themeStore = LandscapeThemeStore.shared
+    private var uprightLook: Bool {
+        UprightLook.isActive(isLandscape: isLandscape, store: themeStore)
+    }
+    /// In landscape, and upright in a look, every section's rows sit on glass
+    /// over the moving ground; nil keeps the system row background on the
+    /// List. Rows that set their own background (the Pro card, the rating
+    /// card, the Pro-gated rows) keep it in both.
+    private var landscapeRowBackground: Color? {
+        isLandscape || uprightLook ? Color.white.opacity(LandscapeChrome.cardFill) : nil
+    }
     @State private var showRALogin = false
     @State private var showWhatsNew = false
     @State private var showRomGuide = false
@@ -57,6 +74,13 @@ struct SettingsView: View {
     #endif
     #if DEBUG
     @AppStorage("debugForceEmptyState") private var debugForceEmptyState: Bool = false
+    /// Store screenshots: a fake library of fifteen fictional games with
+    /// bundled covers stands in for the real one, both ways up, and nothing
+    /// plays (2026-09-10, see `LibraryPresentation`). The language beside it
+    /// sets the app's own language override and relaunches, so the shelf,
+    /// its bars and the demo titles all read in the chosen language.
+    @AppStorage(LibraryPresentation.key) private var debugPresentationMode: Bool = false
+    @AppStorage(LibraryPresentation.languageKey) private var debugPresentationLanguage: String = ""
     #endif
     #if DEBUG
     @State private var showClipHintPreview = false
@@ -97,24 +121,6 @@ struct SettingsView: View {
         case .available:   return NSLocalizedString("settings.sync.state.available", comment: "")
         case .unavailable: return NSLocalizedString("settings.sync.state.unavailable", comment: "")
         }
-    }
-
-    /// NDS firmware languages by index (0-6), shown as autonyms — the iOS
-    /// language-picker convention, locale-independent (a language reads best
-    /// in its own name). Order matches the firmware language enum the bridge
-    /// uses, so the index doubles as the stored tag value.
-    private static let ndsLanguageAutonyms = ["日本語", "English", "Français", "Deutsch", "Italiano", "Español", "中文"]
-
-    /// Label for the picker's "auto" option, naming the language it will
-    /// actually use on this device. The DS firmware only speaks these seven
-    /// languages, so a device set to e.g. Slovenian truthfully resolves to
-    /// "Auto (English)" (the firmware fallback), not a Slovenian the hardware
-    /// can't produce. Pulled from the bridge so the label and the real
-    /// behaviour can't drift apart.
-    private var ndsAutoLanguageLabel: String {
-        let index = Int(MelonDSBridge.autoResolvedNDSLanguageIndex())
-        let name = Self.ndsLanguageAutonyms.indices.contains(index) ? Self.ndsLanguageAutonyms[index] : "English"
-        return String(format: NSLocalizedString("settings.nds.language.auto", comment: ""), name)
     }
 
     /// A Controls-section row label that, when a controller is connected, shows
@@ -258,17 +264,210 @@ struct SettingsView: View {
         }
     }
 
-    /// Two-way bridge between the stored epoch (Double) and the DatePicker's
-    /// Date. Shows "now" until the user picks a value, so the picker never
-    /// opens on 1970.
-    private var ndsManualDate: Binding<Date> {
-        Binding(
-            get: { ndsManualClockEpoch > 0 ? Date(timeIntervalSince1970: ndsManualClockEpoch) : Date() },
-            set: { ndsManualClockEpoch = $0.timeIntervalSince1970 }
-        )
+    var body: some View {
+        Group {
+            if isLandscape {
+                landscapeBody
+            } else {
+                settingsList
+                    .uprightLook(isActive: isActiveTab)
+            }
+        }
+        // Landscape draws its own bar on the library's ground and hides the
+        // system bars there and only there; the pages pushed from here keep
+        // theirs. On an iPad the bar's library circle gives way to the
+        // Library · Settings pill at the bottom, either way up (2026-09-08,
+        // see `LandscapeChrome.tabPill`).
+        .toolbar(isLandscape ? .hidden : .visible, for: .navigationBar)
+        .toolbar(isLandscape ? .hidden : .visible, for: .tabBar)
+        .navigationTitle(NSLocalizedString("settings.title", comment: ""))
+        // A television can arrive or leave while this screen is open, and the
+        // external-display row is a different row in each case.
+        .onReceive(NotificationCenter.default.publisher(
+            for: ExternalDisplayManager.didChangeNotification)) { _ in
+            tvConnected = ExternalDisplayManager.shared.isTVConnected
+        }
+        .task {
+            cheatCacheBytes = CheatLibrary.shared.cacheSize()
+            cheatCoverage = countCheatCoverage()
+        }
+        // Presented at the List level (not inside the RA section) so a section
+        // re-render can't dismiss it as it animates in.
+        .sheet(isPresented: $showRALogin) { RALoginView() }
+        .sheet(isPresented: $showWhatsNew) { WhatsNewSheet() }
+        #if DEBUG
+        // Lets the "Simulate RA unlock" debug button preview the in-game HUD here.
+        // RAUnlockHUD ignores the safe area itself and positions the card by the
+        // window top inset, so this preview matches the in-game placement.
+        .overlay(alignment: .top) { RAUnlockHUD() }
+        // Same for "Simulate RA progress": without this overlay the pill has
+        // no host outside gameplay and the button looks dead.
+        .overlay(alignment: .top) { RAProgressHUD() }
+        .sheet(isPresented: $showClipHintPreview) {
+            // Presented exactly like the real card (the view now self-configures its
+            // fill, opaque background, and adaptive detents) — so this previews the
+            // true presentation path, not a hand-built approximation.
+            ClipShareView(model: ClipShareModel(), frameAspect: 1.5,
+                          onClose: { showClipHintPreview = false },
+                          hintText: NSLocalizedString("clip.hint", value: "You can save the last 6 seconds anytime.", comment: ""))
+        }
+        .sheet(isPresented: $showShotHintPreview) {
+            ScreenshotShareView(gameFrame: Self.debugGameFrame, name: "Demo Game",
+                                playTime: 3 * 3600 + 25 * 60,
+                                system: .gbc,   // preview the GB/GBC console Pro card
+                                onClose: { showShotHintPreview = false },
+                                hintText: NSLocalizedString("screenshot.hint", value: "Capture your best moment, anytime.", comment: ""))
+        }
+        .sheet(isPresented: $showRAGameCardPreview) {
+            // Verifies the badge grid shrinks a full Fire-Red-sized set (157)
+            // onto the console screen; badges are generated, no network needed.
+            RAGameCardDebugPreview(onClose: { showRAGameCardPreview = false })
+        }
+        .sheet(isPresented: $showRAOverviewCardPreview) {
+            // The overview card's mosaic tier: 30 generated games, the first 4
+            // fully completed (gold mastered strokes). No network needed.
+            RAOverviewCardDebugPreview(onClose: { showRAOverviewCardPreview = false })
+        }
+        #endif
+        .sheet(item: $proSheetItem) { item in
+            ProUpgradeView(context: item.context)
+                .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showRomGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.importRom.title", comment: ""),
+                intro: NSLocalizedString("guide.importRom.intro", comment: ""),
+                steps: [
+                    DeviceWording.string("guide.importRom.step1"),
+                    DeviceWording.string("guide.importRom.step2"),
+                    NSLocalizedString("guide.importRom.step3", comment: ""),
+                    NSLocalizedString("guide.importRom.step4", comment: "")
+                ],
+                footer: NSLocalizedString("guide.importRom.footer", comment: "")
+            )
+        }
+        .sheet(isPresented: $showSaveGuide) {
+            HowToSheet(
+                title: NSLocalizedString("saveImport.title", comment: ""),
+                intro: NSLocalizedString("guide.saveImport.intro", comment: ""),
+                steps: [
+                    NSLocalizedString("guide.saveImport.step1", comment: ""),
+                    NSLocalizedString("guide.saveImport.step2", comment: ""),
+                    NSLocalizedString("guide.saveImport.step3", comment: ""),
+                    NSLocalizedString("guide.saveImport.step4", comment: "")
+                ],
+                footer: NSLocalizedString("guide.saveImport.footer", comment: "")
+            )
+        }
+        .sheet(isPresented: $showWidgetGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.widget.title", comment: ""),
+                intro: NSLocalizedString("guide.widget.intro", comment: ""),
+                steps: [
+                    NSLocalizedString("guide.widget.step1", comment: ""),
+                    NSLocalizedString("guide.widget.step2", comment: ""),
+                    NSLocalizedString("guide.widget.step3", comment: ""),
+                    NSLocalizedString("guide.widget.step4", comment: ""),
+                    NSLocalizedString("guide.widget.step5", comment: "")
+                ],
+                footer: DeviceWording.string("guide.widget.footer")
+            )
+        }
+        .sheet(isPresented: $showAirPlayGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.airplay.title", comment: ""),
+                intro: DeviceWording.string("guide.airplay.intro"),
+                steps: [
+                    DeviceWording.string("guide.airplay.step1"),
+                    NSLocalizedString("guide.airplay.step2", comment: ""),
+                    DeviceWording.string("guide.airplay.step3"),
+                    DeviceWording.string("guide.airplay.step4"),
+                    NSLocalizedString("guide.airplay.step5", comment: ""),
+                    NSLocalizedString("guide.airplay.step6", comment: "")
+                ],
+                footer: NSLocalizedString("guide.airplay.footer", comment: "")
+            ) {
+                // Free users get the offer above the steps; Pro users get the
+                // steps and nothing else to read.
+                if !proManager.isPro { airPlayProCard }
+            }
+        }
+        .sheet(isPresented: $showControllerGuide) {
+            HowToSheet(
+                title: NSLocalizedString("guide.controller.title", comment: ""),
+                intro: nil,
+                steps: [
+                    NSLocalizedString("guide.controller.step1", comment: ""),
+                    DeviceWording.string("guide.controller.step2"),
+                    NSLocalizedString("guide.controller.step3", comment: "")
+                ],
+                // The keyboard bindings are by physical position, and nothing
+                // on screen ever said which keys: a French player on AZERTY
+                // had six letters to discover by trial. Each locale names the
+                // keys as printed on its own keyboard. The iPad twin drops the
+                // sentence about the touch controls hiding, which is phone-only.
+                footer: NSLocalizedString("guide.controller.footer", comment: "")
+                    + "\n\n" + DeviceWording.string("guide.controller.keyboard")
+            ) {
+                ControllerStatusView(isConnected: controllers.isConnected,
+                                     name: controllers.controllerName)
+            }
+        }
     }
 
-    var body: some View {
+    /// Settings on its side, in the landscape library's language (decided on device,
+    /// 2026-09-04): the same ground and margins, a bar of our own (the title,
+    /// the controller badge, the way back to the library), and the SAME list
+    /// underneath with its rows turned to glass. A form of forty rows is not
+    /// rebuilt as cards: the list is the content, so it is kept, and only its
+    /// chrome changes. The way back sits in the bar rather than at the bottom
+    /// right as on the library, because a floating circle over a scrolling
+    /// list would cover its last rows.
+    private var landscapeBody: some View {
+        let insets = LandscapeChrome.insets(surfaceInsets)
+        return ZStack {
+            LibraryLandscapeBackground(isPaused: !isActiveTab || reduceMotion, dimmed: true)
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Text(NSLocalizedString("settings.title", comment: ""))
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                    Spacer(minLength: 8)
+                    ControllerStatusBadge(tint: .white)
+                    // An iPad has the pill at the bottom for that (2026-09-08).
+                    if !isTablet {
+                        Button {
+                            selectedTab = .library
+                        } label: {
+                            LandscapeChrome.circle(systemName: "books.vertical")
+                        }
+                        .accessibilityLabel(NSLocalizedString("tab.library", comment: ""))
+                    }
+                }
+                .frame(height: 40)
+                .padding(.horizontal, 24)
+                .padding(.top, LandscapeChrome.barTopPadding(tablet: isTablet, insets: insets))
+                // On an iPad the list is capped to a readable width and centred;
+                // a phone keeps it edge to edge.
+                settingsList
+                    .scrollContentBackground(.hidden)
+                    .frame(maxWidth: isTablet ? LandscapeChrome.tabletListMaxWidth : .infinity)
+                    .padding(.leading, insets.left)
+                    .padding(.trailing, insets.right)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isTablet {
+                    LandscapeChrome.tabPill(selected: .settings, insets: insets) { tab in
+                        selectedTab = tab
+                    }
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var settingsList: some View {
         List {
             // Pro section
             Section {
@@ -296,6 +495,7 @@ struct SettingsView: View {
                 }
                 // "Restaurer les achats" now lives inside the Pro sheet only.
             }
+                .listRowBackground(landscapeRowBackground)
 
             Section(header: Text(NSLocalizedString("settings.controls", comment: "")),
                     footer: Text(controllers.isConnected
@@ -356,6 +556,7 @@ struct SettingsView: View {
                                      context: .customizeControls)
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
             // Controller in its own section so the Bluetooth-pairing footer stays
             // attached to it (and the touch section's footer can speak to the
@@ -392,11 +593,28 @@ struct SettingsView: View {
                                          icon: "arrow.triangle.swap",
                                          context: .customizeControls)
                     }
+                }
 
-                    // Screen + Menu layout for controller play (Pro). Shown only
-                    // while a pad is attached, like the remap row above: it is
-                    // the only moment the setting means anything, and the editor
-                    // previews the game as it renders WITH a controller.
+                // Keyboard keys (FREE, 1.3.1) — only while a keyboard is
+                // attached, for the same reason: the flow needs its presses.
+                // Free where the pad's remap is Pro because a Bluetooth pad iOS
+                // sees as a keyboard is unplayable until its letters are bound
+                // (the reasoning is in KeyboardMapping.swift).
+                if controllers.isKeyboardAttached {
+                    NavigationLink {
+                        KeyboardRemapView()
+                    } label: {
+                        Label(NSLocalizedString("settings.remapKeyboard", comment: ""),
+                              systemImage: "keyboard")
+                    }
+                }
+
+                // Screen + Menu layout for controller play (Pro). Shown only
+                // while the touch controls are out of the way (a pad, or a
+                // keyboard on a phone), like the remap rows above: it is the
+                // only moment the setting means anything, and the editor
+                // previews the game as it renders WITH a controller.
+                if controllers.hidesTouchControls {
                     if proManager.isPro {
                         NavigationLink {
                             ControllerLayoutView()
@@ -411,12 +629,13 @@ struct SettingsView: View {
                     }
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
             // External display (Pro). Free users keep the passive mirroring iOS
             // already gives them: we only put a window on the TV for Pro, so
             // the gate adds an output instead of removing one.
             Section(header: Text(NSLocalizedString("settings.externalDisplay.section", comment: "")),
-                    footer: Text(NSLocalizedString("settings.externalDisplay.footer", comment: ""))) {
+                    footer: Text(DeviceWording.string("settings.externalDisplay.footer"))) {
                 if proManager.isPro {
                     // The DS screen arrangement is a choice ABOUT a television,
                     // so it only appears while there is one. With nothing
@@ -429,6 +648,11 @@ struct SettingsView: View {
                             Text(NSLocalizedString("settings.externalDisplay.sideBySide", comment: "")).tag(true)
                             Text(NSLocalizedString("settings.externalDisplay.stacked", comment: "")).tag(false)
                         }
+                        // Inline, one option per row: the default menu style
+                        // prints the chosen value on the label's row and clips
+                        // it, and "L'un au-dessus de l'autre" (fr) is 25
+                        // characters against 7 for "Stacked".
+                        .pickerStyle(.inline)
                         .onChange(of: externalNDSSideBySide) { newValue in
                             // Push to a television that is already connected.
                             ExternalDisplayManager.shared.ndsSideBySide = newValue
@@ -466,28 +690,13 @@ struct SettingsView: View {
                                      context: .externalDisplay)
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
-            Section(header: Text("Nintendo DS"),
-                    footer: Text(NSLocalizedString("settings.nds.language.footer", comment: ""))) {
-                Toggle(NSLocalizedString("settings.nds.swapScreens", comment: ""), isOn: $ndsSwapScreens)
-
-                Toggle(NSLocalizedString("settings.nds.clock.manual", comment: ""), isOn: $ndsClockManual)
-                if ndsClockManual {
-                    DatePicker(NSLocalizedString("settings.nds.clock.pickerLabel", comment: ""),
-                               selection: ndsManualDate)
-                }
-
-                // Language last, so the section footer (which describes game
-                // language behaviour) sits directly under it.
-                Picker(NSLocalizedString("settings.nds.language", comment: ""), selection: $ndsLanguage) {
-                    Text(ndsAutoLanguageLabel).tag("auto")
-                    ForEach(Array(Self.ndsLanguageAutonyms.enumerated()), id: \.offset) { index, name in
-                        Text(name).tag(String(index))
-                    }
-                }
-            }
-
+            // Console-specific settings live on the game's own page (the
+            // Nintendo DS rows moved to a DS game's details in 1.3.1), so this
+            // list does not grow a section per console.
             RetroAchievementsSection(onConnect: { showRALogin = true })
+                .listRowBackground(landscapeRowBackground)
 
             // Cheat codes are Pro, so this section only means anything there.
             // The database itself is fetched a game at a time; this makes the
@@ -555,6 +764,7 @@ struct SettingsView: View {
                         }
                     }
                 }
+                    .listRowBackground(landscapeRowBackground)
             }
 
             Section(NSLocalizedString("settings.guides.section", comment: "")) {
@@ -592,6 +802,7 @@ struct SettingsView: View {
                         .foregroundColor(.primary)
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
             Section {
                 Toggle(NSLocalizedString("settings.sync.toggle", comment: ""), isOn: Binding(
@@ -607,14 +818,16 @@ struct SettingsView: View {
             } header: {
                 Text(NSLocalizedString("settings.sync.section", comment: ""))
             } footer: {
-                Text(NSLocalizedString("settings.sync.footer", comment: ""))
+                Text(DeviceWording.string("settings.sync.footer"))
             }
+                .listRowBackground(landscapeRowBackground)
 
             Section(NSLocalizedString("settings.general", comment: "")) {
                 NavigationLink(destination: LegalView()) {
                     Label(NSLocalizedString("settings.legal", comment: ""), systemImage: "doc.text")
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
             Section(NSLocalizedString("settings.about", comment: "")) {
                 // Permanent home of the release notes: the launch sheet shows
@@ -655,16 +868,22 @@ struct SettingsView: View {
                 NavigationLink(destination: EmulationEnginesView()) {
                     Text(NSLocalizedString("settings.core", comment: ""))
                 }
-                // Straight to the App Store review composer. Unlike the
-                // in-app ask, this path has no Apple quota: it must always
-                // be available to a motivated user.
-                Button {
-                    UIApplication.shared.open(
-                        URL(string: "itms-apps://apps.apple.com/app/id6769407672?action=write-review")!)
-                } label: {
-                    Label(NSLocalizedString("settings.rateApp", comment: ""), systemImage: "star")
-                }
             }
+                .listRowBackground(landscapeRowBackground)
+
+            // The rating ask, on its own and last in a release build (the
+            // debug sections below it exist only in debug builds). It used to
+            // be one plain row inside About; it is now the warm-up card the
+            // 1.2.5 review engine retired, reused as a settings card: the card
+            // was withdrawn as an unsolicited prompt, and this is a row the
+            // person opens Settings to find, which Apple's guidance allows.
+            Section {
+                rateCard
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+                .listRowBackground(landscapeRowBackground)
 
             #if DEBUG
             Section("Debug") {
@@ -672,10 +891,27 @@ struct SettingsView: View {
                     WhatsNew.debugResetSeen()
                 }
                 Toggle("Force empty-state onboarding", isOn: $debugForceEmptyState)
+                Toggle("Presentation mode (a fake library of demo games, nothing plays)", isOn: $debugPresentationMode)
+                Picker("Presentation language (relaunches the app)", selection: $debugPresentationLanguage) {
+                    Text("System").tag("")
+                    ForEach(LibraryPresentation.languages) { language in
+                        Text(language.name).tag(language.code)
+                    }
+                }
+                .onChange(of: debugPresentationLanguage) { code in
+                    LibraryPresentation.applyLanguage(code)
+                }
                 Button(controllers.isConnected
                        ? "Fake controller: ON (tap to disconnect)"
                        : "Fake controller: OFF (tap to connect)") {
                     controllers.debugSetConnected(!controllers.isConnected)
+                }
+                // The keyboard row, its page and the phone-only hiding of the
+                // touch controls; capture still needs a real key.
+                Button(controllers.isKeyboardAttached
+                       ? "Fake keyboard: ON (tap to detach)"
+                       : "Fake keyboard: OFF (tap to attach)") {
+                    controllers.debugSetKeyboardAttached(!controllers.isKeyboardAttached)
                 }
                 NavigationLink(destination: LayoutPreviewGallery()) {
                     Text("Layout preview (SE / Pro Max)")
@@ -694,6 +930,9 @@ struct SettingsView: View {
                 }
                 NavigationLink(destination: StatsCardLandscapePreviewGallery()) {
                     Text("Stats card LANDSCAPE (SE / Pro Max)")
+                }
+                NavigationLink(destination: LibraryLandscapePreviewGallery()) {
+                    Text("Library landscape preview (SE / Pro Max)")
                 }
                 Button("Clip card hint preview") { showClipHintPreview = true }
                 Button("Screenshot card hint preview") { showShotHintPreview = true }
@@ -719,6 +958,7 @@ struct SettingsView: View {
                     showRAOverviewCardPreview = true
                 }
             }
+                .listRowBackground(landscapeRowBackground)
 
             Section("Debug — Pro Sheets") {
                 debugProSheetButton("Speed moment (earned, 30 min)", context: .speedMoment(minutesAtFreeSpeed: 30))
@@ -735,6 +975,18 @@ struct SettingsView: View {
                 debugProSheetButton("Video filters (Appearance ▸ Screen)", context: .videoFilters)
                 debugProSheetButton("External display / AirPlay (Settings)", context: .externalDisplay)
             }
+                .listRowBackground(landscapeRowBackground)
+
+            // Every iPad surface at the three iPad sizes, both orientations,
+            // reviewable from a phone (2026-09-05).
+            Section("Debug iPad (mini / 11 / 13, both orientations)") {
+                ForEach(TabletPreviewPage.allCases) { page in
+                    NavigationLink(destination: TabletPreviewGallery(page: page)) {
+                        Text(page.title)
+                    }
+                }
+            }
+                .listRowBackground(landscapeRowBackground)
             #endif
 
             Section {
@@ -742,134 +994,8 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+                .listRowBackground(landscapeRowBackground)
 
-        }
-        .navigationTitle(NSLocalizedString("settings.title", comment: ""))
-        // A television can arrive or leave while this screen is open, and the
-        // external-display row is a different row in each case.
-        .onReceive(NotificationCenter.default.publisher(
-            for: ExternalDisplayManager.didChangeNotification)) { _ in
-            tvConnected = ExternalDisplayManager.shared.isTVConnected
-        }
-        .task {
-            cheatCacheBytes = CheatLibrary.shared.cacheSize()
-            cheatCoverage = countCheatCoverage()
-        }
-        // Presented at the List level (not inside the RA section) so a section
-        // re-render can't dismiss it as it animates in.
-        .sheet(isPresented: $showRALogin) { RALoginView() }
-        .sheet(isPresented: $showWhatsNew) { WhatsNewSheet() }
-        #if DEBUG
-        // Lets the "Simulate RA unlock" debug button preview the in-game HUD here.
-        // RAUnlockHUD ignores the safe area itself and positions the card by the
-        // window top inset, so this preview matches the in-game placement.
-        .overlay(alignment: .top) { RAUnlockHUD() }
-        // Same for "Simulate RA progress": without this overlay the pill has
-        // no host outside gameplay and the button looks dead.
-        .overlay(alignment: .top) { RAProgressHUD() }
-        .sheet(isPresented: $showClipHintPreview) {
-            // Presented exactly like the real card (the view now self-configures its
-            // fill, opaque background, and adaptive detents) — so this previews the
-            // true presentation path, not a hand-built approximation.
-            ClipShareView(model: ClipShareModel(), frameAspect: 1.5,
-                          onClose: { showClipHintPreview = false },
-                          hintText: NSLocalizedString("clip.hint", value: "You can save the last 6 seconds anytime.", comment: ""))
-        }
-        .sheet(isPresented: $showShotHintPreview) {
-            ScreenshotShareView(gameFrame: Self.debugGameFrame, name: "Demo Game",
-                                playTime: 3 * 3600 + 25 * 60,
-                                system: .gbc,   // preview the GB/GBC console Pro card
-                                onClose: { showShotHintPreview = false },
-                                hintText: NSLocalizedString("screenshot.hint", value: "Capture your best moment, anytime.", comment: ""))
-        }
-        .sheet(isPresented: $showRAGameCardPreview) {
-            // Verifies the badge grid shrinks a full Fire-Red-sized set (157)
-            // onto the console screen; badges are generated, no network needed.
-            RAGameCardDebugPreview(onClose: { showRAGameCardPreview = false })
-        }
-        .sheet(isPresented: $showRAOverviewCardPreview) {
-            // The overview card's mosaic tier: 30 generated games, the first 4
-            // fully completed (gold mastered strokes). No network needed.
-            RAOverviewCardDebugPreview(onClose: { showRAOverviewCardPreview = false })
-        }
-        #endif
-        .sheet(item: $proSheetItem) { item in
-            ProUpgradeView(context: item.context)
-                .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showRomGuide) {
-            HowToSheet(
-                title: NSLocalizedString("guide.importRom.title", comment: ""),
-                intro: NSLocalizedString("guide.importRom.intro", comment: ""),
-                steps: [
-                    NSLocalizedString("guide.importRom.step1", comment: ""),
-                    NSLocalizedString("guide.importRom.step2", comment: ""),
-                    NSLocalizedString("guide.importRom.step3", comment: ""),
-                    NSLocalizedString("guide.importRom.step4", comment: "")
-                ],
-                footer: NSLocalizedString("guide.importRom.footer", comment: "")
-            )
-        }
-        .sheet(isPresented: $showSaveGuide) {
-            HowToSheet(
-                title: NSLocalizedString("saveImport.title", comment: ""),
-                intro: NSLocalizedString("guide.saveImport.intro", comment: ""),
-                steps: [
-                    NSLocalizedString("guide.saveImport.step1", comment: ""),
-                    NSLocalizedString("guide.saveImport.step2", comment: ""),
-                    NSLocalizedString("guide.saveImport.step3", comment: ""),
-                    NSLocalizedString("guide.saveImport.step4", comment: "")
-                ],
-                footer: NSLocalizedString("guide.saveImport.footer", comment: "")
-            )
-        }
-        .sheet(isPresented: $showWidgetGuide) {
-            HowToSheet(
-                title: NSLocalizedString("guide.widget.title", comment: ""),
-                intro: NSLocalizedString("guide.widget.intro", comment: ""),
-                steps: [
-                    NSLocalizedString("guide.widget.step1", comment: ""),
-                    NSLocalizedString("guide.widget.step2", comment: ""),
-                    NSLocalizedString("guide.widget.step3", comment: ""),
-                    NSLocalizedString("guide.widget.step4", comment: ""),
-                    NSLocalizedString("guide.widget.step5", comment: "")
-                ],
-                footer: NSLocalizedString("guide.widget.footer", comment: "")
-            )
-        }
-        .sheet(isPresented: $showAirPlayGuide) {
-            HowToSheet(
-                title: NSLocalizedString("guide.airplay.title", comment: ""),
-                intro: NSLocalizedString("guide.airplay.intro", comment: ""),
-                steps: [
-                    NSLocalizedString("guide.airplay.step1", comment: ""),
-                    NSLocalizedString("guide.airplay.step2", comment: ""),
-                    NSLocalizedString("guide.airplay.step3", comment: ""),
-                    NSLocalizedString("guide.airplay.step4", comment: ""),
-                    NSLocalizedString("guide.airplay.step5", comment: ""),
-                    NSLocalizedString("guide.airplay.step6", comment: "")
-                ],
-                footer: NSLocalizedString("guide.airplay.footer", comment: "")
-            ) {
-                // Free users get the offer above the steps; Pro users get the
-                // steps and nothing else to read.
-                if !proManager.isPro { airPlayProCard }
-            }
-        }
-        .sheet(isPresented: $showControllerGuide) {
-            HowToSheet(
-                title: NSLocalizedString("guide.controller.title", comment: ""),
-                intro: nil,
-                steps: [
-                    NSLocalizedString("guide.controller.step1", comment: ""),
-                    NSLocalizedString("guide.controller.step2", comment: ""),
-                    NSLocalizedString("guide.controller.step3", comment: "")
-                ],
-                footer: NSLocalizedString("guide.controller.footer", comment: "")
-            ) {
-                ControllerStatusView(isConnected: controllers.isConnected,
-                                     name: controllers.controllerName)
-            }
         }
     }
 
@@ -939,6 +1065,81 @@ struct SettingsView: View {
         }
     }
 
+    /// The rating card: the retired warm-up sheet's look (its night gradient,
+    /// gold glow, five gold stars, a title and one sentence) at the size of
+    /// two settings rows, with the section cells' corner radius so it reads
+    /// as a row of this list rather than a floating card like the Pro one.
+    /// Everything is centred, stars first: they fan along the top of a circle,
+    /// the middle one highest and the outer ones leaning gently outwards, so
+    /// the eye lands on the stars before the words. The whole card is the
+    /// button and there is no separate call to action: the title names the
+    /// act. It opens the App Store review composer straight away; unlike the
+    /// in-app ask, this path has no Apple quota, so it must always be
+    /// available to a motivated user. Static on purpose, as the sheet was: a
+    /// rating ask converts on sincerity, not spectacle.
+    private var rateCard: some View {
+        let gold = Color(red: 1.0, green: 0.84, blue: 0.35)
+        // Arc geometry: the drop below the middle star and the outward tilt,
+        // per step away from the centre (0, 1, 2). Gentle by design.
+        let drop: [CGFloat] = [0, 4, 14]
+        let tilt: [Double] = [0, 5, 10]
+        return Button {
+            UIApplication.shared.open(
+                URL(string: "itms-apps://apps.apple.com/app/id6769407672?action=write-review")!)
+        } label: {
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    ForEach(0..<5, id: \.self) { index in
+                        let step = abs(index - 2)
+                        // A star left of centre leans left, one right of
+                        // centre leans right: both follow the arc outwards.
+                        let direction: Double = index < 2 ? -1 : (index > 2 ? 1 : 0)
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [gold, Color(red: 0.9, green: 0.7, blue: 0.2)],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .shadow(color: gold.opacity(0.5), radius: 8)
+                            .rotationEffect(.degrees(direction * tilt[step]))
+                            .offset(y: drop[step])
+                    }
+                }
+                // The outer stars sit lower by the largest drop; keep that
+                // room so they never run into the title.
+                .padding(.bottom, drop[2])
+                .accessibilityHidden(true)
+                Text(NSLocalizedString("review.headline", comment: ""))
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                Text(NSLocalizedString("review.body", comment: ""))
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            // Two settings rows tall at least; the text decides the rest.
+            .frame(maxWidth: .infinity, minHeight: 88)
+            .background(
+                ZStack {
+                    LinearGradient(
+                        colors: [Color(red: 0.08, green: 0.06, blue: 0.16),
+                                 Color(red: 0.04, green: 0.03, blue: 0.10)],
+                        startPoint: .top, endPoint: .bottom)
+                    RadialGradient(
+                        colors: [gold.opacity(0.25), Color.purple.opacity(0.15), .clear],
+                        center: UnitPoint(x: 0.5, y: 0.2), startRadius: 5, endRadius: 200)
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(NSLocalizedString("settings.rateApp", comment: "")))
+    }
+
     /// Price-forward value line ("9,99 €, pour toujours" — the anti-subscription
     /// hook), falling back to the benefits CTA before the product loads.
     ///
@@ -993,7 +1194,9 @@ struct SettingsView: View {
     /// a whisper, matching the top Pro card rather than competing with it).
     fileprivate var premiumRowBackground: some View {
         ZStack(alignment: .leading) {
-            Color(.secondarySystemGroupedBackground)
+            // Glass in landscape like every other row; the system row colour
+            // upright (audit, 2026-09-05: these were the one opaque grey).
+            landscapeRowBackground ?? Color(.secondarySystemGroupedBackground)
             LinearGradient(
                 colors: [
                     Color(red: 1.0, green: 0.84, blue: 0.35).opacity(0.10),

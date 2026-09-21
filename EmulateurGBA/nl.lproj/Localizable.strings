@@ -8,17 +8,22 @@
 "library.title" = "Bibliotheek";
 "library.empty.title" = "Welkom bij Retro Pal";
 "library.empty.subtitle" = "Speel je retrogames op je iPhone. Geen advertenties, geen persoonlijke tracking.";
+"library.empty.subtitle.ipad" = "Speel je retrogames op je iPad. Geen advertenties, geen persoonlijke tracking.";
 "library.empty.button" = "Spel toevoegen";
 "library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes of .chd) op je iPhone, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step1.ipad" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes of .chd) op je iPad, via Safari, AirDrop of iCloud Drive.";
 "library.empty.step2" = "Tik op %@ en kies het bestand in de Bestanden-app.";
 "library.empty.step3" = "Spelen. Je voortgang wordt automatisch opgeslagen";
 "library.empty.romHint" = "Nog geen ROMs? Er bestaan veel gratis, legale spellen. Zoek online naar \"GBA homebrew\".";
 "library.empty.legal" = "Importeer alleen bestanden die je legaal bezit.";
 "library.search" = "Spellen zoeken";
 "library.sort.lastPlayed" = "Laatst gespeeld";
+"library.theme.classic" = "Klassiek";
+"library.hero.toggle" = "Laatst gespeelde game bovenaan tonen";
 "library.sort.title" = "Titel";
 "library.sort.dateAdded" = "Datum toegevoegd";
 "library.sort.byConsole" = "Per console";
+"library.sort.allConsoles" = "Alle consoles";
 "library.played.ago" = "Gespeeld %@";
 "library.playTime" = "%@u %@m gespeeld";
 "library.playTime.minutes" = "%@m gespeeld";
@@ -42,6 +47,11 @@
 "details.cover.choose" = "Cover kiezen";
 "details.cover.remove" = "Eigen cover verwijderen";
 "details.cover.error" = "De afbeelding kon niet worden opgeslagen.";
+"cover.choose.boxart" = "Officiële hoes (libretro-database)";
+"cover.choose.ra" = "RetroAchievements-afbeelding";
+"cover.choose.screenshot" = "Schermafbeelding van je laatste snelle save";
+"cover.choose.photo" = "Een foto uit je fotobibliotheek";
+"cover.choose.caption" = "De hoes die in je bibliotheek wordt getoond. De spelpagina toont altijd je laatste schermafbeelding.";
 "details.newGame.confirm.title" = "Vanaf titelscherm starten?";
 "details.newGame.confirm.message" = "Je hervat je laatste sessie niet, maar je save van het spel zelf en je snelle saveslots blijven veilig.";
 "details.launch.footer" = "Om je save van het spel zelf te laden (die je maakt via het opslagmenu van het spel), start het spel en ga verder via het eigen menu. Die staat los van de snelle saveslots hieronder, die je zelf maakt.";
@@ -81,6 +91,7 @@
 "settings.nds.language" = "Speltaal";
 "settings.nds.language.auto" = "Auto (%@)";
 "settings.nds.language.footer" = "\"Auto\" volgt de taal van je iPhone, of Engels als de DS dit niet ondersteunt. De taal wordt toegepast bij het starten van een nieuw spel. De meeste games slaan de taal op in het opslagbestand en wijzigen deze daarna niet meer. De taal verandert alleen als de ROM dit ondersteunt. Veel ROMs bevatten slechts één taal.";
+"settings.nds.language.footer.ipad" = "\"Auto\" volgt de taal van je iPad, of Engels als de DS dit niet ondersteunt. De taal wordt toegepast bij het starten van een nieuw spel. De meeste games slaan de taal op in het opslagbestand en wijzigen deze daarna niet meer. De taal verandert alleen als de ROM dit ondersteunt. Veel ROMs bevatten slechts één taal.";
 "settings.nds.clock.manual" = "Datum en tijd handmatig instellen";
 "settings.nds.clock.pickerLabel" = "Datum en tijd";
 "settings.general" = "Algemeen";
@@ -92,6 +103,8 @@
 "settings.engines.footer" = "Licentie: %@.";
 "settings.engines.footer.patched" = "Licentie: %@. Gebruikt met één kleine wijziging, die als patchbestand bij de broncode wordt gepubliceerd.";
 "settings.rateApp" = "Beoordeel Retro Pal";
+"review.headline" = "Beoordeel Retro Pal";
+"review.body" = "Elke recensie telt voor ons. Het houdt het project levend. 🙂";
 "settings.disclaimer" = "Retro Pal is een lokale emulator. Er zijn geen spellen inbegrepen. Importeer alleen bestanden die je rechtmatig bezit.";
 "settings.restore" = "Aankopen herstellen";
 
@@ -152,11 +165,11 @@
 "pro.compare.row.filters" = "Videofilters";
 "pro.compare.row.externalDisplay" = "Tv / AirPlay";
 /* Prompts */
-"prompt.speed.title" = "Je hebt %@ minuten op 1,5x gespeeld";
+"prompt.speed.title" = "Je hebt %lld minuten op 1,5x gespeeld";
 "prompt.speed.subtitle" = "Op 4x vliegt dezelfde sessie voorbij. Ontgrendel alle snelheden, voor altijd.";
 "prompt.slots.title" = "Alle opslagslots zijn vol";
 "prompt.slots.subtitle" = "Ontgrendel 5 opslagslots zodat je nooit hoeft te overschrijven. Eenmalige aankoop, voor altijd.";
-"prompt.milestone.title" = "Je hebt %@ minuten retrogames gespeeld";
+"prompt.milestone.title" = "Je hebt %lld minuten retrogames gespeeld";
 "prompt.milestone.subtitle" = "Je houdt er duidelijk van. Ontgrendel de volledige ervaring.";
 "prompt.rewind.title" = "Moet je verder terug?";
 "prompt.rewind.subtitle" = "Pro geeft je 30 seconden terugspoeltijd, op elke console. Verlies nooit meer een baasgevecht.";
@@ -297,6 +310,17 @@
 "remap.action.clip" = "Clip";
 "remap.clear" = "Wissen";
 "remap.actions.footer" = "Deze sneltoetsen hebben standaard geen knop. Wijs er een toe om ze te gebruiken. Vooruitspoelen geldt zolang je de knop vasthoudt. Veeg over een rij om die te wissen.";
+"settings.remapKeyboard" = "Toetsenbordtoetsen opnieuw toewijzen";
+"keyremap.directions.header" = "Richtingen";
+"keyremap.buttons.header" = "Knoppen";
+"keyremap.direction.up" = "Omhoog";
+"keyremap.direction.down" = "Omlaag";
+"keyremap.direction.left" = "Links";
+"keyremap.direction.right" = "Rechts";
+"keyremap.press" = "Druk op een toets…";
+"keyremap.noKeyboard" = "Verbind een toetsenbord om de toetsen toe te wijzen.";
+"keyremap.footer" = "Tik op een knop of richting en druk dan op de toets die je eraan wilt toewijzen. Eén toets bedient maar één knop, maar een knop kan meerdere toetsen hebben. Veeg over een rij om die te wissen.";
+"key.space" = "Spatie";
 "layout.activeLayout" = "Actieve indeling";
 "layout.default" = "Standaard";
 "layout.presets" = "Voorinstellingen";
@@ -356,7 +380,9 @@
 "guide.importRom.title" = "Spel toevoegen";
 "guide.importRom.intro" = "Retro Pal bevat geen games. Je levert je eigen ROM-bestanden aan, waarvan je de rechten bezit (je eigen cartridges of gratis, legale homebrew-games).";
 "guide.importRom.step1" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin) op je iPhone: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
+"guide.importRom.step1.ipad" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin) op je iPad: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
 "guide.importRom.step2" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPhone of iCloud Drive).";
+"guide.importRom.step2.ipad" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPad of iCloud Drive).";
 "guide.importRom.step3" = "Tik in Retro Pal op de knop + bovenaan de bibliotheek.";
 "guide.importRom.step4" = "Kies het bestand. De game verschijnt meteen in je bibliotheek, klaar om te spelen.";
 "guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u. Een .zip kan ook, of die nu één game bevat, alle bestanden van één disc, of meerdere games om uit te kiezen. .7z wordt niet ondersteund. Importeer alleen bestanden die je legaal bezit.";
@@ -372,6 +398,7 @@
 "guide.controller.title" = "Een controller verbinden";
 "guide.controller.step1" = "Zet je controller in de koppelmodus.";
 "guide.controller.step2" = "Open iOS-instellingen, dan Bluetooth, en verbind de controller met je iPhone.";
+"guide.controller.step2.ipad" = "Open iPadOS-instellingen, dan Bluetooth, en verbind de controller met je iPad.";
 "guide.controller.step3" = "Ga terug naar Retro Pal. De controller wordt automatisch herkend en de schermbediening verdwijnt.";
 "guide.controller.footer" = "Werkt met MFi-, Xbox-, PlayStation-, 8BitDo- en de meeste Bluetooth-controllers.";
 "guide.controller.status.connected" = "Controller verbonden: %@";
@@ -404,6 +431,7 @@
 "settings.sync.toggle" = "iCloud-synchronisatie";
 "settings.sync.state.disabled" = "Uit";
 "settings.sync.footer" = "Je snelle saves en je in-game saves synchroniseren met je privé-iCloud en tussen je apparaten. Schakel dit uit om ze alleen op deze iPhone te bewaren.";
+"settings.sync.footer.ipad" = "Je snelle saves en je in-game saves synchroniseren met je privé-iCloud en tussen je apparaten. Schakel dit uit om ze alleen op deze iPad te bewaren.";
 
 /* Pause menu - per-game hold-to-lock toggle */
 "overlay.buttonLock" = "Auto-lock";
@@ -550,6 +578,8 @@
 "import.error.discMissingFiles" = "Deze disc mist bestanden die je niet hebt geselecteerd: %@. Selecteer de .cue en al zijn .bin-bestanden samen, in één keer.";
 "import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc-, .nds-, .sfc-, .smc- en .nes-games; andere consoles worden niet ondersteund.";
 "import.error.zipExtractionFailed" = "Deze ZIP kon niet worden geopend. Pak hem uit in de Bestanden-app en importeer het gamebestand direct.";
+"import.error.zipUnsupportedCompression" = "Deze ZIP gebruikt een compressiemethode die Retro Pal niet kan lezen, zoals LZMA of BZIP2. Het bestand is niet beschadigd. Pak het uit in de Bestanden-app en importeer de game rechtstreeks, of maak de ZIP opnieuw met standaardcompressie.";
+"import.error.zipEncrypted" = "Deze ZIP is beveiligd met een wachtwoord. Pak het uit in de Bestanden-app en importeer daarna het gamebestand rechtstreeks.";
 "import.error.alreadyImported" = "Deze game staat al in je bibliotheek.";
 "import.duplicate.title" = "Al in je bibliotheek";
 "import.duplicate.bodySeveral" = "Deze games staan al in je bibliotheek:";
@@ -578,17 +608,23 @@
 "settings.externalDisplay.sideBySide" = "Naast elkaar";
 "settings.externalDisplay.stacked" = "Boven elkaar";
 "settings.externalDisplay.footer" = "Verbind een tv via AirPlay of een kabel en de game vult het scherm terwijl je iPhone de bediening houdt. De DS toont beide schermen; het touchscreen blijft op de telefoon.";
+"settings.externalDisplay.footer.ipad" = "Verbind een tv via AirPlay of een kabel en de game vult het scherm terwijl je iPad de bediening houdt. De DS toont beide schermen; het touchscreen blijft op de iPad.";
 "prompt.externalDisplay.title" = "Speel op het grote scherm";
 "prompt.externalDisplay.subtitle" = "Stuur de game via AirPlay of een kabel schermvullend naar je tv, terwijl je iPhone de bediening houdt.";
+"prompt.externalDisplay.subtitle.ipad" = "Stuur de game via AirPlay of een kabel schermvullend naar je tv, terwijl je iPad de bediening houdt.";
 "pro.benefit.externalDisplay.short" = "Op een tv spelen";
 
 /* --- Guide: playing on a TV (AirPlay / HDMI) --- */
 "guide.airplay.title" = "Op je tv spelen met AirPlay";
 "guide.airplay.intro" = "Stuur de game naar een tv en houd je iPhone als controller. Werkt via AirPlay of met een HDMI-adapter.";
+"guide.airplay.intro.ipad" = "Stuur de game naar een tv en houd je iPad als controller. Werkt via AirPlay of met een HDMI-adapter.";
 "guide.airplay.step1" = "Zet je iPhone en je tv op hetzelfde wifinetwerk. Met een HDMI-adapter sluit je die aan en ga je naar stap 3.";
+"guide.airplay.step1.ipad" = "Zet je iPad en je tv op hetzelfde wifinetwerk. Met een HDMI-adapter sluit je die aan en ga je naar stap 3.";
 "guide.airplay.step2" = "Open het bedieningspaneel, tik op Schermspiegeling en kies je tv.";
 "guide.airplay.step3" = "Start een game. Die vult de tv, en je iPhone houdt de bediening.";
+"guide.airplay.step3.ipad" = "Start een game. Die vult de tv, en je iPad houdt de bediening.";
 "guide.airplay.step4" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPhone.";
+"guide.airplay.step4.ipad" = "Bij DS verschijnen beide schermen op de tv en blijft het touchscreen op je iPad.";
 "guide.airplay.step5" = "Sluit een controller aan en de schermknoppen verdwijnen. Alleen het DS-touchscreen wordt nog op de telefoon gebruikt.";
 "guide.airplay.step6" = "Zodra je tv verbonden is, kies je bij Instellingen, Extern scherm, hoe de twee DS-schermen staan.";
 "guide.airplay.footer" = "Het geluid gaat met het beeld mee naar de tv via AirPlay. Met een controller open je het pauzemenu met de menuknop van de controller, dus je hoeft de telefoon nooit aan te raken.";
@@ -604,6 +640,7 @@
 "guide.widget.step4" = "Plaats hem en tik op Gereed.";
 "guide.widget.step5" = "Voor de twee die je zelf kiest: houd de widget ingedrukt, tik op Wijzig widget en kies de game en het opgeslagen spel dat wordt geopend.";
 "guide.widget.footer" = "Hoezen verschijnen zodra je een game minstens één keer hebt gespeeld, en de widget wordt bijgewerkt als je Retro Pal verlaat. Zelf games kiezen vereist iOS 17 of nieuwer; ‘Verder spelen’ werkt op elke ondersteunde iPhone.";
+"guide.widget.footer.ipad" = "Hoezen verschijnen zodra je een game minstens één keer hebt gespeeld, en de widget wordt bijgewerkt als je Retro Pal verlaat. Zelf games kiezen vereist iPadOS 17 of nieuwer; ‘Verder spelen’ werkt op elke ondersteunde iPad.";
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Deze code bevat onverwachte tekens. Cheatcodes gebruiken alleen 0-9, A-F, spaties en streepjes.";
@@ -651,25 +688,34 @@
 "settings.cheatDB.noGames" = "Voeg eerst een game aan je bibliotheek toe.";
 
 "externalDisplay.idle.hint" = "Start een game op je iPhone";
+"externalDisplay.idle.hint.ipad" = "Start een game op je iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "De PlayStation";
-"whatsnew.s1.b1" = "PlayStation-games draaien nu in Retro Pal, en de console is gratis voor iedereen.";
-"whatsnew.s1.b2" = "Saves, savestates, terugspoelen, cheatcodes en prestaties werken vanaf dag één.";
-"whatsnew.s1.b3" = "Je voortgang komt op een memory card te staan, net als op de console, en bereikt je andere apparaten zoals elke andere save.";
-"whatsnew.s1.b4" = "Rond het spel draagt hij zijn eigen behuizing, staand en liggend. Met {PRO} schilder je die controller in je eigen kleuren, tot en met de opdruk.";
-"whatsnew.s2.title" = "Discs, in welke vorm dan ook";
-"whatsnew.s2.b1" = "Een PlayStation-game kan één bestand zijn of een hele map. Voeg een .chd toe, of een .cue met bijbehorende .bin, of een zip met alles erin.";
-"whatsnew.s2.b2" = "Retro Pal zoekt uit welke bestanden bij elkaar horen en voegt één game toe, geen vijftig.";
-"whatsnew.s2.b3" = "Een game op meerdere discs wordt één game, ook als de discs als losse bestanden binnenkomen, en je wisselt van disc via het pauzemenu zonder het te verlaten.";
-"whatsnew.s3.title" = "Een controller met twee sticks";
-"whatsnew.s3.b1" = "De schermbediening heeft beide analoge sticks en de ANALOG-knop, zodat analoge games op het scherm net zo goed werken als met een controller.";
-"whatsnew.s3.b2" = "De linkerstick beweegt, de rechter kijkt rond, precies zoals de games verwachten.";
-"whatsnew.s4.title" = "Cheats";
-"whatsnew.s4.b1" = "Een opgeslagen cheat kun je nu bewerken: één verkeerd teken herstellen betekent niet meer de hele code opnieuw typen.";
-"whatsnew.s5.title" = "Besturing";
-"whatsnew.s5.b1" = "De joystick op het scherm krijgt hetzelfde reliëf als de sticks van de PlayStation, in de kleuren van elke console.";
-"whatsnew.s5.b2" = "Met {PRO} kies je hoe ver je terugspoelt: houd de terugspoelknop ingedrukt en kies het aantal seconden, tot 30.";
+"whatsnew.s1.title" = "Een nieuwe look";
+"whatsnew.s1.b1" = "Draai je telefoon op zijn kant: de bibliotheek wordt een rij hoezen op een bewegende achtergrond, en de spelpagina, RetroAchievements en Instellingen krijgen dezelfde stijl.";
+"whatsnew.s1.b2" = "Houd je de telefoon rechtop, dan staat je laatst gespeelde spel bovenaan en rust de lijst eronder op glas. De look kies je zelf: de paletknop {PALETTE} rechtsboven in de bibliotheek, naast de +, biedt vijf looks, en Klassiek als je de vorige interface liever hebt.";
+"whatsnew.s1.b3" = "Kies per spel de hoes: de officiële hoes, de RetroAchievements-afbeelding, je laatste schermafbeelding of een foto.";
+"whatsnew.s2.title" = "iPad";
+"whatsnew.s2.b1" = "Retro Pal draait nu op de iPad, met alle consoles, staand en liggend, en met bediening afgestemd op het grotere scherm.";
+"whatsnew.s2.b2" = "Zet het venster klein naast een andere app en de bibliotheek schakelt over op de iPhone-indeling.";
+"whatsnew.s3.title" = "Controllers die als toetsenbord worden herkend";
+"whatsnew.s3.b1" = "Oudere Bluetooth-controllers die iOS als toetsenbord herkent, zoals de 8BitDo Zero, werken nu zonder iets in te stellen, en elke toets kun je per console opnieuw toewijzen in Instellingen. Gratis.";
+"whatsnew.s3.b2" = "Op de iPhone verdwijnen de knoppen op het scherm zolang een toetsenbord is verbonden; op de iPad blijven ze staan.";
+"whatsnew.s4.title" = "Alle talen";
+"whatsnew.s4.b1" = "Spellen in een ZIP waarvan de naam Japanse, Koreaanse of Chinese tekens of letters met accenten bevat, worden nu onder hun echte naam geïmporteerd.";
+"whatsnew.s4.b2" = "De klok van de Nintendo DS toont het juiste jaar, welke kalender je apparaat ook gebruikt.";
+"whatsnew.s5.title" = "En verder";
+"whatsnew.s5.b1" = "De Nintendo DS-instellingen staan nu op de pagina van elk DS-spel, en de RetroAchievements-regel staat direct onder de snelle saveslots.";
+"whatsnew.s5.b2" = "De balk van de bibliotheek toont het batterijniveau van je controller.";
+"whatsnew.s5.b3" = "RetroAchievements-prestaties werken nu ook in PlayStation-spellen.";
+"whatsnew.s5.b4" = "Cheatcodes: een Europese of Japanse versie van een spel vindt nu zijn eigen codes, en de codes van het originele spel staan vóór die van door fans aangepaste versies.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Er zijn geen prestaties uit deze reeks geladen.";
+
+/* Language audit, 2026-09-02 */
+"cheats.browse.noResults" = "Geen game gevonden met die naam. De database vermeldt games onder hun Engelse titel.";
+"cheats.placeholderPrefix" = "bijv.";
+"library.untitled" = "Game zonder titel";
+"guide.controller.keyboard" = "Fysiek toetsenbord: pijltjes bewegen, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Toetsen worden op hun positie gelezen, dus de letters zijn die van een QWERTY-toetsenbord. Bluetooth-controllers die iOS als toetsenbord herkent, zoals de 8BitDo Zero in toetsenbordmodus, werken ook. Elke toets kun je opnieuw toewijzen in Instellingen, Controller, zolang het toetsenbord is verbonden. Op de iPhone verdwijnen de knoppen op het scherm zolang er een toetsenbord is verbonden.";
+"guide.controller.keyboard.ipad" = "Fysiek toetsenbord: pijltjes bewegen, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Toetsen worden op hun positie gelezen, dus de letters zijn die van een QWERTY-toetsenbord. Bluetooth-controllers die iOS als toetsenbord herkent, zoals de 8BitDo Zero in toetsenbordmodus, werken ook. Elke toets kun je opnieuw toewijzen in Instellingen, Controller, zolang het toetsenbord is verbonden.";

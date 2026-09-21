@@ -22,8 +22,10 @@ struct CheatBrowserSheet: View {
     let romName: String
     let system: String
     /// The cartridge game code, when the header has one (GBA and DS only).
-    /// Used solely to reach another region's codes when this game's own title
-    /// has no cheat file, which is the normal case outside English.
+    /// Used to reach the game's OWN release name when the filename does not
+    /// key it (a numbered set's "4828 - …" prefix, 2026-09-10), and then
+    /// another region's codes when this game's own title has no cheat file,
+    /// which is the normal case outside English.
     let gameCode: String?
     /// Hands the tapped code and its name back to the manager's fields.
     let onPick: (_ code: String, _ name: String) -> Void
@@ -197,6 +199,18 @@ struct CheatBrowserSheet: View {
                 Text(NSLocalizedString("cheats.browse.notFound", comment: ""))
             }
 
+            // A search that finds nothing used to leave the screen exactly as
+            // it was. The index keys games by their English title in ASCII,
+            // so a title typed in kana, hangul, hanzi or Cyrillic can never
+            // match, and the person typing had no way to learn that.
+            if searchResults.isEmpty, query.count >= 2 {
+                Section {
+                    Text(NSLocalizedString("cheats.browse.noResults", comment: ""))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             if !searchResults.isEmpty {
                 Section(NSLocalizedString("cheats.browse.results", comment: "")) {
                     ForEach(searchResults, id: \.self) { stem in
@@ -246,6 +260,12 @@ struct CheatBrowserSheet: View {
         regionalFallback = nil
         do {
             entries = try await library.entries(forTitle: romName, system: system)
+            // The cartridge code names the game's own release; when the
+            // filename keyed differently, that name is tried BEFORE any other
+            // region's, and it is this game's own file, so no banner.
+            if entries.isEmpty, let own = ownReleaseName {
+                entries = try await library.entries(forTitle: own, system: system)
+            }
             if entries.isEmpty { try await loadRegionalFallback() }
             // Could not recognise the file, and no other region has it either:
             // drop into search rather than a dead end, seeded with its own name.
@@ -255,6 +275,15 @@ struct CheatBrowserSheet: View {
             didFail = true
         }
         isLoading = false
+    }
+
+    /// The game's own release name from its cartridge code, when it keys
+    /// differently from the filename (see `CheatIndex.ownReleaseTitle`).
+    private var ownReleaseName: String? {
+        guard let gameCode, let romSystem = ROMSystemType(rawValue: system),
+              let name = BoxArtIndex.shared.serialName(gameCode, system: romSystem)
+        else { return nil }
+        return CheatIndex.ownReleaseTitle(forROMName: romName, serialName: name)
     }
 
     /// The same cartridge, released elsewhere under another name.
