@@ -28,6 +28,11 @@ enum CheatCodeFormatter {
         case invalidCharacter
         /// Action Replay DS wants two 8-digit blocks per line, always.
         case unpairedLine
+        /// A value left for the player to choose, printed as X's (`XXXX`,
+        /// `7FC136XX`). Cheat lists publish these for codes such as "pick any
+        /// item", and the X's are not a mistake the player made: they are a
+        /// blank to fill in, which the generic character message did not say.
+        case placeholderValue
     }
 
     /// A note worth showing that is NOT a rejection. The text may be perfectly
@@ -136,12 +141,16 @@ enum CheatCodeFormatter {
     /// The shape problem, if there is one we can name. `nil` means "hand it to
     /// the core", not "this code is valid".
     /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
-    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"`, for the same reason `advisory`
+    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"` / `"n64"`, for the same reason `advisory`
     ///   takes one:
     ///   the alphabet a code may use is a fact about the console, and the view's
     ///   `isNDS` flag describes a keyboard layout.
     static func problem(in code: String, isNDS: Bool, system: String = "") -> Problem? {
         guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        // Before the character check, which would otherwise answer first with
+        // a sentence that is true and useless here. Not on the NES, whose Game
+        // Genie alphabet includes X: "SXXOPO" is a code there, not a blank.
+        if system != "nes", containsPlaceholder(code) { return .placeholderValue }
         let permitted = system == "nes" ? allowed.union(nesGameGenieLetters) : allowed
         if code.contains(where: { !permitted.contains($0) }) { return .invalidCharacter }
 
@@ -157,6 +166,16 @@ enum CheatCodeFormatter {
             }
         }
         return nil
+    }
+
+    /// A block made of hex digits and X's with at least two X's in a row: a
+    /// value to fill in. No real code can contain one, because X is not a hex
+    /// digit, so this cannot flag a code the core would have accepted.
+    private static func containsPlaceholder(_ code: String) -> Bool {
+        let hexOrX = Set("0123456789ABCDEFX")
+        return code.uppercased()
+            .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "-" })
+            .contains { $0.contains("XX") && $0.allSatisfy { hexOrX.contains($0) } }
     }
 
     // MARK: - Advisories

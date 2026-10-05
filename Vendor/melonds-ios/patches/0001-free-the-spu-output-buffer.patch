@@ -1,0 +1,30 @@
+Free the SPU's output buffer when the SPU is destroyed
+
+SPU::InitOutput() mallocs OutputBuffer and nothing ever frees it, so every
+destroyed NDS leaves its sound buffer behind. Retro Pal builds a new NDS for
+every game it opens, so each game launch leaked one. The destructor now frees it.
+
+Upstream commit 0638e5bc ("Fix SPU output buffer leak", 2026-05-05), taken as is.
+It changes nothing an emulated frame produces: checked with Tools/nds-bench,
+identical pictures and sound on every frame.
+
+Applied at build time by Vendor/melonds-ios/build.sh. It goes away with the
+submodule bump that contains the upstream commit.
+
+diff --git a/src/SPU.cpp b/src/SPU.cpp
+index 1ae6abda..e1d49f96 100644
+--- a/src/SPU.cpp
++++ b/src/SPU.cpp
+@@ -226,6 +226,12 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
+ 
+ SPU::~SPU()
+ {
++    if (OutputBuffer != nullptr)
++    {
++        free(OutputBuffer);
++        OutputBuffer = nullptr;
++    }
++
+     Platform::Mutex_Free(AudioLock);
+     AudioLock = nullptr;
+     blip_delete(BlipLeft);

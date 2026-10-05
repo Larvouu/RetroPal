@@ -105,7 +105,7 @@ struct RAAchievementsView: View {
                     ToolbarItem(placement: .topBarLeading) { aboutButton }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.done", defaultValue: "Done")) { dismiss() }
+                    FocusableButton(String(localized: "common.done", defaultValue: "Done")) { dismiss() }
                 }
             }
             .sheet(isPresented: $showAbout) { RAAboutSheet() }
@@ -117,6 +117,8 @@ struct RAAchievementsView: View {
                                 onClose: { showGameShare = false })
             }
             .onAppear { load() }
+            // B closes the dashboard, as Done does (`ControllerNavigator`).
+            .controllerBack { dismiss() }
             .sheet(item: $shareTarget) { target in
                 RAShareView(achievement: target.achievement,
                             gameName: target.gameName,
@@ -172,7 +174,7 @@ struct RAAchievementsView: View {
     }
 
     private var aboutButton: some View {
-        Button { showAbout = true } label: {
+        FocusableButton { showAbout = true } label: {
             Image(systemName: "info.circle")
         }
         .accessibilityLabel(Text(String(localized: "ra.about.title",
@@ -318,7 +320,7 @@ struct RAAchievementsView: View {
                     ForEach(Array((inSet.filter(\.unlocked).sorted { $0.rarity > $1.rarity }
                                    + inSet.filter { !$0.unlocked }).enumerated()), id: \.offset) { _, ach in
                         if ach.unlocked {
-                            Button {
+                            FocusableButton {
                                 shareTarget = RAShareTarget(achievement: ach,
                                                             gameName: ra.currentGame?.title ?? "",
                                                             boxArtURL: ra.currentGameBoxArtURL(),
@@ -329,6 +331,9 @@ struct RAAchievementsView: View {
                             .buttonStyle(.plain)
                         } else {
                             RAAchievementRow(ach: ach)
+                                // Reachable, with nothing to do: a controller walks the list
+                                // through it, which is how it scrolls to the next achievements.
+                                .controllerFocusable(action: nil)
                         }
                     }
                 } header: {
@@ -342,7 +347,7 @@ struct RAAchievementsView: View {
             if !unlockedList.isEmpty {
                 Section {
                     ForEach(Array(unlockedList.enumerated()), id: \.offset) { _, ach in
-                        Button {
+                        FocusableButton {
                             shareTarget = RAShareTarget(achievement: ach,
                                                         gameName: ra.currentGame?.title ?? "",
                                                         boxArtURL: ra.currentGameBoxArtURL(),
@@ -364,6 +369,9 @@ struct RAAchievementsView: View {
             Section {
                 ForEach(Array(lockedList.enumerated()), id: \.offset) { _, ach in
                     RAAchievementRow(ach: ach)
+                        // Reachable, with nothing to do: a controller walks the
+                        // list through it, which is how it scrolls.
+                        .controllerFocusable(action: nil)
                 }
             } header: {
                 if !lockedList.isEmpty {

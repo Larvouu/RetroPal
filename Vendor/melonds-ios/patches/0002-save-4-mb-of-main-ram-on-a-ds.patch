@@ -1,0 +1,68 @@
+Save 4 MB of main RAM in a DS state, not 16 MB
+
+NDS::DoSavestate wrote main RAM at MainRAMMaxSize, the DSi's 16 MB, whatever the
+console. A DS has 4 MB and every access in DS mode is masked to it, so 12 MB of
+every DS state were bytes nothing ever reads: a state was about 19 MB where 7 MB
+say everything. That size is paid on every save slot written and read, on every
+iCloud upload of one, and by the rewind: measured with Tools/nds-bench, a
+snapshot of SoulSilver drops from 18.8 to 6.8 MB and from 3.8 to 3.0 ms (the
+rest of a snapshot's cost is not the RAM copy).
+
+The format changes, so the minor version goes 0 -> 1:
+- A 13.0 state (every state written before this patch) still reads 16 MB and
+  loads exactly as before. Checked with Tools/nds-bench on New Super Mario Bros.
+  and Pokemon SoulSilver states made on a phone: the patched core loading them
+  produces the same pictures and sound, frame for frame, as the unpatched core.
+- A 13.1 DS state writes and reads 4 MB. A DSi state keeps its 16 MB.
+- An older build given a 13.1 state refuses it ("state from the future"), which
+  is WHY this is a version and not a flag: without the bump, an older Retro Pal
+  on another device (iCloud syncs save slots) would read 4 MB of RAM and then
+  take the following sections for the rest of its 16 MB.
+
+On a future submodule bump, upstream may take minor 1 for something else. This
+patch then conflicts on the SAVESTATE_MINOR line and the build stops, on
+purpose: our states and upstream's must be re-numbered by hand, never merged by
+accident.
+
+Applied at build time by Vendor/melonds-ios/build.sh, after 0001. Specific to
+Retro Pal; not an upstream candidate as is (upstream frontends may load states
+from other builds).
+
+diff --git a/src/NDS.cpp b/src/NDS.cpp
+index f45051e..49453bd 100644
+--- a/src/NDS.cpp
++++ b/src/NDS.cpp
+@@ -643,7 +643,16 @@ bool NDS::DoSavestate(Savestate* file)
+         }
+     }
+ 
+-    file->VarArray(MainRAM, MainRAMMaxSize);
++    // A DS has 4 MB of main RAM; MainRAMMaxSize is the DSi's 16 MB, and every
++    // access in DS mode is masked to 4 MB (MainRAMMask), so the other 12 MB of a
++    // DS state were never read by anything. States up to 13.0 carry all 16 MB
++    // and still load exactly as before. From 13.1 a DS writes and reads its 4 MB
++    // only: a state drops from about 19 MB to about 7 MB, and a rewind snapshot,
++    // taken in the middle of a frame, gets about a fifth cheaper.
++    u32 mainRAMSize = MainRAMMaxSize;
++    if (ConsoleType == 0 && file->IsAtLeastVersion(13, 1))
++        mainRAMSize = 0x400000;
++    file->VarArray(MainRAM, mainRAMSize);
+     file->VarArray(SharedWRAM, SharedWRAMSize);
+     file->VarArray(ARM7WRAM, ARM7WRAMSize);
+ 
+diff --git a/src/Savestate.h b/src/Savestate.h
+index f046e43..b705a0c 100644
+--- a/src/Savestate.h
++++ b/src/Savestate.h
+@@ -25,7 +25,10 @@
+ #include "types.h"
+ 
+ #define SAVESTATE_MAJOR 13
+-#define SAVESTATE_MINOR 0
++// Retro Pal: 1 = a DS (not a DSi) saves 4 MB of main RAM instead of 16 MB. See
++// NDS::DoSavestate. Only a version bump makes an older build REFUSE such a state
++// ("state from the future") instead of reading 12 MB of the wrong sections.
++#define SAVESTATE_MINOR 1
+ 
+ // bitmask for the savestate config word
+ enum

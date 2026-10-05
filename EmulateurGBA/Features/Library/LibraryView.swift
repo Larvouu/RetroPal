@@ -216,7 +216,7 @@ struct LibraryView: View {
 
     /// Canonical console ordering, used only as a stable tiebreak when two
     /// consoles have identical play time (e.g. none played yet).
-    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1"]
+    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -552,7 +552,7 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private var libraryToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
-            Button {
+            FocusableButton(shape: .capsule) {
                 showSortPicker = true
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
@@ -589,20 +589,36 @@ struct LibraryView: View {
         } else {
             ToolbarItem(placement: .navigationBarTrailing) { paletteButton }
         }
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showFilePicker = true
-            } label: {
-                Image(systemName: "plus")
-            }
+        // The import "+" in the Play button's accent (asked 2026-09-27): the
+        // one action on this bar that matters more than the others. On iOS 26
+        // the system's glass pill is hidden around it, as around the badge, so
+        // the accent disc is what shows.
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .navigationBarTrailing) { importButton }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigationBarTrailing) { importButton }
         }
+    }
+
+    private var importButton: some View {
+        FocusableButton(shape: .capsule) {
+            showFilePicker = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(LibraryLandscapePalette.accentGradient))
+        }
+        .accessibilityLabel(NSLocalizedString("guide.importRom.title", comment: ""))
     }
 
     /// The palette in the List's bar: opens the same look panel the themed
     /// surfaces use (Classic, the five looks, the hero switch once a look is
     /// on), so the List and the looks pick the look the same way.
     private var paletteButton: some View {
-        Button {
+        FocusableButton(shape: .capsule) {
             showThemePicker = true
         } label: {
             Image(systemName: "paintpalette")
@@ -632,6 +648,7 @@ struct LibraryView: View {
         case "nds":            return MelonDSBridge()
         case "snes", "nes":    return MesenBridge()
         case "ps1":            return PCSXBridge()
+        case "n64":            return N64Bridge()
         default:               return MGBABridge()
         }
     }
@@ -850,6 +867,17 @@ struct LibraryView: View {
                     ForEach(group, id: \.self) { game in
                         LibraryRow(
                             game: game,
+                            // The list's first game is where a controller's
+                            // highlight starts on this page.
+                            isFirst: groupIndex == 0 && game == group.first,
+                            onOpenDetails: {
+                                // The row's own link cannot be followed from
+                                // code; a controller's A takes the page's
+                                // programmatic push to the same page.
+                                guard !presenting else { return }
+                                navigateToGame = game
+                                showNavigateDestination = true
+                            },
                             onPlay: { url, slot in playGame(game, url: url, slot: slot) },
                             onDelete: { deleteGame(game) },
                             onRename: {
@@ -877,6 +905,7 @@ struct LibraryView: View {
                     LibraryStatsCard(stats: stats)   // library face
                         .contentShape(Rectangle())
                         .onTapGesture { Haptics.tap(); showStoryShare = true }
+                        .controllerFocusable(shape: .rounded(16)) { Haptics.tap(); showStoryShare = true }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 16, trailing: 16))
@@ -1273,6 +1302,11 @@ struct LibraryView: View {
             expectedSize: game.romSize,
             session: EmulatorSession(bridge: Self.makeBridge(systemType: systemType))
         )
+        // The game owns the controller from this instant: the highlight goes
+        // now, not once the game's cover has finished sliding over the page
+        // (device report, 2026-09-27). The game's screen confirms it on
+        // appearing and hands it back on leaving (`EmulatorViewController`).
+        ControllerNavigator.shared.gameOwnsInput = true
     }
 
     /// Entry point for a URL delivered via the Files / share-sheet / AirDrop
@@ -1318,6 +1352,10 @@ struct LibraryView: View {
     /// animation completes — exactly the moment it's safe to present another
     /// cover or kick off the queued URL import.
     private func coverDidDismiss() {
+        // The game is gone: the controller moves around the app again, even if
+        // its screen never got to appear (a launch replaced at once).
+        ControllerNavigator.shared.gameOwnsInput = false
+        ControllerNavigator.shared.gameScreenActive = false
         if let request = queuedPlayRequest {
             queuedPlayRequest = nil
             // Still playing, just a different game: publishing stays held.
@@ -1478,6 +1516,10 @@ private struct LibraryRow: View {
     @AppStorage(LibraryPresentation.key) private var presentationFlag = false
     private var presenting: Bool { LibraryPresentation.isOn(presentationFlag) }
     @ObservedObject var game: GameEntity
+    /// The first game of the list (a controller's starting point).
+    var isFirst: Bool = false
+    /// What a controller's A does on this row: the same page the link opens.
+    let onOpenDetails: () -> Void
     let onPlay: (URL, Int?) -> Void
     let onDelete: () -> Void
     let onRename: () -> Void
@@ -1515,6 +1557,7 @@ private struct LibraryRow: View {
                 } label: {
                     rowLabel
                 }
+                .controllerFocusable(shape: .cell, isDefault: isFirst, action: onOpenDetails)
             }
         }
         .contextMenu {
@@ -1533,6 +1576,10 @@ private struct LibraryRow: View {
             // The auto-save preview lands on disk after the cover already
             // refreshed on lastPlayedAt (re-stamped at dismiss, before the async
             // write completes). Bump the tick so the cover re-reads once it lands.
+            saveTick &+= 1
+        }
+        // The library's default cover was switched, or an image it needs landed.
+        .onReceive(NotificationCenter.default.publisher(for: BoxArtManager.LibraryCoverSource.didChange)) { _ in
             saveTick &+= 1
         }
     }

@@ -71,10 +71,15 @@ final class BoxArtIndex {
         return table.names[idx]
     }
 
+    /// The consoles whose cartridges carry a four-character code in their
+    /// header: three letters for the game, one for the region. GB/GBC headers
+    /// have no unique code (the DATs carry a handful of stray entries there).
+    /// The Nintendo 64's is the one at 0x3B ("NZLP" is Ocarina of Time,
+    /// Europe), and its No-Intro DAT lists it as the serial.
+    static let serialSystems: Set<ROMSystemType> = [.gba, .nds, .n64]
+
     func serialName(_ serial: String, system: ROMSystemType) -> String? {
-        // Serials only identify GBA/NDS carts (GB/GBC headers have no
-        // unique code; the DATs carry a handful of stray entries there).
-        guard system == .gba || system == .nds, serial.count >= 3,
+        guard Self.serialSystems.contains(system), serial.count >= 3,
               let table = table(for: system), let idx = table.serial[serial]
         else { return nil }
         return table.names[idx]
@@ -116,7 +121,7 @@ final class BoxArtIndex {
     /// Japan sorts last: its dumps diverge most and its descriptions help
     /// fewest of our players.
     func regionalSiblingNames(ofSerial serial: String, system: ROMSystemType) -> [String] {
-        guard system == .gba || system == .nds, serial.count >= 4,
+        guard Self.serialSystems.contains(system), serial.count >= 4,
               let table = table(for: system)
         else { return [] }
         let prefix = String(serial.prefix(3))

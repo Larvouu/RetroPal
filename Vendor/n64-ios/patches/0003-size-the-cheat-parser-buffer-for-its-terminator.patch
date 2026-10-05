@@ -1,0 +1,21 @@
+Size the cheat parser's group buffer for its terminator
+
+retro_cheat_set copies each hexadecimal group of a cheat into a stack array
+of exactly the group's length, then writes the terminating NUL one byte past
+its end: a one-byte stack overflow for every group of every cheat applied.
+The array gets the one byte it needs.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0002. Worth sending
+upstream.
+
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -2293,7 +2293,7 @@
+             matchLength++;
+         } else {
+             if (matchLength){
+-               char codePartS[matchLength];
++               char codePartS[matchLength + 1];
+                strncpy(codePartS,codeLine+cursor-matchLength,matchLength);
+                codePartS[matchLength]=0;
+                codeParts[partCount++]=strtoul(codePartS,NULL,16);

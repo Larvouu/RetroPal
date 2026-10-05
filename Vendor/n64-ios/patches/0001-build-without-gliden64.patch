@@ -1,0 +1,394 @@
+Build the core without GLideN64 (HAVE_GLIDEN64=0), leaving parallel-RDP
+
+GLideN64 is licensed "under the GNU General Public License version 2" with no
+"or later" (its LICENSE file, upstream and in this tree). Retro Pal ships
+melonDS and MesenCE, which are GPL-3.0, in the same binary, and GPL-2.0-only
+code cannot be combined with GPL-3.0 code in one program. Everything else this
+build compiles is GPL-2.0-or-later, MIT, CC0 or public domain. angrylion is
+already optional upstream (HAVE_THR_AL=0) and stays out for its own licence,
+which forbids commercial use.
+
+With HAVE_GLIDEN64=0:
+- Makefile.common compiles none of GLideN64's renderer, none of
+  custom/GLideN64, no OpenGL at all (glsm, glsym, rglgen, GL_LIB), and not
+  the bundled libpng, which only GLideN64 calls (and which cannot build
+  against the iOS SDK: it takes TARGET_OS_MAC for classic Mac OS). The
+  osal file helpers that live in GLideN64's tree are mupen64plus code under
+  GPL-2.0-or-later and the core needs them, so they stay.
+- plugin.c turns every request for GLideN64, including libretro.c's own
+  fallbacks, into parallel-RDP, in the one function all of them go through,
+  and refuses to build if parallel-RDP is not enabled either.
+- libretro.c keeps its GLideN64 branches but compiles their OpenGL calls out;
+  they are unreachable once plugin.c has redirected the renderer.
+- main.c stops loading GLideN64's configuration.
+- cxd4 defines DMEM and IMEM itself. It declares them extern and relies on
+  GLideN64's N64.cpp for the definitions, and assigns them itself in
+  InitiateRSP, so only the definition was borrowed.
+
+HAVE_GLIDEN64 defaults to 1, so every existing build is unchanged.
+
+Retro Pal applies this patch at build time (Vendor/n64-ios/build.sh) rather
+than forking the core, so the submodule stays pinned to upstream.
+
+diff --git a/Makefile.common b/Makefile.common
+index 72aef3a..a7aa2c1 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -15,19 +15,30 @@ ZLIB_DIR           = $(ROOT_DIR)/custom/dependencies/libzlib
+ 
+ DYNAREC_USED := 0
+ 
++# HAVE_GLIDEN64=0 builds the core without the GLideN64 renderer and without
++# any OpenGL: parallel-RDP (Vulkan) is then the only renderer. GLideN64 is
++# licensed GPL-2.0-only, which cannot be combined with GPL-3.0 code in one
++# program. The osal file helpers that sit in GLideN64's tree are mupen64plus
++# code (GPL-2.0-or-later) and stay in the build.
++HAVE_GLIDEN64 ?= 1
++
+ INCFLAGS += \
+ 	-I$(ROOT_DIR)/custom \
+ 	-I$(ROOT_DIR)/custom/mupen64plus-core \
+ 	-I$(ROOT_DIR)/custom/android/include \
+-	-I$(ROOT_DIR)/custom/GLideN64 \
+-	-I$(VIDEODIR_GLIDEN64)/src \
+ 	-I$(VIDEODIR_GLIDEN64)/src/osal \
+ 	-I$(CORE_DIR)/src \
+ 	-I$(CORE_DIR)/src/api \
+ 	-I$(AUDIO_LIBRETRO_DIR) \
+ 	-I$(LIBRETRO_COMM_DIR)/include \
+-	-I$(LIBRETRO_DIR) \
++	-I$(LIBRETRO_DIR)
++
++ifeq ($(HAVE_GLIDEN64), 1)
++INCFLAGS += \
++	-I$(ROOT_DIR)/custom/GLideN64 \
++	-I$(VIDEODIR_GLIDEN64)/src \
+ 	-I$(VIDEODIR_GLIDEN64)/src/inc
++endif
+ 
+ MINIZIP_INCFLAGS = -I$(MINIZIP_DIR)
+ LIBPNG_INCFLAGS  = -I$(LIBPNG_DIR)
+@@ -146,7 +157,10 @@ SOURCES_C += \
+ 	$(CORE_DIR)/subprojects/md5/md5.c
+ COREFLAGS += -I$(CORE_DIR)/subprojects/md5
+ 
+-# libpng
++# libpng, which only GLideN64 uses (its texture packs); nothing else in the
++# build calls it. Left out with GLideN64: this copy also misreads the Apple
++# SDKs' TARGET_OS_MAC as classic Mac OS and asks for <fp.h>, which iOS lacks.
++ifeq ($(HAVE_GLIDEN64), 1)
+ ifeq ($(SYSTEM_LIBPNG), 1)
+ 	CFLAGS += $(shell pkg-config --cflags libpng)
+ 	LDFLAGS += $(shell pkg-config --libs libpng)
+@@ -154,6 +168,7 @@ else
+ 	INCFLAGS += $(LIBPNG_INCFLAGS)
+ 	SOURCES_C += $(LIBPNG_SOURCES_C)
+ endif
++endif
+ 
+ # Minizip
+ ifeq ($(SYSTEM_MINIZIP), 1)
+@@ -255,9 +270,11 @@ SOURCES_C += $(LIBRETRO_DIR)/libretro.c \
+ 	$(LIBRETRO_COMM_DIR)/vfs/vfs_implementation.c \
+ 	$(LIBRETRO_COMM_DIR)/streams/file_stream.c \
+ 	$(LIBRETRO_COMM_DIR)/compat/fopen_utf8.c \
+-	$(ROOT_DIR)/custom/mupen64plus-core/api/vidext_libretro.c \
+-	$(LIBRETRO_COMM_DIR)/glsm/glsm.c
++	$(ROOT_DIR)/custom/mupen64plus-core/api/vidext_libretro.c
+ 
++ifeq ($(HAVE_GLIDEN64), 1)
++COREFLAGS += -DHAVE_GLIDEN64
++SOURCES_C += $(LIBRETRO_COMM_DIR)/glsm/glsm.c
+ 
+ SOURCES_CXX   += \
+ 	$(VIDEODIR_GLIDEN64)/src/Combiner.cpp                                                         \
+@@ -390,6 +407,7 @@ SOURCES_CXX   += \
+ 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxTexCache.cpp \
+ 	$(VIDEODIR_GLIDEN64)/src/GLideNHQ/TxUtil.cpp \
+ 	$(VIDEODIR_GLIDEN64)/src/RSP_LoadMatrix.cpp
++endif
+ 
+ ifeq ($(HAVE_THR_AL), 1)
+ CFLAGS      += -DHAVE_THR_AL
+@@ -467,21 +485,24 @@ endif
+ 
+ SOURCES_C += $(LIBRETRO_COMM_DIR)/libco/libco.c
+ 
++ifeq ($(HAVE_GLIDEN64), 1)
+ ifeq ($(platform), $(filter $(platform), rpi3 rpi4 libnx jetson-xavier))
+ 	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/CRC32_ARMV8.cpp
+ else
+ 	SOURCES_CXX += $(VIDEODIR_GLIDEN64)/src/CRC_OPT.cpp
+ endif
+-
+ ifeq ($(HAVE_NEON),1)
+ 	SOURCES_CXX   += $(VIDEODIR_GLIDEN64)/src/Neon/3DMathNeon.cpp \
+ 						  $(VIDEODIR_GLIDEN64)/src/Neon/gSPNeon.cpp
++else
++	SOURCES_CXX   += $(VIDEODIR_GLIDEN64)/src/3DMath.cpp
++endif
++endif
+ 
++ifeq ($(HAVE_NEON),1)
+ 	SOURCES_ASM += $(LIBRETRO_COMM_DIR)/audio/conversion/float_to_s16_neon.S \
+ 						$(LIBRETRO_COMM_DIR)/audio/conversion/s16_to_float_neon.S \
+ 						$(LIBRETRO_COMM_DIR)/audio/resampler/drivers/sinc_resampler_neon.S
+-else
+-	SOURCES_CXX   += $(VIDEODIR_GLIDEN64)/src/3DMath.cpp
+ endif
+ 
+ ifneq ($(platform), $(filter $(platform), ios-arm64 tvos-arm64))
+@@ -490,6 +511,7 @@ else
+ 	SOURCES_C += $(ROOT_DIR)/custom/ios/compat.c
+ endif
+ 
++ifeq ($(HAVE_GLIDEN64), 1)
+ ifeq ($(GLES3),1)
+ 	ifeq ($(platform), $(filter $(platform), ios-arm64 tvos-arm64))
+ 		GLFLAGS += -DHAVE_OPENGLES -DHAVE_OPENGLES3 -DGLES3
+@@ -519,3 +541,7 @@ else
+ 	SOURCES_C += $(LIBRETRO_COMM_DIR)/glsym/glsym_gl.c
+ endif
+ SOURCES_C += $(LIBRETRO_COMM_DIR)/glsym/rglgen.c
++else
++# Nothing links against OpenGL without GLideN64.
++GL_LIB :=
++endif
+diff --git a/libretro/libretro.c b/libretro/libretro.c
+index 7665666..6fb8ef3 100644
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -27,7 +27,9 @@
+ #include "libretro_private.h"
+ #include "libretro_core_options.h"
+ 
++#ifdef HAVE_GLIDEN64
+ #include "GLideN64_libretro.h"
++#endif
+ #include "mupen64plus-next_common.h"
+ 
+ #include <libco.h>
+@@ -36,7 +38,9 @@
+ #include <switch.h>
+ #endif
+ #include <pthread.h>
++#ifdef HAVE_GLIDEN64
+ #include <glsm/glsmsym.h>
++#endif
+ 
+ #include "api/m64p_frontend.h"
+ #include "api/m64p_types.h"
+@@ -1805,6 +1809,7 @@ void context_reset(void)
+     if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+     {
+        log_cb(RETRO_LOG_DEBUG, CORE_NAME ": context_reset()\n");
++#ifdef HAVE_GLIDEN64
+        glsm_ctl(GLSM_CTL_STATE_CONTEXT_RESET, NULL);
+        if (!context_setup_first_init)
+        {
+@@ -1820,6 +1825,7 @@ void context_reset(void)
+           gln64DestroyGfxContext();
+           gln64ReinitGfxContext();
+        }
++#endif
+     }
+ 
+     reinit_gfx_plugin();
+@@ -1829,7 +1835,9 @@ static void context_destroy(void)
+ {
+     if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+     {
++#ifdef HAVE_GLIDEN64
+        glsm_ctl(GLSM_CTL_STATE_CONTEXT_DESTROY, NULL);
++#endif
+     }
+ #ifdef HAVE_PARALLEL_RDP
+     if (current_rdp_type == RDP_PLUGIN_PARALLEL)
+@@ -1945,20 +1953,25 @@ bool retro_load_game(const struct retro_game_info *game)
+     retro_savestate_complete = true;
+     load_game_successful = false;
+ 
++#ifdef HAVE_GLIDEN64
+     glsm_ctx_params_t params = {0};
++#endif
+     format_saved_memory();
+ 
+     update_variables(true);
+ 
++#ifdef HAVE_GLIDEN64
+     if(current_rdp_type == RDP_PLUGIN_GLIDEN64 && EnableThreadedRenderer)
+     {
+        initializing = true;
+        retro_thread = co_active();
+        game_thread = co_create(65536 * sizeof(void*) * 16, gln64_thr_gl_invoke_command_loop);
+     }
++#endif
+ 
+     init_audio_libretro(audio_buffer_size);
+ 
++#ifdef HAVE_GLIDEN64
+     params.context_reset         = context_reset;
+     params.context_destroy       = context_destroy;
+     params.environ_cb            = environ_cb;
+@@ -1971,6 +1984,7 @@ bool retro_load_game(const struct retro_game_info *game)
+             log_cb(RETRO_LOG_ERROR, CORE_NAME ": libretro frontend doesn't have OpenGL support\n");
+         return false;
+     }
++#endif
+ 
+ #ifdef HAVE_PARALLEL_RDP
+     if (current_rdp_type == RDP_PLUGIN_PARALLEL)
+@@ -2012,6 +2026,7 @@ void retro_unload_game(void)
+        environ_clear_thread_waits_cb(1, NULL);
+     }
+ 
++#ifdef HAVE_GLIDEN64
+     if(current_rdp_type == RDP_PLUGIN_GLIDEN64 && EnableThreadedRenderer)
+     {
+        CoreDoCommand(M64CMD_STOP, 0, NULL);
+@@ -2030,6 +2045,7 @@ void retro_unload_game(void)
+ 
+        CoreDoCommand(M64CMD_ROM_CLOSE, 0, NULL);
+     }
++#endif
+ 
+     cleanup_global_paths();
+     
+@@ -2059,14 +2075,18 @@ void retro_run (void)
+           }
+        }
+        
++#ifdef HAVE_GLIDEN64
+        glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
++#endif
+     }
+ 
+     co_switch(game_thread);
+ 
+     if(current_rdp_type == RDP_PLUGIN_GLIDEN64)
+     {
++#ifdef HAVE_GLIDEN64
+        glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
++#endif
+     }
+     
+     if (libretro_swap_buffer)
+@@ -2150,7 +2170,9 @@ bool retro_serialize(void *data, size_t size)
+          // Ensure the Audio driver is on (f.e. menu sounds off)
+          environ_clear_thread_waits_cb(1, NULL);
+       }
++#ifdef HAVE_GLIDEN64
+       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
++#endif
+    }
+ 
+    while (!retro_savestate_complete)
+@@ -2160,7 +2182,9 @@ bool retro_serialize(void *data, size_t size)
+ 
+    if (current_rdp_type == RDP_PLUGIN_GLIDEN64)
+    {
++#ifdef HAVE_GLIDEN64
+       glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
++#endif
+    }
+ 
+    return !!retro_savestate_result;
+@@ -2183,7 +2207,9 @@ bool retro_unserialize(const void *data, size_t size)
+          // Ensure the Audio driver is on (f.e. menu sounds off)
+          environ_clear_thread_waits_cb(1, NULL);
+       }
++#ifdef HAVE_GLIDEN64
+       glsm_ctl(GLSM_CTL_STATE_BIND, NULL);
++#endif
+    }
+ 
+    while (!retro_savestate_complete)
+@@ -2193,7 +2219,9 @@ bool retro_unserialize(const void *data, size_t size)
+ 
+    if (current_rdp_type == RDP_PLUGIN_GLIDEN64)
+    {
++#ifdef HAVE_GLIDEN64
+       glsm_ctl(GLSM_CTL_STATE_UNBIND, NULL);
++#endif
+    }
+ 
+    return true;
+diff --git a/mupen64plus-core/src/main/main.c b/mupen64plus-core/src/main/main.c
+index 3ef61a2..d22a8b8 100644
+--- a/mupen64plus-core/src/main/main.c
++++ b/mupen64plus-core/src/main/main.c
+@@ -266,10 +266,14 @@ static void main_check_inputs(void)
+ /*********************************************************************************************************
+ * global functions, for adjusting the core emulator behavior
+ */
++#ifdef HAVE_GLIDEN64
+ extern void Config_LoadConfig();
++#endif
+ int main_set_core_defaults(void)
+ {
++#ifdef HAVE_GLIDEN64
+     Config_LoadConfig();
++#endif
+     return 1;
+ }
+ 
+diff --git a/mupen64plus-core/src/plugin/plugin.c b/mupen64plus-core/src/plugin/plugin.c
+index e472a41..b9ab633 100644
+--- a/mupen64plus-core/src/plugin/plugin.c
++++ b/mupen64plus-core/src/plugin/plugin.c
+@@ -93,7 +93,9 @@ void ResizeVideoOutput(int width, int height){
+         X##FBGetFrameBufferInfo \
+     }
+ 
++#if defined(HAVE_GLIDEN64)
+ DEFINE_GFX(gln64);
++#endif
+ #if defined(HAVE_THR_AL)
+ DEFINE_GFX(angrylion);
+ #endif
+@@ -398,6 +400,15 @@ enum rsp_plugin_type current_rsp_type = RSP_PLUGIN_NONE;
+ 
+ void plugin_connect_rdp_api(enum rdp_plugin_type type)
+ {
++#if !defined(HAVE_GLIDEN64)
++   /* Built without GLideN64: every request for it, including the
++    * fallbacks libretro.c makes, lands on parallel-RDP instead. */
++#if !defined(HAVE_PARALLEL_RDP)
++#error "HAVE_GLIDEN64=0 needs HAVE_PARALLEL_RDP=1: no renderer would be left"
++#endif
++   if (type == RDP_PLUGIN_GLIDEN64)
++      type = RDP_PLUGIN_PARALLEL;
++#endif
+    switch (type)
+    {
+       case RDP_PLUGIN_GLIDEN64:
+@@ -442,7 +453,9 @@ void plugin_connect_all()
+ #endif
+           break;
+        case RDP_PLUGIN_GLIDEN64:
++#if defined(HAVE_GLIDEN64)
+           gfx = gfx_gln64;
++#endif
+           break;
+       case RDP_PLUGIN_NONE:
+       default:
+diff --git a/mupen64plus-rsp-cxd4/su.c b/mupen64plus-rsp-cxd4/su.c
+index 96613ac..138526c 100644
+--- a/mupen64plus-rsp-cxd4/su.c
++++ b/mupen64plus-rsp-cxd4/su.c
+@@ -28,9 +28,15 @@ typedef VECTOR_OPERATION(*p_vector_func)(v16, v16);
+ 
+ pu8 DRAM;
+ 
++#ifdef HAVE_GLIDEN64
+ // NOTE: Links against GLideN64\src\N64.cpp due to conflicts and maintenance efforts
+ extern pu8 DMEM;
+ extern pu8 IMEM;
++#else
++/* Built without GLideN64, so nothing else defines them. */
++pu8 DMEM;
++pu8 IMEM;
++#endif
+ 
+ NOINLINE void res_S(void)
+ {

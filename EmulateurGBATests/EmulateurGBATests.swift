@@ -76,35 +76,9 @@ struct ControllerManagerTests {
                 "only A and B should be set, got \(mask)")
     }
 
-    /// Regression guard: when the active controller goes away,
-    /// `onButtonsChanged` must fire once with mask = 0 so any button
-    /// the user was holding (B during a boss fight, the analog stick
-    /// pushed left in a runner) is released on the bridge side.
-    /// Without this the emulator core would keep the button stuck
-    /// pressed and the game would behave like the user never let go.
-    @Test
-    func test_disconnect_clearsHeldButtons() {
-        let manager = ControllerManager.shared
-
-        // Stash any handler the rest of the app may have registered so
-        // we don't leak our test handler past the test boundary.
-        let previousHandler = manager.onButtonsChanged
-        defer { manager.onButtonsChanged = previousHandler }
-
-        var receivedMasks: [UInt32] = []
-        manager.onButtonsChanged = { receivedMasks.append($0) }
-
-        // Drive a connect -> disconnect cycle through the DEBUG-only
-        // simulator. `debugSetConnected(false)` takes the same path the
-        // real `GCControllerDidDisconnect` notification takes when the
-        // last controller goes away: dispatch mask=0, then drop the
-        // connected state. No real GCController needed to verify it.
-        manager.debugSetConnected(true)
-        manager.debugSetConnected(false)
-
-        #expect(receivedMasks.contains(0),
-                "disconnect must dispatch mask=0 so held buttons release")
-    }
+    // The disconnect-releases-held-buttons guard moved to
+    // `MultiControllerTests` (1.3.3), serialized with the other tests that
+    // drive the shared ControllerManager.
 
     // MARK: - Custom mapping (1.2.4 remapping, wave one)
 
@@ -161,6 +135,69 @@ struct ControllerManagerTests {
         src.faceA = true
         #expect(ControllerManager.buttonMask(from: src, mapping: mapping)
                 == (GBAInput.a.rawValue | GBAInput.b.rawValue))
+    }
+
+    // MARK: - Pads without the extended-gamepad profile (read by element name)
+
+    /// A stick-less pad like the 8BitDo FlipPad (USB-C), which iOS can offer
+    /// without the extended gamepad: every element it HAS is read by its
+    /// GameController name, and the ones it lacks read as released.
+    @Test
+    func test_profileByName_stickLessPad_mapsLikeAnExtendedPad() {
+        typealias D = ControllerInputSource.DirectionalState
+        func source(_ pressed: Set<String>, dpad: D = D()) -> ControllerInputSource {
+            let names = [GCInputButtonA, GCInputButtonB, GCInputButtonX, GCInputButtonY,
+                         GCInputLeftShoulder, GCInputRightShoulder,
+                         GCInputButtonMenu, GCInputButtonOptions]
+            var buttons: [String: Bool] = [:]
+            for name in names { buttons[name] = pressed.contains(name) }
+            return ControllerInputSource(buttons: buttons, dpads: [GCInputDirectionPad: dpad])
+        }
+        func mask(_ s: ControllerInputSource) -> UInt32 { ControllerManager.buttonMask(from: s) }
+
+        #expect(mask(source([GCInputButtonA])) == GBAInput.a.rawValue)
+        #expect(mask(source([GCInputButtonB])) == GBAInput.b.rawValue)
+        #expect(mask(source([GCInputButtonX])) == GBAInput.y.rawValue)
+        #expect(mask(source([GCInputButtonY])) == GBAInput.x.rawValue)
+        #expect(mask(source([GCInputLeftShoulder])) == GBAInput.l.rawValue)
+        #expect(mask(source([GCInputRightShoulder])) == GBAInput.r.rawValue)
+        #expect(mask(source([GCInputButtonMenu])) == GBAInput.start.rawValue)
+        #expect(mask(source([GCInputButtonOptions])) == GBAInput.select.rawValue)
+        #expect(mask(source([], dpad: D(up: true))) == GBAInput.up.rawValue)
+        #expect(mask(source([], dpad: D(down: true))) == GBAInput.down.rawValue)
+        #expect(mask(source([], dpad: D(left: true))) == GBAInput.left.rawValue)
+        #expect(mask(source([], dpad: D(right: true))) == GBAInput.right.rawValue)
+        #expect(mask(source([])) == 0)
+
+        let idle = source([])
+        #expect(idle.hasOptions, "the pad has an Options button, released")
+        #expect(!idle.hasAnalogInput, "no sticks, so no analog input")
+    }
+
+    /// Options is present only when the pad has one (the PlayStation's Select
+    /// fallback reads `hasOptions`), and the micro-gamepad names stand in for
+    /// the d-pad and the A / X buttons.
+    @Test
+    func test_profileByName_microGamepadNames_andMissingOptions() {
+        let s = ControllerInputSource(
+            buttons: [GCInputMicroGamepadButtonA: true, GCInputMicroGamepadButtonX: false],
+            dpads: [GCInputMicroGamepadDpad: .init(left: true)])
+        #expect(s.faceA)
+        #expect(!s.faceX)
+        #expect(s.left)
+        #expect(!s.hasOptions)
+        #expect(!s.options)
+    }
+
+    /// A left stick, when the profile carries one, steers the d-pad by angle
+    /// exactly as on an extended pad.
+    @Test
+    func test_profileByName_leftStickSteersTheDpad() {
+        let s = ControllerInputSource(
+            buttons: [:],
+            dpads: [GCInputLeftThumbstick: .init(x: 0, y: 1)])
+        #expect(ControllerManager.buttonMask(from: s) == GBAInput.up.rawValue)
+        #expect(s.leftStickY == 1)
     }
 
     // MARK: - Left-stick angle resolution (DualShock 4 left/right regression)

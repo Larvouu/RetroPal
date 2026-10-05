@@ -1,0 +1,74 @@
+Keep the audio DMA inside RDRAM
+
+The audio interface's DRAM address register holds a 24-bit, 8-byte-aligned
+address and the hardware ignores the rest. The core kept the whole 32-bit
+value a game wrote, then read samples at dram + address. A game that writes a
+CPU pointer there (KSEG1, 0xa0xxxxxx: Sblobber64, N64brew Game Jam 2020, when
+its music starts) sent the sample push about 2.5 GB past the end of RDRAM and
+the app crashed. The register now keeps the hardware's 24 bits, and every
+sample push checks that its span lies inside the installed RDRAM, which also
+covers an address restored from a save state. A span outside it is skipped:
+that stretch plays as silence, as open bus would, instead of reading memory
+that is not the console's.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0006.
+
+diff --git a/mupen64plus-core/src/device/rcp/ai/ai_controller.c b/mupen64plus-core/src/device/rcp/ai/ai_controller.c
+index bc46a5f..657177a 100644
+--- a/mupen64plus-core/src/device/rcp/ai/ai_controller.c
++++ b/mupen64plus-core/src/device/rcp/ai/ai_controller.c
+@@ -70,6 +70,19 @@ static unsigned int get_dma_duration(struct ai_controller* ai)
+ }
+ 
+ 
++/* Push `length` bytes of samples starting `offset` bytes into fifo[0]'s
++ * buffer, only if they all lie inside RDRAM. The address is a game's to set,
++ * and on hardware a buffer past the installed RAM reads as open bus; here it
++ * would read past the end of `dram`. Out of range, nothing is pushed: that
++ * stretch is silence, not a crash. */
++static void push_fifo0_samples(struct ai_controller* ai, uint32_t offset, uint32_t length)
++{
++    uint64_t start = (uint64_t)ai->fifo[0].address + offset;
++    if (length == 0 || start + length > ai->ri->rdram->dram_size)
++        return;
++    ai->iaout->push_samples(ai->aout, (unsigned char*)ai->ri->rdram->dram + start, length);
++}
++
+ static void do_dma(struct ai_controller* ai, struct ai_dma* dma)
+ {
+     /* lazy initialization of sample format */
+@@ -175,8 +188,7 @@ void read_ai_regs(void* opaque, uint32_t address, uint32_t* value)
+         if (*value < ai->last_read)
+         {
+             unsigned int diff = ai->fifo[0].length - ai->last_read;
+-            unsigned char *p = (unsigned char*)&ai->ri->rdram->dram[ai->fifo[0].address/4];
+-            ai->iaout->push_samples(ai->aout, p + diff, ai->last_read - *value);
++            push_fifo0_samples(ai, diff, ai->last_read - *value);
+             ai->last_read = *value;
+         }
+     }
+@@ -193,6 +205,14 @@ void write_ai_regs(void* opaque, uint32_t address, uint32_t value, uint32_t mask
+ 
+     switch (reg)
+     {
++    case AI_DRAM_ADDR_REG:
++        /* The register holds a 24-bit, 8-byte-aligned RDRAM address; the
++         * hardware ignores the upper bits. Kept whole, a game that writes a
++         * KSEG0/KSEG1 pointer here (0xa0xxxxxx) sent the sample push 2.5 GB
++         * past RDRAM. */
++        masked_write(&ai->regs[AI_DRAM_ADDR_REG], value & UINT32_C(0xfffff8), mask);
++        return;
++
+     case AI_LEN_REG:
+         masked_write(&ai->regs[AI_LEN_REG], value, mask);
+         if (ai->regs[AI_LEN_REG] != 0) {
+@@ -226,8 +246,7 @@ void ai_end_of_dma_event(void* opaque)
+     if (ai->last_read != 0)
+     {
+         unsigned int diff = ai->fifo[0].length - ai->last_read;
+-        unsigned char *p = (unsigned char*)&ai->ri->rdram->dram[ai->fifo[0].address/4];
+-        ai->iaout->push_samples(ai->aout, p + diff, ai->last_read);
++        push_fifo0_samples(ai, diff, ai->last_read);
+         ai->last_read = 0;
+     }
+ 

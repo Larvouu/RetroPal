@@ -40,15 +40,22 @@ struct CoverChooserSheet: View {
     private var raFetchURL: URL? { romHash.flatMap { manager.raArtURL(forROMHash: $0) } }
     private var offersRA: Bool { hasRAOnDisk || raFetchURL != nil }
 
-    private var isBoxArtChosen: Bool {
-        [BoxArtManager.coverStateBoxArt, BoxArtManager.coverStateBoxArtHeuristic,
-         BoxArtManager.coverStateBoxArtChosen].contains(game.coverType ?? "")
+    /// The checkmark follows what the library SHOWS for this game, which since
+    /// the library-wide default (2026-09-27) is not always what its state
+    /// says: a game the player never set shows the default's cover.
+    private var shownCover: URL? {
+        manager.coverFileURL(forROMHash: romHash, coverType: game.coverType)
     }
-    private var isRAChosen: Bool { game.coverType == BoxArtManager.coverStateRA }
+    private var isBoxArtChosen: Bool {
+        romHash.map { shownCover == manager.imageURL(forROMHash: $0) } ?? false
+    }
+    private var isRAChosen: Bool {
+        romHash.map { shownCover == manager.raImageURL(forROMHash: $0) } ?? false
+    }
     private var isCustomChosen: Bool { game.coverType == BoxArtManager.coverStateCustom }
     /// Every state that shows the screenshot in the library, the sweep's own
-    /// "no match" included.
-    private var isScreenshotChosen: Bool { !isBoxArtChosen && !isRAChosen && !isCustomChosen }
+    /// "no match" and the screenshot default included.
+    private var isScreenshotChosen: Bool { shownCover == nil }
 
     var body: some View {
         NavigationStack {

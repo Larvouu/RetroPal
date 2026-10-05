@@ -27,6 +27,18 @@ extension DressVariant {
     var snesPalette: SNESSkinPalette? { if case .custom(.snes(let p)) = self { return p }; return nil }
     var nesPalette: NESSkinPalette? { if case .custom(.nes(let p)) = self { return p }; return nil }
     var ps1Palette: PS1SkinPalette? { if case .custom(.ps1(let p)) = self { return p }; return nil }
+    var n64Palette: N64SkinPalette? { if case .custom(.n64(let p)) = self { return p }; return nil }
+
+    /// The Nintendo 64's colours under this variant, whichever it is: the
+    /// custom palette, or the built-in one this variant stands for. The
+    /// Nintendo 64's own controls (A, B, Z, C, START, the stick, the cross's
+    /// marks) and its shell read their colour here, so the three dresses are
+    /// one code path. The controls every console shares (the cross, L and R,
+    /// MENU and CLIP) resolve through `dpadFace` and the others, below.
+    var n64: N64SkinPalette {
+        if let p = n64Palette { return p }
+        return self == .retroPal ? .retroPal : .nostalgia
+    }
 
     /// Per-control dressed face fill, or nil to keep the built-in Nostalgia colour. Retro Pal keeps
     /// its unified recolour (every GB/GBC face → gbcDark; NDS → ndsAccent; GBA untouched). A custom
@@ -34,7 +46,8 @@ extension DressVariant {
     private func customFace(_ kind: DressKind, gbc: (GBCSkinPalette) -> UIColor,
                             snes: (SNESSkinPalette) -> UIColor = { $0.pad },
                             nes: (NESSkinPalette) -> UIColor = { $0.face },
-                            ps1: (PS1SkinPalette) -> UIColor = { $0.pad }) -> UIColor? {
+                            ps1: (PS1SkinPalette) -> UIColor = { $0.pad },
+                            n64: (N64SkinPalette) -> UIColor = { $0.shoulders }) -> UIColor? {
         switch self {
         case .nostalgia:            return nil
         //Retro Pal answers PER CONTROL on the NES by feeding its own values through the very
@@ -60,11 +73,15 @@ extension DressVariant {
         //that actually reaches here is the cross, the pills, MENU, CLIP and the four
         //shoulders, which on that pad really are one colour.
         case .custom(.ps1(let p)): return ps1(p)
+        //The Nintendo 64 answers per control: the cross, MENU and CLIP, and L and R each have a
+        //slot, chosen by the closures below. Its A and B are set per button in
+        //`N64TouchControlsView` (`ActionButton.dressFace` outranks this).
+        case .custom(.n64(let p)): return n64(p)
         }
     }
     /// The D-pad cross face (+ its under-discs).
     func dpadFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { $0.dpad }, nes: { $0.pad })
+        customFace(kind, gbc: { $0.dpad }, nes: { $0.pad }, n64: { $0.dpad })
     }
     /// The face buttons. On the PlayStation this is the plastic BEHIND the four
     /// symbols and takes its own slot: a pad whose diamond matches its cross is
@@ -72,17 +89,17 @@ extension DressVariant {
     /// a palette. Square, cross, circle and triangle are how a player
     /// identifies a button, so they stay fixed on every skin, always.
     func abFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { $0.abButtons }, ps1: { $0.diamond })
+        customFace(kind, gbc: { $0.abButtons }, ps1: { $0.diamond }, n64: { $0.a })
     }
     /// The SELECT / START / MENU / CLIP button faces.
     func smallButtonFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad })
+        customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad }, n64: { $0.menuButtons })
     }
     /// The L/R shoulder faces (GB/GBC has none). The SNES's are the BODY colour with dark
     /// letters, exactly like the real pad, which is why this one asks for a different slot than
     /// every other control on that console.
     func shoulderFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { _ in .clear }, snes: { $0.body })
+        customFace(kind, gbc: { _ in .clear }, snes: { $0.body }, n64: { $0.shoulders })
     }
 }
 
@@ -131,6 +148,9 @@ enum RetroPalPalette {
     static let ps1Body     = UIColor(rpHex: 0x1F1F1F)    // fond
     static let ps1Surround = UIColor(rpHex: 0x000000)    // screen panel: black, as on the Nostalgia dress
     static let ps1Face     = UIColor(rpHex: 0x727272)    // every control
+
+    // Nintendo 64: the shell only, every control as on the Classic dress.
+    static let n64Body     = UIColor(rpHex: 0x253E8B)
 
     // NDS
     static let ndsBody     = UIColor(rpHex: 0x595A76)   // fond
@@ -183,6 +203,9 @@ enum RetroPalPalette {
         // The four faces do not come through here either: PS1TouchControlsView
         // sets `dressFace` per button and that outranks this.
         case .ps1: return DressKind.gbaButton
+        // UNTOUCHED: the Retro Pal N64 changes the shell and nothing else, so
+        // every control keeps its Classic colour (given 2026-09-27).
+        case .n64: return nil
         }
     }
 

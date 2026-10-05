@@ -65,6 +65,15 @@ final class AnalogStickView: UIView {
     /// pattern-image background rather than a drawn fill, because this layer
     /// moves with the thumb and a pattern follows its layer for free.
     private let thumbGrain = CALayer()
+    /// THE NINTENDO 64'S CAP, which is not the PlayStation's: a disc with two
+    /// concentric rings set into it a shade darker, and a small dark hole at its
+    /// centre that reads as a recess. All three move with the cap.
+    private let n64Rings = CAShapeLayer()
+    private let n64RingCatch = CAShapeLayer()
+    private let n64Hole = CAShapeLayer()
+    /// The hole's inner wall: shadow on the side the light comes from (the top
+    /// right), light on the far wall, which is what makes a disc read as a hole.
+    private let n64HoleWall = CAGradientLayer()
     private var activeTouch: UITouch?
 
     // MARK: Dress
@@ -95,6 +104,18 @@ final class AnalogStickView: UIView {
         thumbGrain.isHidden = true
         layer.addSublayer(thumbGrain)
         layer.addSublayer(thumbDome)
+        n64RingCatch.fillColor = UIColor.clear.cgColor
+        n64Rings.fillColor = UIColor.clear.cgColor
+        n64HoleWall.startPoint = CGPoint(x: 1, y: 0)
+        n64HoleWall.endPoint = CGPoint(x: 0, y: 1)
+        n64HoleWall.colors = [UIColor.black.withAlphaComponent(0.85).cgColor,
+                              UIColor.black.withAlphaComponent(0.35).cgColor,
+                              UIColor.white.withAlphaComponent(0.18).cgColor]
+        n64HoleWall.locations = [0, 0.6, 1]
+        for piece in [n64RingCatch, n64Rings, n64Hole, n64HoleWall] as [CALayer] {
+            piece.isHidden = true
+            layer.addSublayer(piece)
+        }
         applyResting()
     }
 
@@ -121,6 +142,22 @@ final class AnalogStickView: UIView {
             thumbLayer.strokeColor = face.rpEdge.cgColor
             thumbDome.isHidden = false
             thumbGrain.isHidden = false
+            // The N64's stick has neither the PlayStation's grain nor the black
+            // ring of its hole: a plain grey disc, carved as described above.
+            let isN64 = dressKind == .n64
+            thumbGrain.isHidden = isN64
+            holeLayer.isHidden = isN64
+            for piece in [n64Rings, n64RingCatch, n64Hole, n64HoleWall] as [CALayer] {
+                piece.isHidden = !isN64
+            }
+            if isN64 {
+                let stick = dressVariant.n64.stick
+                thumbLayer.fillColor = stick.cgColor
+                thumbLayer.strokeColor = stick.rpEdge.cgColor
+                n64Rings.strokeColor = DressKind.n64Incised(stick).cgColor
+                n64RingCatch.strokeColor = stick.rpMixed(with: .white, 0.30).cgColor
+                n64Hole.fillColor = stick.rpMixed(with: .black, 0.70).cgColor
+            }
             thumbDome.colors = [UIColor.white.withAlphaComponent(0.22).cgColor,
                                 UIColor.clear.cgColor,
                                 UIColor.black.withAlphaComponent(0.22).cgColor]
@@ -128,6 +165,9 @@ final class AnalogStickView: UIView {
         } else {
             thumbDome.isHidden = true
             thumbGrain.isHidden = true
+            for piece in [n64Rings, n64RingCatch, n64Hole, n64HoleWall] as [CALayer] {
+                piece.isHidden = true
+            }
             baseLayer.isHidden = false
             holeLayer.isHidden = true
             baseLayer.fillColor = UIColor.white.withAlphaComponent(0.15).cgColor
@@ -199,6 +239,29 @@ final class AnalogStickView: UIView {
             mask.path = disc
             piece.mask = mask
         }
+        // The N64's carving, centred on the cap wherever it has moved.
+        let ringWidth = max(1, thumbRadius * 0.05)
+        let rings = UIBezierPath()
+        for fraction in [CGFloat(0.72), 0.46] {
+            rings.append(UIBezierPath(arcCenter: centre, radius: thumbRadius * fraction,
+                                      startAngle: 0, endAngle: .pi * 2, clockwise: true))
+        }
+        n64Rings.lineWidth = ringWidth
+        n64RingCatch.lineWidth = ringWidth
+        n64Rings.path = rings.cgPath
+        let catchRings = rings.copy() as! UIBezierPath
+        catchRings.apply(CGAffineTransform(translationX: 0, y: 1))
+        n64RingCatch.path = catchRings.cgPath
+        let holeRadius = thumbRadius * 0.16
+        let hole = UIBezierPath(arcCenter: centre, radius: holeRadius,
+                                startAngle: 0, endAngle: .pi * 2, clockwise: true)
+        n64Hole.path = hole.cgPath
+        n64HoleWall.frame = CGRect(x: centre.x - holeRadius, y: centre.y - holeRadius,
+                                   width: holeRadius * 2, height: holeRadius * 2)
+        let wallMask = CAShapeLayer()
+        wallMask.path = UIBezierPath(ovalIn: CGRect(origin: .zero,
+                                                    size: n64HoleWall.frame.size)).cgPath
+        n64HoleWall.mask = wallMask
         CATransaction.commit()
     }
 

@@ -26,6 +26,12 @@ struct AppearanceView: View {
     let skinCurrent: SkinSelection
     let lockedToInvisible: Bool
     let gameImage: UIImage?
+    /// The game's own pixel grid behind `gameImage` (see
+    /// `EmulatorSession.screenshotPixelGrid`): the filters draw on it.
+    let gamePixelGrid: CGSize
+    /// The game's rectangle on screen, in pixels: the filter preview is
+    /// rendered at the density the player will see there.
+    let gameScreenPixelSize: CGSize
     let realInsets: UIEdgeInsets
     let onSelectSkin: (SkinSelection) -> Void
     let onLibraryChanged: () -> Void
@@ -70,6 +76,8 @@ struct AppearanceView: View {
                                     paletteApplicable: paletteApplicable,
                                     openPalette: openPalette,
                                     gameFrame: gameImage?.cgImage,
+                                    gamePixelGrid: gamePixelGrid,
+                                    gameScreenPixelSize: gameScreenPixelSize,
                                     initialPaletteID: initialPaletteID,
                                     onSelect: onSelectPalette,
                                     isDualScreen: system == .nds,
@@ -100,6 +108,8 @@ private struct ScreenAppearanceTab: View {
     let paletteApplicable: Bool
     let openPalette: GBPalette
     let gameFrame: CGImage?
+    let gamePixelGrid: CGSize
+    let gameScreenPixelSize: CGSize
     let initialPaletteID: String
     let onSelect: (GBPalette) -> Void
     /// NDS: the captured frame is the stacked dual-screen image (per-screen CRT).
@@ -108,6 +118,7 @@ private struct ScreenAppearanceTab: View {
     let onSelectFilter: (VideoFilter) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
     @ObservedObject private var pro = ProManager.shared
     @State private var selectedID: String = ""
     /// The filter shown in the big showcase — everyone can browse (free users
@@ -120,12 +131,14 @@ private struct ScreenAppearanceTab: View {
     /// once off-main at appear; cards show the flat-stripe swatch meanwhile.
     @State private var previews: [String: UIImage] = [:]
     /// Filter id → the captured frame filtered through the real shader, at
-    /// showcase resolution.
+    /// the density of the live screen.
     @State private var filterPreviews: [String: UIImage] = [:]
 
     private let gold = Color(red: 0.91, green: 0.76, blue: 0.42)
     private let hPad: CGFloat = 16
     private let spacing: CGFloat = 12
+    /// The showcase's tallest size, in points (bounds the tall stacked NDS frame).
+    private let showcaseMaxHeight: CGFloat = 320
 
     @Environment(\.verticalSizeClass) private var vSizeClass
 
@@ -296,7 +309,7 @@ private struct ScreenAppearanceTab: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(maxHeight: 320)   // bounds the tall stacked NDS frame
+        .frame(maxHeight: showcaseMaxHeight)
         .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -443,6 +456,11 @@ private struct ScreenAppearanceTab: View {
         let wantPalettes = showPaletteSection && paletteApplicable && previews.isEmpty
         let wantFilters = filterPreviews.isEmpty
         let screens = isDualScreen ? 2 : 1
+        let grid = gamePixelGrid
+        // Never larger than the showcase can show: a pattern rendered finer
+        // than it is displayed is scaled down on screen into moiré.
+        let screenPixels = CGSize(width: gameScreenPixelSize.width,
+                                  height: min(gameScreenPixelSize.height, showcaseMaxHeight * displayScale))
         let (palettes, filters) = await Task.detached(priority: .userInitiated)
         { () -> ([String: UIImage], [String: UIImage]) in
             var pal: [String: UIImage] = [:]
@@ -455,15 +473,17 @@ private struct ScreenAppearanceTab: View {
             }
             var fil: [String: UIImage] = [:]
             if wantFilters {
-                // Showcase resolution: the big preview is where the difference
-                // must actually be visible (the effect character is what
-                // matters; exact density is the live screen's).
-                let aspect = CGFloat(frame.width) / CGFloat(max(frame.height, 1))
-                let target = CGSize(width: 800, height: 800 / max(aspect, 0.01))
+                // On the game's own pixel grid, at the density the showcase is
+                // displayed at (the live screen's, capped by the showcase), so
+                // the showcase shows what applying the filter will show.
+                let target = VideoFilterRenderer.previewTargetSize(
+                    imageSize: CGSize(width: frame.width, height: frame.height),
+                    screenPixelSize: screenPixels)
                 for filter in VideoFilter.allCases {
                     if let cg = VideoFilterRenderer.apply(filter, to: frame,
                                                           targetSize: target,
-                                                          screenCount: screens) {
+                                                          screenCount: screens,
+                                                          pixelGrid: grid) {
                         fil[filter.rawValue] = UIImage(cgImage: cg)
                     }
                 }

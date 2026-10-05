@@ -44,6 +44,9 @@ final class CrossDPadView: UIView {
     private let baseLayer = CAShapeLayer()     // Main cross body
     private let bevelLayer = CAShapeLayer()    // Inner bevel/highlight
     private let centerDot = CAShapeLayer()     // Center circle indent
+    /// The Nintendo 64's four triangles, one inside each arm pointing outward,
+    /// in the palette's darker pad grey. Hidden on every other console.
+    private let n64Arrows = CAShapeLayer()
 
     // Per-direction highlight layers
     private let highlightUp = CAShapeLayer()
@@ -59,6 +62,7 @@ final class CrossDPadView: UIView {
     /// was exactly the drift it was written to prevent.
     private let dome = Bombe.make()
     private let core = Bombe.makeCore()
+    private let relief = ReliefLayer()   // the Nintendo 64's rim relief
 
     /// UNIFORM inset of the GBA cross from the full hitbox shape, as a fraction of the width.
     /// Combined with a matching arm-width reduction this leaves a CONSTANT gap all around, so
@@ -176,6 +180,9 @@ final class CrossDPadView: UIView {
         armLines.isHidden = true
         layer.addSublayer(armLines)
 
+        n64Arrows.isHidden = true
+        layer.addSublayer(n64Arrows)
+
         // Direction highlights (shown when pressed)
         for hl in [highlightUp, highlightDown, highlightLeft, highlightRight] {
             hl.fillColor = UIColor.white.withAlphaComponent(0.0).cgColor
@@ -192,6 +199,7 @@ final class CrossDPadView: UIView {
         // plastic, and a press still has to read on top of it.
         layer.insertSublayer(dome, above: baseLayer)
         layer.insertSublayer(core, above: dome)
+        layer.insertSublayer(relief, above: core)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -215,6 +223,10 @@ final class CrossDPadView: UIView {
         bevelLayer.isHidden = isPS1
         dome.isHidden = !isPS1   // the bombé is this console's, not every console's
         core.isHidden = !isPS1
+        // The Nintendo 64 wears its rim relief instead (asked 2026-09-27).
+        relief.isHidden = !(dressed && dressKind == .n64)
+        n64Arrows.isHidden = !(dressed && dressKind == .n64)
+        n64Arrows.fillColor = dressVariant.n64.dpadMarks.cgColor
         if dressed && dressKind.usesLightFaces {
             // GBA/NDS: a light cross, so the relief lines invert to dark. NDS draws its arm lines
             // in the #777777 ink; GBA keeps a translucent-black engraving.
@@ -268,6 +280,13 @@ final class CrossDPadView: UIView {
     // MARK: - Path building
 
     private func rebuildPaths() {
+        // Nothing to draw until the cross has a size its shapes fit in. The first
+        // layout pass reaches here before the controls view has placed it, at
+        // 0x0, and the bevel below insets the cross by 2pt a side: `insetBy` on
+        // a rect too small for that returns `CGRect.null`, whose origin is
+        // infinite, and every point built from it went to CoreGraphics as an
+        // invalid number (the "NaN" warnings logged when any game opened).
+        guard bounds.width > 4, bounds.height > 4 else { return }
         // GBA: inset the cross by a UNIFORM amount g on every edge AND narrow the arms by the
         // same g, so the gap to the full-size under-cross is constant all around (an even stroke,
         // with the arms still reaching near the tips). Other modes use the full bounds.
@@ -277,7 +296,9 @@ final class CrossDPadView: UIView {
         let cx = r.midX
         let cy = r.midY
         let halfArm = bounds.width * armRatio / 2 - g
-        let cornerR: CGFloat = 6  // rounded corners on arm tips
+        // Rounded corners on arm tips. The Nintendo 64's cross is rounder, its
+        // tips a soft curve rather than a clipped corner (asked 2026-09-27).
+        let cornerR: CGFloat = (dressed && dressKind == .n64) ? Self.n64Corner(halfArm: halfArm) : 6
 
         // FOUR SEPARATE KEYS on the PlayStation, one continuous cross everywhere
         // else. This is the difference a hand notices first between this pad and
@@ -315,6 +336,9 @@ final class CrossDPadView: UIView {
             }
             Bombe.fit(core, over: bounds, clippedTo: cores.cgPath)
         }
+        if dressed && dressKind == .n64 {
+            relief.fit(over: bounds, clippedTo: crossPath.cgPath)
+        }
 
         // Bevel: slightly inset cross
         let insetPath = Self.roundedCrossPath(
@@ -328,6 +352,26 @@ final class CrossDPadView: UIView {
             arcCenter: CGPoint(x: cx, y: cy), radius: dotR,
             startAngle: 0, endAngle: .pi * 2, clockwise: true
         ).cgPath
+
+        // THE NINTENDO 64'S TRIANGLES: one inside each arm, pointing out toward
+        // the arm's tip, centred in the length of arm beyond the hub. Drawn for
+        // the up arm and turned, so the four are the same shape exactly.
+        let reach = min(r.width, r.height) / 2 - halfArm       // the arm beyond the hub
+        let triHeight = min(reach * 0.5, halfArm * 0.9)
+        let triHalfBase = halfArm * 0.55
+        let triCentre = halfArm + reach * 0.5                  // from the pad's centre
+        let arrows = UIBezierPath()
+        for rotation in [CGFloat(0), .pi / 2, .pi, -.pi / 2] {
+            let one = UIBezierPath()
+            one.move(to: CGPoint(x: 0, y: -(triCentre + triHeight / 2)))
+            one.addLine(to: CGPoint(x: triHalfBase, y: -(triCentre - triHeight / 2)))
+            one.addLine(to: CGPoint(x: -triHalfBase, y: -(triCentre - triHeight / 2)))
+            one.close()
+            one.apply(CGAffineTransform(rotationAngle: rotation))
+            one.apply(CGAffineTransform(translationX: cx, y: cy))
+            arrows.append(one)
+        }
+        n64Arrows.path = arrows.cgPath
 
         // One short centered ridge line per arm, ALONG the arm direction (vertical on the
         // up/down arms, horizontal on the left/right arms).
@@ -370,6 +414,17 @@ final class CrossDPadView: UIView {
             roundedRect: CGRect(x: cx + halfArm, y: cy - halfArm, width: r.maxX - (cx + halfArm), height: halfArm * 2),
             cornerRadius: cornerR
         ).cgPath
+    }
+
+    /// The Nintendo 64's arm-tip radius, for an arm of half-width `halfArm`.
+    static func n64Corner(halfArm: CGFloat) -> CGFloat { max(6, halfArm * 0.45) }
+
+    /// The Nintendo 64's cross as the dressed view draws it in `rect`, for the
+    /// dress to seat it: one shape, so the seat and the keys cannot disagree.
+    static func n64CrossPath(in rect: CGRect) -> UIBezierPath {
+        let halfArm = rect.width * armRatioShared / 2
+        return roundedCrossPath(bounds: rect, halfArm: halfArm,
+                                cornerRadius: n64Corner(halfArm: halfArm))
     }
 
     /// The four keys in an arbitrary rect, for the skin: the seat carved under

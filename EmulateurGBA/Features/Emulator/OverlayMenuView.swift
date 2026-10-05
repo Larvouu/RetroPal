@@ -37,6 +37,9 @@ protocol OverlayMenuDelegate: AnyObject {
     func overlayDidSelectOrientation(_ mode: GameOrientationMode)
     func overlayDidTapSkin()
     func overlayDidSelectDisc(index: Int)
+    /// "Close the lid" or "Open the lid", the DS only (`setShowsLidButton`,
+    /// `setLidClosed`).
+    func overlayDidTapLid()
 }
 
 final class OverlayMenuView: UIView {
@@ -97,6 +100,9 @@ final class OverlayMenuView: UIView {
 
     private var isSoundEnabled = true
 
+    /// Where a controller's highlight starts in this menu (`ControllerNavigator`).
+    var controllerDefaultButton: UIView { resumeButton }
+
     private let resumeButton: UIButton = {
         let btn = UIButton(type: .system)
         var config = UIButton.Configuration.filled()
@@ -149,6 +155,40 @@ final class OverlayMenuView: UIView {
     /// the toggle pair (the label alone can't convey what it does). Built as an
     /// attributed string so the mini buttons can be inlined into the text.
     private lazy var buttonLockCaption = makeCaptionLabel("")
+
+    /// Close the DS's lid (asked 2026-09-28, out of a Japanese support mail
+    /// about a Zelda puzzle solved by folding the console). A handful of DS
+    /// games ask for it, once or twice each, so it comes after everything else
+    /// a player opens this menu for, on the DS alone. It is built like the
+    /// menu's other buttons (`makeButton`, the full-width size of Resume and
+    /// Quit) and wears the console drawing the Appearance button wears
+    /// (`setSkinIcon`), asked 2026-09-28. A real button, so a controller
+    /// reaches it too.
+    private lazy var lidButton: UIButton = {
+        let btn = OverlayMenuView.makeButton(title: NSLocalizedString("overlay.lid.button", comment: ""),
+                                             icon: "rectangle.compress.vertical")
+        btn.accessibilityHint = NSLocalizedString("overlay.lid.caption", comment: "")
+        btn.addTarget(self, action: #selector(lidTapped), for: .touchUpInside)
+        btn.isHidden = true
+        return btn
+    }()
+    /// What the lid button does, in one line (rule 9: a control this rare
+    /// needs its reason written under it).
+    private lazy var lidCaption: UILabel = {
+        let l = self.makeCaptionLabel(NSLocalizedString("overlay.lid.caption", comment: ""))
+        l.isHidden = true
+        return l
+    }()
+    /// The frame loop's own reading over the last seconds of play (see
+    /// `EmulatorMetalView.PerformanceReading`), as one sentence a player can
+    /// read, or screenshot for support. Last in the menu: nobody opens the
+    /// menu for it, and it must never push a control down. Hidden before a
+    /// second of play has been measured.
+    private lazy var performanceCaption: UILabel = {
+        let l = self.makeCaptionLabel("")
+        l.isHidden = true
+        return l
+    }()
 
     /// Per-game screen orientation as a pill row (Auto / Landscape / Portrait),
     /// styled identically to the Speed pills so the two selectors read alike.
@@ -559,6 +599,12 @@ final class OverlayMenuView: UIView {
         contentStack.addArrangedSubview(discsLabel)
         contentStack.addArrangedSubview(discsStack)
         applyDiscSectionVisibility()
+        // The DS's lid, rarer still: after the discs, above the diagnostics.
+        addSpacer(height: 4, to: contentStack)
+        contentStack.addArrangedSubview(lidButton)
+        contentStack.addArrangedSubview(lidCaption)
+        addSpacer(height: 4, to: contentStack)
+        contentStack.addArrangedSubview(performanceCaption)
 
         // Sizes: full-width primaries, fixed-width rows, taller compact action
         // cells so the wrapped two-line labels are not clipped. 280pt matches
@@ -579,6 +625,10 @@ final class OverlayMenuView: UIView {
         }
         layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: w))
         layoutConstraints.append(discsStack.widthAnchor.constraint(equalToConstant: w))
+        layoutConstraints.append(lidButton.widthAnchor.constraint(equalToConstant: w))
+        layoutConstraints.append(lidButton.heightAnchor.constraint(equalToConstant: 46))
+        layoutConstraints.append(lidCaption.widthAnchor.constraint(equalToConstant: w))
+        layoutConstraints.append(performanceCaption.widthAnchor.constraint(equalToConstant: w))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 280
     }
@@ -661,6 +711,12 @@ final class OverlayMenuView: UIView {
         rightColumn.addArrangedSubview(discsLabel)
         rightColumn.addArrangedSubview(discsStack)
         applyDiscSectionVisibility()
+        // The DS's lid, rarer still: after the discs, above the diagnostics.
+        addSpacer(height: 4, to: rightColumn)
+        rightColumn.addArrangedSubview(lidButton)
+        rightColumn.addArrangedSubview(lidCaption)
+        addSpacer(height: 4, to: rightColumn)
+        rightColumn.addArrangedSubview(performanceCaption)
 
         // Sizes for landscape
         let fullW: CGFloat = 320
@@ -680,6 +736,10 @@ final class OverlayMenuView: UIView {
         }
         layoutConstraints.append(buttonLockCaption.widthAnchor.constraint(equalToConstant: fullW))
         layoutConstraints.append(discsStack.widthAnchor.constraint(equalToConstant: fullW))
+        layoutConstraints.append(lidButton.widthAnchor.constraint(equalToConstant: fullW))
+        layoutConstraints.append(lidButton.heightAnchor.constraint(equalToConstant: btnH))
+        layoutConstraints.append(lidCaption.widthAnchor.constraint(equalToConstant: fullW))
+        layoutConstraints.append(performanceCaption.widthAnchor.constraint(equalToConstant: fullW))
         NSLayoutConstraint.activate(layoutConstraints)
         slotsWidthConstraint?.constant = 320
     }
@@ -732,12 +792,46 @@ final class OverlayMenuView: UIView {
         refreshProState()
     }
 
+    /// The frame loop's reading, or nil to hide the line (under a second of
+    /// play measured). Numbers in the player's own locale, one decimal.
+    func setPerformance(_ reading: EmulatorMetalView.PerformanceReading?) {
+        guard let reading else {
+            performanceCaption.isHidden = true
+            return
+        }
+        func oneDecimal(_ value: Double) -> String {
+            value.formatted(.number.precision(.fractionLength(1)))
+        }
+        performanceCaption.text = String(
+            format: NSLocalizedString("overlay.performance", comment: "Pause-menu line: frames per second achieved of expected, then the time one frame takes of the time available"),
+            oneDecimal(reading.framesPerSecond), oneDecimal(reading.targetFramesPerSecond),
+            oneDecimal(reading.frameMilliseconds), oneDecimal(reading.budgetMilliseconds))
+        performanceCaption.isHidden = false
+    }
+
     func updateSlots(_ slots: [(info: SaveSlotInfo, isLocked: Bool)]) {
         slotInfos = slots
         slotsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for slot in slots {
             slotsStack.addArrangedSubview(makeSlotRow(slot.info, isLocked: slot.isLocked))
         }
+    }
+
+    /// Show the lid row: the DS alone has a lid (set once, at the menu's setup).
+    func setShowsLidButton(_ shows: Bool) {
+        lidButton.isHidden = !shows
+        lidCaption.isHidden = !shows
+    }
+
+    @objc private func lidTapped() {
+        delegate?.overlayDidTapLid()
+    }
+
+    /// The row names what it will do: close the lid, or open it again.
+    func setLidClosed(_ closed: Bool) {
+        let title = NSLocalizedString(closed ? "overlay.lid.open" : "overlay.lid.button", comment: "")
+        lidButton.configuration?.title = title
+        lidButton.accessibilityLabel = title
     }
 
     /// Show the disc picker, or hide it. Fewer than two discs hides the whole
@@ -935,7 +1029,11 @@ final class OverlayMenuView: UIView {
     /// and is NOT tappable: re-inserting the disc that is already spinning is a
     /// lid cycle the game reacts to for no reason.
     private func makeDiscRow(_ disc: (index: Int, label: String), isCurrent: Bool) -> UIView {
-        let container = UIView()
+        // A button, not a view with a tap gesture (2026-09-28): the controller
+        // navigation reaches the pause menu's BUTTONS, so a gesture row was
+        // the one thing here a pad could not choose. Its labels take no
+        // touches, so the whole row is the button's.
+        let container = UIButton(type: .custom)
         container.backgroundColor = UIColor.white.withAlphaComponent(isCurrent ? 0.14 : 0.08)
         container.layer.cornerRadius = 12
 
@@ -984,22 +1082,24 @@ final class OverlayMenuView: UIView {
             trailing.centerYAnchor.constraint(equalTo: container.centerYAnchor),
         ])
 
+        for v in [icon, title, trailing] { v.isUserInteractionEnabled = false }
         container.isAccessibilityElement = true
         container.accessibilityLabel = disc.label
         if isCurrent {
+            // The disc in the drive cannot be chosen again: disabled, so a
+            // controller's highlight passes over it too, and read as selected.
+            container.isEnabled = false
             container.accessibilityTraits = [.selected]
         } else {
             container.accessibilityTraits = [.button]
             container.tag = disc.index
-            container.addGestureRecognizer(
-                UITapGestureRecognizer(target: self, action: #selector(discRowTapped(_:))))
+            container.addTarget(self, action: #selector(discRowTapped(_:)), for: .touchUpInside)
         }
         return container
     }
 
-    @objc private func discRowTapped(_ gesture: UITapGestureRecognizer) {
-        guard let index = gesture.view?.tag else { return }
-        delegate?.overlayDidSelectDisc(index: index)
+    @objc private func discRowTapped(_ sender: UIButton) {
+        delegate?.overlayDidSelectDisc(index: sender.tag)
     }
 
     // MARK: - Slot Row
@@ -1188,8 +1288,11 @@ final class OverlayMenuView: UIView {
     func setSkinIcon(_ image: UIImage?) {
         guard let image else { return }   // keep the SF fallback if no console art
         let tinted = Self.monochrome(image, color: .white) ?? image
-        skinButton.configuration?.image = Self.resized(tinted, maxWidth: 30, maxHeight: 22)
+        let icon = Self.resized(tinted, maxWidth: 30, maxHeight: 22)
             .withRenderingMode(.alwaysOriginal)   // carry the duotone shading, don't re-tint
+        skinButton.configuration?.image = icon
+        // The DS's lid row wears the same drawing (shown on the DS alone).
+        lidButton.configuration?.image = icon
     }
 
     private static let ciContext = CIContext(options: nil)

@@ -46,7 +46,7 @@ struct RASectionHeader: View {
                 .accessibilityHidden(true)
             Text(title)
             if let onInfo {
-                Button(action: onInfo) {
+                FocusableButton(action: onInfo) {
                     Image(systemName: "info.circle")
                         .font(.footnote)
                 }
@@ -159,7 +159,7 @@ struct RABadgeWall: View {
     var body: some View {
         LazyVGrid(columns: Self.columns, spacing: 8) {
             ForEach(Array(achievements.enumerated()), id: \.offset) { _, ach in
-                Button {
+                FocusableButton {
                     onTap(ach)
                 } label: {
                     // Raw square badge, exactly as RA serves it (no clipping).
@@ -211,7 +211,7 @@ struct RAActionsRow: View {
         // Share first, the layout radio right beside it (one left-aligned
         // group, not pushed to opposite edges).
         HStack(spacing: 12) {
-            Button(action: onShare) {
+            FocusableButton(action: onShare) {
                 Label {
                     Text(String(localized: "screenshot.share", defaultValue: "Share"))
                         .foregroundStyle(.primary)
@@ -259,7 +259,7 @@ struct RALayoutRadio: View {
     }
 
     private func segment(_ icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button {
+        FocusableButton {
             withAnimation { action() }
         } label: {
             Image(systemName: icon)
@@ -436,7 +436,7 @@ struct RAOfflineRow: View {
                 Image(systemName: isOffline ? "wifi.slash" : "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
             }
-            Button(action: onRetry) {
+            FocusableButton(action: onRetry) {
                 Text(String(localized: "ra.retry", defaultValue: "Try again"))
                     .font(.subheadline.weight(.semibold))
             }
@@ -506,11 +506,13 @@ struct RAAboutSheet: View {
                         .minimumScaleFactor(0.55)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.done", defaultValue: "Done")) { dismiss() }
+                    FocusableButton(String(localized: "common.done", defaultValue: "Done")) { dismiss() }
                 }
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+        // B closes it, as Done does (`ControllerNavigator`).
+        .controllerBack { dismiss() }
     }
 }

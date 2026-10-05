@@ -54,6 +54,16 @@ struct SettingsView: View {
     @State private var showRomGuide = false
     @State private var showSaveGuide = false
     @State private var showControllerGuide = false
+    /// The page a controller's A opens from a link row (`controllerFocusable`
+    /// on Legal and the engines): a `NavigationLink` cannot be followed from
+    /// code, so the same page is pushed through `navigationDestination`.
+    @State private var controllerPush: ControllerPush?
+    private enum ControllerPush {
+        case legal, engines
+        /// The controls' own pages: reached with a controller, used by hand
+        /// (their editors and captures are touch pages, decided 2026-09-27).
+        case customizeControls, remapController, remapKeyboard, controllerLayout
+    }
     @State private var showAirPlayGuide = false
     @State private var showWidgetGuide = false
     /// Whether a television is connected right now, seeded from the manager so
@@ -226,7 +236,9 @@ struct SettingsView: View {
 
     private func premiumLockedRow(label: String, icon: String,
                                   context: ProPromptContext) -> some View {
-        Button {
+        // Reachable with a controller like the row it stands for: A opens the
+        // Pro sheet, B closes it (`ProUpgradeView.controllerBack`).
+        FocusableButton(shape: .cell) {
             proSheetItem = ProSheetItem(context: context)
         } label: {
             HStack(spacing: 12) {
@@ -281,6 +293,18 @@ struct SettingsView: View {
         .toolbar(isLandscape ? .hidden : .visible, for: .navigationBar)
         .toolbar(isLandscape ? .hidden : .visible, for: .tabBar)
         .navigationTitle(NSLocalizedString("settings.title", comment: ""))
+        .navigationDestination(isPresented: Binding(get: { controllerPush != nil },
+                                                    set: { if !$0 { controllerPush = nil } })) {
+            switch controllerPush {
+            case .legal: LegalView()
+            case .engines: EmulationEnginesView()
+            case .customizeControls: ControlPresetsView()
+            case .remapController: ControllerRemapView()
+            case .remapKeyboard: KeyboardRemapView()
+            case .controllerLayout: ControllerLayoutView()
+            case nil: EmptyView()
+            }
+        }
         // A television can arrive or leave while this screen is open, and the
         // external-display row is a different row in each case.
         .onReceive(NotificationCenter.default.publisher(
@@ -436,7 +460,7 @@ struct SettingsView: View {
                     ControllerStatusBadge(tint: .white)
                     // An iPad has the pill at the bottom for that (2026-09-08).
                     if !isTablet {
-                        Button {
+                        FocusableButton(shape: .capsule) {
                             selectedTab = .library
                         } label: {
                             LandscapeChrome.circle(systemName: "books.vertical")
@@ -504,6 +528,7 @@ struct SettingsView: View {
                 Toggle(isOn: $hapticsEnabled) {
                     controlsRowLabel(NSLocalizedString("settings.haptics", comment: ""))
                 }
+                .controllerToggle($hapticsEnabled)
                 .disabled(controllers.isConnected)
 
                 if hapticsEnabled {
@@ -533,11 +558,13 @@ struct SettingsView: View {
                          ? NSLocalizedString("settings.joystick", comment: "")
                          : NSLocalizedString("settings.dpad", comment: ""))
                 }
+                .controllerToggle($useJoystick)
                 .disabled(controllers.isConnected)
 
                 Toggle(isOn: $showClipButton) {
                     controlsRowLabel(NSLocalizedString("settings.clipButton", comment: ""))
                 }
+                .controllerToggle($showClipButton)
                 .disabled(controllers.isConnected)
 
                 // Customize stays tappable even with a controller connected: it
@@ -550,6 +577,7 @@ struct SettingsView: View {
                         Label(NSLocalizedString("settings.customizeControls", comment: ""),
                               systemImage: "hand.draw")
                     }
+                    .controllerFocusable(shape: .cell) { controllerPush = .customizeControls }
                 } else {
                     premiumLockedRow(label: NSLocalizedString("settings.customizeControls", comment: ""),
                                      icon: "hand.draw",
@@ -562,7 +590,7 @@ struct SettingsView: View {
             // attached to it (and the touch section's footer can speak to the
             // D-pad/Joystick choice).
             Section(footer: Text(NSLocalizedString("settings.controller.footer", comment: ""))) {
-                Button {
+                FocusableButton(shape: .cell) {
                     showControllerGuide = true
                 } label: {
                     HStack {
@@ -570,8 +598,13 @@ struct SettingsView: View {
                               systemImage: "gamecontroller")
                             .foregroundColor(.primary)
                         Spacer()
+                        // With several controllers the row counts them; the
+                        // Players section below names each one.
                         ControllerStatusView(isConnected: controllers.isConnected,
-                                             name: controllers.controllerName,
+                                             name: controllers.pads.count > 1
+                                                 ? String(format: NSLocalizedString("controllers.count", comment: ""),
+                                                          controllers.pads.count)
+                                                 : controllers.controllerName,
                                              compact: true)
                     }
                 }
@@ -588,6 +621,7 @@ struct SettingsView: View {
                             Label(NSLocalizedString("settings.remapController", comment: ""),
                                   systemImage: "arrow.triangle.swap")
                         }
+                        .controllerFocusable(shape: .cell) { controllerPush = .remapController }
                     } else {
                         premiumLockedRow(label: NSLocalizedString("settings.remapController", comment: ""),
                                          icon: "arrow.triangle.swap",
@@ -607,6 +641,7 @@ struct SettingsView: View {
                         Label(NSLocalizedString("settings.remapKeyboard", comment: ""),
                               systemImage: "keyboard")
                     }
+                    .controllerFocusable(shape: .cell) { controllerPush = .remapKeyboard }
                 }
 
                 // Screen + Menu layout for controller play (Pro). Shown only
@@ -622,6 +657,7 @@ struct SettingsView: View {
                             Label(NSLocalizedString("settings.controllerLayout", comment: ""),
                                   systemImage: "rectangle.inset.filled")
                         }
+                        .controllerFocusable(shape: .cell) { controllerPush = .controllerLayout }
                     } else {
                         premiumLockedRow(label: NSLocalizedString("settings.controllerLayout", comment: ""),
                                          icon: "rectangle.inset.filled",
@@ -630,6 +666,20 @@ struct SettingsView: View {
                 }
             }
                 .listRowBackground(landscapeRowBackground)
+
+            // The players, in order, once there are two controllers to order
+            // (free, like all controller support). Player 1 plays the
+            // one-player consoles and owns the menus; a console with more
+            // ports hears the next ones (`PresetSystem.playerCount`).
+            if controllers.pads.count > 1 {
+                Section(header: Text(NSLocalizedString("settings.players.header", comment: "")),
+                        footer: Text(NSLocalizedString("settings.players.footer", comment: ""))) {
+                    ForEach(Array(controllers.pads.enumerated()), id: \.element.id) { index, pad in
+                        ControllerPlayerRow(pad: pad, index: index, playerCount: controllers.pads.count)
+                    }
+                }
+                    .listRowBackground(landscapeRowBackground)
+            }
 
             // External display (Pro). Free users keep the passive mirroring iOS
             // already gives them: we only put a window on the TV for Pro, so
@@ -658,7 +708,7 @@ struct SettingsView: View {
                             ExternalDisplayManager.shared.ndsSideBySide = newValue
                         }
                     } else {
-                        Button {
+                        FocusableButton(shape: .cell) {
                             showAirPlayGuide = true
                         } label: {
                             HStack {
@@ -732,7 +782,7 @@ struct SettingsView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
-                        Button {
+                        FocusableButton(shape: .cell) {
                             Task { await prefetchCheats() }
                         } label: {
                             Label(NSLocalizedString("settings.cheatDB.download", comment: ""),
@@ -755,7 +805,7 @@ struct SettingsView: View {
                                                            countStyle: .file))
                                 .foregroundStyle(.secondary)
                         }
-                        Button(role: .destructive) {
+                        FocusableButton(role: .destructive, shape: .cell) {
                             CheatLibrary.shared.clearCache()
                             cheatCacheBytes = CheatLibrary.shared.cacheSize()
                             cheatCoverage = countCheatCoverage()
@@ -768,14 +818,14 @@ struct SettingsView: View {
             }
 
             Section(NSLocalizedString("settings.guides.section", comment: "")) {
-                Button {
+                FocusableButton(shape: .cell) {
                     showRomGuide = true
                 } label: {
                     Label(NSLocalizedString("guide.importRom.title", comment: ""),
                           systemImage: "arrow.down.doc")
                         .foregroundColor(.primary)
                 }
-                Button {
+                FocusableButton(shape: .cell) {
                     showSaveGuide = true
                 } label: {
                     Label(NSLocalizedString("saveImport.title", comment: ""),
@@ -785,7 +835,7 @@ struct SettingsView: View {
                 // Deliberately a plain row for everyone, not a gold Pro row:
                 // the steps are worth reading before deciding to buy, and the
                 // Pro card inside the sheet does the asking.
-                Button {
+                FocusableButton(shape: .cell) {
                     showAirPlayGuide = true
                 } label: {
                     Label(NSLocalizedString("guide.airplay.title", comment: ""),
@@ -794,7 +844,7 @@ struct SettingsView: View {
                 }
                 // The widget is free and lives entirely outside the app, so a
                 // guide is the only place it can be discovered from inside it.
-                Button {
+                FocusableButton(shape: .cell) {
                     showWidgetGuide = true
                 } label: {
                     Label(NSLocalizedString("guide.widget.title", comment: ""),
@@ -806,6 +856,10 @@ struct SettingsView: View {
 
             Section {
                 Toggle(NSLocalizedString("settings.sync.toggle", comment: ""), isOn: Binding(
+                    get: { iCloudSync.syncEnabled },
+                    set: { iCloudSync.setSyncEnabled($0) }
+                ))
+                .controllerToggle(Binding(
                     get: { iCloudSync.syncEnabled },
                     set: { iCloudSync.setSyncEnabled($0) }
                 ))
@@ -826,13 +880,15 @@ struct SettingsView: View {
                 NavigationLink(destination: LegalView()) {
                     Label(NSLocalizedString("settings.legal", comment: ""), systemImage: "doc.text")
                 }
+                // A link cannot be followed from code; A pushes the same page.
+                .controllerFocusable(shape: .cell) { controllerPush = .legal }
             }
                 .listRowBackground(landscapeRowBackground)
 
             Section(NSLocalizedString("settings.about", comment: "")) {
                 // Permanent home of the release notes: the launch sheet shows
                 // once per update, this row keeps it reachable anytime.
-                Button {
+                FocusableButton(shape: .cell) {
                     showWhatsNew = true
                 } label: {
                     Label(NSLocalizedString("whatsnew.title", comment: ""), systemImage: "sparkles")
@@ -868,6 +924,7 @@ struct SettingsView: View {
                 NavigationLink(destination: EmulationEnginesView()) {
                     Text(NSLocalizedString("settings.core", comment: ""))
                 }
+                .controllerFocusable(shape: .cell) { controllerPush = .engines }
             }
                 .listRowBackground(landscapeRowBackground)
 
@@ -901,10 +958,15 @@ struct SettingsView: View {
                 .onChange(of: debugPresentationLanguage) { code in
                     LibraryPresentation.applyLanguage(code)
                 }
-                Button(controllers.isConnected
-                       ? "Fake controller: ON (tap to disconnect)"
-                       : "Fake controller: OFF (tap to connect)") {
-                    controllers.debugSetConnected(!controllers.isConnected)
+                // Stand-in controllers, 0 to 4 (real pads count toward the
+                // four): the library badge's chips, the Players list and its
+                // reorder, the hidden touch controls. They send no input.
+                Picker("Simulated controllers", selection: Binding(
+                    get: { controllers.pads.filter(\.isSimulated).count },
+                    set: { controllers.debugSetSimulatedControllers($0) })) {
+                    ForEach(0...ControllerManager.maxPlayers, id: \.self) { count in
+                        Text(verbatim: "\(count)").tag(count)
+                    }
                 }
                 // The keyboard row, its page and the phone-only hiding of the
                 // touch controls; capture still needs a real key.
@@ -921,6 +983,9 @@ struct SettingsView: View {
                 }
                 NavigationLink(destination: OverlayMenuPreviewGallery()) {
                     Text("Pause menu preview (SE / Pro Max)")
+                }
+                NavigationLink(destination: NDSLidPreviewGallery()) {
+                    Text("DS lid closed (SE / 14 Pro / Pro Max / 3 iPads)")
                 }
                 NavigationLink(destination: BadgeGalleryView()) {
                     Text("Screenshot badges")
@@ -1083,7 +1148,7 @@ struct SettingsView: View {
         // per step away from the centre (0, 1, 2). Gentle by design.
         let drop: [CGFloat] = [0, 4, 14]
         let tilt: [Double] = [0, 5, 10]
-        return Button {
+        return FocusableButton(shape: .rounded(16)) {
             UIApplication.shared.open(
                 URL(string: "itms-apps://apps.apple.com/app/id6769407672?action=write-review")!)
         } label: {

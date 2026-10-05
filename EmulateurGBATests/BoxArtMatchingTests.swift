@@ -294,3 +294,55 @@ struct BoxArtMatchingTests {
         #expect(BoxArtIndex.shared.regionalSiblingNames(ofSerial: "", system: .gba).isEmpty)
     }
 }
+
+/// The library's default cover (2026-09-27): a cover the player picked is
+/// shown whatever the default; every other one follows it. Serialized because
+/// the default is one UserDefaults key the whole app reads.
+@Suite("Library cover default", .serialized)
+struct LibraryCoverDefaultTests {
+    private let manager = BoxArtManager.shared
+    private let hash = "test-library-cover-default-\(UUID().uuidString)"
+
+    private func withDefault(_ source: BoxArtManager.LibraryCoverSource, _ body: () -> Void) {
+        let key = BoxArtManager.LibraryCoverSource.key
+        let previous = UserDefaults.standard.string(forKey: key)
+        UserDefaults.standard.set(source.rawValue, forKey: key)
+        body()
+        UserDefaults.standard.set(previous, forKey: key)
+    }
+
+    @Test func aPickedCoverAlwaysWins() {
+        for source in BoxArtManager.LibraryCoverSource.allCases {
+            withDefault(source) {
+                #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateCustom)
+                        == manager.customImageURL(forROMHash: hash))
+                #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateBoxArtChosen)
+                        == manager.imageURL(forROMHash: hash))
+                #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateRAChosen)
+                        == manager.raImageURL(forROMHash: hash))
+                #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateScreenshot) == nil)
+            }
+        }
+    }
+
+    @Test func automaticCoversFollowTheDefault() {
+        withDefault(.boxArt) {
+            #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateBoxArt)
+                    == manager.imageURL(forROMHash: hash))
+            #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateRA)
+                    == manager.raImageURL(forROMHash: hash))
+        }
+        withDefault(.screenshot) {
+            #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateBoxArt) == nil)
+            #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateRA) == nil)
+        }
+        // No RetroAchievements image on disk for this game: the RA default
+        // falls back to the box art rather than to nothing.
+        withDefault(.retroAchievements) {
+            #expect(manager.coverFileURL(forROMHash: hash, coverType: BoxArtManager.coverStateBoxArt)
+                    == manager.imageURL(forROMHash: hash))
+        }
+        #expect(!BoxArtManager.isChosen(BoxArtManager.coverStateRA))
+        #expect(BoxArtManager.isChosen(BoxArtManager.coverStateRAChosen))
+    }
+}

@@ -103,6 +103,8 @@ struct GameDetailsView: View {
     }
 
     @Environment(\.managedObjectContext) private var viewContext
+    /// For B (`controllerBack`): back to the library.
+    @Environment(\.dismiss) private var dismiss
     /// A phone on its side, or an iPad window (see `LandscapeSurface`).
     @LandscapeSurface private var isLandscape
     /// An upright phone in a chosen look (2026-09-07), for the two toggles:
@@ -129,6 +131,8 @@ struct GameDetailsView: View {
 
     var body: some View {
         coreBody
+            // B goes back to the library, as the back button does.
+            .controllerBack { dismiss() }
             .sheet(isPresented: $showSavePicker) {
                 DocumentPickerView(contentTypes: DocumentPickerView.saveTypes) { urls in
                     guard let url = urls.first else { return }
@@ -205,6 +209,40 @@ struct GameDetailsView: View {
                 Text(String(format: NSLocalizedString("saveImport.mismatch.message", comment: ""),
                             game.title ?? ""))
             }
+    }
+
+    /// "Start a new game?" before a fresh start over a session to resume. With
+    /// a controller in hand, the app's dialog it can answer (`ControllerAlert`);
+    /// by touch, the dialog this page always had.
+    private func confirmNewGame() {
+        if ControllerAlert.controllerInHand {
+            ControllerAlert.present(
+                title: NSLocalizedString("details.newGame.confirm.title", comment: ""),
+                message: NSLocalizedString("details.newGame.confirm.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                    .init(title: NSLocalizedString("details.newGame", comment: "")) { playFresh() },
+                ])
+        } else {
+            showNewGameConfirm = true
+        }
+    }
+
+    /// "Delete this game?", the same two ways as `confirmNewGame`: the app's
+    /// dialog with a controller in hand (the landscape page's "…" panel is
+    /// reachable with one), the dialog this page always had by touch.
+    private func confirmDelete() {
+        if ControllerAlert.controllerInHand {
+            ControllerAlert.present(
+                title: NSLocalizedString("details.delete.confirm", comment: ""),
+                message: nil,
+                actions: [
+                    .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                    .init(title: NSLocalizedString("details.delete", comment: ""), style: .destructive) { onDelete() },
+                ])
+        } else {
+            showDeleteConfirm = true
+        }
     }
 
     private var coreBody: some View {
@@ -382,7 +420,7 @@ struct GameDetailsView: View {
                 newGame: {
                     Haptics.tap()
                     if autoSlot?.exists == true {
-                        showNewGameConfirm = true
+                        confirmNewGame()
                     } else {
                         playFresh()
                     }
@@ -403,7 +441,7 @@ struct GameDetailsView: View {
                 },
                 chooseCover: { showCoverChooser = true },
                 removeCover: { BoxArtManager.shared.removeCustomCover(for: game) },
-                delete: { showDeleteConfirm = true }))
+                delete: { confirmDelete() }))
     }
 
     // MARK: - Sections
@@ -502,7 +540,7 @@ struct GameDetailsView: View {
     /// (the same tile as the RA profile's game list), and the trophy glyph
     /// in a Label's icon column otherwise, as before.
     private func achievementsDashboardRow(filename: String, record: RAGameRecord) -> some View {
-        Button {
+        FocusableButton(shape: .cell) {
             showAchievements = true
         } label: {
             HStack {
@@ -629,7 +667,7 @@ struct GameDetailsView: View {
     private var launchButtonsSection: some View {
         Section {
             if let auto = autoSlot, auto.exists {
-                Button {
+                FocusableButton(shape: .cell, isDefault: true) {
                     Haptics.tap()
                     playWithSlot(SaveStateManager.autoSaveSlotIndex)
                 } label: {
@@ -638,10 +676,10 @@ struct GameDetailsView: View {
                 }
             }
 
-            Button {
+            FocusableButton(shape: .cell, isDefault: true) {
                 Haptics.tap()
                 if autoSlot?.exists == true {
-                    showNewGameConfirm = true
+                    confirmNewGame()
                 } else {
                     playFresh()
                 }
@@ -684,7 +722,7 @@ struct GameDetailsView: View {
                 }
             } else {
                 ForEach(slots.filter { $0.exists }, id: \.slotIndex) { slot in
-                    Button {
+                    FocusableButton(shape: .cell) {
                         Haptics.tap()
                         playWithSlot(slot.slotIndex)
                     } label: {
@@ -843,9 +881,11 @@ struct GameDetailsView: View {
                     footer: Text(DeviceWording.string("settings.nds.language.footer"))) {
                 Toggle(NSLocalizedString("settings.nds.swapScreens", comment: ""), isOn: $ndsSwapScreens)
                     .tint(uprightLook ? LibraryLandscapePalette.accent : nil)
+                    .controllerToggle($ndsSwapScreens)
 
                 Toggle(NSLocalizedString("settings.nds.clock.manual", comment: ""), isOn: $ndsClockManual)
                     .tint(uprightLook ? LibraryLandscapePalette.accent : nil)
+                    .controllerToggle($ndsClockManual)
                 if ndsClockManual {
                     DatePicker(NSLocalizedString("settings.nds.clock.pickerLabel", comment: ""),
                                selection: ndsManualDate)
@@ -895,7 +935,10 @@ struct GameDetailsView: View {
                 Label(NSLocalizedString("details.cover.choose", comment: ""), systemImage: "photo")
             }
             if game.coverType == BoxArtManager.coverStateCustom {
-                Button {
+                // The one file action a controller reaches: the others open
+                // a file picker, a photo picker, a text field or a share sheet,
+                // which are touch screens (decided 2026-09-27).
+                FocusableButton(shape: .cell) {
                     BoxArtManager.shared.removeCustomCover(for: game)
                 } label: {
                     Label(NSLocalizedString("details.cover.remove", comment: ""), systemImage: "xmark.circle")
@@ -1019,7 +1062,9 @@ struct GameDetailsView: View {
         // but a file leaving the app should carry the name that describes it.
         let ext: String
         switch game.systemType {
-        case "nds", "snes": ext = "srm"
+        // The N64's is the core's combined block (EEPROM, Controller Paks,
+        // SRAM, FlashRAM), which is the `.srm` RetroArch writes and reads.
+        case "nds", "snes", "n64": ext = "srm"
         case "ps1":         ext = "mcd"
         default:            ext = "sav"
         }

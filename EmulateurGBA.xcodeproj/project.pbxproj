@@ -16,6 +16,12 @@
 		AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002AAAA0002AAAAAAAA /* libteakra.a */; };
 		AA000013AAAA0013AAAAAAAA /* libmesen-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000003AAAA0003AAAAAAAA /* libmesen-core.a */; };
 		AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */; };
+		AA000015AAAA0015AAAAAAAA /* libn64-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000005AAAA0005AAAAAAAA /* libn64-core.a */; };
+		AA000016AAAA0016AAAAAAAA /* MoltenVK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */; };
+		AA000017AAAA0017AAAAAAAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000007AAAA0007AAAAAAAA /* Metal.framework */; };
+		AA000018AAAA0018AAAAAAAA /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000008AAAA0008AAAAAAAA /* IOSurface.framework */; };
+		AA000019AAAA0019AAAAAAAA /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */; };
+		AA00001AAAAA001AAAAAAAAA /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA00000AAAAA000AAAAAAAAA /* AudioToolbox.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +66,12 @@
 		AA000002AAAA0002AAAAAAAA /* libteakra.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libteakra.a; path = "Vendor/melonds-ios/lib/libteakra.a"; sourceTree = SOURCE_ROOT; };
 		AA000003AAAA0003AAAAAAAA /* libmesen-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmesen-core.a"; path = "Vendor/mesen-ios/lib/libmesen-core.a"; sourceTree = SOURCE_ROOT; };
 		AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libpcsx-core.a"; path = "Vendor/pcsx-ios/lib/libpcsx-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000005AAAA0005AAAAAAAA /* libn64-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libn64-core.a"; path = "Vendor/n64-ios/lib/libn64-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MoltenVK.xcframework; path = "Vendor/moltenvk-ios/lib/MoltenVK.xcframework"; sourceTree = SOURCE_ROOT; };
+		AA000007AAAA0007AAAAAAAA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		AA000008AAAA0008AAAAAAAA /* IOSurface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOSurface.framework; path = System/Library/Frameworks/IOSurface.framework; sourceTree = SDKROOT; };
+		AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		AA00000AAAAA000AAAAAAAAA /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -136,6 +148,12 @@
 				AA000012AAAA0012AAAAAAAA /* libteakra.a in Frameworks */,
 				AA000013AAAA0013AAAAAAAA /* libmesen-core.a in Frameworks */,
 				AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */,
+				AA000015AAAA0015AAAAAAAA /* libn64-core.a in Frameworks */,
+				AA000016AAAA0016AAAAAAAA /* MoltenVK.xcframework in Frameworks */,
+				AA000017AAAA0017AAAAAAAA /* Metal.framework in Frameworks */,
+				AA000018AAAA0018AAAAAAAA /* IOSurface.framework in Frameworks */,
+				AA000019AAAA0019AAAAAAAA /* QuartzCore.framework in Frameworks */,
+				AA00001AAAAA001AAAAAAAAA /* AudioToolbox.framework in Frameworks */,
 				2678BF692FF1A907008F9AC6 /* TelemetryDeck in Frameworks */,
 				264C179A2FF3B21400AB5BFD /* rcheevos in Frameworks */,
 			);
@@ -173,6 +191,12 @@
 				AA000002AAAA0002AAAAAAAA /* libteakra.a */,
 				AA000003AAAA0003AAAAAAAA /* libmesen-core.a */,
 				AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */,
+				AA000005AAAA0005AAAAAAAA /* libn64-core.a */,
+				AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */,
+				AA000007AAAA0007AAAAAAAA /* Metal.framework */,
+				AA000008AAAA0008AAAAAAAA /* IOSurface.framework */,
+				AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */,
+				AA00000AAAAA000AAAAAAAAA /* AudioToolbox.framework */,
 				264C1CEC301763B400AB5BFD /* WidgetKit.framework */,
 				264C1CEE301763B400AB5BFD /* SwiftUI.framework */,
 			);
@@ -427,7 +451,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -439,7 +463,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -459,7 +483,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -471,7 +495,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -610,7 +634,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -624,6 +648,8 @@
 					"$(SRCROOT)/Vendor/mesence/Utilities",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
+					"$(SRCROOT)/Vendor/n64-ios",
+					"$(SRCROOT)/Vendor/moltenvk-ios/lib/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
@@ -637,8 +663,9 @@
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
 					"$(SRCROOT)/Vendor/pcsx-ios/lib",
+					"$(SRCROOT)/Vendor/n64-ios/lib",
 				);
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -655,7 +682,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 31;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -670,6 +697,8 @@
 					"$(SRCROOT)/Vendor/mesence/Utilities",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
+					"$(SRCROOT)/Vendor/n64-ios",
+					"$(SRCROOT)/Vendor/moltenvk-ios/lib/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Retro Pal";
@@ -683,8 +712,9 @@
 					"$(SRCROOT)/Vendor/melonds-ios/lib",
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
 					"$(SRCROOT)/Vendor/pcsx-ios/lib",
+					"$(SRCROOT)/Vendor/n64-ios/lib",
 				);
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

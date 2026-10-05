@@ -280,6 +280,105 @@ struct GBCardLayout {
         return max(0, diaLeft - pad.maxX - inset * 2)
     }
 
+    /// The Nintendo 64 card: the upright page's quarters, folded into the band
+    /// under the picture.
+    ///
+    /// The picture takes the shared place and height, as on every card. Under
+    /// it, the two columns the game has: the stick over the cross on the left,
+    /// A-B-Z over the C buttons on the right, each pair on one vertical line,
+    /// and the pair of rows centred in the band as the PlayStation centres its
+    /// raised block, measured by what is DRAWN (the stick's surround is twice
+    /// its diameter, the cross's well six points past it), not by the hitboxes.
+    /// The middle column is left to the game's name, as on the PlayStation's
+    /// card (`n64InfoColumnWidth`), and START sits under it, centred between
+    /// the block and the card's bottom. L and R stand above the picture over
+    /// their columns, the Retro Pal plaque between them (the skin draws it).
+    ///
+    /// The PlayStation's scale (0.68), the other card whose controls fill the
+    /// band: at it the taller column measures 219 of the band's 266 points.
+    static func n64(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let k: CGFloat = 0.68
+        let gap: CGFloat = 14
+        func sz(_ e: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(e, system: .n64, isLandscape: false, deviceScale: k)
+        }
+        let gw = max(g.width, 0.01), gh = max(g.height, 0.01)
+        let fH: CGFloat = 640, fW = fH * (gw / gh)
+        let screen = CGRect(x: (S - fW) / 2, y: 174, width: fW, height: fH)
+
+        let leftX = 0.18 * S, rightX = 0.82 * S
+        var buttons: [String: ButtonLayout] = [:]
+        func bl(_ x: CGFloat, _ y: CGFloat, _ hidden: Bool = false) -> ButtonLayout {
+            ButtonLayout(centerX: x / S, centerY: y / S, isHidden: hidden)
+        }
+
+        // L and R above the picture, over their columns.
+        let topRowY = screen.minY / 2
+        buttons[ControlElement.btnL.rawValue] = bl(leftX, topRowY)
+        buttons[ControlElement.btnR.rawValue] = bl(rightX, topRowY)
+
+        // What each group reaches from its centre, as drawn.
+        let stickReach = sz(.stickLeft).width
+        let padReach = sz(.dpad).width / 2 + 6 * k
+        let radius = ControlLayoutDefaults.n64FaceTriangleSide * k / CGFloat(3).squareRoot()
+        let face = sz(.btnA)
+        let facesUp = radius / 2 + face.height / 2, facesDown = radius + face.height / 2
+        let c = sz(.btnCUp)
+        let step = ControlLayoutDefaults.n64CGeometry(buttonWidth: c.width, scale: k).step
+        let cReach = step + c.width / 2
+        let pitch = max(stickReach + gap + padReach, facesDown + gap + cReach)
+        let above = max(stickReach, facesUp), below = max(padReach, cReach)
+        let band = S - screen.maxY
+        let upperY = screen.maxY + (band - (above + pitch + below)) / 2 + above
+        let lowerY = upperY + pitch
+
+        buttons[ControlElement.stickLeft.rawValue] = bl(leftX, upperY)
+        buttons[ControlElement.dpad.rawValue] = bl(leftX, lowerY)
+        buttons[ControlElement.btnA.rawValue] = bl(rightX, upperY + radius)
+        buttons[ControlElement.btnB.rawValue] = bl(rightX - radius * CGFloat(3).squareRoot() / 2,
+                                                   upperY - radius / 2)
+        buttons[ControlElement.btnL2.rawValue] = bl(rightX + radius * CGFloat(3).squareRoot() / 2,
+                                                    upperY - radius / 2)
+        buttons[ControlElement.btnCUp.rawValue] = bl(rightX, lowerY - step)
+        buttons[ControlElement.btnCDown.rawValue] = bl(rightX, lowerY + step)
+        buttons[ControlElement.btnCLeft.rawValue] = bl(rightX - step, lowerY)
+        buttons[ControlElement.btnCRight.rawValue] = bl(rightX + step, lowerY)
+
+        // START centred in the room between the bottom of the info block (the
+        // name, the play time) and the bottom of the card (asked 2026-09-27).
+        let infoBottom = ScreenshotCardRenderer.infoBlockNominalBottom(screen: screen)
+        buttons[ControlElement.btnStart.rawValue] = bl(S / 2, (infoBottom + S) / 2)
+
+        // Menu is force-shown by `applyLayout`, so it is parked off the card;
+        // Clip can simply be hidden. Same on every card here.
+        buttons[ControlElement.btnMenu.rawValue] = bl(S / 2, S * 3)
+        buttons[ControlElement.btnClip.rawValue] = bl(S / 2, S * 3, true)
+        return GBCardLayout(screen: screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// How wide a column the Nintendo 64 card leaves for the game's name: the
+    /// gap between the left column's furthest reach (the stick's surround) and
+    /// the right column's (B, or C LEFT). Derived from the placed frames, as
+    /// the PlayStation's is, so the two cannot disagree.
+    static func n64InfoColumnWidth(_ layout: GBCardLayout, side S: CGFloat) -> CGFloat? {
+        let k = layout.deviceScale
+        func rect(_ e: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[e.rawValue] else { return nil }
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: .n64, isLandscape: false,
+                                                     deviceScale: k)
+            return CGRect(x: b.centerX * S - s.width / 2, y: b.centerY * S - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        guard let stick = rect(.stickLeft), let pad = rect(.dpad) else { return nil }
+        let leftReach = max(stick.midX + stick.width, pad.maxX + 6 * k)
+        guard let rightReach = [ControlElement.btnB, .btnCLeft].compactMap({ rect($0)?.minX }).min()
+        else { return nil }
+        let inset: CGFloat = 24
+        let left = S / 2 - leftReach, right = rightReach - S / 2
+        // Centred on the card, so it takes the narrower of the two halves.
+        return max(0, min(left, right) * 2 - inset * 2)
+    }
+
     /// NES card layout: `make`'s, unchanged. This console wears the Game Boy's page in the game
     /// too — one screen, no shoulders, D-pad left and A/B right — so it wants the Game Boy card's
     /// arrangement rather than a shape of its own. Named anyway, so the card mapping has one

@@ -10,8 +10,8 @@
 "library.empty.subtitle" = "在 iPhone 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
 "library.empty.subtitle.ipad" = "在 iPad 上玩你的復古遊戲。沒有廣告，也不追蹤個人資料。";
 "library.empty.button" = "加入遊戲";
-"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes 或 .chd）放到 iPhone 上。";
-"library.empty.step1.ipad" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes 或 .chd）放到 iPad 上。";
+"library.empty.step1" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64 或 .chd）放到 iPhone 上。";
+"library.empty.step1.ipad" = "透過 Safari、AirDrop 或 iCloud 雲碟，把遊戲檔（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64 或 .chd）放到 iPad 上。";
 "library.empty.step2" = "點一下 %@，再到「檔案」App 選取檔案。";
 "library.empty.step3" = "開始玩吧。進度會自動儲存";
 "library.empty.romHint" = "還沒有 ROM？網路上有許多免費且合法的遊戲，搜尋「GBA homebrew」看看。";
@@ -52,6 +52,8 @@
 "cover.choose.screenshot" = "最近一次即時存檔的截圖";
 "cover.choose.photo" = "從照片圖庫選擇";
 "cover.choose.caption" = "遊戲庫中顯示的封面。遊戲頁面一律顯示你最近的截圖。";
+"library.covers.row" = "封面";
+"library.covers.note" = "一次變更所有遊戲的封面，但你在遊戲頁面上親自選擇的封面除外。";
 "details.newGame.confirm.title" = "要從標題畫面開始嗎？";
 "details.newGame.confirm.message" = "將不會接續上次的進度，但遊戲內存檔與即時存檔都會保留。";
 "details.launch.footer" = "要載入遊戲內存檔（在遊戲本身的儲存選單建立的那種），請啟動遊戲並從遊戲選單接續。它與下方的即時存檔欄位是分開的，即時存檔由你自己建立。";
@@ -67,7 +69,14 @@
 "overlay.saveSlots" = "即時存檔欄位";
 // PlayStation disc picker (pause menu, multi-disc games only)
 "overlay.discs" = "光碟";
+/* The DS only: close the console for two seconds of play (a few puzzles ask for it). */
+"overlay.lid.button" = "闔上主機";
+"overlay.lid.caption" = "用於少數需要闔上 DS 才能解開的謎題。主機會保持闔上，直到你按下任一按鈕，或在這裡再次打開。";
+"overlay.lid.open" = "打開主機";
+/* Over the DS top screen while the lid is closed from the pause menu. */
+"nds.lid.closedMessage" = "DS 已闔上（模擬）。按下任一按鈕即可再次打開。";
 "overlay.disc.numbered" = "光碟 %@";
+"overlay.performance" = "實測流暢度：每秒 %1$@ 幀（應為 %2$@ 幀）。每幀運算耗時 %3$@ 毫秒（可用 %4$@ 毫秒）。";
 "overlay.disc.inDrive" = "已放入";
 "overlay.disc.failed.title" = "無法更換光碟";
 "overlay.disc.failed.message" = "主機拒絕了更換光碟。請開啟選單再試一次。";
@@ -81,7 +90,17 @@
 "settings.controls" = "操作";
 "settings.haptics" = "遊戲中觸覺回饋";
 "settings.haptics.strength" = "強度";
-"settings.controller.footer" = "支援藍牙控制器（Xbox、PlayStation、MFi）。請在 iOS 設定中配對。";
+"settings.controller.footer" = "支援藍牙與 USB-C 控制器（Xbox、PlayStation、MFi）。藍牙控制器請在 iOS 設定中配對，USB-C 控制器插上即可使用。";
+
+/* Several controllers (1.3.3): the Players list in Settings and the library badge. controllers.count is only ever 2 to 4. */
+"controllers.player" = "玩家 %d";
+"controllers.count" = "%d 個控制器";
+"controllers.moveUp" = "上移";
+"controllers.moveDown" = "下移";
+/* A hardware keyboard as a player (iPhone), in the Players list and the library badge. */
+"controllers.keyboard" = "鍵盤";
+"settings.players.header" = "玩家";
+"settings.players.footer" = "玩家 1 會遊玩單人主機的遊戲，並操作選單。按下控制器上的任一按鈕，它所在的列就會亮起，再用箭頭調整順序。中斷連線後再連回來的控制器會排到最後。";
 "settings.controls.controllerActive.footer" = "已連接控制器，上方的觸控操作設定已停用。";
 "settings.controls.dpad.footer" = "十字鍵/搖桿與短片按鈕的選擇會套用到預設佈局。每個自訂預設組各有自己的十字鍵/搖桿選擇，而短片按鈕永遠保持顯示。";
 "settings.dpad" = "十字鍵";
@@ -102,6 +121,7 @@
 "settings.core" = "模擬器核心";
 "settings.engines.footer" = "授權：%@。";
 "settings.engines.footer.patched" = "授權：%@。使用時做了一項小修改，該修改以修補檔的形式與原始碼一同公開。";
+"settings.engines.footer.patches" = "授權：%@。使用時做了數項修改，這些修改以修補檔的形式與原始碼一同公開。";
 "settings.rateApp" = "為 Retro Pal 評分";
 "review.headline" = "為 Retro Pal 評分";
 "review.body" = "每一則評論對我們都很重要，這是專案得以延續的動力。🙂";
@@ -153,7 +173,7 @@
 "pro.compare.row.allSystems" = "所有主機";
 "pro.compare.row.autoSave" = "自動存檔";
 "pro.compare.row.iCloud" = "iCloud 同步";
-"pro.compare.row.controllers" = "藍牙控制器";
+"pro.compare.row.controllers" = "藍牙或 USB-C 控制器";
 "pro.compare.row.slots" = "存檔欄位";
 "pro.compare.row.speeds" = "速度範圍";
 "pro.compare.row.rewind" = "倒帶";
@@ -206,7 +226,7 @@
 "legal.melonds" = "melonDS 授權";
 "legal.importantNotice.title" = "重要聲明";
 "legal.aboutApp.title" = "關於本 App";
-"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color、任天堂 DS、超級任天堂、紅白機與 PlayStation 遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
+"legal.aboutApp.description1" = "Retro Pal 是 Game Boy Advance、Game Boy、Game Boy Color、任天堂 DS、超級任天堂、紅白機、PlayStation 與任天堂64 遊戲的本機模擬器前端。它不下載、不散布，也不提供任何遊戲內容的取得管道。所有 ROM 檔案都必須由使用者透過「檔案」App 從自己的裝置儲存空間匯入。";
 "legal.aboutApp.description2" = "本 App 不提供遊戲目錄、不散布遊戲內容，也不協助下載受著作權保護的素材。";
 "legal.privacy.title" = "隱私權";
 "legal.privacy.description" = "你的遊戲與存檔都保留在你的裝置上。為了改進 App，Retro Pal 只傳送匿名使用統計，不含個人資料，也不含廣告識別碼。";
@@ -221,10 +241,23 @@
 "legal.pcsx" = "PCSX-ReARMed 授權";
 "legal.pcsx.licenseLine" = "依 GNU General Public License v2.0 或更新版本（GPL-2.0-or-later）授權";
 "legal.pcsx.description" = "PCSX-ReARMed 是一款 PlayStation 模擬器，在本應用程式中作為 PlayStation 遊戲的模擬引擎。PCSX-ReARMed 的原始碼位於 [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
+"legal.mupen" = "Mupen64Plus-Next 授權";
+"legal.mupen.licenseLine" = "依 GNU General Public License v2.0 或更新版本（GPL-2.0-or-later）授權";
+"legal.mupen.description" = "Mupen64Plus-Next 是一款任天堂64 模擬器，在本應用程式中與 Iconoclast 的訊號處理器 cxd4（CC0）一同作為任天堂64 遊戲的模擬引擎。使用時做了數項修改，這些修改以修補檔的形式與原始碼一同公開。Mupen64Plus-Next 的原始碼位於 [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx)";
+"legal.parallelrdp" = "ParaLLEl-RDP 授權";
+"legal.parallelrdp.licenseLine" = "依 MIT 授權條款授權";
+"legal.parallelrdp.description" = "ParaLLEl-RDP 在本應用程式中以圖形處理器繪製任天堂64 的畫面。ParaLLEl-RDP 的原始碼位於 [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
+"legal.moltenvk" = "MoltenVK 授權";
+"legal.moltenvk.licenseLine" = "依 Apache License 2.0（Apache-2.0）授權";
+"legal.moltenvk.description" = "MoltenVK 在本應用程式中將 ParaLLEl-RDP 使用的 Vulkan 圖形運行於 Apple 的 Metal 之上。MoltenVK 的原始碼位於 [https://github.com/KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK)";
 "legal.retropal" = "Retro Pal 授權";
 "legal.retropal.licenseLine" = "依 GNU General Public License v3.0（GPL-3.0）授權";
 "legal.retropal.description" = "Retro Pal 的完整原始碼公開於 [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal)。本軟體不提供任何保固。";
-"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）、melonDS（GPL-3.0）與 PCSX-ReARMed（GPL-2.0 或更新版本）之上，三者均未經修改；另建構於 MesenCE（GPL-3.0）之上，我們對其做了一處小修改，並以 patch 檔隨原始碼一併公開。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
+"legal.compliance" = "Retro Pal 依 GNU General Public License v3.0 散布，建構於 mGBA（Mozilla Public License 2.0）與 PCSX-ReARMed（GPL-2.0 或更新版本）之上，兩者均未經修改；另建構於 melonDS（GPL-3.0）之上，我們對其做了兩處小修改；亦建構於 MesenCE（GPL-3.0）之上，我們對其做了一處小修改；並建構於 Mupen64Plus-Next（GPL-2.0 或更新版本）之上，我們對其做了數處修改，且搭配 ParaLLEl-RDP（MIT）、訊號處理器 cxd4（CC0）與 MoltenVK（Apache License 2.0）使用。所有修改皆以 patch 檔隨原始碼一併公開。完整對應原始碼可於上方連結的儲存庫取得，本軟體不提供任何保固。";
+"legal.thirdParty.title" = "第三方授權";
+"legal.thirdParty.caption" = "Retro Pal 內含軟體所依據之每一份授權的完整條文，以及使用該授權的元件。";
+"legal.thirdParty.usedBy" = "使用此授權的元件";
+"legal.thirdParty.fullText" = "授權條文";
 
 "details.noSaves" = "還沒有即時存檔。遊戲中按選單按鈕即可建立。";
 "details.play" = "開始遊戲";
@@ -270,6 +303,7 @@
 
 /* Common */
 "common.cancel" = "取消";
+"common.back" = "返回";
 "common.ok" = "好";
 "common.save" = "儲存";
 
@@ -377,13 +411,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "加入遊戲";
 "guide.importRom.intro" = "Retro Pal 不內含任何遊戲。ROM 檔案由你自行提供，且必須是你合法持有的（自己的卡帶，或免費合法的自製遊戲）。";
-"guide.importRom.step1" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPhone：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
-"guide.importRom.step1.ipad" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPad：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
+"guide.importRom.step1" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPhone：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
+"guide.importRom.step1.ipad" = "把遊戲檔案（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64，或 PlayStation 光碟的 .chd，或 .cue 搭配 .bin）放到你的 iPad：用 Safari 下載、從電腦以 AirDrop 傳送，或透過 iCloud 雲碟取得。";
 "guide.importRom.step2" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPhone」或「iCloud 雲碟」）。";
 "guide.importRom.step2.ipad" = "確認檔案出現在「檔案」App 中（「下載項目」、「我的 iPad」或「iCloud 雲碟」）。";
 "guide.importRom.step3" = "在 Retro Pal 中，點遊戲庫上方的 + 按鈕。";
 "guide.importRom.step4" = "選取檔案，遊戲立即出現在遊戲庫中，馬上可以玩。";
-"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes，以及 PlayStation 光碟的 .chd、.cue 搭配 .bin，或 .m3u。.zip 也可以，不論裡面是一款遊戲、一張光碟的全部檔案，還是多款遊戲讓你挑選。不支援 .7z。請只匯入你合法持有的檔案。";
+"guide.importRom.footer" = "支援格式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64，以及 PlayStation 光碟的 .chd、.cue 搭配 .bin，或 .m3u。.zip 也可以，不論裡面是一款遊戲、一張光碟的全部檔案，還是多款遊戲讓你挑選。不支援 .7z。請只匯入你合法持有的檔案。";
 "settings.guides.section" = "指南";
 "settings.controller.row" = "控制器";
 "common.done" = "完成";
@@ -398,7 +432,7 @@
 "guide.controller.step2" = "開啟 iOS 設定，進入藍牙，把控制器連接到 iPhone。";
 "guide.controller.step2.ipad" = "開啟 iPadOS 設定，進入藍牙，把控制器連接到 iPad。";
 "guide.controller.step3" = "回到 Retro Pal。控制器會自動偵測，螢幕上的操作按鈕隨即消失。";
-"guide.controller.footer" = "支援 MFi、Xbox、PlayStation、8BitDo 與大多數藍牙控制器。";
+"guide.controller.footer" = "支援 MFi、Xbox、PlayStation、8BitDo 與大多數藍牙控制器。USB-C 控制器不需配對，插上後會自動偵測。";
 "guide.controller.status.connected" = "已連接控制器：%@";
 "guide.controller.status.disconnected" = "未連接控制器";
 "guide.controller.genericName" = "控制器";
@@ -513,6 +547,13 @@
 "skin.editor.letters" = "字樣";
 "skin.editor.ink" = "墨色";
 "skin.editor.menuButtons" = "選單按鈕";
+"skin.editor.shoulders" = "L/R 按鈕";
+"skin.editor.stick" = "搖桿";
+"skin.editor.stickSurround" = "搖桿外框";
+"skin.editor.dpadMarks" = "十字鍵箭頭";
+"skin.editor.faceZ" = "Z 按鈕";
+"skin.editor.cButtons" = "C 按鈕";
+"skin.editor.startButton" = "START 按鈕";
 
 /* RetroAchievements */
 "ra.settings.title" = "RetroAchievements";
@@ -571,9 +612,9 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "無法存取所選檔案。請試著從「檔案」App 匯入。";
 "import.error.copyFailed" = "無法將遊戲複製到 Retro Pal。請先釋出一些儲存空間，再試一次。";
-"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes，以及 .chd、.cue 搭配 .bin、.m3u 格式的 PlayStation 光碟。";
+"import.error.invalidROM" = "這不是 Retro Pal 能讀取的遊戲檔。支援的遊戲：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64 和 .v64，以及 .chd、.cue 搭配 .bin、.m3u 格式的 PlayStation 光碟。";
 "import.error.discMissingFiles" = "這張光碟需要未被選取的檔案：%@。請一次選取 .cue 和所有 .bin 檔案。";
-"import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc、.nds、.sfc、.smc 和 .nes 遊戲，不支援其他主機。";
+"import.error.zipNoROM" = "這個 ZIP 裡找不到遊戲檔。Retro Pal 只能讀取 .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64 和 .v64 遊戲，以及 .chd、.cue 搭配 .bin、.m3u 格式的 PlayStation 光碟，不支援其他主機。";
 "import.error.zipExtractionFailed" = "無法開啟這個 ZIP。請先在「檔案」App 解壓縮，再直接匯入遊戲檔。";
 "import.error.zipUnsupportedCompression" = "這個 ZIP 使用了 Retro Pal 無法讀取的壓縮方式，例如 LZMA 或 BZIP2。檔案本身沒有損壞。請在「檔案」App 中解壓縮後直接匯入遊戲，或以標準壓縮重新製作 ZIP。";
 "import.error.zipEncrypted" = "這個 ZIP 有密碼保護。請在「檔案」App 中解壓縮後，再直接匯入遊戲檔案。";
@@ -643,6 +684,11 @@
 "cheats.invalid.characters" = "這組代碼含有不會用到的字元。密技代碼只使用 0-9、A-F、空格和連字號。";
 "cheats.invalid.characters.nes" = "這組代碼含有不會用到的字元。紅白機的代碼使用 Game Genie 的英文字母 A P Z L G I T Y E O X U K S V N，或 0-9 和 A-F，以及空格和連字號。";
 "cheats.invalid.pairs" = "Action Replay DS 代碼是成對的：每一行需要兩組八個字元的區塊，例如 94000130 FCFF0000。";
+"cheats.invalid.placeholder" = "這組代碼需要你自行選擇數值。請把每個 X 換成十六進位數字（0-9 或 A-F），例如把 XXXX 改成 0063。";
+"n64.displayLost.title" = "畫面已停止更新";
+"n64.displayLost.message" = "圖形處理器已停止回應，因此無法再顯示遊戲畫面。請結束遊戲以儲存進度，再重新開啟遊戲繼續遊玩。";
+"n64.displayLost.quit" = "儲存並結束";
+"n64.libdragonUnsupported" = "這款任天堂64 遊戲是用 Retro Pal 尚未支援的新版自製遊戲工具（libdragon）製作的。任天堂64 卡帶遊戲不受影響。";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
 "cheats.multiline.caption" = "分成多行的代碼要以「一個項目」加入。請將所有行一起貼上，不要逐行加入。";
@@ -688,24 +734,25 @@
 "externalDisplay.idle.hint.ipad" = "請在 iPad 上啟動遊戲";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "全新外觀";
-"whatsnew.s1.b1" = "把手機轉成橫向，遊戲庫就變成一整排封面，襯在會動的背景上；遊戲頁面、RetroAchievements 和設定也採用同樣的風格。";
-"whatsnew.s1.b2" = "在直向模式下，你最近玩過的遊戲會放在最上方，下方的清單則襯在一層玻璃質感的底板上。外觀隨時可以更換：遊戲庫右上角、+ 旁邊的調色盤按鈕 {PALETTE} 提供五種外觀，如果你偏好先前的介面，也可以選「經典」。";
-"whatsnew.s1.b3" = "為每款遊戲挑選封面：官方封面、RetroAchievements 圖片、你最近的截圖或一張照片。";
-"whatsnew.s2.title" = "iPad";
-"whatsnew.s2.b1" = "Retro Pal 現在也能在 iPad 上使用，所有主機都支援，直向橫向皆可，操作按鈕也依大螢幕調整了大小。";
-"whatsnew.s2.b2" = "把視窗縮窄放在另一個 App 旁邊，遊戲庫就會像在 iPhone 上一樣排列。";
-"whatsnew.s3.title" = "被當成鍵盤的手把";
-"whatsnew.s3.b1" = "被 iOS 當成鍵盤的舊款藍牙手把，例如 8BitDo Zero，不用設定就能直接玩，每個按鍵都能在設定裡依主機重新指派。免費。";
-"whatsnew.s3.b2" = "在 iPhone 上，接著鍵盤時觸控按鈕會隱藏；在 iPad 上則會留在畫面上。";
-"whatsnew.s4.title" = "每一種語言";
-"whatsnew.s4.b1" = "ZIP 壓縮檔裡檔名含日文、韓文、中文或重音字母的遊戲，現在會以正確的名稱匯入。";
-"whatsnew.s4.b2" = "不論這台裝置使用哪種曆法，Nintendo DS 的時鐘都會顯示正確的年份。";
+"whatsnew.s1.title" = "任天堂64";
+"whatsnew.s1.b1" = "任天堂64 遊戲現在可以在 Retro Pal 上遊玩，這台主機對所有人免費。";
+"whatsnew.s1.b2" = "存檔、即時存檔、金手指、成就與官方封面，全都從第一天起就能用。";
+"whatsnew.s1.b3" = "在螢幕上，類比搖桿、A、B、Z 和四個 C 按鈕都在拇指底下。使用控制器時，右搖桿就能操作 C 按鈕。";
+"whatsnew.s1.b4" = "遊戲周圍會顯示這台主機自己的機殼，直向與橫向都是。{PRO} 可以把它換成你喜歡的顏色。";
+"whatsnew.s2.title" = "最多四個控制器";
+"whatsnew.s2.b1" = "最多可以連接四個控制器一起玩：紅白機、超級任天堂與 PlayStation 支援兩位玩家，任天堂64 支援四位。免費。";
+"whatsnew.s2.b2" = "在設定的「玩家」區塊可以排定順序。玩家 1 會遊玩單人主機的遊戲，並操作選單；按下控制器上的任一按鈕，它所在的列就會亮起。";
+"whatsnew.s2.b3" = "遊戲庫的工具列會顯示每個控制器的電量。";
+"whatsnew.s3.title" = "用控制器操作整個 App";
+"whatsnew.s3.b1" = "用十字鍵在遊戲庫、遊戲頁面、RetroAchievements 和設定之間移動：A 開啟，B 返回，L 和 R 切換遊戲庫與設定，外框會標出你目前的位置。";
+"whatsnew.s3.b2" = "遊戲中，按控制器的 Home 鍵，或同時按住 Start 和 Select 一秒，就會打開暫停選單，不用碰螢幕就能存檔、讀檔和離開。";
+"whatsnew.s4.title" = "封面";
+"whatsnew.s4.b1" = "透過調色盤按鈕 {PALETTE} 的「封面」，可以一次選好所有遊戲的封面：官方封面、RetroAchievements 圖片或截圖。你為單一遊戲選的封面會維持不變。";
+"whatsnew.s4.b2" = "封面曾變成 RetroAchievements 圖片的遊戲，現在可以換回官方封面；而且還沒打開遊戲之前，就能選用 RetroAchievements 圖片。";
 "whatsnew.s5.title" = "此外";
-"whatsnew.s5.b1" = "Nintendo DS 的設定移到了 DS 遊戲自己的頁面，RetroAchievements 則緊接在存檔欄位下方。";
-"whatsnew.s5.b2" = "遊戲庫的工具列會顯示控制器的電量。";
-"whatsnew.s5.b3" = "RetroAchievements 成就現在也支援 PlayStation 遊戲了。";
-"whatsnew.s5.b4" = "金手指代碼：歐版或日版遊戲現在能找到自己的代碼，而且原版遊戲的代碼會排在玩家自製改版的代碼之前。";
+"whatsnew.s5.b1" = "在 DS 上，現在可以從暫停選單闔上主機，用於少數需要這麼做的謎題；主機會保持闔上，直到你按下任一按鈕。";
+"whatsnew.s5.b2" = "DS 遊戲執行得更流暢，在低耗電模式下尤其明顯，遊玩時聲音也不再斷斷續續。";
+"whatsnew.s5.b3" = "DS 的即時存檔現在只佔約三分之一的空間。原有的即時存檔照樣能讀取；新建立的即時存檔，要等你的其他裝置也更新到這個版本後才能開啟。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "這個系列沒有載入任何成就。";

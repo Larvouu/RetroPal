@@ -5,7 +5,7 @@ build_cheat_index.py - Retro Pal cheat database index.
 Compiles libretro-database's `cht/` folder into the ONE small file the app
 bundles:
 
-    EmulateurGBA/Resources/CheatIndex.json      (~800 KB, seven systems)
+    EmulateurGBA/Resources/CheatIndex.json      (eight systems)
 
 The index holds no cheat codes at all. It maps a normalised game title to the
 libretro filenames that carry codes for it, so the app can build a URL and
@@ -51,6 +51,10 @@ SYSTEMS = {
     # libretro's folder is "Sony - PlayStation"; "Sony - PlayStation Portable"
     # sits beside it and is a different machine we do not run.
     "ps1": "Sony - PlayStation",
+    # The eighth. Only the base folder: "(Aleck64)", "(iQue)" and
+    # "(Unreleased)" sit beside it, and they are an arcade board, the Chinese
+    # console and prototypes, none of which a player's cartridge dump is.
+    "n64": "Nintendo - Nintendo 64",
 }
 
 FORMAT_VERSION = 1

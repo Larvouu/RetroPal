@@ -17,7 +17,7 @@ struct SkinPreviewGallery: View {
 
     private let systems: [(system: PresetSystem, name: String)] =
         [(.gba, "GBA"), (.gbc, "GB/GBC"), (.nds, "NDS"), (.snes, "SNES"), (.nes, "NES"),
-         (.ps1, "PlayStation")]
+         (.ps1, "PlayStation"), (.n64, "Nintendo 64")]
     private let skins = GameSkin.pickerOrder
 
     var body: some View {

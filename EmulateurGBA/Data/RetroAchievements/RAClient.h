@@ -98,6 +98,13 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 @property (nonatomic, assign) NSInteger numUnlocked;
 @end
 
+/// One game from the game-titles endpoint: its RA id and its game image (the
+/// same image a game load's `currentGameBoxArtURL` answers).
+@interface RAGameTitleEntry : NSObject
+@property (nonatomic, assign) uint32_t gameId;
+@property (nonatomic, copy, nullable) NSString *imageURL;
+@end
+
 @protocol RAClientDelegate <NSObject>
 /// An achievement was just earned (softcore). Celebration only — never a Pro trigger.
 /// `rarity` is the % of players who have earned it (0 if unknown).
@@ -210,6 +217,12 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 /// The completion is invoked on the main thread.
 - (void)fetchAllProgressForConsole:(uint32_t)consoleId
                         completion:(void (^)(BOOL success, NSArray<RAProgressEntry *> *entries))completion;
+
+/// Fetch the game image of several RA games at once (`gameinfolist`).
+/// Requires NO credentials, like `resolveHash:`, so a recognised game has its
+/// image before it is ever loaded. The completion is invoked on the main thread.
+- (void)fetchGameImagesForIDs:(NSArray<NSNumber *> *)gameIds
+                   completion:(void (^)(BOOL success, NSArray<RAGameTitleEntry *> *entries))completion;
 
 /// `userAgentProductClause` is our STABLE product identifier, e.g.
 /// "RetroPal/1.2.1 (iOS 17.0; iPhone14,2)". rcheevos' own version clause is

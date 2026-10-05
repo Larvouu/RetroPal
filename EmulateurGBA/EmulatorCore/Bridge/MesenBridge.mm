@@ -415,16 +415,37 @@ private:
 class MesenInputSource : public IInputProvider
 {
 public:
+	/// Player 1's mask (port 1).
 	std::atomic<uint32_t> Keys { 0 };
+	/// Player 2's mask (port 2).
+	std::atomic<uint32_t> Keys2 { 0 };
 	std::atomic<bool> IsNes { false };
 
 	bool SetInput(BaseControlDevice* device) override
 	{
-		if(device->GetPort() != 0) {
-			return false;
+		if(device->GetPort() == 0) {
+			ApplyKeys(device, Keys.load());
+			return true;
 		}
+		//Port 2 answers only when it holds the console's own pad. A game that
+		//declares something else there (Duck Hunt's Zapper, a Power Pad) keeps
+		//its device, which reads its state from its own source.
+		if(device->GetPort() == 1 && device->GetControllerType() == StandardPadType()) {
+			ApplyKeys(device, Keys2.load());
+			return true;
+		}
+		return false;
+	}
 
-		uint32_t keys = Keys.load();
+	/// The console's ordinary controller, the one this app drives.
+	ControllerType StandardPadType()
+	{
+		return IsNes.load() ? ControllerType::NesController : ControllerType::SnesController;
+	}
+
+private:
+	void ApplyKeys(BaseControlDevice* device, uint32_t keys)
+	{
 		if(IsNes.load()) {
 			device->SetBitValue(NesController::Buttons::A, keys & 0x001);
 			device->SetBitValue(NesController::Buttons::B, keys & 0x002);
@@ -448,7 +469,6 @@ public:
 			device->SetBitValue(SnesController::Buttons::X, keys & 0x400);
 			device->SetBitValue(SnesController::Buttons::Y, keys & 0x800);
 		}
-		return true;
 	}
 };
 
@@ -459,6 +479,17 @@ public:
 	std::unique_ptr<MesenFrameSink> _frameSink;
 	std::unique_ptr<MesenAudioSink> _audioSink;
 	std::unique_ptr<MesenInputSource> _input;
+
+	/// How many players have a controller (`setConnectedPlayers:`), and whether
+	/// port 2 must be re-planned before the next frame. Set from the UI thread,
+	/// applied in `runFrame`, between frames, because Mesen's settings are the
+	/// emulation thread's. It survives a game change: it describes the pads in
+	/// the player's hands, not the cartridge.
+	std::atomic<NSInteger> _connectedPlayers;
+	std::atomic<bool> _portsDirty;
+	/// Whether port 2's pad is one WE plugged in (see `applyPorts`), so taking
+	/// it out again never removes a device the game itself asked for.
+	BOOL _port2Plugged;
 
 	BOOL _romLoaded;
 	BOOL _isNes;
@@ -495,6 +526,9 @@ public:
 	if(self) {
 		_romLoaded = NO;
 		_isNes = NO;
+		_connectedPlayers = 1;
+		_portsDirty = false;
+		_port2Plugged = NO;
 		_bufferWidth = (uint32_t)SNESBufferWidth;
 		_bufferHeight = (uint32_t)SNESBufferHeight;
 		_speedMultiplier = 1;
@@ -603,6 +637,13 @@ public:
 	//after every load or power cycle, so this cannot be done once at startup.
 	_emu->RegisterInputProvider(_input.get());
 	_romLoaded = YES;
+	//Port 2 is planned AFTER the load, because the load is where an NES game
+	//from the database declares its own devices (see `applyPorts`). Applied
+	//here directly, like the PlayStation's pad type: the first frame has to
+	//find a second player's pad already plugged in, or the few games that look
+	//for it at boot would not see it.
+	_port2Plugged = NO;
+	[self applyPorts];
 	return YES;
 }
 
@@ -685,8 +726,9 @@ public:
 		//
 		//Set BEFORE LoadRom on purpose: this is a floor, not a ceiling. A game
 		//that genuinely declares a Zapper or a Power Pad still gets one, because
-		//`InitializeInputDevices` runs later and overwrites this. Port 2 stays
-		//empty for the same reason it does on the SNES.
+		//`InitializeInputDevices` runs later and overwrites this. Port 2 is left
+		//empty here for the same reason as on the SNES; `applyPorts` fills it
+		//when a second player has a controller.
 		nes.Port1.Type = ControllerType::NesController;
 
 		_emu->GetSettings()->SetNesConfig(nes);
@@ -702,8 +744,9 @@ public:
 		//is no device for our input provider to answer about and the game receives
 		//nothing at all. The SNES has no auto-configure path whatsoever; the NES
 		//has one that only fires for cartridges whose input type is declared, which
-		//is why it needs the same line (see the NES block above). Port 2 stays
-		//empty on purpose: a second pad changes what some games do at boot.
+		//is why it needs the same line (see the NES block above). Port 2 is left
+		//empty on purpose: a second pad changes what some games do at boot, so
+		//`applyPorts` plugs one only when a second player has a controller.
 		snes.Port1.Type = ControllerType::SnesController;
 
 		_emu->GetSettings()->SetSnesConfig(snes);
@@ -743,6 +786,10 @@ public:
 		_batteryNeedsReload = NO;
 		_emu->PowerCycle();
 		_emu->RegisterInputProvider(_input.get());
+		//A power cycle reloads the cartridge, and with it an NES game's own
+		//port declaration; plan port 2 again on top of it.
+		_port2Plugged = NO;
+		[self applyPorts];
 	} else {
 		_emu->Reset();
 	}
@@ -835,6 +882,7 @@ public:
 	//on a decode thread. `awaitDisplayFrame` is where we wait for it, once per
 	//DRAWN frame rather than once per emulated one, so fast-forward and catch-up
 	//do not pay for pictures they discard.
+	if(_portsDirty.exchange(false)) [self applyPorts];
 	_frameCountBeforeStep = _frameSink ? _frameSink->FrameCount() : 0;
 	console->RunFrame();
 }
@@ -849,6 +897,64 @@ public:
 
 - (void)setKeys:(uint32_t)keys {
 	if(_input) _input->Keys = keys;
+}
+
+#pragma mark - Players
+
+/// Player 2's buttons. The console has two ports, so any other player is
+/// ignored (the session never sends one: `PresetSystem.playerCount`).
+- (void)setKeys:(uint32_t)keys player:(NSInteger)player {
+	if(!_input) return;
+	if(player == 0) {
+		_input->Keys = keys;
+	} else if(player == 1) {
+		_input->Keys2 = keys;
+	}
+}
+
+- (void)setConnectedPlayers:(NSInteger)count {
+	if(_connectedPlayers.exchange(count) != count) _portsDirty = true;
+}
+
+/// Port 2 holds the console's pad exactly while a second player exists.
+///
+/// Only an EMPTY port is filled, and only a pad we plugged is taken out. An NES
+/// cartridge the database knows arrives with its ports already declared: two
+/// pads for most games (port 2 then stays as it is, as it always has), a Zapper
+/// or a Power Pad for a few, and none of those is ours to replace. An SNES
+/// port 2, and an unknown NES game's, start empty (see `configureSettings`),
+/// which is where the second player's pad goes.
+///
+/// Both consoles rebuild their devices from these settings at the end of every
+/// frame (`UpdateControlDevices`, which returns at once when nothing changed),
+/// so a change made here takes effect on the next frame, mid-game included.
+- (void)applyPorts {
+	if(!_emu || !_romLoaded) return;
+	const bool wantsPort2 = _connectedPlayers.load() >= 2;
+	const ControllerType pad = _isNes ? ControllerType::NesController : ControllerType::SnesController;
+	if(_isNes) {
+		NesConfig nes = _emu->GetSettings()->GetNesConfig();
+		if(wantsPort2 && nes.Port2.Type == ControllerType::None) {
+			nes.Port2.Type = pad;
+			_port2Plugged = YES;
+		} else if(!wantsPort2 && _port2Plugged) {
+			if(nes.Port2.Type == pad) nes.Port2.Type = ControllerType::None;
+			_port2Plugged = NO;
+		}
+		_emu->GetSettings()->SetNesConfig(nes);
+	} else {
+		SnesConfig snes = _emu->GetSettings()->GetSnesConfig();
+		if(wantsPort2 && snes.Port2.Type == ControllerType::None) {
+			snes.Port2.Type = pad;
+			_port2Plugged = YES;
+		} else if(!wantsPort2 && _port2Plugged) {
+			if(snes.Port2.Type == pad) snes.Port2.Type = ControllerType::None;
+			_port2Plugged = NO;
+		}
+		_emu->GetSettings()->SetSnesConfig(snes);
+	}
+	//A pad that leaves must not leave a button held on the port it left.
+	if(!wantsPort2 && _input) _input->Keys2 = 0;
 }
 
 #pragma mark - Video

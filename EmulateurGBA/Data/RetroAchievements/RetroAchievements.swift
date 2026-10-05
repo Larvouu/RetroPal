@@ -390,7 +390,11 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// drops the entry without writing a record, so it retries on the next
     /// noteLibraryGames pass.
     private func resolveNextIfIdle() {
-        guard !resolutionInFlight, let next = resolutionQueue.first else { return }
+        guard !resolutionInFlight else { return }
+        guard let next = resolutionQueue.first else {
+            fetchMissingArtIfNeeded()
+            return
+        }
         resolutionInFlight = true
         resolutionQueue.removeFirst()
         let consoleID = RAClient.consoleId(forROMPath: next.path)
@@ -415,6 +419,35 @@ final class RetroAchievements: NSObject, ObservableObject {
                     self.resolutionInFlight = false
                     self.resolveNextIfIdle()
                 }
+            }
+        }
+    }
+
+    /// The game ids whose images were already asked for this launch, so a
+    /// game RA returns no image for is asked once per launch, not per pass.
+    private var artRequestedIDs = Set<UInt32>()
+
+    /// Fetch the game image of every recognised game that has none yet, in
+    /// batches, once the resolution queue has drained. Credential-free, like
+    /// the resolution itself: the image belongs to the game, not the player.
+    private func fetchMissingArtIfNeeded() {
+        let missing = RAGameIndex.shared.gameIDsMissingArt.filter { !artRequestedIDs.contains($0) }
+        guard !missing.isEmpty else { return }
+        artRequestedIDs.formUnion(missing)
+        let batchSize = 50
+        for start in stride(from: 0, to: missing.count, by: batchSize) {
+            let batch = Array(missing[start..<min(start + batchSize, missing.count)])
+            client.fetchGameImages(forIDs: batch.map { NSNumber(value: $0) }) { [weak self] success, entries in
+                guard success else {
+                    // Transport failure: ask again on a later pass.
+                    self?.artRequestedIDs.subtract(batch)
+                    return
+                }
+                var art: [UInt32: String] = [:]
+                for entry in entries {
+                    if let url = entry.imageURL { art[entry.gameId] = url }
+                }
+                RAGameIndex.shared.applyArt(byGameID: art)
             }
         }
     }

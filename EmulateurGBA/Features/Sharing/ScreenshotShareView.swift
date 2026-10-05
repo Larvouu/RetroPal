@@ -77,6 +77,13 @@ struct ScreenshotShareView: View {
     }
 
     var body: some View {
+        cardBody
+            // B (Circle on a PlayStation pad) closes the card, as its close
+            // button does (`ControllerNavigator`, asked 2026-09-27).
+            .controllerBack(onClose)
+    }
+
+    private var cardBody: some View {
         VStack(spacing: 0) {
             hintHeader
             Group {
@@ -278,8 +285,9 @@ struct ScreenshotShareView: View {
     /// Renders the branded square card from the source frame at the effective style.
     /// Re-runnable: called again whenever the style changes.
     @MainActor private func renderCard() {
-        let info = ScreenshotCardRenderer.GameInfo(name: name, playTimeSeconds: playTime, isPro: isPro,
+        var info = ScreenshotCardRenderer.GameInfo(name: name, playTimeSeconds: playTime, isPro: isPro,
                                                    filter: skinContext.filter)
+        info.filterPixelGrid = skinContext.filterPixelGrid
         cardImage = ScreenshotCardRenderer.render(gameFrame: gameFrame, info: info,
                                                   style: effectiveStyle, system: system,
                                                   skinVariant: skinContext.skin?.variant)

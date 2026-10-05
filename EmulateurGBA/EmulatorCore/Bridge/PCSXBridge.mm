@@ -83,6 +83,11 @@ static const CGFloat kPS1DisplayAspect = 4.0 / 3.0;
 /// Audio is fixed at 44100 Hz by the hardware and the core never varies it.
 static const unsigned int kPS1SampleRate = 44100;
 
+/// The console's two controller ports, which is `PresetSystem.playerCount` for
+/// the PlayStation. The core plugs a standard pad into every port at load, so
+/// port 2 needs no plugging: it is a pad nobody presses until player 2 does.
+static const unsigned kPS1Ports = 2;
+
 /// About a third of a second of stereo frames. Same purpose as the Mesen ring:
 /// the core PUSHES samples during the frame and our audio engine PULLS them on
 /// its own clock, so something has to sit between the two.
@@ -398,18 +403,18 @@ static int16_t PCSXClampAxis(float v) {
 
     PCSXAudioRing _audio;
 
-    /// Input. The bitmask is the touch and controller button state; the sticks
-    /// are physical-controller only and switch the emulated pad to a DualShock.
-    std::atomic<uint32_t> _buttons;
-    std::atomic<int16_t> _stickLX, _stickLY, _stickRX, _stickRY;
-    /// Whether the emulated pad is a DualShock. Atomic, and applied on the
+    /// Input, per port (see kPS1Ports). The bitmask is the touch and controller
+    /// button state; the sticks switch that port's pad to a DualShock.
+    std::atomic<uint32_t> _buttons[kPS1Ports];
+    std::atomic<int16_t> _stickLX[kPS1Ports], _stickLY[kPS1Ports], _stickRX[kPS1Ports], _stickRY[kPS1Ports];
+    /// Whether each port's emulated pad is a DualShock. Atomic, and applied on the
     /// EMULATOR thread rather than where it is set: a stick moves on the UI
     /// thread, and `retro_set_controller_port_device` rewrites the core's pad
     /// table and calls `padChanged()`, which is not something to do underneath a
     /// running `retro_run`. Every other input here already obeys that rule --
     /// `setKeys:` and the stick setters only deposit values, and the core reads
     /// them from inside its own frame -- so the pad TYPE follows it too.
-    std::atomic<bool> _analogPadActive;
+    std::atomic<bool> _analogPadActive[kPS1Ports];
     std::atomic<bool> _padTypeDirty;
 
     /// The geometry the core last asked our zero-copy buffer for, so the buffer
@@ -502,7 +507,7 @@ static int16_t PCSXClampAxis(float v) {
         _romLoaded = NO;
         _coreInitialised = NO;
         _coreRendersInPlace = NO;
-        _analogPadActive = false;
+        for (unsigned p = 0; p < kPS1Ports; p++) _analogPadActive[p] = false;
         _padTypeDirty = false;
         _fbGeometryWidth = 0;
         _fbGeometryHeight = 0;
@@ -511,8 +516,10 @@ static int16_t PCSXClampAxis(float v) {
         _framesPerSecond = 59.94;
         _liveWidth = 320;
         _liveHeight = 240;
-        _buttons = 0;
-        _stickLX = _stickLY = _stickRX = _stickRY = 0;
+        for (unsigned p = 0; p < kPS1Ports; p++) {
+            _buttons[p] = 0;
+            _stickLX[p] = _stickLY[p] = _stickRX[p] = _stickRY[p] = 0;
+        }
         _hasDiskControl = NO;
         memset(&_diskControl, 0, sizeof(_diskControl));
         _cheatCount = 0;
@@ -886,7 +893,7 @@ static int16_t PCSXClampAxis(float v) {
     // Applied directly rather than flagged: this runs during the load, before
     // the emulator thread's run loop exists, and the first frame has to find
     // the pad already plugged in.
-    _analogPadActive = false;
+    for (unsigned p = 0; p < kPS1Ports; p++) _analogPadActive[p] = false;
     [self applyPadType];
     [self invalidateRewind];
     _audio.Clear();
@@ -1021,21 +1028,27 @@ static int16_t PCSXClampAxis(float v) {
 // parks the finished frame on a decode thread; nothing here does.
 
 - (void)setKeys:(uint32_t)keys {
-    _buttons = keys;
+    _buttons[0] = keys;
+}
+
+/// Player 2's buttons reach port 2; the console had no third port.
+- (void)setKeys:(uint32_t)keys player:(NSInteger)player {
+    if (player < 0 || player >= (NSInteger)kPS1Ports) return;
+    _buttons[player] = keys;
 }
 
 #pragma mark - Input
 
 - (int16_t)inputStateForPort:(unsigned)port device:(unsigned)device index:(unsigned)index buttonID:(unsigned)buttonID {
-    if (port != 0) return 0;   // one pad; a second port is a later feature
+    if (port >= kPS1Ports) return 0;   // multitap ports: no adapter, no pad
 
-    const uint32_t keys = _buttons.load();
+    const uint32_t keys = _buttons[port].load();
 
     // While the ANALOG press is in flight the pad reports EXACTLY the combo and
     // nothing else, because the core compares for equality: a face button held
     // at the same moment would make the mask "combo plus something" and the
     // toggle would silently not happen.
-    if (_analogComboFrames > 0 && device == RETRO_DEVICE_JOYPAD) {
+    if (port == 0 && _analogComboFrames > 0 && device == RETRO_DEVICE_JOYPAD) {
         const int16_t combo = (int16_t)((1 << RETRO_DEVICE_ID_JOYPAD_L3)
                                         | (1 << RETRO_DEVICE_ID_JOYPAD_R3));
         if (buttonID == RETRO_DEVICE_ID_JOYPAD_MASK) return combo;
@@ -1057,10 +1070,10 @@ static int16_t PCSXClampAxis(float v) {
 
     if (device == RETRO_DEVICE_ANALOG) {
         if (index == RETRO_DEVICE_INDEX_ANALOG_LEFT) {
-            return buttonID == RETRO_DEVICE_ID_ANALOG_X ? _stickLX.load() : _stickLY.load();
+            return buttonID == RETRO_DEVICE_ID_ANALOG_X ? _stickLX[port].load() : _stickLY[port].load();
         }
         if (index == RETRO_DEVICE_INDEX_ANALOG_RIGHT) {
-            return buttonID == RETRO_DEVICE_ID_ANALOG_X ? _stickRX.load() : _stickRY.load();
+            return buttonID == RETRO_DEVICE_ID_ANALOG_X ? _stickRX[port].load() : _stickRY[port].load();
         }
         // RETRO_DEVICE_INDEX_ANALOG_BUTTON: pressure-sensitive face buttons,
         // which no game we care about needs and no controller we support sends.
@@ -1070,16 +1083,18 @@ static int16_t PCSXClampAxis(float v) {
     return 0;
 }
 
-- (void)setLeftStickX:(float)x y:(float)y {
-    _stickLX = PCSXClampAxis(x);
-    _stickLY = PCSXClampAxis(y);
-    [self noteAnalogInput];
+- (void)setLeftStickX:(float)x y:(float)y player:(NSInteger)player {
+    if (player < 0 || player >= (NSInteger)kPS1Ports) return;
+    _stickLX[player] = PCSXClampAxis(x);
+    _stickLY[player] = PCSXClampAxis(y);
+    [self noteAnalogInputForPort:(unsigned)player];
 }
 
-- (void)setRightStickX:(float)x y:(float)y {
-    _stickRX = PCSXClampAxis(x);
-    _stickRY = PCSXClampAxis(y);
-    [self noteAnalogInput];
+- (void)setRightStickX:(float)x y:(float)y player:(NSInteger)player {
+    if (player < 0 || player >= (NSInteger)kPS1Ports) return;
+    _stickRX[player] = PCSXClampAxis(x);
+    _stickRY[player] = PCSXClampAxis(y);
+    [self noteAnalogInputForPort:(unsigned)player];
 }
 
 /// The pad's ANALOG switch, expressed the only way the core accepts.
@@ -1100,7 +1115,7 @@ static int16_t PCSXClampAxis(float v) {
 /// the automatic switch.
 - (void)pressAnalogModeButton {
     if (!_romLoaded) return;
-    if (!_analogPadActive.exchange(true)) _padTypeDirty = true;
+    if (!_analogPadActive[0].exchange(true)) _padTypeDirty = true;
     _analogComboFrames = 3;
     PS1Diag("ANALOG pressed");
 }
@@ -1114,17 +1129,21 @@ static int16_t PCSXClampAxis(float v) {
 /// (the digital pad is what they were tested against). A player who never
 /// touches a stick therefore never gets a pad they did not ask for, and a
 /// player who does gets the one their game needs, without a setting.
-- (void)noteAnalogInput {
+- (void)noteAnalogInputForPort:(unsigned)port {
     if (!_romLoaded) return;
-    if (!_analogPadActive.exchange(true)) _padTypeDirty = true;
+    if (!_analogPadActive[port].exchange(true)) _padTypeDirty = true;
 }
 
 - (void)applyPadType {
     if (!_romLoaded) return;
     // RETRO_DEVICE_JOYPAD is right for the digital pad: the core matches it
     // explicitly. Only the analog side needs the subclass.
-    retro_set_controller_port_device(0, _analogPadActive.load() ? _dualShockDevice
-                                                                : RETRO_DEVICE_JOYPAD);
+    // Each port on its own: player 2's pad becomes a DualShock when THEIR
+    // stick moves, not player 1's.
+    for (unsigned p = 0; p < kPS1Ports; p++) {
+        retro_set_controller_port_device(p, _analogPadActive[p].load() ? _dualShockDevice
+                                                                       : RETRO_DEVICE_JOYPAD);
+    }
 }
 
 #pragma mark - Video

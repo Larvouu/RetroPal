@@ -34,6 +34,9 @@ struct KeyboardRemapView: View {
 
     private let gold = Color(red: 0.91, green: 0.76, blue: 0.42)
 
+    /// For B (`controllerBack`) upright.
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         Group {
             if isLandscape {
@@ -45,6 +48,9 @@ struct KeyboardRemapView: View {
                     buttonsSection
                 }
                 .uprightLook()
+                // B goes back, as the bar's back button does (on its side the
+                // scaffold declares it).
+                .controllerBack { dismiss() }
             }
         }
         .navigationTitle(NSLocalizedString("settings.remapKeyboard", comment: ""))
@@ -94,7 +100,7 @@ struct KeyboardRemapView: View {
                         choose(candidate)
                     } label: {
                         HStack(spacing: 10) {
-                            PixelConsoleIcon(console: PixelConsole(candidate))
+                            PresetConsoleIcon(system: candidate)
                                 .frame(width: 26, height: 26)
                                 .accessibilityHidden(true)
                             Text(ConsoleChoiceList.name(candidate))
@@ -183,7 +189,7 @@ struct KeyboardRemapView: View {
             }
         } label: {
             HStack {
-                Text(verbatim: input.displayName)
+                Text(verbatim: input.displayName(for: system))
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
                 Spacer()
@@ -213,7 +219,7 @@ struct KeyboardRemapView: View {
                 }
             }
         }
-        .accessibilityLabel(Text(verbatim: "\(input.displayName): \(names.joined(separator: ", "))"))
+        .accessibilityLabel(Text(verbatim: "\(input.displayName(for: system)): \(names.joined(separator: ", "))"))
     }
 
     private func startCapture(for input: KeyboardInput) {

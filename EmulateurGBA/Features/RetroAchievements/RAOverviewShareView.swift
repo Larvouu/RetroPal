@@ -293,6 +293,10 @@ struct RAOverviewCardView: View {
         case 5: return "Game Boy Advance"
         case 6: return "Game Boy Color"
         case 7: return "NES"
+        // The PlayStation was missing from this list since it gained
+        // achievements in 1.3.0, so its games showed no console name here.
+        case 12: return "PlayStation"
+        case 2: return "Nintendo 64"
         case 18: return "Nintendo DS"
         default: return nil
         }

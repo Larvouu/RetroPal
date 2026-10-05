@@ -10,8 +10,8 @@
 "library.empty.subtitle" = "レトロゲームを iPhone で。広告なし、個人の追跡もありません。";
 "library.empty.subtitle.ipad" = "レトロゲームを iPad で。広告なし、個人の追跡もありません。";
 "library.empty.button" = "ゲームを追加";
-"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.chd)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
-"library.empty.step1.ipad" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.chd)を Safari、AirDrop、iCloud Drive などで iPad に取り込みます。";
+"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.chd)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
+"library.empty.step1.ipad" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.chd)を Safari、AirDrop、iCloud Drive などで iPad に取り込みます。";
 "library.empty.step2" = "%@ をタップして、「ファイル」アプリでファイルを選びます。";
 "library.empty.step3" = "あとは遊ぶだけ。進行状況は自動で保存されます";
 "library.empty.romHint" = "ROM をお持ちでない場合も、無料で合法なゲームが多数あります。「GBA homebrew」で検索してみてください。";
@@ -52,6 +52,8 @@
 "cover.choose.screenshot" = "最新のクイックセーブのスクリーンショット";
 "cover.choose.photo" = "写真ライブラリから選ぶ";
 "cover.choose.caption" = "ライブラリに表示されるカバー画像です。ゲームのページには常に最新のスクリーンショットが表示されます。";
+"library.covers.row" = "カバー";
+"library.covers.note" = "すべてのゲームのカバーを一度に変更します。ゲームのページで自分で選んだカバーは変わりません。";
 "details.newGame.confirm.title" = "タイトル画面から始めますか？";
 "details.newGame.confirm.message" = "前回の続きからは再開されませんが、ゲーム内セーブとクイックセーブはそのまま残ります。";
 "details.launch.footer" = "ゲーム内セーブ(ゲーム自体のセーブメニューで作ったもの)を読み込むには、ゲームを起動してゲーム内のメニューから再開してください。下のクイックセーブスロットとは別のものです。";
@@ -67,7 +69,14 @@
 "overlay.saveSlots" = "クイックセーブスロット";
 // PlayStation disc picker (pause menu, multi-disc games only)
 "overlay.discs" = "ディスク";
+/* The DS only: close the console for two seconds of play (a few puzzles ask for it). */
+"overlay.lid.button" = "本体を閉じる";
+"overlay.lid.caption" = "DSを閉じると解ける、ごく一部の謎解きのための機能です。いずれかのボタンを押すか、ここで開くまで閉じたままになります。";
+"overlay.lid.open" = "本体を開く";
+/* Over the DS top screen while the lid is closed from the pause menu. */
+"nds.lid.closedMessage" = "DSは閉じています（シミュレーション）。いずれかのボタンを押すと開きます。";
 "overlay.disc.numbered" = "ディスク %@";
+"overlay.performance" = "計測したなめらかさ：毎秒 %1$@ フレーム（本来は %2$@）。1フレームの処理に %3$@ ミリ秒（使える時間は %4$@ ミリ秒）。";
 "overlay.disc.inDrive" = "挿入中";
 "overlay.disc.failed.title" = "ディスクを交換できませんでした";
 "overlay.disc.failed.message" = "本体がディスクの交換を受け付けませんでした。メニューを開いて、もう一度お試しください。";
@@ -81,7 +90,17 @@
 "settings.controls" = "操作";
 "settings.haptics" = "ゲーム中の触覚フィードバック";
 "settings.haptics.strength" = "強さ";
-"settings.controller.footer" = "Bluetooth コントローラー(Xbox、PlayStation、MFi)に対応しています。iOS の設定でペアリングしてください。";
+"settings.controller.footer" = "Bluetooth と USB-C のコントローラー(Xbox、PlayStation、MFi)に対応しています。Bluetooth は iOS の設定でペアリングし、USB-C は差し込むだけで使えます。";
+
+/* Several controllers (1.3.3): the Players list in Settings and the library badge. controllers.count is only ever 2 to 4. */
+"controllers.player" = "プレイヤー%d";
+"controllers.count" = "コントローラー%d台";
+"controllers.moveUp" = "上へ移動";
+"controllers.moveDown" = "下へ移動";
+/* A hardware keyboard as a player (iPhone), in the Players list and the library badge. */
+"controllers.keyboard" = "キーボード";
+"settings.players.header" = "プレイヤー";
+"settings.players.footer" = "プレイヤー1は1人用のゲーム機で遊び、メニューを操作します。コントローラーのボタンを押すとその行が光り、矢印で順番を変えられます。接続が切れて戻ってきたコントローラーは最後になります。";
 "settings.controls.controllerActive.footer" = "コントローラー接続中のため、上のタッチ操作の設定は無効になっています。";
 "settings.controls.dpad.footer" = "十字キー/ジョイスティックとクリップボタンの設定は、デフォルトレイアウトに適用されます。カスタムプリセットにはそれぞれ独自の十字キー/ジョイスティック設定があり、クリップボタンは常に表示されます。";
 "settings.dpad" = "十字キー";
@@ -102,6 +121,7 @@
 "settings.core" = "エミュレータコア";
 "settings.engines.footer" = "ライセンス：%@。";
 "settings.engines.footer.patched" = "ライセンス：%@。小さな変更を加えて使用しており、その変更はソースコードとともにパッチファイルとして公開しています。";
+"settings.engines.footer.patches" = "ライセンス：%@。いくつかの変更を加えて使用しており、それらの変更はソースコードとともにパッチファイルとして公開しています。";
 "settings.rateApp" = "Retro Pal を評価する";
 "review.headline" = "Retro Pal を評価する";
 "review.body" = "ひとつひとつのレビューが私たちの力になり、このプロジェクトを支えています。🙂";
@@ -153,7 +173,7 @@
 "pro.compare.row.allSystems" = "全機種対応";
 "pro.compare.row.autoSave" = "オートセーブ";
 "pro.compare.row.iCloud" = "iCloud 同期";
-"pro.compare.row.controllers" = "Bluetooth コントローラー";
+"pro.compare.row.controllers" = "Bluetooth / USB-C コントローラー";
 "pro.compare.row.slots" = "セーブスロット";
 "pro.compare.row.speeds" = "速度の範囲";
 "pro.compare.row.rewind" = "巻き戻し";
@@ -206,7 +226,7 @@
 "legal.melonds" = "melonDS ライセンス";
 "legal.importantNotice.title" = "重要なお知らせ";
 "legal.aboutApp.title" = "このアプリについて";
-"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS、スーパーファミコン、ファミコン、プレイステーション用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
+"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS、スーパーファミコン、ファミコン、プレイステーション、ニンテンドウ64用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
 "legal.aboutApp.description2" = "このアプリはゲームカタログを提供せず、ゲームコンテンツを配布せず、著作権で保護された素材のダウンロードを助長することもありません。";
 "legal.privacy.title" = "プライバシー";
 "legal.privacy.description" = "ゲームとセーブデータは端末内に保存されます。アプリの改善のため、Retro Pal は匿名の利用統計のみを送信します。個人データや広告識別子は送信しません。";
@@ -221,10 +241,23 @@
 "legal.pcsx" = "PCSX-ReARMed ライセンス";
 "legal.pcsx.licenseLine" = "GNU General Public License v2.0 以降（GPL-2.0-or-later）に基づいてライセンスされています";
 "legal.pcsx.description" = "PCSX-ReARMed は PlayStation エミュレーターで、このアプリでは PlayStation ゲームのエミュレーションエンジンとして使用しています。PCSX-ReARMed のソースコードは [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed) で公開されています";
+"legal.mupen" = "Mupen64Plus-Next ライセンス";
+"legal.mupen.licenseLine" = "GNU General Public License v2.0 以降（GPL-2.0-or-later）に基づいてライセンスされています";
+"legal.mupen.description" = "Mupen64Plus-Next はニンテンドウ64 エミュレーターで、このアプリではニンテンドウ64 ゲームのエミュレーションエンジンとして使用しています（信号プロセッサには Iconoclast による cxd4（CC0）を使用）。いくつかの変更を加えており、それらの変更はソースコードとともにパッチファイルとして公開しています。Mupen64Plus-Next のソースコードは [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx) で公開されています";
+"legal.parallelrdp" = "ParaLLEl-RDP ライセンス";
+"legal.parallelrdp.licenseLine" = "MIT ライセンスに基づいてライセンスされています";
+"legal.parallelrdp.description" = "ParaLLEl-RDP は、このアプリでニンテンドウ64 の映像を GPU 上で描画しています。ParaLLEl-RDP のソースコードは [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp) で公開されています";
+"legal.moltenvk" = "MoltenVK ライセンス";
+"legal.moltenvk.licenseLine" = "Apache License 2.0（Apache-2.0）に基づいてライセンスされています";
+"legal.moltenvk.description" = "MoltenVK は、このアプリで ParaLLEl-RDP が使う Vulkan グラフィックスを Apple の Metal 上で動かしています。MoltenVK のソースコードは [https://github.com/KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK) で公開されています";
 "legal.retropal" = "Retro Pal ライセンス";
 "legal.retropal.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
 "legal.retropal.description" = "Retro Pal の完全なソースコードは [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal) で公開されています。本ソフトウェアは無保証で提供されます。";
-"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)、melonDS(GPL-3.0)、PCSX-ReARMed(GPL-2.0 以降)を無改変で使用し、MesenCE(GPL-3.0)には小さな変更を一点加えています。その変更はソースコードとあわせてパッチファイルとして公開しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
+"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)、PCSX-ReARMed(GPL-2.0 以降)を無改変で使用し、melonDS(GPL-3.0)には小さな変更を二点、MesenCE(GPL-3.0)には小さな変更を一点、Mupen64Plus-Next(GPL-2.0 以降)にはいくつかの変更を加えています。Mupen64Plus-Next とあわせて ParaLLEl-RDP(MIT)、信号プロセッサ cxd4(CC0)、MoltenVK(Apache License 2.0)を使用しています。変更はすべてソースコードとあわせてパッチファイルとして公開しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
+"legal.thirdParty.title" = "サードパーティライセンス";
+"legal.thirdParty.caption" = "Retro Pal に含まれるソフトウェアの配布条件である各ライセンスの全文と、そのライセンスを使用しているコンポーネントの一覧です。";
+"legal.thirdParty.usedBy" = "使用しているコンポーネント";
+"legal.thirdParty.fullText" = "ライセンス全文";
 
 "details.noSaves" = "クイックセーブはまだありません。プレイ中にメニューボタンから作成できます。";
 "details.play" = "プレイ";
@@ -270,6 +303,7 @@
 
 /* Common */
 "common.cancel" = "キャンセル";
+"common.back" = "戻る";
 "common.ok" = "OK";
 "common.save" = "保存";
 
@@ -377,13 +411,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "ゲームを追加";
 "guide.importRom.intro" = "Retro Pal にゲームは含まれていません。ROM ファイルは、合法的に所有しているもの(お持ちのカートリッジや、無料で合法な自作ゲームなど)をご自身で用意してください。";
-"guide.importRom.step1" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPhone に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
-"guide.importRom.step1.ipad" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPad に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
+"guide.importRom.step1" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPhone に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
+"guide.importRom.step1.ipad" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ）を iPad に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
 "guide.importRom.step2" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPhone 内、iCloud Drive のいずれか)。";
 "guide.importRom.step2.ipad" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPad 内、iCloud Drive のいずれか)。";
 "guide.importRom.step3" = "Retro Pal でライブラリ上部の + ボタンをタップします。";
 "guide.importRom.step4" = "ファイルを選択すると、すぐにライブラリに追加され、プレイできます。";
-"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、およびプレイステーションのディスク（.chd、.cue と .bin、.m3u）。.zip も使えます。ゲーム1本でも、ディスク1枚分のファイルすべてでも、選べる複数のゲームでもかまいません。.7z には対応していません。合法的に所有しているファイルだけを取り込んでください。";
+"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、およびプレイステーションのディスク（.chd、.cue と .bin、.m3u）。.zip も使えます。ゲーム1本でも、ディスク1枚分のファイルすべてでも、選べる複数のゲームでもかまいません。.7z には対応していません。合法的に所有しているファイルだけを取り込んでください。";
 "settings.guides.section" = "ガイド";
 "settings.controller.row" = "コントローラー";
 "common.done" = "完了";
@@ -398,7 +432,7 @@
 "guide.controller.step2" = "iOS の設定から Bluetooth を開き、コントローラーを iPhone に接続します。";
 "guide.controller.step2.ipad" = "iPadOS の設定から Bluetooth を開き、コントローラーを iPad に接続します。";
 "guide.controller.step3" = "Retro Pal に戻ります。コントローラーは自動的に認識され、画面上の操作ボタンが消えます。";
-"guide.controller.footer" = "MFi、Xbox、PlayStation、8BitDo など、ほとんどの Bluetooth コントローラーに対応しています。";
+"guide.controller.footer" = "MFi、Xbox、PlayStation、8BitDo など、ほとんどの Bluetooth コントローラーに対応しています。USB-C コントローラーはペアリング不要で、差し込むと自動的に認識されます。";
 "guide.controller.status.connected" = "接続中のコントローラー：%@";
 "guide.controller.status.disconnected" = "コントローラー未接続";
 "guide.controller.genericName" = "コントローラー";
@@ -513,6 +547,13 @@
 "skin.editor.letters" = "文字";
 "skin.editor.ink" = "インク";
 "skin.editor.menuButtons" = "メニューボタン";
+"skin.editor.shoulders" = "L/R ボタン";
+"skin.editor.stick" = "ジョイスティック";
+"skin.editor.stickSurround" = "ジョイスティックの周囲";
+"skin.editor.dpadMarks" = "十字キーの矢印";
+"skin.editor.faceZ" = "Z ボタン";
+"skin.editor.cButtons" = "C ボタン";
+"skin.editor.startButton" = "START ボタン";
 
 /* RetroAchievements */
 "ra.settings.title" = "RetroAchievements";
@@ -571,9 +612,9 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "選択したファイルにアクセスできません。「ファイル」アプリから読み込んでみてください。";
 "import.error.copyFailed" = "ゲームをRetro Palにコピーできませんでした。ストレージの空き容量を確保して、もう一度お試しください。";
-"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスクです。";
+"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64 のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスクです。";
 "import.error.discMissingFiles" = "このディスクには、選択されていないファイルが必要です：%@。.cue とすべての .bin ファイルを一度にまとめて選択してください。";
-"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes のゲームで、他の機種には対応していません。";
+"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64 のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスクで、他の機種には対応していません。";
 "import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
 "import.error.zipUnsupportedCompression" = "このZIPは、LZMAやBZIP2など、Retro Palが読み込めない圧縮方式を使っています。ファイルが壊れているわけではありません。「ファイル」アプリで展開してゲームを直接読み込むか、標準の圧縮でZIPを作り直してください。";
 "import.error.zipEncrypted" = "このZIPはパスワードで保護されています。「ファイル」アプリで展開してから、ゲームファイルを直接読み込んでください。";
@@ -643,6 +684,11 @@
 "cheats.invalid.characters" = "このコードには使われない文字が含まれています。チートコードは0-9、A-F、スペース、ハイフンのみです。";
 "cheats.invalid.characters.nes" = "このコードには使われない文字が含まれています。ファミコンのコードは Game Genie の英字 A P Z L G I T Y E O X U K S V N、または 0-9 と A-F、スペース、ハイフンを使います。";
 "cheats.invalid.pairs" = "Action Replay DSのコードは2つで1組です。各行に8文字のブロックが2つ必要です（例：94000130 FCFF0000）。";
+"cheats.invalid.placeholder" = "このコードでは値を自分で選びます。X をそれぞれ16進数の数字（0-9 または A-F）に置き換えてください。例：XXXX → 0063。";
+"n64.displayLost.title" = "画面が更新されなくなりました";
+"n64.displayLost.message" = "グラフィックプロセッサが応答しなくなったため、ゲームの画面を表示できません。終了して進行状況を保存し、ゲームをもう一度開いて続きを遊んでください。";
+"n64.displayLost.quit" = "保存して終了";
+"n64.libdragonUnsupported" = "このニンテンドウ64のゲームは、Retro Pal がまだ対応していない新しい自作ゲーム開発ツール(libdragon)で作られています。ニンテンドウ64のカートリッジのゲームには影響ありません。";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
 "cheats.multiline.caption" = "複数行にわたるコードは1つの項目としてまとめて追加してください。すべての行をまとめて貼り付け、1行ずつ追加しないでください。";
@@ -688,24 +734,25 @@
 "externalDisplay.idle.hint.ipad" = "iPadでゲームを起動してください";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "新しい見た目";
-"whatsnew.s1.b1" = "端末を横にすると、ライブラリは動く背景の上にカバー画像が並ぶ棚になり、ゲームのページ、RetroAchievements、設定も同じスタイルになります。";
-"whatsnew.s1.b2" = "縦向きでは、最後に遊んだゲームが一番上に表示され、その下のガラス調のパネルにリストが並びます。見た目は好みに合わせて変えられます。ライブラリ右上、＋の横にあるパレットボタン {PALETTE} から5つのテーマを選べます。以前の画面がよければ「クラシック」を選んでください。";
-"whatsnew.s1.b3" = "ゲームごとにカバー画像を選べます。公式のパッケージ画像、RetroAchievementsの画像、最新のスクリーンショット、お手持ちの写真から選べます。";
-"whatsnew.s2.title" = "iPad";
-"whatsnew.s2.b1" = "Retro PalがiPadでも使えるようになりました。すべての機種に対応し、縦向きでも横向きでも遊べ、操作ボタンは大きな画面に合わせたサイズになります。";
-"whatsnew.s2.b2" = "別のアプリと並べてウインドウを小さくすると、ライブラリはiPhoneと同じ配置になります。";
-"whatsnew.s3.title" = "キーボードとして認識されるコントローラー";
-"whatsnew.s3.b1" = "8BitDo ZeroのようにiOSがキーボードとして認識する古いBluetoothコントローラーが、何も設定しなくてもそのまま使えるようになりました。各キーは「設定」から機種ごとに割り当て直せます。無料です。";
-"whatsnew.s3.b2" = "iPhoneではキーボード接続中はタッチ操作のボタンが非表示になり、iPadでは表示されたままです。";
-"whatsnew.s4.title" = "すべての言語";
-"whatsnew.s4.b1" = "ファイル名に日本語、韓国語、中国語、アクセント付きの文字を含むZIPのゲームも、本来の名前で読み込まれるようになりました。";
-"whatsnew.s4.b2" = "端末のカレンダー設定にかかわらず、ニンテンドーDSの時計が正しい年を示します。";
+"whatsnew.s1.title" = "ニンテンドウ64";
+"whatsnew.s1.b1" = "ニンテンドウ64のゲームが Retro Pal で遊べるようになりました。この機種も全員無料です。";
+"whatsnew.s1.b2" = "セーブ、セーブステート、チートコード、実績、公式パッケージ画像のすべてが初日から使えます。";
+"whatsnew.s1.b3" = "画面上では、スティック、A、B、Z、4つのCボタンが親指の下に並びます。コントローラーでは、右スティックでCボタンを操作できます。";
+"whatsnew.s1.b4" = "ゲームのまわりには、この機種自身の筐体が表示されます。縦向きでも横向きでも同じです。{PRO} なら、好きな色に塗り替えられます。";
+"whatsnew.s2.title" = "コントローラー4台まで";
+"whatsnew.s2.b1" = "コントローラーを4台までつないで一緒に遊べます。ファミコン、スーパーファミコン、プレイステーションは2人、ニンテンドウ64は4人まで。無料です。";
+"whatsnew.s2.b2" = "「設定」の「プレイヤー」で順番を決められます。プレイヤー1は1人用のゲーム機で遊び、メニューを操作します。コントローラーのボタンを押すとその行が光ります。";
+"whatsnew.s2.b3" = "ライブラリのバーに、各コントローラーのバッテリー残量が表示されます。";
+"whatsnew.s3.title" = "コントローラーでアプリ全体を操作";
+"whatsnew.s3.b1" = "ライブラリ、ゲームのページ、RetroAchievements、設定を十字キーで移動できます。Aで開き、Bで戻り、LとRでライブラリと設定を切り替えます。いまいる場所は枠で示されます。";
+"whatsnew.s3.b2" = "ゲーム中は、コントローラーのホームボタン、またはStartとSelectを1秒押し続けるとポーズメニューが開きます。画面に触れずにセーブ、ロード、終了ができます。";
+"whatsnew.s4.title" = "カバー";
+"whatsnew.s4.b1" = "パレットボタン {PALETTE} の「カバー」から、すべてのゲームのカバーを一度に選べます。公式パッケージ画像、RetroAchievementsの画像、スクリーンショットの3種類です。ゲームごとに選んだカバーはそのまま残ります。";
+"whatsnew.s4.b2" = "カバーがRetroAchievementsの画像に変わっていたゲームも、公式パッケージ画像に戻せるようになりました。また、RetroAchievementsの画像は、ゲームを一度も開く前から選べます。";
 "whatsnew.s5.title" = "そのほか";
-"whatsnew.s5.b1" = "ニンテンドーDSの設定は各DSゲームのページに移り、RetroAchievementsの項目はセーブスロットのすぐ下に表示されます。";
-"whatsnew.s5.b2" = "ライブラリのバーにコントローラーのバッテリー残量が表示されます。";
-"whatsnew.s5.b3" = "RetroAchievementsの実績が、PlayStationのゲームでも獲得できるようになりました。";
-"whatsnew.s5.b4" = "チートコード：欧州版や日本版のゲームでも、その版に合ったコードが見つかるようになりました。また、元のゲームのコードが、ファンによる改造版のコードより先に表示されます。";
+"whatsnew.s5.b1" = "DSでは、ポーズメニューから本体を閉じられるようになりました。それを求めるごく一部の謎解きのための機能で、いずれかのボタンを押すまで閉じたままです。";
+"whatsnew.s5.b2" = "DSのゲームがよりなめらかに動くようになりました。特に低電力モードで効果が大きく、プレイ中に音が途切れることもなくなりました。";
+"whatsnew.s5.b3" = "DSのセーブステートの容量が約3分の1になりました。これまでのセーブステートもそのまま読み込めます。新しく作ったものは、ほかのデバイスにもこのアップデートを入れると開けるようになります。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "このセットの実績は読み込まれていません。";

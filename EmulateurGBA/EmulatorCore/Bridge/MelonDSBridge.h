@@ -36,6 +36,14 @@ extern const NSInteger NDSScreenHeight;  // 192 (single screen)
 /// Activate/deactivate simulated microphone blow input
 - (void)setMicBlowActive:(BOOL)active;
 
+/// Close or open the console's lid, for the few games whose puzzle is solved
+/// by folding the DS. It stays as set until set again: the player opens it
+/// (any button, or the pause menu). Opening raises the lid IRQ, which also
+/// wakes a game that went to sleep when the lid closed. Re-applied before
+/// every frame, so a rewind or a loaded save state cannot leave the core and
+/// the player's screen disagreeing.
+- (void)setLidClosed:(BOOL)closed;
+
 /// Configure a GBA cart to mount in slot 2 when the next ROM is loaded
 /// (dual-slot: Pal Park, cross-game unlocks). Must be called BEFORE
 /// `loadROMAtPath:` — the cart is inserted at boot, like on real hardware.

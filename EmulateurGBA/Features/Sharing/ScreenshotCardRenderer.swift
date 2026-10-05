@@ -28,6 +28,10 @@ struct ScreenshotCardRenderer {
         /// frame's on-card size) so the card mirrors the screen. `.none` for
         /// surfaces without gameplay content (RA badge cards, chrome builds).
         var filter: VideoFilter = .none
+        /// The pixel grid `filter` draws on, when it is not the frame's size
+        /// (see `VideoFilterRenderer.apply`). Only for a whole frame: never
+        /// passed with one half of a DS still.
+        var filterPixelGrid: CGSize? = nil
     }
 
     // MARK: - Colors
@@ -362,7 +366,7 @@ struct ScreenshotCardRenderer {
     /// and the copies drifted. See `consoleCardAvailabilityMatchesTheCards`.
     static func hasConsoleCard(_ system: PresetSystem) -> Bool {
         switch system {
-        case .gbc, .gba, .nds, .snes, .nes, .ps1: return true
+        case .gbc, .gba, .nds, .snes, .nes, .ps1, .n64: return true
         }
     }
 
@@ -393,6 +397,9 @@ struct ScreenshotCardRenderer {
         case .ps1:
             return (ps1ConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
                     GBCardLayout.ps1(side: side, gameNativeSize: gameSize))
+        case .n64:
+            return (n64ConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.n64(side: side, gameNativeSize: gameSize))
         }
     }
 
@@ -513,7 +520,8 @@ struct ScreenshotCardRenderer {
         // size (the shared helper the console cards use).
         let convertedGame = cleanGameImage(gameFrame,
                                            target: CGSize(width: frameW, height: frameH),
-                                           filter: info.filter)
+                                           filter: info.filter,
+                                           pixelGrid: info.filterPixelGrid)
 
         let gameRect = CGRect(x: gameX, y: gameY, width: frameW, height: frameH)
         ctx.saveGState()
@@ -600,7 +608,8 @@ struct ScreenshotCardRenderer {
         // The game frame, drawn into the GB screen via CGContext (the same RGBX->RGBA conversion the
         // standard card uses). Skipped for the live clip preview, which overlays the looping clip.
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -660,7 +669,8 @@ struct ScreenshotCardRenderer {
         console.draw(in: CGRect(origin: .zero, size: size))   // body + dress fill the card
 
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -714,7 +724,8 @@ struct ScreenshotCardRenderer {
         console.draw(in: CGRect(origin: .zero, size: size))
 
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -769,7 +780,8 @@ struct ScreenshotCardRenderer {
         console.draw(in: CGRect(origin: .zero, size: size))
 
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
@@ -804,19 +816,44 @@ struct ScreenshotCardRenderer {
     /// The PlayStation console card: the same composite every console here gets,
     /// over `GBCardLayout.ps1`.
     ///
-    /// Kept as its own function rather than folded into `snesConsoleCard` with a
-    /// system parameter, for the reason that one states about the GBA's: what
-    /// differs is the layout call and the system the ink threshold asks about,
-    /// so one shared function with two branches would be the same code under a
-    /// worse name.
+    /// Kept apart from `snesConsoleCard`, for the reason that one states about
+    /// the GBA's. Its composite is `columnConsoleCard`, shared with the Nintendo
+    /// 64 since 2026-09-27: that one takes the system as data and has no
+    /// branch on it, which is what the rule was guarding against.
     static func ps1ConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
                                 variant: DressVariant = .nostalgia) -> UIImage? {
+        let layout = GBCardLayout.ps1(side: 1080, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        return columnConsoleCard(system: .ps1, layout: layout,
+                                 columnWidth: GBCardLayout.ps1InfoColumnWidth(layout, side: 1080),
+                                 gameFrame: gameFrame, info: info, variant: variant)
+    }
+
+    // MARK: - Nintendo 64 console card
+
+    /// The Nintendo 64 console card, over `GBCardLayout.n64`: the PlayStation's
+    /// composite, since its controls fill the band under the picture in the same
+    /// way and leave the game's name the same middle column.
+    static func n64ConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                               variant: DressVariant = .nostalgia) -> UIImage? {
+        let layout = GBCardLayout.n64(side: 1080, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        return columnConsoleCard(system: .n64, layout: layout,
+                                 columnWidth: GBCardLayout.n64InfoColumnWidth(layout, side: 1080),
+                                 gameFrame: gameFrame, info: info, variant: variant)
+    }
+
+    /// The composite shared by the two cards whose controls fill the band under
+    /// the picture, the PlayStation's and the Nintendo 64's: the console, the
+    /// game in its screen, the info block narrowed to `columnWidth`, the edge.
+    /// Nothing in it asks which console it is drawing; the console comes in
+    /// through the layout and the dress's own colours.
+    private static func columnConsoleCard(system: PresetSystem, layout: GBCardLayout,
+                                          columnWidth: CGFloat?, gameFrame: CGImage?,
+                                          info: GameInfo, variant: DressVariant) -> UIImage? {
         let cardW: CGFloat = 1080, cardH: CGFloat = 1080
         let cardCorner: CGFloat = 48
         let size = CGSize(width: cardW, height: cardH)
 
-        let layout = GBCardLayout.ps1(side: cardW, gameNativeSize: CGSize(width: gameAspect, height: 1))
-        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: .ps1, variant: variant)
+        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: system, variant: variant)
 
         UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
         guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
@@ -828,26 +865,26 @@ struct ScreenshotCardRenderer {
         console.draw(in: CGRect(origin: .zero, size: size))
 
         if let gameFrame {
-            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+            let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
             ctx.saveGState()
             UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
             game.draw(in: layout.screen)
             ctx.restoreGState()
         }
 
-        // The info block is NARROWED to the column between the cross and the
-        // diamond, and placed vertically exactly where every other card places
-        // it. This card's controls fill the whole band below the screen, so the
+        // The info block is NARROWED to the column between the two groups of
+        // controls, and placed vertically exactly where every other card places
+        // it. These cards' controls fill the whole band below the screen, so the
         // block has to be kept out of them -- but that is a WIDTH problem: at
         // the full width of the card the game's name printed straight across the
         // pad. The column comes from the LAYOUT, so the two agree by
         // construction rather than by two sets of matching numbers, and `topY`
-        // is left to `drawGBInfoBlock`'s own default so this console's block
-        // sits on the same line as the Classic card's instead of 25 points
-        // below it (device note, 2026-08-27).
-        let columnWidth = GBCardLayout.ps1InfoColumnWidth(layout, side: cardW)
-        // Dark ink on the pale Nostalgia shell, light ink on Retro Pal's near-black one.
-        if variant.bodyColor(for: .ps1).rpLuminance > 0.5 {
+        // is left to `drawGBInfoBlock`'s own default so the block sits on the
+        // same line as the Classic card's instead of 25 points below it (device
+        // note, 2026-08-27).
+        // Dark ink on a pale shell, light ink on a dark one.
+        if variant.bodyColor(for: system).rpLuminance > 0.5 {
             drawGBInfoBlock(in: ctx, cardW: cardW, screen: layout.screen, info: info,
                             maxWidth: columnWidth)
         } else {
@@ -862,7 +899,7 @@ struct ScreenshotCardRenderer {
         let inset: CGFloat = 2
         let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
         let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
-        variant.cardEdgeColor(for: .ps1).setStroke()
+        variant.cardEdgeColor(for: system).setStroke()
         edgePath.lineWidth = 3
         edgePath.stroke()
 
@@ -921,7 +958,8 @@ struct ScreenshotCardRenderer {
                 drawScreen(bottomHalf, into: lower)
             } else {
                 // Combined-screen path (NDS clip chrome / fallback): the stacked frame in one rect.
-                let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter)
+                let game = cleanGameImage(gameFrame, target: layout.screen.size, filter: info.filter,
+                                      pixelGrid: info.filterPixelGrid)
                 ctx.saveGState()
                 UIBezierPath(roundedRect: layout.screen, cornerRadius: 6).addClip()
                 game.draw(in: layout.screen)
@@ -986,6 +1024,20 @@ struct ScreenshotCardRenderer {
     /// column it actually has is the gap between the cross and the diamond
     /// rather than the whole card. Both default to the old behaviour, so every
     /// other card is byte-identical.
+    /// Where the info block under the picture ENDS with a full-size title
+    /// (36pt, the size a short name keeps): the stat line's bottom. The same
+    /// arithmetic as `drawGBInfoBlock`, kept beside it. A console card that
+    /// hangs a control under the block (the Nintendo 64's START) reads this,
+    /// since its console is drawn once per layout rather than once per game,
+    /// and a long name, whose title shrinks, only moves the block up.
+    static func infoBlockNominalBottom(screen: CGRect) -> CGFloat {
+        let bezelPadding: CGFloat = 8
+        return screen.maxY + bezelPadding + 32
+            + UIFont.systemFont(ofSize: 36, weight: .bold).lineHeight + 8
+            + ("0" as NSString).size(withAttributes: [
+                .font: UIFont.systemFont(ofSize: 28, weight: .medium)]).height
+    }
+
     private static func drawGBInfoBlock(in ctx: CGContext, cardW: CGFloat, screen: CGRect, info: GameInfo,
                                         titleColor: UIColor = UIColor(white: 0.12, alpha: 0.92),
                                         playTimeColor: UIColor = UIColor(white: 0.12, alpha: 0.75),
@@ -1076,11 +1128,12 @@ struct ScreenshotCardRenderer {
     /// frame then mirrors the live screen (filters are display-space, so they must be
     /// applied at the drawn size, not the native frame).
     static func cleanGameImage(_ cg: CGImage, target: CGSize,
-                               filter: VideoFilter = .none) -> UIImage {
+                               filter: VideoFilter = .none, pixelGrid: CGSize? = nil) -> UIImage {
         let w = max(1, Int(target.width.rounded())), h = max(1, Int(target.height.rounded()))
         if filter != .none,
            let filtered = VideoFilterRenderer.apply(filter, to: cg,
-                                                    targetSize: CGSize(width: w, height: h)),
+                                                    targetSize: CGSize(width: w, height: h),
+                                                    pixelGrid: pixelGrid),
            filtered !== cg {
             return UIImage(cgImage: filtered)
         }

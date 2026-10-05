@@ -514,7 +514,313 @@ enum ControlLayoutDefaults {
             return ps1(containerSize: containerSize, scale: scale,
                        isLandscape: isLandscape, safeLeftInset: safeLeftInset,
                        safeRightInset: safeRightInset)
+        case .n64:
+            if family == .tablet {
+                return n64Tablet(containerSize: containerSize, scale: scale,
+                                 isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                                 safeRightInset: safeRightInset)
+            }
+            return n64(containerSize: containerSize, scale: scale,
+                       isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                       safeRightInset: safeRightInset)
         }
+    }
+
+    // MARK: - Nintendo 64
+
+    /// The gap kept between two neighbouring C buttons on their circle, in
+    /// reference points.
+    static let n64CButtonGap: CGFloat = 10
+
+    /// A C button's triangle, as a fraction of the button's width: its side.
+    /// Read by the BUTTON (which draws it), the LAYOUT (which places the four so
+    /// their outer points land on one circle) and the DRESS (which draws that
+    /// circle), so the three cannot disagree about where the circle is.
+    static let n64ArrowSide: CGFloat = 0.46
+
+    /// How far a C triangle's outer point sits from its button's centre. The
+    /// triangle is centred on its centroid, and a centroid is two thirds of the
+    /// height from the apex.
+    static func n64ArrowApexOffset(buttonWidth: CGFloat) -> CGFloat {
+        let side = buttonWidth * n64ArrowSide
+        return side * CGFloat(3).squareRoot() / 2 * 2 / 3
+    }
+
+    /// The C diamond: how far each button's centre sits from the cluster's, and
+    /// the radius of the circle their four outer points lie on (asked
+    /// 2026-09-27: the circle is drawn, a C printed at its centre, and each
+    /// button's outward point is part of it). Neighbours are a gap apart.
+    static func n64CGeometry(buttonWidth c: CGFloat, scale k: CGFloat)
+        -> (step: CGFloat, circleRadius: CGFloat) {
+        let step = (c + n64CButtonGap * k) / CGFloat(2).squareRoot()
+        return (step, step + n64ArrowApexOffset(buttonWidth: c))
+    }
+
+    /// The side of the A, B and Z triangle, in reference points: A and B a
+    /// little further apart than they sat on the PlayStation's diamond (whose
+    /// two slots were 70.7 apart), and Z the third corner.
+    static let n64FaceTriangleSide: CGFloat = 78
+
+    /// The Nintendo 64 page (redesigned 2026-09-27, as described that day, and
+    /// its side made the same page the same day).
+    ///
+    /// ONE RULE, BOTH WAYS ROUND. Under the L · R row, down to the bottom of
+    /// the phone, the controls are cut into two columns and two rows: the stick
+    /// above the cross in the left column, A B Z above the C buttons in the
+    /// right one, each centred in its quarter. The furniture that goes with them
+    /// (the stick's gate, the cross's well, the lines between A, B and Z, the C
+    /// circle) is drawn by the dress from these same frames.
+    ///
+    /// UPRIGHT the columns are the two halves of the page, L · MENU · R is the
+    /// GBA's row exactly, and START sits at the dead centre of the block.
+    ///
+    /// ON ITS SIDE the columns are the two gutters beside the picture, each
+    /// measured from the safe area to the picture. The left one breaks the
+    /// quarters: the stick sits near the middle of the page's height, where the
+    /// thumb rests, and a smaller cross fills the room under it. L and R keep the corners
+    /// the PlayStation's page gives them, and MENU and START are one pair
+    /// centred under the picture, a little further apart than that page had
+    /// its row.
+    ///
+    /// CLIP, both ways: under R, in the column, centred in the gap between the
+    /// bottom of A and the top of C UP.
+    static func n64(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                    safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+
+        func size(_ element: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(element, system: .n64, isLandscape: isLandscape,
+                                              deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ element: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+        func centre(_ element: ControlElement) -> CGPoint? {
+            guard let b = layout.buttons[element.rawValue] else { return nil }
+            return CGPoint(x: b.centerX * w, y: b.centerY * h)
+        }
+
+        let leftX: CGFloat, rightX: CGFloat
+        if !isLandscape {
+            // The GBA's row, formula for formula (`gbaPortrait`).
+            let lHalf = ControlElement.btnL.defaultSize.height / 2
+            let rowY = (36 + lHalf) * k
+            place(.btnL, (16 + 45) * k, rowY)
+            place(.btnR, w - (16 + 45) * k, rowY)
+            place(.btnMenu, w / 2, rowY)
+            leftX = w / 4
+            rightX = w * 3 / 4
+        } else {
+            // L and R where the PlayStation's page puts them, and nothing else
+            // from it.
+            let ps1Page = ps1(containerSize: containerSize, scale: k, isLandscape: true,
+                              safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
+            for element in [ControlElement.btnL, .btnR] {
+                layout.buttons[element.rawValue] = ps1Page.buttons[element.rawValue]
+            }
+            let menuRowY = ps1Page.buttons[ControlElement.btnMenu.rawValue].map { $0.centerY * h }
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.n64),
+                system: .n64, controllerConnected: false, deviceScale: k)
+            let margin = 8 * k
+            leftX = (max(safeLeftInset, margin) + screen.minX) / 2
+            rightX = (screen.maxX + w - max(safeRightInset, margin)) / 2
+            // MENU and START, one pair centred under the picture.
+            if let rowY = menuRowY {
+                let gap = n64LandscapeRowGap * k
+                let menuW = size(.btnMenu).width, startW = size(.btnStart).width
+                let left = screen.midX - (menuW + gap + startW) / 2
+                place(.btnMenu, left + menuW / 2, rowY)
+                place(.btnStart, left + menuW + gap + startW / 2, rowY)
+            }
+        }
+
+        // The block: from the bottom of L and R to the bottom of the page.
+        let top = [ControlElement.btnL, .btnR].compactMap { e in centre(e).map { $0.y + size(e).height / 2 } }
+            .max() ?? 0
+        let upper = top + (h - top) / 4, lower = top + (h - top) * 3 / 4
+
+        if isLandscape {
+            // The stick near the middle of the page's height, where the left
+            // thumb rests, and the smaller cross under it (asked 2026-09-27:
+            // the stick is what N64 games move with, the cross is secondary).
+            // The cross is centred between the bottom of the stick's SURROUND
+            // and the bottom of the page (asked 2026-09-27). The surround is
+            // the laid-out stick's diameter from its centre, which the smaller
+            // stick of this page does not change.
+            let stickY = top + (h - top) * n64LandscapeStickHeight
+            let surroundBottom = stickY + size(.stickLeft).width
+            place(.stickLeft, leftX, stickY)
+            place(.dpad, leftX, (surroundBottom + h) / 2)
+        } else {
+            place(.stickLeft, leftX, upper)
+            place(.dpad, leftX, lower)
+        }
+        if !isLandscape { place(.btnStart, w / 2, top + (h - top) / 2) }
+
+        // A, B and Z: an equilateral triangle centred in its quarter, A at the
+        // bottom, B up and to the left of it as on the pad, Z the third corner
+        // up and to the right.
+        let radius = n64FaceTriangleSide * k / CGFloat(3).squareRoot()
+        place(.btnA, rightX, upper + radius)
+        place(.btnB, rightX - radius * CGFloat(3).squareRoot() / 2, upper - radius / 2)
+        place(.btnL2, rightX + radius * CGFloat(3).squareRoot() / 2, upper - radius / 2)
+
+        // The C buttons on their circle, around the centre of their quarter.
+        let step = n64CGeometry(buttonWidth: size(.btnCUp).width, scale: k).step
+        place(.btnCUp, rightX, lower - step)
+        place(.btnCDown, rightX, lower + step)
+        place(.btnCLeft, rightX - step, lower)
+        place(.btnCRight, rightX + step, lower)
+
+        // CLIP under R, halfway down the gap between A and C UP.
+        if let r = centre(.btnR) {
+            let aBottom = upper + radius + size(.btnA).height / 2
+            let cTop = lower - step - size(.btnCUp).height / 2
+            place(.btnClip, r.x, (aBottom + cTop) / 2)
+        }
+        return layout
+    }
+
+    /// The Nintendo 64 on a tablet (asked 2026-09-27: every control where a
+    /// thumb reaches it).
+    ///
+    /// The phone's page scaled up puts the controls where a phone's are, which
+    /// on an iPad is far from both hands: upright, the stick and A-B-Z sat about
+    /// 400 points above the bottom edge. So the tablet builds its page from the
+    /// thumbs instead: two columns, each held to its own side, packed up from
+    /// the bottom.
+    ///
+    /// - Lowest, where each thumb rests: the STICK on the left, A-B-Z on the
+    ///   right (the stick moves the player, A and B are the most pressed).
+    /// - Above them: the cross on the left, the C buttons on the right, and
+    ///   CLIP between A-B-Z and the C buttons.
+    /// - Above those, L and R, one row, each over its column.
+    /// - MENU and START low on the inner side of each column, where a thumb
+    ///   reaches by curling in: upright beside the stick and beside A-B-Z, on
+    ///   its side in the band under the picture, next to each gutter.
+    ///
+    /// Upright each column is held a margin from its edge; on its side it is
+    /// centred in its gutter, like the phone's.
+    static func n64Tablet(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                          safeLeftInset: CGFloat, safeRightInset: CGFloat) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+        func size(_ element: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(element, system: .n64, isLandscape: isLandscape,
+                                              deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ element: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+
+        let edge = n64TabletEdge * k
+        let gap = n64TabletGap * k
+        // What each cluster reaches from its centre, drawn furniture included:
+        // the stick's surround is twice its diameter, the cross's well 6 more.
+        let stickReach = size(.stickLeft).width
+        let padReach = size(.dpad).width / 2 + 6 * k
+        let radius = n64FaceTriangleSide * k / CGFloat(3).squareRoot()
+        let face = size(.btnA)
+        let facesHalfWidth = radius * CGFloat(3).squareRoot() / 2 + face.width / 2
+        let c = size(.btnCUp)
+        let step = n64CGeometry(buttonWidth: c.width, scale: k).step
+        let cReach = step + c.width / 2
+        let leftHalf = max(stickReach, padReach)
+        let rightHalf = max(facesHalfWidth, cReach)
+
+        let lx: CGFloat, rx: CGFloat
+        var screen = CGRect.null
+        if isLandscape {
+            screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.n64),
+                system: .n64, controllerConnected: false, deviceScale: k)
+            lx = (max(safeLeftInset, edge) + screen.minX) / 2
+            rx = (screen.maxX + w - max(safeRightInset, edge)) / 2
+        } else {
+            lx = edge + leftHalf
+            rx = w - edge - rightHalf
+        }
+        let bottom = h - n64TabletBottom * k
+
+        // The lowest row.
+        let stickY = bottom - stickReach
+        let facesY = bottom - (radius + face.height / 2)   // the triangle's centre
+        place(.stickLeft, lx, stickY)
+        place(.btnA, rx, facesY + radius)
+        place(.btnB, rx - radius * CGFloat(3).squareRoot() / 2, facesY - radius / 2)
+        place(.btnL2, rx + radius * CGFloat(3).squareRoot() / 2, facesY - radius / 2)
+
+        // The row above it, CLIP in the room between A-B-Z and the C buttons.
+        let padY = stickY - (stickReach + gap + padReach)
+        place(.dpad, lx, padY)
+        let facesTop = facesY - radius / 2 - face.height / 2
+        let clip = size(.btnClip)
+        let cY = facesTop - (gap + clip.height + gap) - cReach
+        place(.btnCUp, rx, cY - step)
+        place(.btnCDown, rx, cY + step)
+        place(.btnCLeft, rx - step, cY)
+        place(.btnCRight, rx + step, cY)
+        place(.btnClip, rx, (cY + cReach + facesTop) / 2)
+
+        // L and R, one row over the two columns.
+        let l = size(.btnL)
+        let rowY = min(padY - padReach, cY - cReach) - gap - l.height / 2
+        place(.btnL, lx, rowY)
+        place(.btnR, rx, rowY)
+
+        // MENU and START, low on the inner side of each column.
+        let menu = size(.btnMenu), start = size(.btnStart)
+        if isLandscape {
+            place(.btnMenu, screen.minX + gap + menu.width / 2, bottom - menu.height / 2)
+            place(.btnStart, screen.maxX - gap - start.width / 2, bottom - start.height / 2)
+        } else {
+            place(.btnMenu, lx + leftHalf + gap + menu.width / 2, bottom - menu.height / 2)
+            place(.btnStart, rx - rightHalf - gap - start.width / 2, bottom - start.height / 2)
+        }
+        return layout
+    }
+
+    /// The tablet page's margins, in reference points: from each column to its
+    /// edge, from the lowest row to the bottom, and between two groups.
+    static let n64TabletEdge: CGFloat = 20
+    static let n64TabletBottom: CGFloat = 24
+    static let n64TabletGap: CGFloat = 12
+
+    /// The gap between MENU and START on the page on its side, in reference
+    /// points: a little wider than the PlayStation's row (10).
+    static let n64LandscapeRowGap: CGFloat = 20
+
+    /// On its side, where the stick's centre sits down the block under L, as a
+    /// fraction of its height: a little above the middle.
+    static let n64LandscapeStickHeight: CGFloat = 0.42
+
+    /// The Nintendo 64's stick on an iPhone on its side, against its size
+    /// everywhere else: 5% smaller (asked 2026-09-27, that page only; a first
+    /// try at 20% was too small).
+    /// Applied where the default layout is drawn (`applyDefaultLayout`), which
+    /// is where the window's family is known; the size tables are not asked,
+    /// so the tablet's stick and every preset keep theirs.
+    static let n64LandscapeStickScale: CGFloat = 0.95
+
+    static func n64StickScale(isLandscape: Bool, family: LayoutFamily,
+                              system: PresetSystem) -> CGFloat {
+        system == .n64 && isLandscape && family == .phone ? n64LandscapeStickScale : 1
+    }
+
+    /// The stick surround's radius, drawn by the dress: twice the stick's
+    /// diameter as laid out, which on an iPhone on its side is the diameter the
+    /// stick had before it shrank, so the surround keeps its size there.
+    static func n64StickSurroundRadius(drawnStickWidth w: CGFloat, isLandscape: Bool,
+                                       family: LayoutFamily) -> CGFloat {
+        w / n64StickScale(isLandscape: isLandscape, family: family, system: .n64)
     }
 
     // MARK: - PlayStation

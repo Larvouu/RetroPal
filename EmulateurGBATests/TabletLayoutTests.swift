@@ -48,7 +48,7 @@ struct TabletLayoutTests {
         ("iPhone 16 Pro Max", CGSize(width: 440, height: 956)),
     ]
 
-    static let systems: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes, .ps1]
+    static let systems: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes, .ps1, .n64]
 
     private func onItsSide(_ portrait: CGSize) -> CGSize {
         CGSize(width: portrait.height, height: portrait.width)
@@ -215,8 +215,8 @@ struct TabletLayoutTests {
                 for i in 0..<elements.count {
                     for j in (i + 1)..<elements.count {
                         let e1 = elements[i], e2 = elements[j]
-                        let depth = ButtonShape.penetration(ButtonShape.of(e1, rects[e1]!),
-                                                            ButtonShape.of(e2, rects[e2]!))
+                        let depth = ButtonShape.penetration(ButtonShape.of(e1, rects[e1]!, system: system),
+                                                            ButtonShape.of(e2, rects[e2]!, system: system))
                         let orientation = window.isLandscape ? "on its side" : "upright"
                         #expect(depth < 0.5,
                                 "\(system) \(window.name) \(orientation): \(e1.rawValue) overlaps \(e2.rawValue) by \(depth)pt")

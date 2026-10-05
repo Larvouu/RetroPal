@@ -249,6 +249,30 @@ final class RAGameIndex: ObservableObject {
         scheduleSave()
     }
 
+    /// The eligible games still without a game image: the ones a hash
+    /// resolution identified and no game load has enriched yet.
+    var gameIDsMissingArt: [UInt32] {
+        Array(Set(records.values.filter { $0.isEligible && $0.boxArtURL == nil }.map(\.gameID)))
+            .sorted()
+    }
+
+    /// Store game images from the game-titles endpoint (2026-09-27). Until
+    /// then a record's image came only from an rc_client LOAD (a session, or
+    /// the Game Details display load), so a recognised game nobody had opened
+    /// had no RetroAchievements row in the cover chooser and nothing for the
+    /// library to adopt. Never overwrites an image a load already wrote.
+    func applyArt(byGameID art: [UInt32: String]) {
+        guard !art.isEmpty else { return }
+        var changed = false
+        for (key, var record) in records where record.boxArtURL == nil {
+            guard let url = art[record.gameID] else { continue }
+            record.boxArtURL = url
+            records[key] = record
+            changed = true
+        }
+        if changed { scheduleSave() }
+    }
+
     /// Apply one console's all-user-progress entries (matched by RA game id).
     /// The endpoint only knows the BASE set (subsets are separate ids it
     /// can't be matched to), so for load-enriched records its counts are a

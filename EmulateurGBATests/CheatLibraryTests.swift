@@ -43,6 +43,24 @@ struct CheatLibraryTests {
         ])
     }
 
+    /// The case that named it (2026-09-27): a USA Super Mario 64 was offered the
+    /// untagged European file first, and its Infinite Lives code wrote to an
+    /// address that holds nothing in the USA release.
+    @Test("The player's own release comes first, found by file name or cartridge code")
+    func ownReleaseComesFirst() {
+        let stems = CheatIndex.shared.candidates(forTitle: "Super Mario 64 (USA)", system: "n64")
+        #expect(stems.first != "Super Mario 64 (USA)", "the case this guards no longer arises")
+        // Named anything: the cartridge code's release decides.
+        let bySerial = CheatIndex.ownReleaseFirst(stems, ownNames: ["mario", "Super Mario 64 (USA)"])
+        #expect(bySerial.first == "Super Mario 64 (USA)")
+        #expect(Set(bySerial) == Set(stems) && bySerial.count == stems.count)
+        // A tag of the file's own after the name still counts; another region does not.
+        let tagged = CheatIndex.ownReleaseFirst(
+            ["Game (Europe)", "Game (USA) (GameShark)", "Game (USA)"], ownNames: ["game (usa)"])
+        #expect(tagged == ["Game (USA) (GameShark)", "Game (USA)", "Game (Europe)"])
+        #expect(CheatIndex.ownReleaseFirst(["A (Europe)", "A (Japan)"], ownNames: []) == ["A (Europe)", "A (Japan)"])
+    }
+
     @Test("The bundled index serves the retail SoulSilver before its hacks")
     func bundledSoulSilverLeadsWithRetail() {
         let stems = CheatIndex.shared.candidates(forTitle: "Pokemon - SoulSilver Version", system: "nds")
@@ -139,6 +157,16 @@ struct CheatLibraryTests {
     @Test("Game Genie codes are not reshaped")
     func leavesGameGenie() {
         #expect(CheatLibrary.formatCode("009-15C") == "009-15C")
+    }
+
+    /// The Nintendo 64 files separate lines with ';' as well as '+'. Left in,
+    /// the ';' reached the field and the validator refused the whole code.
+    @Test("Nintendo 64 codes split on ';' as well as '+'")
+    func splitsNintendo64Semicolons() {
+        #expect(CheatLibrary.formatCode("81119B7A 0000;81119B7C 0000")
+                == "81119B7A 0000\n81119B7C 0000")
+        #expect(CheatLibrary.formatCode("81119B7A 0000+81119B7C 0000")
+                == "81119B7A 0000\n81119B7C 0000")
     }
 
     @Test("An empty code stays empty")

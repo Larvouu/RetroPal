@@ -63,6 +63,13 @@ final class BoxArtManager {
     /// network on display, stable offline, kept after an RA sign-out.
     /// Never adopted over a byte-exact CRC match or a custom cover.
     static let coverStateRA = "ra"
+    /// The player CHOSE the RetroAchievements image in the cover chooser
+    /// (2026-09-27). Until then that choice wrote `ra`, the same state the
+    /// sweep's automatic adoption writes, so a deliberate pick could not be
+    /// told from an automatic one; the library-wide default needs to know,
+    /// because it applies to automatic covers and never to chosen ones. A pick
+    /// made before this state existed stays `ra` and is treated as automatic.
+    static let coverStateRAChosen = "ra_chosen"
     static let coverStateNone = "none"
     /// The player CHOSE the downloaded box art (over an adopted RA image, or
     /// simply as a choice), from the cover chooser (2026-09-05). Like
@@ -78,6 +85,34 @@ final class BoxArtManager {
     /// is never touched by sweeps or resolution-version resets, and is the
     /// answer for games no database covers (ROM hacks, homebrew).
     static let coverStateCustom = "custom"
+
+    // MARK: - The library's default cover source (2026-09-27)
+
+    /// Which cover the library shows for a game whose cover the player did
+    /// not pick themselves (a user's request of 2026-09-21: choose once for
+    /// the whole library). Set in the library's own palette panel, beside its
+    /// look (it concerns the library, so it is chosen there). A per-game pick in the cover
+    /// chooser (`boxart_chosen`, `ra_chosen`, `screenshot`, `custom`) always
+    /// wins over it.
+    enum LibraryCoverSource: String, CaseIterable {
+        /// The behaviour before the setting existed: the official box art,
+        /// the RetroAchievements image where it identifies a game the box art
+        /// only guessed at, else the screenshot.
+        case boxArt
+        /// The RetroAchievements image wherever RA has one, else as `boxArt`.
+        case retroAchievements
+        /// The last quick-save screenshot for every game.
+        case screenshot
+
+        static let key = "libraryCoverSource"
+        /// Posted when what the library shows may have changed without any
+        /// game's state changing: the default was switched, or an image it
+        /// asked for landed. The library views re-read their covers on it.
+        static let didChange = Notification.Name("libraryCoversDidChange")
+        static var current: LibraryCoverSource {
+            UserDefaults.standard.string(forKey: key).flatMap(LibraryCoverSource.init) ?? .boxArt
+        }
+    }
 
     private static let host = URL(string: "https://thumbnails.libretro.com")!
     /// Which thumbnail directory each console's covers live in.
@@ -107,6 +142,7 @@ final class BoxArtManager {
         .snes: "Nintendo - Super Nintendo Entertainment System",
         .nes: "Nintendo - Nintendo Entertainment System",
         .ps1: "Sony - PlayStation",
+        .n64: "Nintendo - Nintendo 64",
     ]
     /// Bound on HTTP tries per game: exact + serial + a couple of fuzzy
     /// runners-up. Beyond that, a wrong cover is likelier than a right one.
@@ -171,24 +207,64 @@ final class BoxArtManager {
         directory.appendingPathComponent(romHash + "-ra").appendingPathExtension("png")
     }
 
+    /// An empty marker: the libretro box art was looked up for a game wearing
+    /// its RetroAchievements image and does not exist. Without it that lookup
+    /// (up to `maxHTTPAttempts` requests) would run again at every launch,
+    /// since the game's state never changes to record the answer.
+    private func noBoxArtMarkerURL(forROMHash romHash: String) -> URL {
+        directory.appendingPathComponent(romHash + "-noart")
+    }
+
     /// The game's local cover file by priority: the user-picked custom cover
     /// beats the adopted RA image (which BoxArtManager only grants over a
     /// heuristic match or a no-match — never over a byte-exact CRC match),
     /// which beats the downloaded one. nil when the game has no cover state.
     /// Single source of truth for every cover consumer (library rows, the
     /// slot-2 picker, the NDS dress slot-2 square).
+    ///
+    /// A cover the player picked is shown as picked. Every other one follows
+    /// the library's default (`LibraryCoverSource`).
     func coverFileURL(forROMHash romHash: String?, coverType: String?) -> URL? {
         guard let romHash else { return nil }
         switch coverType {
         case Self.coverStateCustom:
             return customImageURL(forROMHash: romHash)
+        case Self.coverStateRAChosen:
+            return raImageURL(forROMHash: romHash)
+        case Self.coverStateBoxArtChosen:
+            return imageURL(forROMHash: romHash)
+        case Self.coverStateScreenshot:
+            return nil
+        default:
+            break
+        }
+        switch LibraryCoverSource.current {
+        case .screenshot:
+            return nil
+        case .retroAchievements where hasRAArt(forROMHash: romHash):
+            return raImageURL(forROMHash: romHash)
+        case .retroAchievements, .boxArt:
+            return automaticCoverURL(forROMHash: romHash, coverType: coverType)
+        }
+    }
+
+    /// The automatic chain, what the library showed before the default existed.
+    private func automaticCoverURL(forROMHash romHash: String, coverType: String?) -> URL? {
+        switch coverType {
         case Self.coverStateRA:
             return raImageURL(forROMHash: romHash)
-        case Self.coverStateBoxArt, Self.coverStateBoxArtHeuristic, Self.coverStateBoxArtChosen:
+        case Self.coverStateBoxArt, Self.coverStateBoxArtHeuristic:
             return imageURL(forROMHash: romHash)
         default:
             return nil
         }
+    }
+
+    /// Whether the player picked this cover themselves, which the default
+    /// never overrides.
+    static func isChosen(_ coverType: String?) -> Bool {
+        [coverStateCustom, coverStateRAChosen, coverStateBoxArtChosen, coverStateScreenshot]
+            .contains(coverType ?? "")
     }
 
     // MARK: - The player's choice (main thread; called from the cover chooser)
@@ -212,7 +288,7 @@ final class BoxArtManager {
     }
 
     /// The player picked one of the covers already on disk, or the
-    /// screenshot. `state` is `boxart_chosen`, `ra` or `screenshot`.
+    /// screenshot. `state` is `boxart_chosen`, `ra_chosen` or `screenshot`.
     func choose(coverState state: String, for game: NSManagedObject) {
         game.setValue(state, forKey: "coverType")
         try? game.managedObjectContext?.save()
@@ -226,7 +302,7 @@ final class BoxArtManager {
     func chooseRAArt(for game: NSManagedObject, completion: @escaping (Bool) -> Void) {
         guard let romHash = game.value(forKey: "romHash") as? String else { completion(false); return }
         if hasRAArt(forROMHash: romHash) {
-            choose(coverState: Self.coverStateRA, for: game)
+            choose(coverState: Self.coverStateRAChosen, for: game)
             completion(true)
             return
         }
@@ -239,7 +315,7 @@ final class BoxArtManager {
                 written = (try? data.write(to: target, options: .atomic)) != nil
             }
             DispatchQueue.main.async {
-                if written { self.choose(coverState: Self.coverStateRA, for: game) }
+                if written { self.choose(coverState: Self.coverStateRAChosen, for: game) }
                 completion(written)
             }
         }
@@ -311,7 +387,7 @@ final class BoxArtManager {
                 // all leave with their game.
                 let stem = file.deletingPathExtension().lastPathComponent
                 var romHash = stem
-                for suffix in ["-custom", "-ra"] where stem.hasSuffix(suffix) {
+                for suffix in ["-custom", "-ra", "-noart"] where stem.hasSuffix(suffix) {
                     romHash = String(stem.dropLast(suffix.count))
                 }
                 if !keep.contains(romHash) {
@@ -324,6 +400,7 @@ final class BoxArtManager {
             guard game.coverState != Self.coverStateNone,
                   game.coverState != Self.coverStateCustom,
                   game.coverState != Self.coverStateRA,
+                  game.coverState != Self.coverStateRAChosen,
                   game.coverState != Self.coverStateScreenshot,
                   !FileManager.default.fileExists(atPath: imageURL(forROMHash: game.romHash).path),
                   !inFlight.contains(game.romHash),
@@ -333,6 +410,28 @@ final class BoxArtManager {
             // through here and simply re-resolves.
             inFlight.insert(game.romHash)
             workQueue.async { [weak self] in self?.resolve(game) }
+        }
+
+        // A game wearing its RetroAchievements image still gets its box art
+        // FETCHED, only not SHOWN (2026-09-27, the first of the two cover
+        // defects of 2026-09-21). Before this the sweep skipped `ra` games
+        // entirely, so a game that went to `ra` without ever having had its
+        // box art (every NES and Super Nintendo game imported under 1.2.5,
+        // when those two consoles were missing from `systemDirectories`) had
+        // no box art file, and the cover chooser hid the box art row forever.
+        // The file is now written and the chooser offers it; the cover shown
+        // does not change, because `ra` is ALSO what the chooser writes for a
+        // player who deliberately picked the RetroAchievements image, and the
+        // two cannot be told apart.
+        for game in games where game.coverState == Self.coverStateRA
+                                || game.coverState == Self.coverStateRAChosen {
+            guard !FileManager.default.fileExists(atPath: imageURL(forROMHash: game.romHash).path),
+                  !FileManager.default.fileExists(atPath: noBoxArtMarkerURL(forROMHash: game.romHash).path),
+                  !inFlight.contains(game.romHash),
+                  !attemptedThisLaunch.contains(game.romHash)
+            else { continue }
+            inFlight.insert(game.romHash)
+            workQueue.async { [weak self] in self?.resolve(game, cacheOnly: true) }
         }
 
         // RA cover adoption: a terminal heuristic match or no-match upgrades
@@ -349,7 +448,8 @@ final class BoxArtManager {
                 || game.coverState == Self.coverStateBoxArtHeuristic
             let fileMissing = !FileManager.default.fileExists(
                 atPath: raImageURL(forROMHash: game.romHash).path)
-            guard overridable || (game.coverState == Self.coverStateRA && fileMissing),
+            let wearsRA = game.coverState == Self.coverStateRA || game.coverState == Self.coverStateRAChosen
+            guard overridable || (wearsRA && fileMissing),
                   !inFlight.contains(game.romHash),
                   !raAttemptedThisLaunch.contains(game.romHash),
                   let art = RAGameIndex.shared.record(forROMHash: game.romHash)?.boxArtURL,
@@ -360,6 +460,24 @@ final class BoxArtManager {
             else { continue }
             inFlight.insert(game.romHash)
             workQueue.async { [weak self] in self?.adoptRAArt(game, from: url) }
+        }
+
+        // The RetroAchievements default: every game the player did not pick a
+        // cover for, and whose RA image is not on disk yet, has it FETCHED.
+        // Its state does not change: the default is applied at display
+        // (`coverFileURL`), so switching the setting back loses nothing.
+        if LibraryCoverSource.current == .retroAchievements {
+            for game in games where !Self.isChosen(game.coverState) {
+                guard !FileManager.default.fileExists(atPath: raImageURL(forROMHash: game.romHash).path),
+                      !inFlight.contains(game.romHash),
+                      !raAttemptedThisLaunch.contains(game.romHash),
+                      let art = RAGameIndex.shared.record(forROMHash: game.romHash)?.boxArtURL,
+                      !art.hasSuffix("/000001.png"),
+                      let url = URL(string: art)
+                else { continue }
+                inFlight.insert(game.romHash)
+                workQueue.async { [weak self] in self?.adoptRAArt(game, from: url) }
+            }
         }
     }
 
@@ -378,10 +496,10 @@ final class BoxArtManager {
         // a matching-logic bump must never touch them. Adopted RA covers come
         // from RA's byte-hash identification, not our matching rules, so a
         // matching-logic bump can't overturn them either.
-        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@",
+        request.predicate = NSPredicate(format: "coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@ AND coverType != %@",
                                         Self.coverStatePlaceholder, Self.coverStateCustom,
-                                        Self.coverStateRA, Self.coverStateBoxArtChosen,
-                                        Self.coverStateScreenshot)
+                                        Self.coverStateRA, Self.coverStateRAChosen,
+                                        Self.coverStateBoxArtChosen, Self.coverStateScreenshot)
         if let stale = try? context.fetch(request), !stale.isEmpty {
             for entity in stale {
                 entity.setValue(Self.coverStatePlaceholder, forKey: "coverType")
@@ -390,6 +508,13 @@ final class BoxArtManager {
                 }
             }
             try? context.save()
+        }
+        // New matching rules can find box art the old ones missed, so every
+        // "looked, none" marker left for a RetroAchievements-cover game goes too.
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory,
+                                                                  includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.lastPathComponent.hasSuffix("-noart") {
+            try? FileManager.default.removeItem(at: file)
         }
         defaults.set(Self.resolutionVersion, forKey: Self.resolutionVersionKey)
     }
@@ -402,15 +527,27 @@ final class BoxArtManager {
         case transportFailure
     }
 
-    private func resolve(_ game: GameInput) {
+    /// `cacheOnly`: write the box art file if there is one, and leave the
+    /// game's state alone (a game wearing its RetroAchievements image, see the
+    /// sweep). A definitive "no box art" then leaves a marker instead of a
+    /// `none` verdict.
+    private func resolve(_ game: GameInput, cacheOnly: Bool = false) {
+        func conclude(_ state: String?, _ method: String?) {
+            guard cacheOnly else { finish(game, state: state, method: method); return }
+            if state == Self.coverStateNone {
+                FileManager.default.createFile(atPath: noBoxArtMarkerURL(forROMHash: game.romHash).path,
+                                               contents: Data())
+            }
+            finish(game, state: nil, method: nil)
+        }
         guard let system = ROMSystemType(rawValue: game.system),
               let systemDirectory = Self.systemDirectories[system]
-        else { finish(game, state: Self.coverStateNone, method: nil); return }
+        else { conclude(Self.coverStateNone, nil); return }
 
         guard BoxArtIndex.shared.isLoaded else {
             // Index missing/undecodable: no verdict of any kind (a broken
             // build must not permanently stamp the library "none").
-            finish(game, state: nil, method: nil)
+            conclude(nil, nil)
             return
         }
 
@@ -418,7 +555,7 @@ final class BoxArtManager {
         guard !candidates.isEmpty else {
             // Fully local verdict: not in the No-Intro namespace at all
             // (homebrew, ROM hack, bad dump). The screenshot is final.
-            finish(game, state: Self.coverStateNone, method: nil)
+            conclude(Self.coverStateNone, nil)
             return
         }
 
@@ -433,25 +570,24 @@ final class BoxArtManager {
                     do {
                         try data.write(to: target, options: .atomic)
                     } catch {
-                        finish(game, state: nil, method: nil)   // disk full etc.: retry later
+                        conclude(nil, nil)   // disk full etc.: retry later
                         return
                     }
-                    finish(game,
-                           state: candidate.method == "crc" ? Self.coverStateBoxArt
-                                                            : Self.coverStateBoxArtHeuristic,
-                           method: candidate.method)
+                    conclude(candidate.method == "crc" ? Self.coverStateBoxArt
+                                                       : Self.coverStateBoxArtHeuristic,
+                             candidate.method)
                     return
                 case .notFound:
                     continue
                 case .transportFailure:
                     // Offline / timeout / server trouble: no verdict. Keep
                     // "placeholder" and let a later sweep retry.
-                    finish(game, state: nil, method: nil)
+                    conclude(nil, nil)
                     return
                 }
             }
         }
-        finish(game, state: Self.coverStateNone, method: nil)
+        conclude(Self.coverStateNone, nil)
     }
 
     /// Identification, strongest tier first, deduplicated.
@@ -467,7 +603,7 @@ final class BoxArtManager {
         let headerEcho = GBAROMParser.headerTitle(url: romURL, system: system)
             .map { ROMImporter.cleanGameTitle($0) == game.title } ?? false
         return Self.assembleCandidates(
-            crcStem: Self.crc32(of: romURL).flatMap {
+            crcStem: Self.crc32(of: romURL, system: system).flatMap {
                 BoxArtIndex.shared.exactName(crc32: $0, system: system)
             },
             serialStem: GBAROMParser.gameCode(url: romURL, system: system).flatMap {
@@ -569,6 +705,7 @@ final class BoxArtManager {
             // serializes resolve and adoption per game, so they can't race).
             guard current != Self.coverStateCustom,
                   current != Self.coverStateBoxArtChosen,
+                  current != Self.coverStateRAChosen,
                   current != Self.coverStateScreenshot,
                   current != Self.coverStateRA || state == Self.coverStateBoxArt
             else { return }
@@ -605,6 +742,9 @@ final class BoxArtManager {
             self.inFlight.remove(game.romHash)
             self.raAttemptedThisLaunch.insert(game.romHash)
             guard adopted else { return }
+            // The library's RetroAchievements default shows this file even when
+            // the state below does not change, so the library is told.
+            NotificationCenter.default.post(name: LibraryCoverSource.didChange, object: nil)
 
             let context = PersistenceController.shared.container.viewContext
             let request = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
@@ -631,15 +771,34 @@ final class BoxArtManager {
         return c
     }
 
-    static func crc32(of url: URL) -> UInt32? {
+    ///
+    /// A Nintendo 64 dump is hashed in the CONSOLE'S byte order whatever order
+    /// the file is in, because that is what the No-Intro DAT's CRCs are of (it
+    /// lists `.z64` files). A `.v64` or `.n64` of the very same cartridge
+    /// otherwise hashed to a CRC the DAT has never heard of, and fell to the
+    /// weaker tiers. Chunks are 1 MB, a whole number of words, so each one is
+    /// reordered on its own.
+    static func crc32(of url: URL, system: ROMSystemType? = nil) -> UInt32? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         var crc: UInt32 = 0xFFFF_FFFF
         var readAnything = false
+        var n64Order: GBAROMParser.N64ByteOrder?
         while true {
             let chunk = autoreleasepool { try? handle.read(upToCount: 1 << 20) }
             guard let chunk, !chunk.isEmpty else { break }
+            if system == .n64 && !readAnything {
+                n64Order = GBAROMParser.n64ByteOrder(chunk)
+            }
             readAnything = true
+            if let order = n64Order, order != .bigEndian {
+                var bytes = [UInt8](chunk)
+                GBAROMParser.n64ToConsoleOrder(&bytes, from: order)
+                for byte in bytes {
+                    crc = (crc >> 8) ^ crcTable[Int((crc ^ UInt32(byte)) & 0xFF)]
+                }
+                continue
+            }
             chunk.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
                 for byte in buffer {
                     crc = (crc >> 8) ^ crcTable[Int((crc ^ UInt32(byte)) & 0xFF)]

@@ -244,6 +244,12 @@ final class PromptTracker {
     private let reviewPromptEngagedSessionSeconds: TimeInterval = 10 * 60
     /// One ask per 24h, of any kind.
     private let reviewPromptMinGapSeconds: TimeInterval = 24 * 3600
+    /// The share of full speed a sitting must have held to be followed by an
+    /// ask (added 2026-09-27, with the Nintendo 64). Not spacing and not a cap:
+    /// it does not delay the next ask, it only declines to ask right after a
+    /// sitting the player just saw stutter, which is the rating most likely to
+    /// be low. The next smooth sitting asks as usual.
+    static let smoothSittingRatio: Double = 0.95
 
     /// In-memory only, deliberately not persisted: whether a RetroAchievements
     /// achievement unlocked during this run of the app. An app relaunch resets
@@ -270,9 +276,16 @@ final class PromptTracker {
     ///                   about to end. The baseline, and the one that carries
     ///                   the volume.
     ///
+    /// None of them fires after a sitting that ran below `smoothSittingRatio`
+    /// of full speed. `sittingSmoothness` nil means it was not measured (under
+    /// a minute at normal speed), which is no evidence of a rough sitting and
+    /// does not hold the ask back.
+    ///
     /// Call `recordDirectReviewRequested()` when the request is fired.
-    func directReviewRequestTrigger(romName: String, currentSessionSeconds: TimeInterval) -> String? {
+    func directReviewRequestTrigger(romName: String, currentSessionSeconds: TimeInterval,
+                                    sittingSmoothness: Double?) -> String? {
         guard reviewAskGapElapsed else { return nil }
+        if let smoothness = sittingSmoothness, smoothness < Self.smoothSittingRatio { return nil }
 
         let engagedSitting = currentSessionSeconds >= reviewPromptEngagedSessionSeconds
         if achievementUnlockedThisRun && engagedSitting { return "ra_unlock" }

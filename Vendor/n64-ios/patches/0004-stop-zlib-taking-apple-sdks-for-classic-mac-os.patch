@@ -1,0 +1,25 @@
+Stop the bundled zlib taking Apple's SDKs for classic Mac OS
+
+This copy of zlib (1.2.8) treats any definition of TARGET_OS_MAC as classic
+Mac OS, where there is no fdopen(), and replaces fdopen with NULL. Apple's
+SDKs define TARGET_OS_MAC on every platform, iOS included (to 0 or 1), so the
+replacement collides with the real fdopen() declared in <stdio.h> and
+zutil.c fails to compile. Classic Mac OS never defined __APPLE__, so the
+branch is kept for it and skipped on Apple's current platforms, which then
+take zlib's ordinary Unix path.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0003.
+
+diff --git a/custom/dependencies/libzlib/zutil.h b/custom/dependencies/libzlib/zutil.h
+index 24ab06b..bb8b265 100644
+--- a/custom/dependencies/libzlib/zutil.h
++++ b/custom/dependencies/libzlib/zutil.h
+@@ -118,7 +118,7 @@ extern z_const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
+ #  endif
+ #endif
+ 
+-#if defined(MACOS) || defined(TARGET_OS_MAC)
++#if defined(MACOS) || (defined(TARGET_OS_MAC) && !defined(__APPLE__))
+ #  define OS_CODE  0x07
+ #  ifndef Z_SOLO
+ #    if defined(__MWERKS__) && __dest_os != __be_os && __dest_os != __win32_os

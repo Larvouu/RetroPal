@@ -170,13 +170,14 @@ extension PresetSystem {
         case .snes: return "Super Nintendo"
         case .nes: return "NES"
         case .ps1: return "PlayStation"
+        case .n64: return "Nintendo 64"
         }
     }
 
-    /// Whether custom skins can be created / rendered / imported for this console. Five skin
-    /// formats across six consoles (GB and GBC share one), and since the NES dress landed every
-    /// console has one. Kept as a gate rather than deleted: a console added later starts without
-    /// a dress, and this is where it says it cannot store a skin it could not render.
-    /// Every console has a dress now, so every console can store a skin.
+    /// Whether custom skins can be created / rendered / imported for this console. Seven skin
+    /// formats across eight consoles (GB and GBC share one), and since the Nintendo 64's dress
+    /// (2026-09-27) every console has one. Kept as a gate rather than deleted: a console added
+    /// later starts without a dress, and this is where it says it cannot store a skin it could
+    /// not render.
     var supportsCustomSkins: Bool { true }
 }

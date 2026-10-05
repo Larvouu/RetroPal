@@ -10,8 +10,8 @@
 "library.empty.subtitle" = "Graj w swoje gry retro na iPhonie. Bez reklam, bez osobistego śledzenia.";
 "library.empty.subtitle.ipad" = "Graj w swoje gry retro na iPadzie. Bez reklam, bez osobistego śledzenia.";
 "library.empty.button" = "Dodaj grę";
-"library.empty.step1" = "Pobierz grę (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes lub .chd) na iPhone'a przez Safari, AirDrop lub iCloud Drive.";
-"library.empty.step1.ipad" = "Pobierz grę (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes lub .chd) na iPada przez Safari, AirDrop lub iCloud Drive.";
+"library.empty.step1" = "Pobierz grę (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 lub .chd) na iPhone'a przez Safari, AirDrop lub iCloud Drive.";
+"library.empty.step1.ipad" = "Pobierz grę (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 lub .chd) na iPada przez Safari, AirDrop lub iCloud Drive.";
 "library.empty.step2" = "Dotknij %@, a następnie wybierz plik w aplikacji Pliki.";
 "library.empty.step3" = "Graj. Twoje postępy zapisują się automatycznie";
 "library.empty.romHint" = "Nie masz jeszcze ROM-ów? Istnieje wiele darmowych, legalnych gier. Wyszukaj w internecie \"GBA homebrew\".";
@@ -52,6 +52,8 @@
 "cover.choose.screenshot" = "Zrzut ekranu z ostatniego szybkiego zapisu";
 "cover.choose.photo" = "Zdjęcie z aplikacji Zdjęcia";
 "cover.choose.caption" = "Okładka wyświetlana w bibliotece. Strona gry zawsze pokazuje ostatni zrzut ekranu.";
+"library.covers.row" = "Okładki";
+"library.covers.note" = "Zmienia okładki wszystkich gier naraz, z wyjątkiem tych wybranych ręcznie na stronie gry.";
 "details.newGame.confirm.title" = "Uruchomić od ekranu tytułowego?";
 "details.newGame.confirm.message" = "Nie wznowisz ostatniej sesji, ale wewnętrzny zapis gry i szybkie zapisy pozostają bezpieczne.";
 "details.launch.footer" = "Aby wczytać wewnętrzny zapis gry (ten tworzony z menu samej gry), uruchom grę i wznów ją z jej menu. Jest on niezależny od slotów szybkiego zapisu poniżej, które tworzysz samodzielnie.";
@@ -67,7 +69,14 @@
 "overlay.saveSlots" = "SLOTY SZYBKIEGO ZAPISU";
 // PlayStation disc picker (pause menu, multi-disc games only)
 "overlay.discs" = "Płyty";
+/* The DS only: close the console for two seconds of play (a few puzzles ask for it). */
+"overlay.lid.button" = "Zamknij konsolę";
+"overlay.lid.caption" = "Do rzadkich zagadek, które każą zamknąć DS. Konsola zostaje zamknięta, dopóki nie naciśniesz dowolnego przycisku albo nie otworzysz jej tutaj.";
+"overlay.lid.open" = "Otwórz konsolę";
+/* Over the DS top screen while the lid is closed from the pause menu. */
+"nds.lid.closedMessage" = "DS jest zamknięty (symulacja). Naciśnij dowolny przycisk, aby go otworzyć.";
 "overlay.disc.numbered" = "Płyta %@";
+"overlay.performance" = "Zmierzona płynność (klatki na sekundę): %1$@ z oczekiwanych %2$@. Czas jednej klatki: %3$@ ms z dostępnych %4$@ ms.";
 "overlay.disc.inDrive" = "W napędzie";
 "overlay.disc.failed.title" = "Nie udało się zmienić płyty";
 "overlay.disc.failed.message" = "Konsola odrzuciła zmianę płyty. Otwórz menu i spróbuj ponownie.";
@@ -81,7 +90,17 @@
 "settings.controls" = "Sterowanie";
 "settings.haptics" = "Wibracje w grze";
 "settings.haptics.strength" = "Siła";
-"settings.controller.footer" = "Kontrolery Bluetooth (Xbox, PlayStation, MFi) są obsługiwane. Sparuj go w Ustawieniach iOS.";
+"settings.controller.footer" = "Obsługiwane są kontrolery Bluetooth i USB-C (Xbox, PlayStation, MFi). Kontroler Bluetooth sparuj w Ustawieniach iOS, kontroler USB-C po prostu podłącz.";
+
+/* Several controllers (1.3.3): the Players list in Settings and the library badge. controllers.count is only ever 2 to 4. */
+"controllers.player" = "Gracz %d";
+"controllers.count" = "%d kontrolery";
+"controllers.moveUp" = "Przesuń w górę";
+"controllers.moveDown" = "Przesuń w dół";
+/* A hardware keyboard as a player (iPhone), in the Players list and the library badge. */
+"controllers.keyboard" = "Klawiatura";
+"settings.players.header" = "Gracze";
+"settings.players.footer" = "Gracz 1 gra na konsolach dla jednego gracza i obsługuje menu. Naciśnij przycisk na kontrolerze, aby podświetlić jego wiersz, a potem zmień kolejność strzałkami. Kontroler, który się rozłączy i wróci, trafia na koniec.";
 "settings.controls.controllerActive.footer" = "Kontroler jest podłączony, więc powyższe ustawienia dotykowe są wyłączone.";
 "settings.controls.dpad.footer" = "Wybór pada kierunkowego/joysticka i przycisku klipu dotyczy układu domyślnego. Każdy własny profil ma własny wybór pada/joysticka, a jego przycisk klipu pozostaje zawsze widoczny.";
 "settings.dpad" = "Krzyżak";
@@ -102,6 +121,7 @@
 "settings.core" = "Rdzeń emulatora";
 "settings.engines.footer" = "Licencja: %@.";
 "settings.engines.footer.patched" = "Licencja: %@. Używany z jedną niewielką zmianą, publikowaną jako plik łatki obok kodu źródłowego.";
+"settings.engines.footer.patches" = "Licencja: %@. Używany z kilkoma zmianami, publikowanymi jako pliki łatek obok kodu źródłowego.";
 "settings.rateApp" = "Oceń Retro Pal";
 "review.headline" = "Oceń Retro Pal";
 "review.body" = "Każda opinia ma dla nas znaczenie. To dzięki nim projekt żyje. 🙂";
@@ -153,7 +173,7 @@
 "pro.compare.row.allSystems" = "Wszystkie konsole";
 "pro.compare.row.autoSave" = "Auto-zapis";
 "pro.compare.row.iCloud" = "Synchronizacja iCloud";
-"pro.compare.row.controllers" = "Kontrolery Bluetooth";
+"pro.compare.row.controllers" = "Kontrolery Bluetooth lub USB-C";
 "pro.compare.row.slots" = "Sloty zapisu";
 "pro.compare.row.speeds" = "Prędkości";
 "pro.compare.row.rewind" = "Przewijanie";
@@ -206,7 +226,7 @@
 "legal.melonds" = "Licencja melonDS";
 "legal.importantNotice.title" = "Ważna informacja";
 "legal.aboutApp.title" = "O tej aplikacji";
-"legal.aboutApp.description1" = "Retro Pal to lokalny frontend emulatora do gier Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES i PlayStation. Aplikacja nie pobiera, nie rozprowadza ani nie zapewnia dostępu do żadnej zawartości gier. Wszystkie pliki ROM muszą zostać zaimportowane przez użytkownika z własnej pamięci urządzenia za pośrednictwem aplikacji Pliki.";
+"legal.aboutApp.description1" = "Retro Pal to lokalny frontend emulatora do gier Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation i Nintendo 64. Aplikacja nie pobiera, nie rozprowadza ani nie zapewnia dostępu do żadnej zawartości gier. Wszystkie pliki ROM muszą zostać zaimportowane przez użytkownika z własnej pamięci urządzenia za pośrednictwem aplikacji Pliki.";
 "legal.aboutApp.description2" = "Ta aplikacja nie udostępnia katalogu gier, nie rozpowszechnia treści gier ani nie ułatwia pobierania materiałów chronionych prawem autorskim.";
 "legal.privacy.title" = "Prywatność";
 "legal.privacy.description" = "Twoje gry i zapisy pozostają na Twoim urządzeniu. Aby ulepszać aplikację, Retro Pal wysyła wyłącznie anonimowe statystyki użycia, bez danych osobowych i identyfikatorów reklamowych.";
@@ -221,10 +241,23 @@
 "legal.pcsx" = "Licencja PCSX-ReARMed";
 "legal.pcsx.licenseLine" = "Na licencji GNU General Public License v2.0 lub nowszej (GPL-2.0-or-later)";
 "legal.pcsx.description" = "PCSX-ReARMed to emulator PlayStation używany w tej aplikacji jako silnik emulacji gier PlayStation. Kod źródłowy PCSX-ReARMed jest dostępny pod adresem [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
+"legal.mupen" = "Licencja Mupen64Plus-Next";
+"legal.mupen.licenseLine" = "Na licencji GNU General Public License v2.0 lub nowszej (GPL-2.0-or-later)";
+"legal.mupen.description" = "Mupen64Plus-Next to emulator Nintendo 64 używany w tej aplikacji jako silnik emulacji gier Nintendo 64, razem z procesorem sygnałowym cxd4 autorstwa Iconoclast (CC0). Jest używany z kilkoma zmianami, publikowanymi jako pliki łatek obok kodu źródłowego. Kod źródłowy Mupen64Plus-Next jest dostępny pod adresem [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx)";
+"legal.parallelrdp" = "Licencja ParaLLEl-RDP";
+"legal.parallelrdp.licenseLine" = "Na licencji MIT";
+"legal.parallelrdp.description" = "ParaLLEl-RDP rysuje w tej aplikacji obraz Nintendo 64 na procesorze graficznym. Kod źródłowy ParaLLEl-RDP jest dostępny pod adresem [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
+"legal.moltenvk" = "Licencja MoltenVK";
+"legal.moltenvk.licenseLine" = "Na licencji Apache License 2.0 (Apache-2.0)";
+"legal.moltenvk.description" = "MoltenVK uruchamia w tej aplikacji grafikę Vulkan używaną przez ParaLLEl-RDP na Metal firmy Apple. Kod źródłowy MoltenVK jest dostępny pod adresem [https://github.com/KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK)";
 "legal.retropal" = "Licencja Retro Pal";
 "legal.retropal.licenseLine" = "Na licencji GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Kompletny kod źródłowy Retro Pal jest dostępny na [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Oprogramowanie jest dostarczane bez jakiejkolwiek gwarancji.";
-"legal.compliance" = "Retro Pal jest rozpowszechniany na licencji GNU General Public License v3.0. Opiera się na mGBA (Mozilla Public License 2.0), melonDS (GPL-3.0) i PCSX-ReARMed (GPL-2.0 lub nowszej), używanych bez modyfikacji, oraz na MesenCE (GPL-3.0), używanym z jedną drobną zmianą, która jest publikowana jako plik łatki obok kodu źródłowego. Kompletny odpowiadający kod źródłowy jest dostępny w repozytorium podlinkowanym powyżej, a oprogramowanie jest dostarczane bez jakiejkolwiek gwarancji.";
+"legal.compliance" = "Retro Pal jest rozpowszechniany na licencji GNU General Public License v3.0. Opiera się na mGBA (Mozilla Public License 2.0) i PCSX-ReARMed (GPL-2.0 lub nowszej), używanych bez modyfikacji, na melonDS (GPL-3.0), używanym z dwiema drobnymi zmianami, na MesenCE (GPL-3.0), używanym z jedną drobną zmianą, oraz na Mupen64Plus-Next (GPL-2.0 lub nowszej), używanym z kilkoma zmianami, razem z ParaLLEl-RDP (MIT), procesorem sygnałowym cxd4 (CC0) i MoltenVK (Apache License 2.0). Każda zmiana jest publikowana jako plik łatki obok kodu źródłowego. Kompletny odpowiadający kod źródłowy jest dostępny w repozytorium podlinkowanym powyżej, a oprogramowanie jest dostarczane bez jakiejkolwiek gwarancji.";
+"legal.thirdParty.title" = "Licencje stron trzecich";
+"legal.thirdParty.caption" = "Pełny tekst każdej licencji, na podstawie której rozpowszechniane jest oprogramowanie zawarte w Retro Pal, wraz z komponentami, które z niej korzystają.";
+"legal.thirdParty.usedBy" = "Używana przez";
+"legal.thirdParty.fullText" = "Tekst licencji";
 
 "details.noSaves" = "Brak szybkich zapisów. Utwórz jeden podczas gry przyciskiem menu.";
 "library.importing" = "Importowanie ROM...";
@@ -272,6 +305,7 @@
 
 /* Common */
 "common.cancel" = "Anuluj";
+"common.back" = "Wstecz";
 "common.ok" = "OK";
 "common.save" = "Zapisz";
 
@@ -379,13 +413,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Dodaj grę";
 "guide.importRom.intro" = "Retro Pal nie zawiera gier. Dostarczasz własne pliki ROM, do których masz prawa (własne kartridże lub darmowe, legalne gry homebrew).";
-"guide.importRom.step1" = "Przenieś plik gry (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes albo płytę PlayStation w formacie .chd lub .cue z plikiem .bin) na iPhone'a: pobierz go w Safari, wyślij przez AirDrop z komputera albo skorzystaj z iCloud Drive.";
-"guide.importRom.step1.ipad" = "Przenieś plik gry (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes albo płytę PlayStation w formacie .chd lub .cue z plikiem .bin) na iPada: pobierz go w Safari, wyślij przez AirDrop z komputera albo skorzystaj z iCloud Drive.";
+"guide.importRom.step1" = "Przenieś plik gry (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 albo płytę PlayStation w formacie .chd lub .cue z plikiem .bin) na iPhone'a: pobierz go w Safari, wyślij przez AirDrop z komputera albo skorzystaj z iCloud Drive.";
+"guide.importRom.step1.ipad" = "Przenieś plik gry (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 albo płytę PlayStation w formacie .chd lub .cue z plikiem .bin) na iPada: pobierz go w Safari, wyślij przez AirDrop z komputera albo skorzystaj z iCloud Drive.";
 "guide.importRom.step2" = "Sprawdź, czy pojawił się w aplikacji Pliki (w Pobrane, Na moim iPhonie lub iCloud Drive).";
 "guide.importRom.step2.ipad" = "Sprawdź, czy pojawił się w aplikacji Pliki (w Pobrane, Na moim iPadzie lub iCloud Drive).";
 "guide.importRom.step3" = "W Retro Pal dotknij przycisku + na górze biblioteki.";
 "guide.importRom.step4" = "Wybierz plik. Gra od razu pojawi się w bibliotece, gotowa do grania.";
-"guide.importRom.footer" = "Obsługiwane formaty: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes oraz płyty PlayStation w formacie .chd, .cue z plikiem .bin lub .m3u. Plik .zip też zadziała, niezależnie od tego, czy zawiera jedną grę, wszystkie pliki jednej płyty, czy kilka gier do wyboru. Format .7z nie jest obsługiwany. Importuj tylko pliki, do których masz prawa.";
+"guide.importRom.footer" = "Obsługiwane formaty: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 oraz płyty PlayStation w formacie .chd, .cue z plikiem .bin lub .m3u. Plik .zip też zadziała, niezależnie od tego, czy zawiera jedną grę, wszystkie pliki jednej płyty, czy kilka gier do wyboru. Format .7z nie jest obsługiwany. Importuj tylko pliki, do których masz prawa.";
 "settings.guides.section" = "Poradniki";
 "settings.controller.row" = "Kontroler";
 "common.done" = "Gotowe";
@@ -400,7 +434,7 @@
 "guide.controller.step2" = "Otwórz Ustawienia iOS, następnie Bluetooth, i połącz kontroler z iPhone'em.";
 "guide.controller.step2.ipad" = "Otwórz Ustawienia iPadOS, następnie Bluetooth, i połącz kontroler z iPadem.";
 "guide.controller.step3" = "Wróć do Retro Pal. Kontroler zostanie wykryty automatycznie, a sterowanie ekranowe zniknie.";
-"guide.controller.footer" = "Działa z kontrolerami MFi, Xbox, PlayStation, 8BitDo i większością kontrolerów Bluetooth.";
+"guide.controller.footer" = "Działa z kontrolerami MFi, Xbox, PlayStation, 8BitDo i większością kontrolerów Bluetooth. Kontrolera USB-C nie trzeba parować: podłącz go, a zostanie wykryty automatycznie.";
 "guide.controller.status.connected" = "Kontroler połączony: %@";
 "guide.controller.status.disconnected" = "Brak połączonego kontrolera";
 "guide.controller.genericName" = "Kontroler";
@@ -515,6 +549,13 @@
 "skin.editor.letters" = "Litery";
 "skin.editor.ink" = "Tusz";
 "skin.editor.menuButtons" = "Przyciski menu";
+"skin.editor.shoulders" = "Przyciski L/R";
+"skin.editor.stick" = "Joystick";
+"skin.editor.stickSurround" = "Obramowanie joysticka";
+"skin.editor.dpadMarks" = "Strzałki krzyżaka";
+"skin.editor.faceZ" = "Przycisk Z";
+"skin.editor.cButtons" = "Przyciski C";
+"skin.editor.startButton" = "Przycisk START";
 
 
 /* RetroAchievements */
@@ -574,9 +615,9 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Nie można uzyskać dostępu do wybranego pliku. Spróbuj zaimportować go z aplikacji Pliki.";
 "import.error.copyFailed" = "Nie udało się skopiować gry do Retro Pal. Zwolnij miejsce w pamięci i spróbuj ponownie.";
-"import.error.invalidROM" = "Ten plik nie jest grą, którą Retro Pal może odczytać. Obsługiwane gry: .gba, .gb, .gbc, .nds, .sfc, .smc i .nes, a także płyty PlayStation w formacie .chd, .cue z plikiem .bin lub .m3u.";
+"import.error.invalidROM" = "Ten plik nie jest grą, którą Retro Pal może odczytać. Obsługiwane gry: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 i .v64, a także płyty PlayStation w formacie .chd, .cue z plikiem .bin lub .m3u.";
 "import.error.discMissingFiles" = "Ten dysk wymaga plików, które nie zostały wybrane: %@. Wybierz plik .cue i wszystkie jego pliki .bin razem, za jednym razem.";
-"import.error.zipNoROM" = "W tym pliku ZIP nie znaleziono żadnej gry. Retro Pal odczytuje gry .gba, .gb, .gbc, .nds, .sfc, .smc i .nes; inne konsole nie są obsługiwane.";
+"import.error.zipNoROM" = "W tym pliku ZIP nie znaleziono żadnej gry. Retro Pal odczytuje gry .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 i .v64, a także płyty PlayStation w formacie .chd, .cue z plikiem .bin lub .m3u; inne konsole nie są obsługiwane.";
 "import.error.zipExtractionFailed" = "Nie udało się otworzyć tego pliku ZIP. Rozpakuj go w aplikacji Pliki i zaimportuj plik gry bezpośrednio.";
 "import.error.zipUnsupportedCompression" = "Ten plik ZIP używa metody kompresji, której Retro Pal nie odczytuje, na przykład LZMA lub BZIP2. Plik nie jest uszkodzony. Rozpakuj go w aplikacji Pliki i zaimportuj grę bezpośrednio albo utwórz ZIP ponownie ze standardową kompresją.";
 "import.error.zipEncrypted" = "Ten plik ZIP jest chroniony hasłem. Rozpakuj go w aplikacji Pliki, a następnie zaimportuj plik gry bezpośrednio.";
@@ -646,6 +687,11 @@
 "cheats.invalid.characters" = "Ten kod zawiera nieoczekiwane znaki. Kody używają tylko 0-9, A-F, spacji i myślników.";
 "cheats.invalid.characters.nes" = "Ten kod zawiera nieoczekiwane znaki. Kody NES używają liter Game Genie A P Z L G I T Y E O X U K S V N albo 0-9 i A-F, a także spacji i myślników.";
 "cheats.invalid.pairs" = "Kody Action Replay DS występują parami: każdy wiersz potrzebuje dwóch bloków po osiem znaków, na przykład 94000130 FCFF0000.";
+"cheats.invalid.placeholder" = "Ten kod pozostawia wartość do wyboru. Zastąp każde X cyfrą szesnastkową (0-9 lub A-F), na przykład XXXX przez 0063.";
+"n64.displayLost.title" = "Obraz przestał się odświeżać";
+"n64.displayLost.message" = "Procesor graficzny przestał odpowiadać, więc obrazu gry nie da się już wyświetlić. Wyjdź, aby zapisać postęp, a potem otwórz grę ponownie, aby grać dalej.";
+"n64.displayLost.quit" = "Zapisz i wyjdź";
+"n64.libdragonUnsupported" = "Ta gra na Nintendo 64 powstała w nowym narzędziu do gier homebrew (libdragon), którego Retro Pal jeszcze nie obsługuje. Nie dotyczy to gier z kartridży na Nintendo 64.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
 "cheats.multiline.caption" = "Kod zapisany w kilku wierszach dodaj jako JEDEN wpis. Wklej wszystkie wiersze razem, nie dodawaj ich pojedynczo.";
@@ -691,24 +737,25 @@
 "externalDisplay.idle.hint.ipad" = "Uruchom grę na iPadzie";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "Nowy wygląd";
-"whatsnew.s1.b1" = "Obróć telefon na bok: biblioteka zmienia się w rząd okładek na ruchomym tle, a strona gry, RetroAchievements i Ustawienia dostają ten sam styl.";
-"whatsnew.s1.b2" = "W trybie pionowym ostatnio grana gra widnieje u góry, a pod nią lista na szklanym tle. Wygląd zmienisz, kiedy chcesz: przycisk palety {PALETTE} w prawym górnym rogu biblioteki, obok +, daje do wyboru pięć stylów oraz Klasyczny, jeśli wolisz poprzedni interfejs.";
-"whatsnew.s1.b3" = "Wybierz okładkę każdej gry: oficjalną grafikę z pudełka, obraz z RetroAchievements, ostatni zrzut ekranu albo zdjęcie.";
-"whatsnew.s2.title" = "iPad";
-"whatsnew.s2.b1" = "Retro Pal działa teraz na iPadzie, ze wszystkimi konsolami, w pionie i w poziomie, ze sterowaniem dopasowanym do większego ekranu.";
-"whatsnew.s2.b2" = "Zwęź okno obok innej aplikacji, a biblioteka ułoży się jak na telefonie.";
-"whatsnew.s3.title" = "Pady rozpoznawane jako klawiatury";
-"whatsnew.s3.b1" = "Starsze pady Bluetooth, które iOS rozpoznaje jako klawiaturę, na przykład 8BitDo Zero, działają od razu, bez konfiguracji, a każdy klawisz można przypisać na nowo osobno dla każdej konsoli w Ustawieniach. Za darmo.";
-"whatsnew.s3.b2" = "Na iPhonie sterowanie dotykowe znika, gdy podłączona jest klawiatura; na iPadzie zostaje na ekranie.";
-"whatsnew.s4.title" = "Wszystkie języki";
-"whatsnew.s4.b1" = "Gry w plikach ZIP, których nazwy zawierają znaki japońskie, koreańskie, chińskie lub litery z akcentami, importują się teraz pod właściwą nazwą.";
-"whatsnew.s4.b2" = "Zegar Nintendo DS pokazuje właściwy rok, niezależnie od kalendarza ustawionego w urządzeniu.";
+"whatsnew.s1.title" = "Nintendo 64";
+"whatsnew.s1.b1" = "Gry Nintendo 64 działają już w Retro Pal, a konsola jest darmowa dla wszystkich.";
+"whatsnew.s1.b2" = "Zapisy, stany gry, kody, osiągnięcia i oficjalne okładki działają od pierwszego dnia.";
+"whatsnew.s1.b3" = "Na ekranie gałka, A, B, Z i cztery przyciski C leżą pod kciukami. Z kontrolerem prawa gałka obsługuje przyciski C.";
+"whatsnew.s1.b4" = "Wokół gry konsola nosi własną obudowę, w pionie i w poziomie. Z {PRO} przemalujesz ją na własne kolory.";
+"whatsnew.s2.title" = "Do czterech kontrolerów";
+"whatsnew.s2.b1" = "Podłącz do czterech kontrolerów i grajcie razem: dwóch graczy na NES, Super Nintendo i PlayStation, czterech na Nintendo 64. Za darmo.";
+"whatsnew.s2.b2" = "W Ustawieniach sekcja Gracze ustala ich kolejność. Gracz 1 gra na konsolach dla jednego gracza i obsługuje menu; naciśnij przycisk na kontrolerze, aby podświetlić jego wiersz.";
+"whatsnew.s2.b3" = "Pasek biblioteki pokazuje baterię każdego kontrolera.";
+"whatsnew.s3.title" = "Cała aplikacja z kontrolerem";
+"whatsnew.s3.b1" = "Poruszaj się krzyżakiem po bibliotece, stronie gry, RetroAchievements i Ustawieniach: A otwiera, B cofa, L i R przełączają między Biblioteką a Ustawieniami, a ramka pokazuje, gdzie jesteś.";
+"whatsnew.s3.b2" = "W grze przycisk Home kontrolera albo Start i Select przytrzymane przez sekundę otwierają menu pauzy, w którym zapiszesz, wczytasz i wyjdziesz bez dotykania ekranu.";
+"whatsnew.s4.title" = "Okładki";
+"whatsnew.s4.b1" = "Wybierz okładkę wszystkich gier naraz przyciskiem palety {PALETTE}, w sekcji Okładki: oficjalna okładka, obraz z RetroAchievements albo zrzut ekranu. Okładka wybrana dla jednej gry zostaje bez zmian.";
+"whatsnew.s4.b2" = "Gra, której okładką stał się obraz z RetroAchievements, może odzyskać oficjalną okładkę, a obraz z RetroAchievements jest do wyboru, zanim w ogóle otworzysz grę.";
 "whatsnew.s5.title" = "A także";
-"whatsnew.s5.b1" = "Ustawienia Nintendo DS są teraz na stronie każdej gry DS, a wiersz RetroAchievements znajduje się tuż pod slotami zapisu.";
-"whatsnew.s5.b2" = "Pasek biblioteki pokazuje poziom baterii pada.";
-"whatsnew.s5.b3" = "Osiągnięcia RetroAchievements działają teraz także w grach PlayStation.";
-"whatsnew.s5.b4" = "Kody: europejskie lub japońskie wydanie gry znajduje teraz własne kody, a kody oryginalnej gry pojawiają się przed kodami zmodyfikowanych wersji.";
+"whatsnew.s5.b1" = "Na DS menu pauzy może zamknąć konsolę na potrzeby rzadkich zagadek, które tego wymagają. Pozostaje zamknięta, dopóki nie naciśniesz dowolnego przycisku.";
+"whatsnew.s5.b2" = "Gry z DS działają płynniej, zwłaszcza w trybie niskiego zużycia energii, a ich dźwięk nie rwie się już podczas gry.";
+"whatsnew.s5.b3" = "Stany gry DS zajmują teraz około jednej trzeciej miejsca. Te, które już masz, nadal się wczytują; nowy otworzy się na innych twoich urządzeniach, gdy one też dostaną tę aktualizację.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nie wczytano żadnych osiągnięć z tego zestawu.";

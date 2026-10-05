@@ -12,6 +12,7 @@
 //  - Deliberately NO terminal states and no lifetime cap: Apple's display
 //    quota is the limiter. The only local throttle is the 24h gap.
 //  - The warm-up card is gone, and with it every dismissal-counting rule.
+//  - Never after a sitting that ran below 95% of full speed (2026-09-27).
 //
 //  Also covers the session-counting fix: sessions are separated by IDLE
 //  time, so banking play on a backgrounding no longer invents a session.
@@ -47,7 +48,22 @@ struct PromptTrackerTests {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes, sittingSmoothness: nil) == "game_30min")
+    }
+
+    /// A sitting that ran below 95% of full speed is not followed by an ask,
+    /// whatever else qualified; one at or above it, or unmeasured, is.
+    @Test
+    func test_noAskAfterARoughSitting() {
+        let (pt, defaults, suite) = makeTracker()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes,
+                                              sittingSmoothness: 0.90) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes,
+                                              sittingSmoothness: PromptTracker.smoothSittingRatio) == "game_30min")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes,
+                                              sittingSmoothness: 1.0) == "game_30min")
     }
 
     @Test
@@ -55,7 +71,7 @@ struct PromptTrackerTests {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes - 1) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes - 1, sittingSmoothness: nil) == nil)
     }
 
     /// The bar is CUMULATIVE on the game, so two sittings add up. This is the
@@ -67,8 +83,8 @@ struct PromptTrackerTests {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         pt.recordGamePlayTime(romName: game, seconds: 20 * 60)
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 9 * 60) == nil)
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 10 * 60) == "game_30min")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 9 * 60, sittingSmoothness: nil) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 10 * 60, sittingSmoothness: nil) == "game_30min")
     }
 
     /// Time on OTHER games must not qualify this one. A dabbler with five
@@ -80,7 +96,7 @@ struct PromptTrackerTests {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         pt.recordGamePlayTime(romName: "Another Game", seconds: 2 * 3600)
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 5 * 60) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: 5 * 60, sittingSmoothness: nil) == nil)
     }
 
     // MARK: - return_day
@@ -95,7 +111,7 @@ struct PromptTrackerTests {
         defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
 
         #expect(pt.isReturningDay == true)
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "return_day")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes, sittingSmoothness: nil) == "return_day")
     }
 
     /// Coming back for two minutes is not a satisfaction signal.
@@ -107,7 +123,7 @@ struct PromptTrackerTests {
         let twoDaysAgo = Date().addingTimeInterval(-2 * 24 * 3600)
         defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1, sittingSmoothness: nil) == nil)
     }
 
     @Test
@@ -117,7 +133,7 @@ struct PromptTrackerTests {
 
         pt.recordSessionEnd(playSeconds: tenMinutes)   // stamps today as the first play day
         #expect(pt.isReturningDay == false)
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes, sittingSmoothness: nil) == nil)
     }
 
     // MARK: - ra_unlock, and trigger precedence
@@ -132,7 +148,7 @@ struct PromptTrackerTests {
         defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
         pt.recordAchievementUnlocked()
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "ra_unlock")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes, sittingSmoothness: nil) == "ra_unlock")
     }
 
     @Test
@@ -141,7 +157,7 @@ struct PromptTrackerTests {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         pt.recordAchievementUnlocked()
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes - 1, sittingSmoothness: nil) == nil)
     }
 
     /// One unlock must not keep qualifying every later quit.
@@ -151,12 +167,12 @@ struct PromptTrackerTests {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         pt.recordAchievementUnlocked()
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "ra_unlock")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes, sittingSmoothness: nil) == "ra_unlock")
         pt.recordDirectReviewRequested()
 
         // Clear the 24h gap to isolate the flag from the throttle.
         defaults.set(Date().addingTimeInterval(-25 * 3600), forKey: "reviewPromptLastShownDate")
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes, sittingSmoothness: nil) == nil)
     }
 
     @Test
@@ -168,7 +184,7 @@ struct PromptTrackerTests {
         defaults.set(Calendar.current.startOfDay(for: twoDaysAgo), forKey: "pt_firstPlayDay")
         pt.recordGamePlayTime(romName: game, seconds: 2 * 3600)
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes) == "return_day")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: tenMinutes, sittingSmoothness: nil) == "return_day")
     }
 
     // MARK: - The 24h gap, and the absence of terminal states
@@ -178,9 +194,9 @@ struct PromptTrackerTests {
         let (pt, defaults, suite) = makeTracker()
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes, sittingSmoothness: nil) == "game_30min")
         pt.recordDirectReviewRequested()
-        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == nil)
+        #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes, sittingSmoothness: nil) == nil)
     }
 
     /// The design choice most likely to be "tidied up" by a future reader:
@@ -193,7 +209,7 @@ struct PromptTrackerTests {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         for _ in 0..<20 {
-            #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes) == "game_30min")
+            #expect(pt.directReviewRequestTrigger(romName: game, currentSessionSeconds: thirtyMinutes, sittingSmoothness: nil) == "game_30min")
             pt.recordDirectReviewRequested()
             defaults.set(Date().addingTimeInterval(-25 * 3600), forKey: "reviewPromptLastShownDate")
         }

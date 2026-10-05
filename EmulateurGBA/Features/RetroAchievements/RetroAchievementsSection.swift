@@ -22,6 +22,7 @@ struct RetroAchievementsSection: View {
                 Label(String(localized: "ra.settings.title", defaultValue: "RetroAchievements"),
                       systemImage: "trophy")
             }
+            .controllerToggle($ra.isEnabled)
 
             if ra.isEnabled {
                 if ra.isLoggedIn {

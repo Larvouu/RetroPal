@@ -1,0 +1,42 @@
+Free the emulation coroutine and forget the loaded game in retro_deinit
+
+retro_init creates the coroutine the emulator runs on (co_create, an 8 MB
+stack) and nothing ever deletes it. retro_deinit also leaves
+load_game_successful set.
+
+A frontend that dlopens the core per session never notices either. Retro Pal
+links the core statically and runs retro_init / retro_deinit once per game, so:
+- every game played leaked the previous coroutine and whatever of its stack
+  had been touched;
+- after one successful game, a session whose retro_load_game was never
+  reached still found load_game_successful set, and retro_deinit switched into
+  a coroutine that had never been started.
+
+retro_deinit now deletes the coroutine (the emulator has already switched back
+out of it for the last time, at M64CMD_STOP) and clears the flag.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0001. Worth sending
+upstream.
+
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -751,6 +751,19 @@
+     CoreShutdown();
+     deinit_audio_libretro();
+ 
++    /* Every retro_init creates the emulation coroutine; free it here, and
++     * forget the loaded game. A frontend that links the core statically and
++     * starts it again for the next game otherwise leaks the coroutine's stack
++     * each time, and carries load_game_successful into the next session, where
++     * a retro_deinit before any retro_load_game would switch into a coroutine
++     * that was never started. */
++    if (game_thread)
++    {
++        co_delete(game_thread);
++        game_thread = NULL;
++    }
++    load_game_successful = false;
++
+     if (perf_cb.perf_log)
+         perf_cb.perf_log();
+ 

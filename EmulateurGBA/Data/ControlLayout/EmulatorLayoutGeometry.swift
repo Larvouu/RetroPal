@@ -165,6 +165,15 @@ enum EmulatorLayoutGeometry {
     /// is wider than half a portrait page.
     static let ps1LandscapeShoulderWidth: CGFloat = 88
 
+    /// The Nintendo 64's cross against the PlayStation's it was first laid out
+    /// with: a fifth smaller (asked 2026-09-27).
+    static let n64PadScale: CGFloat = 0.8
+    static let n64LandscapePadScale: CGFloat = 0.6
+
+    /// The C buttons, larger than the 40 they started at now that each group
+    /// has a quarter of the page (asked 2026-09-27).
+    static let n64CButtonSize: CGFloat = 46
+
     /// Reference size, chosen per element for the console being laid out.
     ///
     /// The `isNDS:` overload above is kept exactly as it was and still answers
@@ -172,6 +181,34 @@ enum EmulatorLayoutGeometry {
     /// through this change. Only the SNES asks a different question.
     static func referenceSize(_ element: ControlElement, system: PresetSystem,
                               isLandscape: Bool) -> CGSize {
+        // The Nintendo 64 started on the PlayStation's page (`layoutPage`), so
+        // every control the two share takes the PlayStation's size unless it
+        // was asked otherwise below. The four C buttons are its own.
+        if system == .n64 {
+            if ControlElement.n64CButtons.contains(element) {
+                return CGSize(width: n64CButtonSize, height: n64CButtonSize)
+            }
+            switch element {
+            // Z is a ROUND button beside A and B, the three forming a triangle
+            // (asked 2026-09-27), so it takes a face button's size rather than
+            // the PlayStation's L2 bar.
+            case .btnL2:
+                return referenceSize(.btnA, system: .ps1, isLandscape: isLandscape)
+            // The cross a fifth smaller than the PlayStation's upright, and
+            // smaller again on its side, where it shares the gutter with the
+            // stick above it (both asked 2026-09-27).
+            case .dpad:
+                let pad = referenceSize(.dpad, system: .ps1, isLandscape: isLandscape)
+                let scale = isLandscape ? n64LandscapePadScale : n64PadScale
+                return CGSize(width: pad.width * scale, height: pad.height * scale)
+            // Upright, L and R are the GBA's bars, in the GBA's places: one row
+            // with MENU at the top of the page (asked 2026-09-27).
+            case .btnL where !isLandscape, .btnR where !isLandscape:
+                return referenceSize(element, isNDS: false, isLandscape: false)
+            default:
+                return referenceSize(element, system: .ps1, isLandscape: isLandscape)
+            }
+        }
         // The PlayStation joins the Super Nintendo here, and for the same
         // reason: its pad is the DS's shape too, a cross and four buttons in a
         // diamond, so those five take the DS's measurements. The SNES's own
@@ -234,6 +271,35 @@ enum EmulatorLayoutGeometry {
     /// Bottom strip kept for the still-visible Menu button when a controller is
     /// connected and the on-screen pad is hidden.
     static let controllerMenuStrip: CGFloat = 72
+
+    /// Where the pause menu's button goes with a controller on a device on its
+    /// side, for a one-picture console (device report, 2026-09-27, on the
+    /// Nintendo 64).
+    ///
+    /// A controller takes the side panels away and the picture grows to the
+    /// full height, but MENU stays where the touch page put it: under the
+    /// picture's centre on the Nintendo 64 and the PlayStation, in the bottom
+    /// row on the others, so it now sits ON the game. It moves to the right
+    /// gutter instead, at the height it had (clamped inside the page), and
+    /// hugs the right edge when the gutter is narrower than the button. Where
+    /// it already clears the picture it stays exactly where it was. The DS is
+    /// not a case: its screens keep a strip below them for MENU.
+    static func controllerLandscapeMenuCenter(current: CGPoint, menuSize: CGSize, screen: CGRect,
+                                              container: CGSize, safeRightInset: CGFloat,
+                                              deviceScale k: CGFloat) -> CGPoint {
+        let menu = CGRect(x: current.x - menuSize.width / 2, y: current.y - menuSize.height / 2,
+                          width: menuSize.width, height: menuSize.height)
+        guard menu.intersects(screen) else { return current }
+        let margin = 8 * k
+        let rightEdge = container.width - max(safeRightInset, margin)
+        let gutter = rightEdge - screen.maxX
+        let x = gutter >= menuSize.width + 2 * margin
+            ? (screen.maxX + rightEdge) / 2
+            : rightEdge - menuSize.width / 2
+        let y = min(max(current.y, margin + menuSize.height / 2),
+                    container.height - margin - menuSize.height / 2)
+        return CGPoint(x: x, y: y)
+    }
     /// NDS portrait: minimum height reserved below the screens for the controls.
     static let ndsPortraitControlsReserve: CGFloat = 280
     /// GBA portrait: extra top padding below the safe area before the screen.
@@ -342,6 +408,9 @@ enum EmulatorLayoutGeometry {
                             gameAspect: CGFloat, system: PresetSystem,
                             controllerConnected: Bool,
                             deviceScale k: CGFloat) -> CGRect {
+        // The picture is the page's: the Nintendo 64 frames its game exactly as
+        // the PlayStation does, so it is answered as that console everywhere below.
+        let system = system.layoutPage
         let menuStrip = controllerMenuStrip * k
         // GB/GBC derive their on-screen HEIGHT from a fixed 3:2 shape (independent of
         // GBA's width); their width then comes from their own (narrower) display aspect.

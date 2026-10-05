@@ -75,12 +75,6 @@ enum VideoFilter: String, CaseIterable, Identifiable {
 /// sequentially anyway.
 enum VideoFilterRenderer {
 
-    private struct FilterUniforms {
-        var filterType: UInt32
-        var screenCount: UInt32
-        var gameSize: SIMD2<Float>
-    }
-
     private static let device = MTLCreateSystemDefaultDevice()
     private static let queue = device?.makeCommandQueue()
     private static let pipeline: MTLRenderPipelineState? = {
@@ -96,16 +90,28 @@ enum VideoFilterRenderer {
     /// `.none` and falls back to the unfiltered image on any Metal failure (a
     /// share card must never come out empty because a filter pass failed).
     /// `screenCount` = 2 for a stacked NDS dual-screen image (per-screen CRT).
+    ///
+    /// `pixelGrid` is the game's own pixel grid, when the caller knows it
+    /// differs from the image's size. It does on the PlayStation and the
+    /// Nintendo 64, whose stills come out of the bridge already stretched to
+    /// 4:3 (a 640x240 N64 frame is a 640x480 image). The image is drawn back
+    /// down to that grid, without interpolation, before it is filtered, so the
+    /// texture the shader reads is the game's real picture and every row and
+    /// cell a filter draws lands on a real game pixel. Filtered at the image's
+    /// size instead, the scanlines doubled and, at a preview's size, faded out.
     static func apply(_ filter: VideoFilter, to image: CGImage,
-                      targetSize: CGSize, screenCount: Int = 1) -> CGImage? {
+                      targetSize: CGSize, screenCount: Int = 1,
+                      pixelGrid: CGSize? = nil) -> CGImage? {
         guard filter != .none else { return image }
         guard let device, let queue, let pipeline else { return image }
         let w = max(1, Int(targetSize.width.rounded()))
         let h = max(1, Int(targetSize.height.rounded()))
 
         // Input texture: the frame's RGBA bytes (same premultiplied conversion
-        // as the card renderers — mGBA frames are RGBX).
-        let iw = image.width, ih = image.height
+        // as the card renderers — mGBA frames are RGBX), at the game's own
+        // pixel grid (see `pixelGrid`).
+        let iw = max(1, Int((pixelGrid?.width ?? CGFloat(image.width)).rounded()))
+        let ih = max(1, Int((pixelGrid?.height ?? CGFloat(image.height)).rounded()))
         var inBytes = [UInt8](repeating: 0, count: iw * ih * 4)
         let converted: Bool = inBytes.withUnsafeMutableBytes { raw in
             guard let base = raw.baseAddress,
@@ -141,19 +147,26 @@ enum VideoFilterRenderer {
 
         guard let cmd = queue.makeCommandBuffer(),
               let encoder = cmd.makeRenderCommandEncoder(descriptor: pass) else { return image }
-        var uniforms = FilterUniforms(filterType: filter.metalIndex,
-                                      screenCount: UInt32(max(1, screenCount)),
-                                      gameSize: SIMD2(Float(iw), Float(ih)))
         // The shared vertex shader takes a texture-coordinate scale, because the
-        // PlayStation draws into the corner of a larger texture. Here the input
-        // texture IS the picture (the bridge already cropped it on the way into
-        // the CGImage), so the scale is 1 and this pass is unchanged. It still
-        // has to be bound: the shader declares the buffer for every caller.
+        // PlayStation and the Nintendo 64 draw into the corner of a larger
+        // texture. Here the input texture IS the picture (the bridge already
+        // cropped it on the way into the CGImage), so the scale is 1, in the
+        // vertex stage and in the uniforms alike. Both still have to be bound:
+        // the shader declares them for every caller. The uniforms are the live
+        // view's own struct, so the bytes sent here cannot fall behind the
+        // shader's layout again (they did once: `uvScale` was added to the
+        // shader and the live struct only, and the CRT read past the end).
         var uvScale = SIMD2<Float>(1, 1)
+        var uniforms = EmulatorMetalView.FilterUniforms(
+            filterType: filter.metalIndex,
+            screenCount: UInt32(max(1, screenCount)),
+            gameSize: SIMD2(Float(iw), Float(ih)),
+            uvScale: uvScale)
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(inTex, index: 0)
         encoder.setVertexBytes(&uvScale, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
-        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<FilterUniforms>.stride, index: 0)
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<EmulatorMetalView.FilterUniforms>.stride,
+                                 index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
         encoder.endEncoding()
         cmd.commit()
@@ -173,5 +186,21 @@ enum VideoFilterRenderer {
             return ctx.makeImage()
         }
         return out ?? image
+    }
+
+    /// The size the Appearance sheet's filter preview is rendered at: the
+    /// still fitted inside `screenPixelSize`, the rectangle it is displayed in,
+    /// in pixels. Filters are display-space (a grid line is about one display
+    /// pixel, and an effect fades out where a game pixel is under two or three
+    /// display pixels), so the preview is rendered at the density it is seen
+    /// at, not at a fixed width. The fixed 800 px it replaced was sized on the
+    /// Game Boy.
+    static func previewTargetSize(imageSize: CGSize, screenPixelSize: CGSize) -> CGSize {
+        guard imageSize.width > 0, imageSize.height > 0,
+              screenPixelSize.width > 0, screenPixelSize.height > 0 else { return imageSize }
+        let scale = min(screenPixelSize.width / imageSize.width,
+                        screenPixelSize.height / imageSize.height)
+        return CGSize(width: (imageSize.width * scale).rounded(),
+                      height: (imageSize.height * scale).rounded())
     }
 }

@@ -74,17 +74,13 @@ final class ConsoleSkinView: UIView {
     var allButtonFrames: [ControlElement: CGRect] = [:] { didSet { setNeedsDisplay() } }
 
     /// Whether a system has a dress at all — the host uses this to show/hide the view.
-    /// (The NES has no dress yet: it would show a Game Boy body around an NES game, which is
-    /// worse than the plain page it gets instead.)
-    /// The PlayStation has no dress yet, and this is the sentence the file
-    /// already anticipated: a per-console dress follows as its own release, and
-    /// wrapping a PlayStation game in a Super Nintendo body would be worse than
-    /// the plain page it gets instead.
+    /// A console without one gets the plain page, which is better than another console's body
+    /// around its game. The NES, the PlayStation and the Nintendo 64 each started that way and
+    /// are all dressed now, so this answers yes for every console; it stays a function because
+    /// the next console added starts undressed, and this is where it says so.
     static func hasSkin(for system: PresetSystem) -> Bool { true }
 
-    /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, and since the NES
-    /// dress landed every console has one, so both answer yes for all of them. Kept as functions
-    /// rather than deleted: a console added later starts undressed and these are where it says so.
+    /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, for the same reason.
     static func hasDressedControls(for system: PresetSystem) -> Bool { true }
 
     private var skin: ConsoleSkin? {
@@ -102,6 +98,7 @@ final class ConsoleSkinView: UIView {
                                                           controllerConnected: controllerConnected)
         case .ps1: return PlayStationSkin(variant: variant, cardMode: cardMode,
                                           controllerConnected: controllerConnected)
+        case .n64: return NintendoSixtyFourSkin(variant: variant, cardMode: cardMode)
         }
     }
 
@@ -3704,8 +3701,6 @@ struct PlayStationSkin: ConsoleSkin {
     private var custom: PS1SkinPalette? { variant.ps1Palette }
     private var bodyMid: UIColor {
         custom?.body ?? (variant == .retroPal ? RetroPalPalette.ps1Body : DressKind.ps1Body) }
-    private var bodyTop: UIColor { RetroPalPalette.bodyGradient(bodyMid).top }
-    private var bodyBottom: UIColor { RetroPalPalette.bodyGradient(bodyMid).bottom }
     private var surround: UIColor {
         custom?.surround ?? (variant == .retroPal ? RetroPalPalette.ps1Surround : DressKind.ps1Surround) }
     /// The one control colour: cross arrows, stick dishes, face plastic, all
@@ -3718,7 +3713,7 @@ struct PlayStationSkin: ConsoleSkin {
     /// not lighter because that is what carving does to a surface: the letter is
     /// a hole, and a hole in plastic is in shadow. It works on both dresses
     /// without a special case, since both plates are mid-tones.
-    private func engraved(on plate: UIColor) -> UIColor {
+    private static func engraved(on plate: UIColor) -> UIColor {
         plate.rpMixed(with: .black, plate.rpIsLight ? 0.42 : 0.34)
     }
 
@@ -3822,7 +3817,7 @@ struct PlayStationSkin: ConsoleSkin {
         // is ink, so the ink should be the darker of the two.
         if var merged = ground.first?.cgPath {
             for piece in ground.dropFirst() { merged = merged.union(piece.cgPath) }
-            drawRaised(UIBezierPath(cgPath: merged), fill: raisedGroundFill, scale: scale)
+            Self.drawRaised(UIBezierPath(cgPath: merged), fill: raisedGroundFill, scale: scale)
         }
 
         // THE CROSS MARK, printed on each plateau: ONE shape big enough to hold
@@ -3859,7 +3854,15 @@ struct PlayStationSkin: ConsoleSkin {
     // MARK: Body
 
     private func drawBody(_ ctx: CGContext, _ bounds: CGRect) {
-        let colors = [bodyTop.cgColor, bodyMid.cgColor, bodyBottom.cgColor] as CFArray
+        Self.drawMouldedShell(ctx, bounds, mid: bodyMid)
+    }
+
+    /// A moulded plastic shell: the body colour lit from the top, the grain the
+    /// other shells share, and a soft vignette. The Nintendo 64's shell is the
+    /// same material treatment in its own colour, so both draw it from here.
+    static func drawMouldedShell(_ ctx: CGContext, _ bounds: CGRect, mid bodyMid: UIColor) {
+        let gradient = RetroPalPalette.bodyGradient(bodyMid)
+        let colors = [gradient.top.cgColor, bodyMid.cgColor, gradient.bottom.cgColor] as CFArray
         if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
                                  colors: colors, locations: [0, 0.55, 1]) {
             ctx.drawLinearGradient(grad, start: CGPoint(x: bounds.midX, y: bounds.minY),
@@ -3981,13 +3984,22 @@ struct PlayStationSkin: ConsoleSkin {
     /// The inverse of `drawWell`: filled a shade LIGHTER than the shell, then a
     /// light catch falling from the top rim and a dark one rising from the
     /// bottom. Same two strokes, same clipping, opposite order — which is all
-    /// that separates something raised from something hollow.
-    private func drawRaised(_ shape: UIBezierPath, fill: UIColor, scale: CGFloat) {
+    /// that separates something raised from something hollow. Static because
+    /// the Nintendo 64's shell raises its stick surround the same way.
+    static func drawRaised(_ shape: UIBezierPath, fill: UIColor, scale: CGFloat) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         fill.setFill(); shape.fill()
         ctx.saveGState(); shape.addClip(); ctx.setAlpha(0.35)
         GameBoySkin.grain.drawAsPattern(in: shape.bounds); ctx.restoreGState()
+        drawRaisedRim(shape, scale: scale)
+    }
 
+    /// `drawRaised` without its fill: only the two catches along the rim. The
+    /// Nintendo 64's controls wear exactly this on their own colour
+    /// (`ReliefLayer`), so the relief on a button and on a surround is one
+    /// drawing and cannot drift apart.
+    static func drawRaisedRim(_ shape: UIBezierPath, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let outer = grown(shape, by: 2 * scale)
         ctx.saveGState(); shape.addClip()
         // TWICE AS PRESENT. Spent on the shadows' alpha AND their reach: doubling
@@ -4039,7 +4051,7 @@ struct PlayStationSkin: ConsoleSkin {
             drawWell(shape, lip: wellLip, scale: scale)
             // Black, like the faces': a hole is not a shade of the shell.
             UIColor.black.setFill()
-            grown(shape, by: holeLip).fill()
+            Self.grown(shape, by: holeLip).fill()
         }
     }
 
@@ -4076,7 +4088,7 @@ struct PlayStationSkin: ConsoleSkin {
     /// Stroking it and unioning the stroke with the fill, rather than insetting
     /// a rectangle: an inset only means anything for a rect, and two of these
     /// five are a triangle and a disc.
-    private func grown(_ shape: UIBezierPath, by lip: CGFloat) -> UIBezierPath {
+    static func grown(_ shape: UIBezierPath, by lip: CGFloat) -> UIBezierPath {
         // A lip of nothing means the shape itself. The wedges around the cross
         // ask for that: they are small enough that growing them at all would
         // round the point off the thing that makes them wedges.
@@ -4099,9 +4111,15 @@ struct PlayStationSkin: ConsoleSkin {
     /// same pair the Game Boy's own recesses use.
     private func drawWell(_ shape: UIBezierPath, lip: CGFloat, fill: UIColor? = nil,
                           scale: CGFloat) {
+        Self.carveWell(shape, lip: lip, fill: fill ?? wellFill, scale: scale)
+    }
+
+    /// `drawWell` with its fill given, so the Nintendo 64's shell carves its
+    /// wells with the same two strokes.
+    static func carveWell(_ shape: UIBezierPath, lip: CGFloat, fill: UIColor, scale: CGFloat) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let well = grown(shape, by: lip)
-        (fill ?? wellFill).setFill(); well.fill()
+        fill.setFill(); well.fill()
         ctx.saveGState(); well.addClip(); ctx.setAlpha(0.35)
         GameBoySkin.grain.drawAsPattern(in: well.bounds); ctx.restoreGState()
 
@@ -4143,7 +4161,7 @@ struct PlayStationSkin: ConsoleSkin {
     /// An engraved word, centred in `rect` and sized to `fraction` of its width.
     /// Two passes: the letter in shadow, and a one-point light catch below it,
     /// which is the whole trick that makes text look cut rather than printed.
-    private func drawEngraved(_ text: String, in rect: CGRect, on plate: UIColor,
+    private static func drawEngraved(_ text: String, in rect: CGRect, on plate: UIColor,
                               weight: UIFont.Weight, fraction: CGFloat, scale: CGFloat) {
         guard rect.width > 0, rect.height > 0 else { return }
         let kern = 0.6 * scale
@@ -4163,7 +4181,7 @@ struct PlayStationSkin: ConsoleSkin {
         ]).draw(at: CGPoint(x: origin.x, y: origin.y + 1 * scale))
         NSAttributedString(string: text, attributes: [
             .font: UIFont.systemFont(ofSize: size, weight: weight),
-            .foregroundColor: engraved(on: plate), .kern: kern,
+            .foregroundColor: Self.engraved(on: plate), .kern: kern,
         ]).draw(at: origin)
     }
 
@@ -4171,11 +4189,11 @@ struct PlayStationSkin: ConsoleSkin {
     /// wordmark runs about two and a half times its own height, plus the end
     /// caps: this is what that comes to, and it is the one number both pages
     /// size themselves from.
-    private static let brandPlaqueAspect: CGFloat = 3.6
+    static let brandPlaqueAspect: CGFloat = 3.6
 
     /// The wordmark in one flat pass, sized to its box the way `drawEngraved`
     /// sizes its own, so the two land identically apart from the ink.
-    private func drawFlatBrandText(_ text: String, in rect: CGRect, ink: UIColor,
+    private static func drawFlatBrandText(_ text: String, in rect: CGRect, ink: UIColor,
                                    scale: CGFloat) {
         let kern = 0.6 * scale
         func measure(_ s: CGFloat) -> CGSize {
@@ -4201,6 +4219,14 @@ struct PlayStationSkin: ConsoleSkin {
     /// control at all. Reaching for the shape the controls are forbidden is what
     /// keeps it from being mistaken for one.
     private func drawBrandPlaque(in rect: CGRect, ink: UIColor? = nil, scale: CGFloat) {
+        Self.drawPlaque(in: rect, plate: groundTone, icon: brandImage, ink: ink, scale: scale)
+    }
+
+    /// The plaque itself, from its plate colour and its mark: static so the
+    /// Nintendo 64's shell carries the same plaque (2026-09-27), drawn by the
+    /// same lines, on its own plate.
+    static func drawPlaque(in rect: CGRect, plate: UIColor, icon: UIImage?, ink: UIColor?,
+                           scale: CGFloat) {
         guard rect.width > 24 * scale, rect.height > 10 * scale else { return }
         let pill = UIBezierPath(roundedRect: rect, cornerRadius: rect.height / 2)
         // Filled with the RAISED tone rather than the carved one, even though it
@@ -4209,12 +4235,12 @@ struct PlayStationSkin: ConsoleSkin {
         // shell the carved tone is already near-black, so a letter darker still
         // is a letter nobody can read. The lighter plate is what gives the
         // engraving somewhere to go.
-        drawWell(pill, lip: 0, fill: groundTone, scale: scale)
+        carveWell(pill, lip: 0, fill: plate, scale: scale)
         // Clear of the round end caps and the recess rim.
         let inset = rect.insetBy(dx: rect.height * 0.34, dy: rect.height * 0.20)
         guard inset.width > 4 * scale, inset.height > 4 * scale else { return }
         let side = inset.height
-        if let icon = brandImage {
+        if let icon {
             icon.draw(in: CGRect(x: inset.minX, y: inset.minY, width: side, height: side))
         }
         let textX = inset.minX + side + side * 0.22
@@ -4229,7 +4255,7 @@ struct PlayStationSkin: ConsoleSkin {
                 // seen from.
                 drawFlatBrandText("Retro Pal", in: text, ink: ink, scale: scale)
             } else {
-                drawEngraved("Retro Pal", in: text, on: groundTone,
+                drawEngraved("Retro Pal", in: text, on: plate,
                              weight: .semibold, fraction: 1.0, scale: scale)
             }
         }
@@ -4306,4 +4332,452 @@ struct PlayStationSkin: ConsoleSkin {
                                    y: line - h / 2, width: w, height: h), ink: ink, scale: scale)
     }
 
+}
+
+// MARK: - Nintendo 64
+
+/// The Nintendo 64 dress: the moulded shell in the console's grey (Classic) or
+/// the Retro Pal blue, and the furniture set into it around the controls
+/// (described 2026-09-27).
+///
+/// EVERY CONTROL DRAWS ITSELF, as on the PlayStation: the colours, the domes,
+/// the C triangles, START's disc, the cross's triangles and the stick's rings
+/// all live in the control views. The shell draws what a button cannot, and
+/// draws it from the controls' own frames, so a custom preset that moves one
+/// carries its furniture with it:
+///
+/// - the grooves joining A, B and Z;
+/// - the circle the four C buttons stand on, with its C;
+/// - the cross's well, deeper toward the middle, and the seat under the keys;
+/// - START's well;
+/// - the shoulders: a darker recess in each top corner holding L and R, the
+///   pad's two ends, and a seat under L, R and MENU;
+/// - the stick's surround: a raised disc in the triggers' grey, a one-point
+///   dark line round it, and the octagonal gate falling away to black;
+/// - the black hole under every round button, a little larger than it, which
+///   opens up as the button shrinks on a press, as on the other consoles.
+///
+/// - the Retro Pal plaque, the PlayStation's (`PlayStationSkin.drawPlaque`) on
+///   this shell's own raised tone.
+///
+/// No frame around the picture: the palette gave no colour for one.
+struct NintendoSixtyFourSkin: ConsoleSkin {
+    var variant: DressVariant = .nostalgia
+    /// The share card: the plaque goes above the picture, as on every card.
+    var cardMode: Bool = false
+
+    private var body: UIColor {
+        variant.n64.body
+    }
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        PlayStationSkin.drawMouldedShell(ctx, bounds, mid: body)
+        drawShoulders(bounds: bounds, screen: screen, buttons: buttons,
+                      isLandscape: isLandscape, scale: scale)
+        drawBrand(bounds: bounds, screen: screen, buttons: buttons,
+                  isLandscape: isLandscape, scale: scale)
+        drawFaceGrooves(buttons: buttons, scale: scale)
+        drawCCircle(buttons: buttons, scale: scale)
+        drawCrossWell(buttons: buttons, scale: scale)
+        drawStartWell(buttons: buttons, scale: scale)
+        drawButtonHoles(buttons: buttons, scale: scale)
+        drawStickGate(ctx, bounds: bounds, buttons: buttons, scale: scale)
+    }
+
+    /// The black hole each round button comes up through, a little larger than
+    /// the button: at rest a hairline, on a press (the button shrinks to 95%)
+    /// a ring. The PlayStation's faces have the same, at the same lip.
+    /// START's is drawn with its well.
+    private func drawButtonHoles(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        let lip = 1.5 * scale
+        UIColor.black.setFill()
+        for element in [ControlElement.btnA, .btnB, .btnL2, .btnCUp, .btnCDown, .btnCLeft,
+                        .btnCRight, .btnMenu, .btnClip] {
+            guard let f = buttons[element] else { continue }
+            let d = min(f.width, f.height)
+            UIBezierPath(ovalIn: CGRect(x: f.midX - d / 2 - lip, y: f.midY - d / 2 - lip,
+                                        width: d + lip * 2, height: d + lip * 2)).fill()
+        }
+    }
+
+    // MARK: The plaque
+
+    /// Where the Retro Pal plaque goes (asked 2026-09-27):
+    /// - UPRIGHT on a phone, over A, centred in the gap between the bottom of
+    ///   R and the top of B;
+    /// - ON ITS SIDE, centred, in the band between the top of the page and the
+    ///   picture;
+    /// - UPRIGHT on a tablet, whose L and R stand low over their columns,
+    ///   centred in the band between the picture and the top of L and R;
+    /// - ON THE CARD, the PlayStation card's size and place, formula for
+    ///   formula, above the picture between L and R.
+    ///
+    /// Engraved on Classic; on Retro Pal's dark blue the wordmark is printed
+    /// in a pale ink instead, for the PlayStation's reason (a groove darker than
+    /// a dark plate is a letter nobody reads).
+    private func drawBrand(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                           isLandscape: Bool, scale: CGFloat) {
+        guard !screen.isEmpty else { return }
+        let aspect = PlayStationSkin.brandPlaqueAspect
+        let plate = body.rpMixed(with: .white, body.rpIsLight ? 0.22 : 0.16)
+        let iconInk = body.rpIsLight ? body.rpMixed(with: .black, 0.34)
+                                     : body.rpMixed(with: .white, 0.40)
+        let ink: UIColor? = body.rpIsLight ? nil : body.rpMixed(with: .white, 0.75)
+        let icon = RetroPalPalette.brandIcon(tinted: iconInk)
+        func plaque(centre: CGPoint, height: CGFloat, maxWidth: CGFloat) {
+            var h = height, w = height * aspect
+            if w > maxWidth { w = maxWidth; h = w / aspect }
+            PlayStationSkin.drawPlaque(in: CGRect(x: centre.x - w / 2, y: centre.y - h / 2,
+                                                  width: w, height: h),
+                                       plate: plate, icon: icon, ink: ink, scale: scale)
+        }
+        let room = bounds.width - 32 * scale
+
+        if cardMode {
+            let top = screen.minY
+            guard top > 20 * scale else { return }
+            let h = Swift.min(34 * scale, (top - bounds.minY) * 0.4) * 2.5
+            let cy = Swift.max(h / 2 + 8 * scale, (bounds.minY + top) / 2)
+            plaque(centre: CGPoint(x: bounds.midX, y: cy), height: h, maxWidth: room)
+            return
+        }
+        if isLandscape {
+            let band = screen.minY - bounds.minY
+            guard band > 14 * scale else { return }
+            plaque(centre: CGPoint(x: bounds.midX, y: (bounds.minY + screen.minY) / 2),
+                   height: Swift.min(band * 0.62, 30 * scale), maxWidth: room)
+            return
+        }
+        if LayoutFamily.of(bounds.size) == .tablet {
+            guard let shoulderTop = [buttons[.btnL], buttons[.btnR]].compactMap({ $0?.minY }).min()
+            else { return }
+            let band = shoulderTop - screen.maxY
+            guard band > 14 * scale else { return }
+            plaque(centre: CGPoint(x: bounds.midX, y: (screen.maxY + shoulderTop) / 2),
+                   height: Swift.min(band * 0.62, 30 * scale), maxWidth: room)
+            return
+        }
+        guard let r = buttons[.btnR], let b = buttons[.btnB], let a = buttons[.btnA] else { return }
+        let gap = b.minY - r.maxY
+        guard gap > 14 * scale else { return }
+        // As wide as it can be while staying centred on A and on the page.
+        let halfRoom = Swift.min(a.midX - bounds.minX, bounds.maxX - a.midX) - 8 * scale
+        plaque(centre: CGPoint(x: a.midX, y: (r.maxY + b.minY) / 2),
+               height: Swift.min(gap * 0.62, 30 * scale), maxWidth: halfRoom * 2)
+    }
+
+    // MARK: Shoulders
+
+    /// The recess the shoulders are cut into: darker than the shell.
+    private var shoulderFill: UIColor { body.rpMixed(with: .black, 0.16) }
+
+    /// L and R as the two ends of the pad (asked 2026-09-27): the GBA's
+    /// shoulder recess, built the same way (a line along the top, a rounded
+    /// corner past the button's inner edge, a diagonal), but running into the
+    /// CONTROLS where the GBA's runs into the screen's bezel, since this dress
+    /// has no bezel and the controls are the pad.
+    ///
+    /// UPRIGHT, from the page's edge along a line halfway between the picture
+    /// and L, past L's inner edge, then down the diagonal to MENU's side, level
+    /// with the bottom of the row, and back to the edge (a tablet, whose L is
+    /// not in a corner, takes this shape both ways round). ON ITS SIDE, the GBA's
+    /// corner exactly: down the page's edge to below L, across past its inner
+    /// edge, and up the diagonal to the top of the page where the gutter ends.
+    ///
+    /// The recess at its full depth, with a SOFT edge (asked 2026-09-27): carved
+    /// with a rim, the change of colour was a hard line; at 8% with a 14-point
+    /// fade it all but disappeared. The shape and the depth stay; only the
+    /// border fades, over a few points.
+    ///
+    /// Then a seat under L, R and MENU, the recess a little larger than each.
+    private func drawShoulders(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                               isLandscape: Bool, scale: CGFloat) {
+        let rad = 22 * scale
+        let over = 6 * scale
+        func toward(_ corner: CGPoint, from: CGPoint, by d: CGFloat) -> CGPoint {
+            let dx = from.x - corner.x, dy = from.y - corner.y
+            let len = max(1, hypot(dx, dy))
+            return CGPoint(x: corner.x + dx / len * d, y: corner.y + dy / len * d)
+        }
+        // `side` is -1 for L (the left edge), +1 for R.
+        func shoulder(_ b: CGRect, side: CGFloat) {
+            let edgeX = side < 0 ? bounds.minX - over : bounds.maxX + over
+            let innerX = side < 0 ? b.maxX : b.minX
+            let p = UIBezierPath()
+            // The corner shape wants L in the page's corner, which is the phone
+            // on its side; a tablet holds L over its column, low on the page,
+            // and takes the band shape there in both orientations.
+            if isLandscape && b.minY - bounds.minY < b.height * 2 {
+                let y1 = b.maxY + (b.minY - bounds.minY)
+                let corner = CGPoint(x: innerX, y: y1)
+                let gutterEnd = side < 0 ? screen.minX - 8 * scale : screen.maxX + 8 * scale
+                let end = CGPoint(x: gutterEnd, y: bounds.minY - over)
+                let start = CGPoint(x: edgeX, y: y1)
+                p.move(to: CGPoint(x: edgeX, y: bounds.minY - over))
+                p.addLine(to: start)
+                p.addLine(to: toward(corner, from: start, by: rad))
+                p.addQuadCurve(to: toward(corner, from: end, by: rad), controlPoint: corner)
+                p.addLine(to: end)
+            } else {
+                // Half the phone's gap between the picture and the row above L,
+                // and as far below it. The foot is MENU's side when MENU shares
+                // the row (the phone), else the distance it has there.
+                let y1 = b.minY - 18 * scale
+                let bottom = b.maxY + (b.minY - y1)
+                let top = CGPoint(x: innerX, y: y1)
+                let footX: CGFloat
+                if let menu = buttons[.btnMenu], abs(menu.midY - b.midY) < 1 {
+                    footX = side < 0 ? menu.minX : menu.maxX
+                } else {
+                    footX = innerX - side * 68 * scale
+                }
+                let foot = CGPoint(x: footX, y: bottom)
+                let start = CGPoint(x: edgeX, y: y1)
+                let back = CGPoint(x: edgeX, y: bottom)
+                p.move(to: start)
+                p.addLine(to: toward(top, from: start, by: rad))
+                p.addQuadCurve(to: toward(top, from: foot, by: rad), controlPoint: top)
+                p.addLine(to: toward(foot, from: top, by: rad))
+                p.addQuadCurve(to: toward(foot, from: back, by: rad), controlPoint: foot)
+                p.addLine(to: back)
+            }
+            p.close()
+            drawSoftly(p, fill: shoulderFill, feather: 5 * scale)
+        }
+        if let l = buttons[.btnL] { shoulder(l, side: -1) }
+        if let r = buttons[.btnR] { shoulder(r, side: 1) }
+
+        // The seats, the shape each button draws, grown a little.
+        let seat = 4 * scale
+        for element in [ControlElement.btnL, .btnR] {
+            guard let f = buttons[element] else { continue }
+            PlayStationSkin.carveWell(UIBezierPath(roundedRect: f, cornerRadius: f.height / 2),
+                                      lip: seat, fill: shoulderFill, scale: scale)
+        }
+        if let m = buttons[.btnMenu] {
+            let d = min(m.width, m.height)
+            PlayStationSkin.carveWell(UIBezierPath(ovalIn: CGRect(x: m.midX - d / 2, y: m.midY - d / 2,
+                                                                  width: d, height: d)),
+                                      lip: seat, fill: shoulderFill, scale: scale)
+        }
+    }
+
+    /// Fill `path` with a feathered edge: the shape itself is drawn far off the
+    /// page and only its shadow, blurred by `feather`, lands where it belongs.
+    /// A shadow is the one blur Core Graphics gives a path for free.
+    ///
+    /// A shadow's offset and blur are measured in the context's BASE space, not
+    /// in points, so both go through the current transform: on a 3x screen a
+    /// point is three of those units, and an offset left in points would land
+    /// the shadow two thirds of the way back to where it was drawn.
+    private func drawSoftly(_ path: UIBezierPath, fill: UIColor, feather: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        let away: CGFloat = 100_000
+        let t = ctx.ctm
+        let offset = CGSize(width: away * t.a, height: away * t.b)
+        let unit = hypot(t.a, t.b)
+        ctx.saveGState()
+        ctx.setShadow(offset: offset, blur: feather * unit, color: fill.cgColor)
+        ctx.translateBy(x: -away, y: 0)
+        UIColor.black.setFill()
+        path.fill()
+        ctx.restoreGState()
+    }
+
+    // MARK: Incised lines
+
+    /// How wide a groove is, in reference points: the A-B-Z lines and the C
+    /// circle are one style.
+    private static let grooveWidth: CGFloat = 4
+
+    /// A line cut into the shell: a light catch one point below, then the line
+    /// itself a shade darker than the shell, the same two passes as every
+    /// engraved word on this pad.
+    private func drawGroove(_ path: UIBezierPath, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        path.lineWidth = Self.grooveWidth * scale
+        path.lineCapStyle = .round
+        ctx.saveGState()
+        ctx.translateBy(x: 0, y: 1 * scale)
+        body.rpMixed(with: .white, 0.30).setStroke(); path.stroke()
+        ctx.restoreGState()
+        DressKind.n64Incised(body).setStroke(); path.stroke()
+    }
+
+    /// A, B and Z joined two by two. Drawn centre to centre and left for the
+    /// buttons to cover, so only the stretch between two of them shows.
+    private func drawFaceGrooves(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let a = buttons[.btnA], let b = buttons[.btnB], let z = buttons[.btnL2] else { return }
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: a.midX, y: a.midY))
+        path.addLine(to: CGPoint(x: b.midX, y: b.midY))
+        path.addLine(to: CGPoint(x: z.midX, y: z.midY))
+        path.close()
+        drawGroove(path, scale: scale)
+    }
+
+    /// The circle the C buttons stand on, each triangle's outer point on it,
+    /// and a C at its centre.
+    ///
+    /// Only where the four form a square about one centre, which both pages
+    /// do. A custom preset can move them off it, and a circle through four
+    /// points that are not on one would draw a mistake.
+    private func drawCCircle(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let up = buttons[.btnCUp], let down = buttons[.btnCDown],
+              let left = buttons[.btnCLeft], let right = buttons[.btnCRight] else { return }
+        let centre = CGPoint(x: (left.midX + right.midX) / 2, y: (up.midY + down.midY) / 2)
+        let step = (down.midY - up.midY) / 2
+        let tolerance: CGFloat = 1
+        guard step > 0,
+              abs(up.midX - centre.x) < tolerance, abs(down.midX - centre.x) < tolerance,
+              abs(left.midY - centre.y) < tolerance, abs(right.midY - centre.y) < tolerance,
+              abs((right.midX - left.midX) / 2 - step) < tolerance else { return }
+        let radius = step + ControlLayoutDefaults.n64ArrowApexOffset(buttonWidth: up.width)
+        drawGroove(UIBezierPath(arcCenter: centre, radius: radius, startAngle: 0,
+                                endAngle: .pi * 2, clockwise: true), scale: scale)
+
+        // The C, in the room the four buttons leave at the middle.
+        let room = (step - up.width / 2) * 2 * 0.85
+        guard room > 4 * scale else { return }
+        let font = UIFont.systemFont(ofSize: room, weight: .heavy)
+        let glyph = NSAttributedString(string: "C", attributes: [.font: font])
+        let size = glyph.size()
+        let origin = CGPoint(x: centre.x - size.width / 2, y: centre.y - size.height / 2)
+        NSAttributedString(string: "C", attributes: [
+            .font: font, .foregroundColor: body.rpMixed(with: .white, 0.30),
+        ]).draw(at: CGPoint(x: origin.x, y: origin.y + 1 * scale))
+        NSAttributedString(string: "C", attributes: [
+            .font: font, .foregroundColor: DressKind.n64Incised(body),
+        ]).draw(at: origin)
+    }
+
+    // MARK: Wells
+
+    /// The cross's well: the GBA's round surround, falling away toward the
+    /// middle so the cross reads as set into the bottom of a hollow, then the
+    /// cross's own seat, the keys grown a little, as on the PlayStation.
+    private func drawCrossWell(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let d = buttons[.dpad], let ctx = UIGraphicsGetCurrentContext() else { return }
+        let centre = CGPoint(x: d.midX, y: d.midY)
+        let radius = max(d.width, d.height) / 2 + 6 * scale
+        let well = UIBezierPath(arcCenter: centre, radius: radius, startAngle: 0,
+                                endAngle: .pi * 2, clockwise: true)
+        PlayStationSkin.carveWell(well, lip: 0, fill: body.rpMixed(with: .black, 0.10),
+                                  scale: scale)
+        let shade = [UIColor.black.withAlphaComponent(0.50).cgColor,
+                     UIColor.black.withAlphaComponent(0).cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: shade,
+                              locations: [0, 1]) {
+            ctx.saveGState(); well.addClip()
+            ctx.drawRadialGradient(g, startCenter: centre, startRadius: 0,
+                                   endCenter: centre, endRadius: radius, options: [])
+            ctx.restoreGState()
+        }
+        // Black, like every button's hole on this pad.
+        let lip = 1.5 * scale
+        let seat = CrossDPadView.n64CrossPath(in: d.insetBy(dx: -lip, dy: -lip))
+        UIColor.black.setFill()
+        seat.fill()
+    }
+
+    /// START's well: the disc it draws, carved into the shell a little wider,
+    /// then the black gap round the moving part.
+    private func drawStartWell(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let f = buttons[.btnStart] else { return }
+        let d = min(f.width, f.height)
+        let disc = UIBezierPath(ovalIn: CGRect(x: f.midX - d / 2, y: f.midY - d / 2,
+                                               width: d, height: d))
+        PlayStationSkin.carveWell(disc, lip: 5 * scale, fill: body.rpMixed(with: .black, 0.16),
+                                  scale: scale)
+        UIColor.black.setFill()
+        PlayStationSkin.grown(disc, by: 1 * scale).fill()
+    }
+
+    // MARK: The stick
+
+    /// The stick's surround, concentric with it.
+    ///
+    /// Twice the stick's diameter, unless another control or the page's edge is
+    /// nearer than that: then it stops short of it, so on a page with less room
+    /// (a custom preset) it shrinks instead of running under a button. Below
+    /// 1.3 times the stick's radius there is no room for the ring and the gate
+    /// together and none is drawn: that is the page on its side, where the
+    /// stick sits a few points above the bottom edge.
+    ///
+    /// The gate is an octagon with its corners at the eight directions, where
+    /// the real one has its notches, and it falls away to black at the middle.
+    /// Its eight faces are lit from above like everything on this pad: the ones
+    /// below the centre face up into the light, the ones above it are in
+    /// shadow. The stick's cap covers the middle at rest, so the gate shows as
+    /// the stick moves.
+    private func drawStickGate(_ ctx: CGContext, bounds: CGRect,
+                               buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let stick = buttons[.stickLeft] else { return }
+        let centre = CGPoint(x: stick.midX, y: stick.midY)
+        let r = min(stick.width, stick.height) / 2
+        guard r > 0 else { return }
+        let margin = 4 * scale
+        // The iPhone on its side draws a smaller stick in the same surround.
+        let full = ControlLayoutDefaults.n64StickSurroundRadius(
+            drawnStickWidth: r * 2, isLandscape: bounds.width > bounds.height,
+            family: LayoutFamily.of(bounds.size))
+        var outer = min(full, centre.x - bounds.minX - margin, bounds.maxX - centre.x - margin,
+                        centre.y - bounds.minY - margin, bounds.maxY - centre.y - margin)
+        for (element, frame) in buttons where element != .stickLeft {
+            let nx = min(max(centre.x, frame.minX), frame.maxX)
+            let ny = min(max(centre.y, frame.minY), frame.maxY)
+            outer = min(outer, hypot(centre.x - nx, centre.y - ny) - margin)
+        }
+        guard outer >= r * 1.3 else { return }
+
+        let disc = UIBezierPath(arcCenter: centre, radius: outer, startAngle: 0,
+                                endAngle: .pi * 2, clockwise: true)
+        let surround = variant.n64.stickSurround
+        PlayStationSkin.drawRaised(disc, fill: surround, scale: scale)
+
+        // The dark line round its edge: one point (asked 2026-09-27, it was a
+        // sixth of the radius and read as a band).
+        let ringPath = UIBezierPath(arcCenter: centre, radius: outer - 0.5, startAngle: 0,
+                                    endAngle: .pi * 2, clockwise: true)
+        ringPath.lineWidth = 1
+        surround.rpMixed(with: .black, 0.45).setStroke()
+        ringPath.stroke()
+
+        // The gate, the size it had inside the old band.
+        let corner = outer * 0.78
+        let vertices = (0..<8).map { i -> CGPoint in
+            let angle = CGFloat(i) * .pi / 4 - .pi / 2
+            return CGPoint(x: centre.x + cos(angle) * corner, y: centre.y + sin(angle) * corner)
+        }
+        let gate = UIBezierPath()
+        gate.move(to: vertices[0])
+        for v in vertices.dropFirst() { gate.addLine(to: v) }
+        gate.close()
+        let depth = [UIColor.black.cgColor,
+                     surround.rpMixed(with: .black, 0.25).cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: depth,
+                              locations: [0.08, 1]) {
+            ctx.saveGState(); gate.addClip()
+            ctx.drawRadialGradient(g, startCenter: centre, startRadius: 0, endCenter: centre,
+                                   endRadius: corner, options: .drawsAfterEndLocation)
+            ctx.restoreGState()
+        }
+        for i in 0..<8 {
+            let a = vertices[i], b = vertices[(i + 1) % 8]
+            let face = UIBezierPath()
+            face.move(to: centre); face.addLine(to: a); face.addLine(to: b); face.close()
+            // Where this face sits about the centre, straight down being +1.
+            let facing = ((a.y + b.y) / 2 - centre.y) / corner
+            let tone = facing > 0 ? UIColor.white.withAlphaComponent(0.16 * facing)
+                                  : UIColor.black.withAlphaComponent(0.22 * -facing)
+            tone.setFill(); face.fill()
+        }
+        let creases = UIBezierPath()
+        for v in vertices { creases.move(to: centre); creases.addLine(to: v) }
+        creases.lineWidth = 1 * scale
+        UIColor.black.withAlphaComponent(0.35).setStroke(); creases.stroke()
+        gate.lineWidth = 1.5 * scale
+        UIColor.black.withAlphaComponent(0.5).setStroke(); gate.stroke()
+    }
 }

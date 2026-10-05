@@ -86,8 +86,11 @@ extern const NSInteger PS1MaxBufferHeight;   // 512
 /// stays a cross beside them, as it does on the hardware, and the two sticks
 /// are separate because their jobs are (the left one moves the character, the
 /// right one moves the camera).
-- (void)setLeftStickX:(float)x y:(float)y;
-- (void)setRightStickX:(float)x y:(float)y;
+///
+/// Per player, 0-based, like `setKeys:player:`: each port's pad turns into a
+/// DualShock on its own, when that player's stick first moves.
+- (void)setLeftStickX:(float)x y:(float)y player:(NSInteger)player;
+- (void)setRightStickX:(float)x y:(float)y player:(NSInteger)player;
 
 /// Press the pad's ANALOG switch, the little button between SELECT and START.
 ///

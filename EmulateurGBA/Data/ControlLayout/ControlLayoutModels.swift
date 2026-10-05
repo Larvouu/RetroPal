@@ -27,6 +27,11 @@ enum ControlElement: String, Codable, CaseIterable {
     // report a press without one becoming the other's accident. These sit
     // beside their stick and answer only to a deliberate hold.
     case btnL3, btnR3
+    // The Nintendo 64's four C buttons. Separate elements, like the face
+    // buttons, because on the hardware they are four separate yellow buttons
+    // and a game reads each on its own (Ocarina of Time puts an item on three
+    // of them). Appended, never reordered, like every element before them.
+    case btnCUp, btnCDown, btnCLeft, btnCRight
 
     /// Elements present on GBA (full Game Boy Advance button set, incl. L/R).
     static let gbaElements: [ControlElement] = [.dpad, .btnA, .btnB, .btnL, .btnR, .btnStart, .btnSelect, .btnMenu, .btnClip]
@@ -60,6 +65,24 @@ enum ControlElement: String, Codable, CaseIterable {
         snesElements + [.btnL2, .btnR2, .btnMode, .stickLeft, .stickRight,
                         .btnL3, .btnR3]
 
+    /// Elements present on the Nintendo 64: the cross, A and B, the three
+    /// triggers (L, R and Z, which is `btnL2`), START, the control stick, the
+    /// four C buttons, and the app's own MENU and CLIP.
+    ///
+    /// Nothing the pad does not have. No SELECT (the console has none), no X or
+    /// Y, and no second stick: the C buttons do the job a right stick does on
+    /// later pads, and they are buttons, so they are drawn as buttons. Z reuses
+    /// `btnL2` rather than adding an element, because the input bit the bridge
+    /// reads for Z is `GBAInput.l2`. On this console it is laid out and drawn as
+    /// a round face beside A and B (2026-09-27), not as the PlayStation's bar.
+    static let n64Elements: [ControlElement] =
+        [.dpad, .btnA, .btnB, .btnL, .btnR, .btnL2, .btnStart, .btnMenu, .btnClip,
+         .stickLeft, .btnCUp, .btnCDown, .btnCLeft, .btnCRight]
+
+    /// The C buttons, in one list because the layout, the sizes and the
+    /// control view all have to agree about which four they are.
+    static let n64CButtons: [ControlElement] = [.btnCUp, .btnCDown, .btnCLeft, .btnCRight]
+
     /// The element set for a given system — the single source of truth used by the
     /// store, the in-game controls, and the editor so they never drift apart.
     static func elements(for system: PresetSystem) -> [ControlElement] {
@@ -72,6 +95,7 @@ enum ControlElement: String, Codable, CaseIterable {
         // Select. It shares the set rather than declaring an identical one.
         case .nes: return gbcElements
         case .ps1: return ps1Elements
+        case .n64: return n64Elements
         }
     }
 
@@ -100,6 +124,10 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnMode: return "Mode"
         case .stickLeft: return "Left Stick"
         case .stickRight: return "Right Stick"
+        case .btnCUp: return "C Up"
+        case .btnCDown: return "C Down"
+        case .btnCLeft: return "C Left"
+        case .btnCRight: return "C Right"
         }
     }
 
@@ -116,12 +144,35 @@ enum ControlElement: String, Codable, CaseIterable {
     /// settled decision (2026-08-24): it is the word Sony silkscreens, and the
     /// What's New string was corrected to it while this one was missed.
     func displayName(for system: PresetSystem) -> String {
+        // The Nintendo 64 prints Z on the trigger that is `btnL2` here, and the
+        // stick is its only one, so "Left Stick" would name a pair it lacks.
+        if system == .n64 {
+            switch self {
+            case .btnL2: return "Z"
+            case .stickLeft: return "Control Stick"
+            default: return displayName
+            }
+        }
         guard system == .ps1 else { return displayName }
         switch self {
         case .btnL: return "L1"
         case .btnR: return "R1"
         case .btnMode: return "ANALOG"
         default: return displayName
+        }
+    }
+
+    /// What a C button prints on its face: a C and the direction it points,
+    /// which is how the pad marks them. nil for every other control. Small
+    /// triangles, the ones iOS never draws as emoji. Shared by the game's
+    /// buttons and the layout editor's, so the two show the same mark.
+    var cButtonFace: String? {
+        switch self {
+        case .btnCUp: return "C\u{25B4}"
+        case .btnCDown: return "C\u{25BE}"
+        case .btnCLeft: return "C\u{25C2}"
+        case .btnCRight: return "C\u{25B8}"
+        default: return nil
         }
     }
 
@@ -162,6 +213,11 @@ enum ControlElement: String, Codable, CaseIterable {
         // need a thumb's whole landing area, and every point they take comes
         // off the fullest page the app draws.
         case .btnL3, .btnR3: return CGSize(width: 40, height: 40)
+        // Smaller than A and B, as on the pad. 40 is the stick clicks' size,
+        // and the size at which four fit in the lane the PlayStation's right
+        // stick takes on the smallest phone (see `ControlLayoutDefaults.n64`).
+        // Below 44, so the device floor never shrinks them: they keep 40.
+        case .btnCUp, .btnCDown, .btnCLeft, .btnCRight: return CGSize(width: 40, height: 40)
         case .btnStart:  return CGSize(width: 64, height: 44)
         case .btnSelect: return CGSize(width: 64, height: 44)
         case .btnMenu:   return CGSize(width: 44, height: 44)
@@ -239,6 +295,7 @@ enum ControlElement: String, Codable, CaseIterable {
         case .btnMode:   return CGSize(width: 44, height: 36)
         case .stickLeft, .stickRight: return CGSize(width: 90, height: 90)
         case .btnL3, .btnR3: return CGSize(width: 40, height: 40)
+        case .btnCUp, .btnCDown, .btnCLeft, .btnCRight: return CGSize(width: 40, height: 40)
         }
     }
 }
@@ -399,6 +456,18 @@ enum PresetSystem: String, Codable, Equatable, CaseIterable {
     case snes  // Super Nintendo
     case nes   // NES
     case ps1   // PlayStation
+    case n64   // Nintendo 64
+
+    /// The page whose geometry this console's layout is built on.
+    ///
+    /// The Nintendo 64 has no page of its own: it is laid out on the
+    /// PlayStation's, which is the only other page with a stick, and both
+    /// pictures are 4:3. `ControlLayoutDefaults.n64` takes that page and keeps
+    /// the controls this console has. The geometry engine asks this question
+    /// wherever it would otherwise have to answer the Nintendo 64 as a sixth
+    /// special case beside the PlayStation, so the two can never drift apart
+    /// by one of them being missed. Every other console is its own page.
+    var layoutPage: PresetSystem { self == .n64 ? .ps1 : self }
 }
 
 /// Per-system applicability flags for a preset (one system per preset in the UI,
@@ -411,15 +480,17 @@ struct SystemApplicability: Codable, Equatable {
     var snes: Bool
     var nes: Bool
     var ps1: Bool
+    var n64: Bool
 
     init(gba: Bool = false, gbc: Bool = false, nds: Bool = false,
-         snes: Bool = false, nes: Bool = false, ps1: Bool = false) {
+         snes: Bool = false, nes: Bool = false, ps1: Bool = false, n64: Bool = false) {
         self.gba = gba
         self.gbc = gbc
         self.nds = nds
         self.snes = snes
         self.nes = nes
         self.ps1 = ps1
+        self.n64 = n64
     }
 
     init(system: PresetSystem) {
@@ -429,12 +500,14 @@ struct SystemApplicability: Codable, Equatable {
         self.snes = (system == .snes)
         self.nes = (system == .nes)
         self.ps1 = (system == .ps1)
+        self.n64 = (system == .n64)
     }
 
-    /// Resolution order is PS1, NES, SNES, NDS, then GBC, then GBA (the
+    /// Resolution order is N64, PS1, NES, SNES, NDS, then GBC, then GBA (the
     /// default). A preset saved before a flag existed simply does not carry it,
     /// so it keeps resolving exactly where it did before.
     var system: PresetSystem {
+        if n64 { return .n64 }
         if ps1 { return .ps1 }
         if nes { return .nes }
         if snes { return .snes }
@@ -443,7 +516,7 @@ struct SystemApplicability: Codable, Equatable {
         return .gba
     }
 
-    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1 }
+    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1, n64 }
 
     /// Decode each flag independently so a preset stored before `gbc`, `snes` or
     /// `nes` existed still loads instead of failing the whole array decode, which
@@ -456,6 +529,7 @@ struct SystemApplicability: Codable, Equatable {
         snes = try c.decodeIfPresent(Bool.self, forKey: .snes) ?? false
         nes = try c.decodeIfPresent(Bool.self, forKey: .nes) ?? false
         ps1 = try c.decodeIfPresent(Bool.self, forKey: .ps1) ?? false
+        n64 = try c.decodeIfPresent(Bool.self, forKey: .n64) ?? false
     }
 }
 

@@ -38,6 +38,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// metal view holds a weak ref and feeds it frames during play.
     private let clipRecorder = GameplayClipRecorder()
     private var ndsTouchOverlay: NDSTouchOverlay?
+    /// The DS's lid, closed from the pause menu (asked 2026-09-28): the core is
+    /// told, and the top screen shows `lidMessage` until the player opens it,
+    /// with any button or from the menu.
+    private var ndsLidClosed = false
+    /// The press that opened the lid is the player's "open", not a game input:
+    /// the buttons reach the game again once everything is released.
+    private var swallowsLidOpeningPress = false
+    private let lidMessage = NDSLidMessageView()
 
     private var currentSpeed: Double {
         get { _currentSpeed }
@@ -156,6 +164,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             self?.session.setAnalogSticks(leftX: left.x, leftY: left.y,
                                           rightX: right.x, rightY: right.y)
         }
+        // The Nintendo 64's control stick, its only one: the C buttons are
+        // buttons and travel in the mask, so the right stick stays centred.
+        (controls as? N64TouchControlsView)?.onStickChanged = { [weak self] value in
+            self?.session.setAnalogSticks(leftX: value.x, leftY: value.y, rightX: 0, rightY: 0)
+        }
         // In-game clip control: same flow as the pause menu's Clip button, one tap.
         // Guard re-entry. the touch handler can fire repeatedly while a finger rests
         // on the button, and presenting twice would stack/​warn.
@@ -174,6 +187,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             touchOverlay.translatesAutoresizingMaskIntoConstraints = true
             view.insertSubview(touchOverlay, aboveSubview: metalView)
             ndsTouchOverlay = touchOverlay
+            // The closed-lid message, over the screens and under the controls.
+            lidMessage.isHidden = true
+            view.insertSubview(lidMessage, aboveSubview: touchOverlay)
         }
 
         // Pause overlay (hidden initially)
@@ -185,11 +201,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // From the controls themselves, not from `hasTouchScreen`: the SNES locks
         // X and Y as well and that flag cannot say so.
         overlay.setLockableButtons(controls.lockableLetters)
+        // The lid row, on the DS alone: the one console here that folds.
+        overlay.setShowsLidButton(presetSystem == .nds)
         overlay.setSkinIcon(UIImage(named: skinIconAssetName))      // console glyph on the Skin button
         overlay.translatesAutoresizingMaskIntoConstraints = false
         overlay.delegate = self
         overlay.isHidden = true
         view.addSubview(overlay)
+        // A controller moves through the pause menu's buttons and presses them
+        // with A (`ControllerNavigator`), starting on Resume.
+        ControllerNavigator.shared.registerUIKitRoot(overlay, preferred: overlay.controllerDefaultButton)
 
         setupController()
 
@@ -248,6 +269,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // again. This fires on dismiss (quit), not on app backgrounding, so a
         // locked game keeps its lock across background/foreground.
         AppOrientationLock.mask = AppOrientationLock.unlocked
+        // The controllers go back to the app: one player, and the buttons iOS
+        // keeps a gesture on (Home, Share) back to iOS. `viewDidAppear` takes both again if this screen returns.
+        ControllerManager.shared.activePlayerCount = 1
+        ControllerManager.shared.claimsSystemButtons = false
+        ControllerNavigator.shared.gameScreenActive = false
+        ControllerNavigator.shared.gameOwnsInput = false
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -263,6 +290,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // a no-op when nothing is plugged in or the user is not Pro.
         ExternalDisplayManager.shared.setSource(metalView)
         updateIdleTimer()
+        // While a game is on screen its console's players are heard, the
+        // controllers' Home button opens the pause menu, and their Share
+        // button is SELECT rather than an iOS screenshot or recording
+        // (released on the way out, in `viewWillDisappear`).
+        ControllerManager.shared.activePlayerCount = presetSystem.playerCount
+        ControllerManager.shared.claimsSystemButtons = true
+        // The controller plays the game, except while the pause menu is open,
+        // where it moves through the menu (`ControllerNavigator`).
+        ControllerNavigator.shared.gameScreenActive = true
+        ControllerNavigator.shared.gameOwnsInput = overlay.isHidden
         // Initial status bar state (a locked rotation, if any, also fires
         // viewWillTransition which refreshes it).
         updateSystemChrome(isPortrait: expectedPortrait())
@@ -305,6 +342,43 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // phone is still the input surface.
         nc.addObserver(self, selector: #selector(externalDisplayDidChange),
                        name: ExternalDisplayManager.didChangeNotification, object: nil)
+        // The Nintendo 64's picture can no longer be updated (N64Bridge.h).
+        nc.addObserver(self, selector: #selector(n64DisplayLost),
+                       name: Notification.Name("N64BridgeDisplayLostNotification"), object: nil)
+    }
+
+    /// Set once the Nintendo 64 bridge reports that its picture can no longer
+    /// be updated. From then the game stays paused: nothing resumes it, and
+    /// the only way on is the save-and-quit the player is offered.
+    private var displayLost = false
+
+    /// The GPU stopped delivering frames (2026-09-27). Until then this was
+    /// only in the log, and the player saw a frozen picture with the game and
+    /// its sound still running under it. The game is paused at once, and the
+    /// player is told what happened and offered the one way out that keeps
+    /// their progress: the normal quit, which saves the game first. Saving
+    /// runs the core to its next frame, the same GPU path a frame takes, so it
+    /// completes whenever the game itself was still running, and it runs off
+    /// the main thread, where it cannot freeze the app if it does not.
+    @objc private func n64DisplayLost() {
+        guard !displayLost else { return }
+        displayLost = true
+        if session.isRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            lastResumeTime = Date()
+            session.pause()
+        }
+        metalView.stopRendering()
+        // A controller can answer it too (`ControllerAlert`): the app's own
+        // dialog with a controller in hand, the system alert otherwise.
+        ControllerAlert.present(
+            title: NSLocalizedString("n64.displayLost.title", comment: ""),
+            message: NSLocalizedString("n64.displayLost.message", comment: ""),
+            actions: [
+                .init(title: NSLocalizedString("n64.displayLost.quit", comment: "")) { [weak self] in
+                    self?.overlayDidTapQuit()
+                },
+            ])
     }
 
     @objc private func externalDisplayDidChange() { updateIdleTimer() }
@@ -417,7 +491,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     ///     stuck. The pause-menu (option 2) case stays correctly paused via
     ///     `overlay.isHidden`.
     private func resumeGameplayIfForeground(viaDismiss: Bool = false) {
-        guard UIApplication.shared.applicationState == .active,
+        guard !displayLost,
+              UIApplication.shared.applicationState == .active,
               viaDismiss || presentedViewController == nil,
               viaDismiss || shareModel?.card == nil,
               overlay.isHidden,
@@ -571,6 +646,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let flushing = session
         saveIOQueue.async { flushing.flushBatterySave() }
         overlay.setCurrentSpeed(currentSpeed)
+        // Read after stopRendering above: the reading survives the stop, and
+        // it describes the play the player just left.
+        overlay.setPerformance(metalView.performanceReading)
         overlay.setSoundEnabled(!session.isAudioMuted)
         overlay.setButtonLockEnabled(controls.buttonLockEnabled)
         overlay.setOrientationMode(currentOrientationMode)
@@ -593,6 +671,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             return (index: Int(disc.index), label: text)
         }, current: session.currentDiscIndex)
         overlay.isHidden = false
+        ControllerNavigator.shared.gameOwnsInput = false
         updateControlsVisibility()
 
         // Load slot info off main thread to avoid hang
@@ -620,7 +699,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     private func hideOverlay() {
         overlay.isHidden = true
+        ControllerNavigator.shared.gameOwnsInput = true
         updateControlsVisibility()
+        // A lost Nintendo 64 picture keeps the game paused (`n64DisplayLost`).
+        guard !displayLost else { return }
         session.resume()
         metalView.startRendering()
         lastResumeTime = Date()
@@ -628,8 +710,20 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     // MARK: - OverlayMenuDelegate
 
+    /// The lid row: "Close the lid" closes it, "Open the lid" opens it. Either
+    /// way the game resumes, since it must be running to notice.
+    func overlayDidTapLid() {
+        setLid(closed: !ndsLidClosed)
+        hideOverlay()
+        // Pressed with a controller's A: that A must not reach the game.
+        session.setKeys(0)
+    }
+
     func overlayDidTapResume() {
         hideOverlay()
+        // Resume pressed with a controller's A: that A is still held, and must
+        // not reach the game as a press (its release re-syncs the mask).
+        session.setKeys(0)
     }
 
     func overlayDidSelectSpeed(_ multiplier: Double) {
@@ -652,16 +746,17 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         if let manager = session.saveStateManager {
             let info = manager.slotInfo(slot: slot)
             if info.exists {
-                let alert = UIAlertController(
+                // A controller can answer it too (`ControllerAlert`): the app's
+                // own dialog with a controller in hand, the system alert otherwise.
+                ControllerAlert.present(
                     title: String(format: NSLocalizedString("overlay.overwrite.title", comment: ""), "\(slot)"),
                     message: NSLocalizedString("overlay.overwrite.message", comment: ""),
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel))
-                alert.addAction(UIAlertAction(title: NSLocalizedString("overlay.overwrite", comment: ""), style: .destructive) { [weak self] _ in
-                    self?.performSave(slot: slot)
-                })
-                present(alert, animated: true)
+                    actions: [
+                        .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                        .init(title: NSLocalizedString("overlay.overwrite", comment: ""), style: .destructive) { [weak self] in
+                            self?.performSave(slot: slot)
+                        },
+                    ])
                 return
             }
         }
@@ -718,16 +813,17 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     func overlayDidLoadState(slot: Int) {
-        let alert = UIAlertController(
+        // A controller can answer it too (`ControllerAlert`): the app's own
+        // dialog with a controller in hand, the system alert otherwise.
+        ControllerAlert.present(
             title: String(format: NSLocalizedString("overlay.load.confirm.title", comment: ""), "\(slot)"),
             message: NSLocalizedString("overlay.load.confirm.message", comment: ""),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel))
-        alert.addAction(UIAlertAction(title: NSLocalizedString("overlay.load", comment: ""), style: .destructive) { [weak self] _ in
-            self?.performLoad(slot: slot)
-        })
-        present(alert, animated: true)
+            actions: [
+                .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                .init(title: NSLocalizedString("overlay.load", comment: ""), style: .destructive) { [weak self] in
+                    self?.performLoad(slot: slot)
+                },
+            ])
     }
 
     private func performLoad(slot: Int) {
@@ -761,13 +857,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// asking for something it never received, with nothing to explain it.
     func overlayDidSelectDisc(index: Int) {
         guard session.changeToDisc(at: index) else {
-            let alert = UIAlertController(
+            ControllerAlert.present(
                 title: NSLocalizedString("overlay.disc.failed.title", comment: ""),
                 message: NSLocalizedString("overlay.disc.failed.message", comment: ""),
-                preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: NSLocalizedString("common.ok", comment: ""), style: .default))
-            present(alert, animated: true)
+                actions: [.init(title: NSLocalizedString("common.ok", comment: ""))])
             return
         }
         hideOverlay()
@@ -952,12 +1045,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     private func presentClipCard(pauseAndResume: Bool = false) {
         let frames = clipRecorder.snapshotFrames()
         guard frames.count >= 2 else {
-            let alert = UIAlertController(
+            ControllerAlert.present(
                 title: NSLocalizedString("clip.notReady.title", value: "Clip not ready yet", comment: ""),
                 message: NSLocalizedString("clip.notReady.message", value: "Play a few more seconds, then try again.", comment: ""),
-                preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: NSLocalizedString("common.ok", value: "OK", comment: ""), style: .default))
-            present(alert, animated: true)
+                actions: [.init(title: NSLocalizedString("common.ok", value: "OK", comment: ""))])
             return
         }
 
@@ -979,7 +1070,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
         let model = ClipShareModel()
         let frameAspect: CGFloat = {
-            guard let f = frames.first, f.height > 0 else { return 1 }
+            guard let f = frames.first?.image, f.height > 0 else { return 1 }
             return CGFloat(f.width) / CGFloat(f.height)
         }()
 
@@ -1084,9 +1175,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // dismiss.
         // Pass the SOURCE (frame + info), not a pre-rendered image, so the share
         // view can re-render the card live when the Standard/Pro style is toggled.
+        var skin = shareCardSkinContext
+        skin.filterPixelGrid = session.filterPixelGrid(for: cgImage)
         let card = EmulatorShareCard(
             content: .screenshot(gameFrame: cgImage, name: share.name, playTime: share.playTime,
-                                 system: presetSystem, skin: shareCardSkinContext),
+                                 system: presetSystem, skin: skin),
             hint: shotHint)
         let cardId = card.id
         shareModel?.onDismiss = { [weak self] in self?.resumeGameplayIfForeground(viaDismiss: true) }
@@ -1264,6 +1357,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case "nds": return "console-nds"
         case "sfc", "smc": return "console-snes"
         case "nes": return "console-nes"
+        case "z64", "n64", "v64": return "console-n64"
         // Every disc extension is one console. The note that used to sit here
         // said this console had no art and shipped undressed; it was dressed on
         // 2026-08-25 and `ConsoleSkinView.hasSkin` answers yes for all six, so
@@ -1284,6 +1378,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case .snes:     return .snes
         case .nes:      return .nes
         case .ps1:      return .ps1
+        case .n64:      return .n64
         case .gba, nil: return .gba
         }
     }
@@ -1368,6 +1463,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             skinCurrent: currentSkinForPicker,
             lockedToInvisible: skinLockedToInvisible,
             gameImage: frame,
+            gamePixelGrid: session.screenshotPixelGrid,
+            gameScreenPixelSize: CGSize(
+                width: metalView.bounds.width * view.traitCollection.displayScale,
+                height: metalView.bounds.height * view.traitCollection.displayScale),
             realInsets: view.safeAreaInsets,
             onSelectSkin: { [weak self] selection in self?.overlayDidSelectSkin(selection) },
             onLibraryChanged: { [weak self] in
@@ -1409,9 +1508,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Same derivation persistPlayTime uses for the per-game key, or the
         // 30-minute per-game bar would read a different game's total.
         let reviewGameName = romName
-        let directReviewTrigger = PromptTracker.shared
+        // Never after a sitting whose picture was lost.
+        let directReviewTrigger = displayLost ? nil : PromptTracker.shared
             .directReviewRequestTrigger(romName: reviewGameName,
-                                        currentSessionSeconds: liveSessionSeconds)
+                                        currentSessionSeconds: liveSessionSeconds,
+                                        sittingSmoothness: metalView.sittingSmoothness)
 
         persistPlayTime()
         // One bucketed signal per ended game session: how much people actually
@@ -1489,7 +1590,31 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     // MARK: - TouchControlsDelegate
 
     func touchControlsDidChange(buttons: UInt32) {
-        session.setKeys(buttons)
+        session.setKeys(buttonsAfterLid(buttons))
+    }
+
+    /// Any button opens a closed DS lid, and that press is swallowed until
+    /// every button is released, so opening the lid is not also a move in the
+    /// game. Every other time the buttons pass through untouched.
+    private func buttonsAfterLid(_ buttons: UInt32) -> UInt32 {
+        if ndsLidClosed, buttons != 0 {
+            setLid(closed: false)
+            swallowsLidOpeningPress = true
+        }
+        if swallowsLidOpeningPress {
+            if buttons == 0 { swallowsLidOpeningPress = false }
+            return 0
+        }
+        return buttons
+    }
+
+    /// Close or open the lid: the core, the message on the top screen, and the
+    /// pause menu's row, together.
+    private func setLid(closed: Bool) {
+        ndsLidClosed = closed
+        session.setLidClosed(closed)
+        lidMessage.isHidden = !closed
+        overlay.setLidClosed(closed)
     }
 
     func touchControlsMicBlowStateChanged(active: Bool) {
@@ -1510,21 +1635,37 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // And the keyboard's, per console like the pad's (free; the built-in
         // layout when never customized).
         manager.activeKeyboardMapping = KeyboardMappingStore.effective(for: presetSystem)
-        manager.onButtonsChanged = { [weak self] mask in
-            self?.session.setKeys(mask)
+        // As many players as this console had ports; controllers past that
+        // are not heard while it runs (`PresetSystem.playerCount`).
+        manager.activePlayerCount = presetSystem.playerCount
+        manager.onButtonsChanged = { [weak self] player, mask in
+            guard let self else { return }
+            // Player 1 (the DS's only one) can open a closed lid with any button.
+            let buttons = player == 0 ? self.buttonsAfterLid(mask) : mask
+            self.session.setKeys(buttons, player: player)
         }
+        // The consoles whose ports must be told a pad is there (SNES, NES)
+        // hear how many players have one, now and on every change.
+        manager.onPlayersChanged = { [weak self] count in
+            guard let self else { return }
+            self.session.setConnectedPlayers(min(count, self.presetSystem.playerCount))
+        }
+        session.setConnectedPlayers(min(manager.pads.count, presetSystem.playerCount))
         // Analog is a PHYSICAL-CONTROLLER path only, by decision: the touch
         // overlay keeps sending the button mask alone, so nothing about playing
         // on glass changes. The session drops these on every core but the
-        // PlayStation's.
-        manager.onSticksChanged = { [weak self] lx, ly, rx, ry in
+        // PlayStation's and the Nintendo 64's.
+        manager.onSticksChanged = { [weak self] player, lx, ly, rx, ry in
             // GameController is the only source here that measures +1 as UP, so
             // this is where it is turned the right way up. Everything downstream
             // speaks y-down, like UIKit and like the console.
-            self?.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry)
+            self?.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry,
+                                          player: player)
         }
-        // The pad's spare menu-ish button (DS4/DualSense touchpad click, Xbox
-        // Share) opens the pause menu, like the on-screen Menu button.
+        // Player 1's pause-menu request (its Home button while this screen
+        // claims it, the spare menu-ish button of a DS4/DualSense/Xbox pad, or
+        // Start+Select held) opens the pause menu, like the on-screen Menu
+        // button.
         manager.onMenuRequested = { [weak self] in
             guard let self, self.overlay.isHidden, self.presentedViewController == nil,
                   self.shareModel?.card == nil else { return }
@@ -1547,7 +1688,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 return
             }
             if let presented = self.presentedViewController {
-                guard !(presented is UIAlertController) else { return }
+                // Nor the app's own confirmation (`ControllerConfirmDialog`):
+                // it closes on B through its cancel action when it has one,
+                // and one without (the lost N64 picture) must not close at all.
+                guard !(presented is UIAlertController),
+                      !(presented is ControllerConfirmDialog) else { return }
                 presented.dismiss(animated: true)
                 self.session.setKeys(0)
                 return
@@ -1795,6 +1940,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 if let target = swapped ? scene.screens[.top] : scene.screens[.bottom] {
                     touchOverlay.frame = target.frame
                 }
+                if let top = scene.screens[.top]?.frame, let bottom = scene.screens[.bottom]?.frame {
+                    lidMessage.frame = NDSLidMessageView.topPictureRect(primary: top, secondary: bottom,
+                                                                         swapped: swapped)
+                }
             }
         } else if session.hasTouchScreen {
             let (primary, secondary) = ndsScreenRects(in: metalView.frame, isLandscape: isLandscape)
@@ -1802,6 +1951,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             if let touchOverlay = ndsTouchOverlay {
                 let swapped = UserDefaults.standard.bool(forKey: "ndsSwapScreens")
                 touchOverlay.frame = swapped ? primary : secondary
+                lidMessage.frame = NDSLidMessageView.topPictureRect(primary: primary, secondary: secondary,
+                                                                     swapped: swapped)
             }
             // When the NDS dress is showing, clip the metalView to just the two screens with
             // rounded corners (concentric with the skin's +2pt / 4pt printed rim). This rounds
@@ -1915,10 +2066,18 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             controls.applyResolvedScene(buttons: scene.buttons, useJoystick: scene.useJoystick)
         } else {
             // No preset: the built-in default layout with the global opacity/size.
+            // With a controller on its side, the picture takes the full
+            // height and MENU must leave it (one-picture consoles; the DS keeps
+            // a strip for it). The controls span the whole view here, so the
+            // picture's frame is already in their space.
+            let controllerScreen: CGRect? =
+                (ControllerManager.shared.hidesTouchControls && isLandscape && !session.hasTouchScreen)
+                ? metalView.frame : nil
             controls.applyDefaultLayout(isLandscape: isLandscape, system: presetSystem,
                                         deviceScale: deviceScale, safeLeftInset: safeLeftInset,
                                         safeRightInset: safeRightInset,
-                                        family: LayoutFamily.of(view.bounds.size))
+                                        family: LayoutFamily.of(view.bounds.size),
+                                        controllerScreen: controllerScreen)
         }
 
         // Dress the buttons (maroon A/B, grey pills, charcoal cross) when the system's buttons
@@ -1942,6 +2101,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     }
 
     // MARK: - Emulation
+
+    /// The cartridge's first 4 KB (header and boot code), read on their own.
+    private static func bootsThroughLibdragonIPL3(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { handle.closeFile() }
+        guard let head = try? handle.read(upToCount: 0x1000) else { return false }
+        return GBAROMParser.isLibdragonIPL3(head)
+    }
 
     private func showLoadFailed() {
         statusLabel.text = String(format: NSLocalizedString("emulator.loadFailed", comment: ""), romURL.lastPathComponent)
@@ -2013,6 +2180,19 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             let diag = "exists=\(exists) disc=\(isDisc) size=\(onDiskSize ?? -1) expected=\(expectedROMSize) file=\(romURL.lastPathComponent)"
             Self.romLoadLog.error("ROM preflight failed: \(diag, privacy: .public)")
             showLoadFailed()
+            return
+        }
+
+        // A Nintendo 64 game built with today's libdragon, whose boot code the
+        // core cannot run yet: started, it stops on its own crash screen, and
+        // before patch 0006 it hung the app. Said plainly instead, BEFORE the
+        // core is touched (see `GBAROMParser.isLibdragonIPL3`). The check reads
+        // the file's first 4 KB, so it costs nothing on every other game, and
+        // it is at play rather than at import so the day the core runs these
+        // games, deleting this block is the whole change.
+        if presetSystem == .n64, Self.bootsThroughLibdragonIPL3(romURL) {
+            Self.romLoadLog.error("N64 libdragon IPL3, not started: \(self.romURL.lastPathComponent, privacy: .public)")
+            statusLabel.text = NSLocalizedString("n64.libdragonUnsupported", comment: "")
             return
         }
 

@@ -58,6 +58,10 @@ final class GameplayClipRecorder {
 
     private let lock = NSLock()
     private var ring: [CGImage] = []
+    /// The pixel grid behind each frame in `ring`, same index (nil = the
+    /// frame's own size). Kept per frame because a PlayStation game changes
+    /// resolution mid-clip.
+    private var grids: [CGSize?] = []
     private var writeIndex = 0
     private var lastCaptureTime: CFTimeInterval = 0
     private(set) var isEnabled = false
@@ -65,6 +69,7 @@ final class GameplayClipRecorder {
     func start() {
         lock.lock()
         ring.removeAll(keepingCapacity: true)
+        grids.removeAll(keepingCapacity: true)
         writeIndex = 0
         lastCaptureTime = 0
         isEnabled = true
@@ -75,6 +80,7 @@ final class GameplayClipRecorder {
         lock.lock()
         isEnabled = false
         ring.removeAll(keepingCapacity: false)
+        grids.removeAll(keepingCapacity: false)
         writeIndex = 0
         lock.unlock()
     }
@@ -82,18 +88,23 @@ final class GameplayClipRecorder {
     /// Called from the render thread once per produced frame. Down-samples to
     /// `captureFPS` by wall-clock; `makeImage` (the expensive part) only runs
     /// when a capture is actually due, so most calls cost just a time compare.
-    func captureIfDue(_ makeImage: () -> CGImage?) {
+    /// `pixelGrid` gives the frame's filter grid (see `GameplayClipFrame`); it
+    /// runs only when a capture is taken.
+    func captureIfDue(_ makeImage: () -> CGImage?, pixelGrid: (CGImage) -> CGSize? = { _ in nil }) {
         guard isEnabled else { return }
         let now = CACurrentMediaTime()
         if lastCaptureTime != 0, now - lastCaptureTime < 1.0 / captureFPS { return }
         guard let image = makeImage() else { return }
+        let grid = pixelGrid(image)
         lastCaptureTime = now
 
         lock.lock()
         if ring.count < maxFrames {
             ring.append(image)
+            grids.append(grid)
         } else {
             ring[writeIndex] = image
+            grids[writeIndex] = grid
             writeIndex = (writeIndex + 1) % maxFrames
         }
         lock.unlock()
@@ -101,10 +112,20 @@ final class GameplayClipRecorder {
 
     /// Buffered frames in chronological order (oldest first), for encoding.
     /// Safe to call from a background thread while capture continues.
-    func snapshotFrames() -> [CGImage] {
+    func snapshotFrames() -> [GameplayClipFrame] {
         lock.lock()
         defer { lock.unlock() }
-        guard ring.count == maxFrames else { return ring }
-        return Array(ring[writeIndex...] + ring[..<writeIndex])
+        let frames = zip(ring, grids).map { GameplayClipFrame(image: $0, pixelGrid: $1) }
+        guard frames.count == maxFrames else { return frames }
+        return Array(frames[writeIndex...] + frames[..<writeIndex])
     }
+}
+
+/// One captured clip frame: the still, and the game's own pixel grid behind it
+/// when that is not the still's size (PlayStation and Nintendo 64 stills are
+/// stretched to 4:3; see `EmulatorSession.filterPixelGrid`). The display filter
+/// draws on the grid.
+struct GameplayClipFrame {
+    let image: CGImage
+    let pixelGrid: CGSize?
 }

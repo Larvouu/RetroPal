@@ -1,0 +1,38 @@
+Compile parallel-RDP's shader variants off the emulation thread on MoltenVK
+
+parallel-RDP asks for each specialised shader variant with
+VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT ("only if already
+compiled"), draws with its ubershader when the answer is no, and compiles the
+variant on its pipeline worker thread. MoltenVK checks that flag only before
+converting SPIR-V to a Metal library, and compiles the specialised Metal
+function for the constants regardless (MVKShaderLibrary::getMTLFunction in
+MoltenVK 1.4.2). Every variant is a specialisation, so every "non-blocking"
+attempt compiled synchronously on the emulation thread: 50 to 200 ms stalls,
+measured on device as frozen gameplay and audio in Ocarina of Time.
+
+Granite already has the answer for a driver whose cache control cannot be
+trusted (NVIDIA): broken_pipeline_cache_control, which makes the non-blocking
+attempt return at once. Set for Metal emulation as well.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0004.
+
+diff --git a/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/device.cpp b/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/device.cpp
+index b56bc2b..8841fd1 100644
+--- a/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/device.cpp
++++ b/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/device.cpp
+@@ -779,6 +779,15 @@ void Device::init_workarounds()
+ 	// TODO: Use VK_KHR_portability_subset to determine this.
+ 	workarounds.emulate_event_as_pipeline_barrier = true;
+ 	LOGW("Emulating events as pipeline barriers on Metal emulation.\n");
++	// MoltenVK honours VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT
++	// only before converting SPIR-V to a Metal library; the specialised Metal
++	// function it compiles for each set of specialisation constants is compiled
++	// regardless (MVKShaderLibrary::getMTLFunction). parallel-RDP's variants
++	// are all specialisations, so the non-blocking attempt blocked the calling
++	// thread for the whole compile. Treated as the NVIDIA case below: the
++	// ubershader draws until the async worker has built the variant.
++	workarounds.broken_pipeline_cache_control = true;
++	LOGW("Disabling pipeline cache control on Metal emulation.\n");
+ #else
+ 	if (gpu_props.vendorID == VENDOR_ID_ARM)
+ 	{

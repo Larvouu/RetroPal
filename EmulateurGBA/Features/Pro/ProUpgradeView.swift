@@ -51,6 +51,8 @@ struct ProUpgradeView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        // B closes the sheet, as its close button does (`ControllerNavigator`).
+        .controllerBack { dismiss() }
         .sheet(isPresented: $showComparison) {
             // Nested comparison sheet (from "See all benefits" link).
             // Same view re-presented with the comparison context — inherits

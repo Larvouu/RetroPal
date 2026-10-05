@@ -8,6 +8,7 @@
 #import "MelonDSBridge.h"
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <cstring>
@@ -16,6 +17,7 @@
 #include <melonds/NDSCart.h>
 #include <melonds/GBACart.h>
 #include <melonds/GPU.h>
+#include <melonds/GPU3D_Soft.h>
 #include <melonds/SPU.h>
 #include <melonds/Args.h>
 #include <melonds/Savestate.h>
@@ -35,6 +37,12 @@ namespace melonDS::Platform {
 
 // Forward declarations for platform mic functions (defined in MelonDSPlatform.cpp)
 extern "C" void MelonDSMic_SetBlowActive(bool active);
+
+/// The software renderer NDSArgs creates by default, and the only one this
+/// build compiles (no OpenGL).
+static melonDS::SoftRenderer &SoftRenderer3D(melonDS::NDS &nds) {
+    return static_cast<melonDS::SoftRenderer &>(nds.GPU.GetRenderer3D());
+}
 
 /// Monotonic milliseconds. Defined with the rewind code below, declared here
 /// because runFrame times itself to feed the rewind late-frame guard.
@@ -62,6 +70,20 @@ static int resolveNDSLanguageFromLocale(void) {
     std::unique_ptr<melonDS::NDS> _nds;
     BOOL _romLoaded;
 
+    /// Held around everything that runs or serialises the console: a frame, a
+    /// save, a load, a rewind snapshot or restore, a save-RAM flush, an
+    /// achievements read. The frame runs on the main thread and saves and loads
+    /// run on the app's save queue, and the pause menu lets the player tap Save
+    /// then Resume before the save is done, so the two did overlap. That tore a
+    /// state at worst while the whole DS ran on one thread; with the 3D render
+    /// thread on, a load in the middle of a frame resets the semaphores the
+    /// frame is waiting on and the game freezes. Now the frame simply waits for
+    /// the save, a few milliseconds, once. Same lock as the N64 bridge's.
+    std::mutex _coreLock;
+
+    /// Whether the player closed the lid (`setLidClosed:`).
+    BOOL _lidClosed;
+
     // Combined framebuffer: top (256x192) + bottom (256x192) = 256x384
     uint32_t _framebuffer[256 * 384];
 
@@ -84,7 +106,7 @@ static int resolveNDSLanguageFromLocale(void) {
     // Rewind. See the implementation block for the design and its measurements.
     uint8_t *_rwCurrent;          // the latest snapshot, kept whole
     uint8_t *_rwScratch;          // receives each fresh serialize, then swapped in
-    size_t _rwStateLength;        // bytes actually used (states measured 19.0 MB)
+    size_t _rwStateLength;        // bytes actually used (about 7 MB since 1.3.3)
     NSInteger _rwFrameCounter;
     NSInteger _rwDepth;           // snapshots retained
     NSInteger _rwStored;          // snapshots currently held
@@ -153,11 +175,17 @@ static int resolveNDSLanguageFromLocale(void) {
     return YES;
 }
 
-/// Deliberately the GBA figure rather than the DS's own 59.826: it is what the
-/// renderer has always paced this core at, and this change is about the two new
-/// consoles, not about re-timing a shipped one.
+/// The DS's own rate: 33,513,982 Hz divided by 560,190 cycles a frame (263
+/// lines of 355 dots, six cycles a dot), 59.8261 fps. Until 1.3.3 this returned
+/// the GBA's 59.7275, which ran every game 0.16 % slow and starved the sound:
+/// melonDS times its 48 kHz output to the DS's own second, so paced at the
+/// GBA's rate it produced about 79 samples a second fewer than the speaker
+/// played, the 33 ms of silence queued at the start ran out after some twenty
+/// seconds, and from then on the gap was filled with silence a little at a
+/// time. The audio engine has no drift correction, on purpose, so the pace has
+/// to be the console's.
 - (double)framesPerSecond {
-    return 16777216.0 / 280896.0;
+    return 33513982.0 / 560190.0;
 }
 
 - (BOOL)hasTouchScreen {
@@ -173,6 +201,7 @@ static int resolveNDSLanguageFromLocale(void) {
     melonDS::NDSArgs args {};
     args.JIT = std::nullopt; // JIT disabled on iOS (code signing)
 
+    std::lock_guard<std::mutex> lock(_coreLock);
     _nds = std::make_unique<melonDS::NDS>(std::move(args));
 
     // Load ROM file into memory
@@ -201,6 +230,17 @@ static int resolveNDSLanguageFromLocale(void) {
     _nds->SetNDSCart(std::move(cart));
 
     [self insertConfiguredGBACart];
+
+    // The 3D picture is drawn on its own thread, as melonDS's own frontend does
+    // by default. Inline, every polygon of a 3D game was rasterised on the
+    // thread that also runs both CPUs, which is the main thread: the single
+    // largest cost in a 3D scene. The thread starts a frame's 3D at line 215 of
+    // the one before and the game reads it line by line, so the two overlap for
+    // almost the whole frame. The picture is the same on every frame (checked
+    // frame by frame with Tools/nds-bench), with one exception: the frame right
+    // after a state load, where the thread draws the loaded scene and the inline
+    // renderer showed the last 3D picture from before the load.
+    SoftRenderer3D(*_nds).SetThreaded(true, _nds->GPU);
 
     _romLoaded = YES;
     NSLog(@"MelonDSBridge: ROM loaded successfully: %@", [path lastPathComponent]);
@@ -251,6 +291,7 @@ static int resolveNDSLanguageFromLocale(void) {
 
 - (void)reset {
     if (!_nds || !_romLoaded) return;
+    std::lock_guard<std::mutex> lock(_coreLock);
 
     [self invalidateRewindBuffer];   // same reason as loadStateFromPath:
 
@@ -361,28 +402,38 @@ static int resolveNDSLanguageFromLocale(void) {
 
 - (void)flushSaveData {
     if (!_nds || !_romLoaded) return;
+    // Copied under the lock, so a frame cannot change the save RAM halfway
+    // through the copy; the files are written after, outside it.
+    std::unique_lock<std::mutex> lock(_coreLock);
     // melonDS writes save changes through Platform::WriteNDSSave as the game
     // saves (each call fopen/fwrite/fclose, so OS-flushed), but the cart flush
     // is deferred a few frames. Force the current save RAM to disk now (we are
     // paused). GetNDSSave is exactly the raw buffer setSavePath reads back, so
     // writing it round-trips cleanly; atomically:YES makes the write safe.
+    NSData *data = nil;
+    NSString *dataPath = nil;
     const melonDS::u8 *saveMem = _nds->GetNDSSave();
     melonDS::u32 saveLen = _nds->GetNDSSaveLength();
     if (!_savePath.empty() && saveMem && saveLen > 0) {
-        NSData *data = [NSData dataWithBytes:saveMem length:saveLen];
-        [data writeToFile:[NSString stringWithUTF8String:_savePath.c_str()] atomically:YES];
+        data = [NSData dataWithBytes:saveMem length:saveLen];
+        dataPath = [NSString stringWithUTF8String:_savePath.c_str()];
     }
     // Same forced flush for the slot-2 GBA cart's save RAM, when one is
     // mounted (its writes go through Platform::WriteGBASave in play, with the
     // same deferred-flush caveat).
+    NSData *gbaData = nil;
+    NSString *gbaPath = nil;
     if (!_gbaSavePath.empty()) {
         const melonDS::u8 *gbaMem = _nds->GetGBASave();
         melonDS::u32 gbaLen = _nds->GetGBASaveLength();
         if (gbaMem && gbaLen > 0) {
-            NSData *gbaData = [NSData dataWithBytes:gbaMem length:gbaLen];
-            [gbaData writeToFile:[NSString stringWithUTF8String:_gbaSavePath.c_str()] atomically:YES];
+            gbaData = [NSData dataWithBytes:gbaMem length:gbaLen];
+            gbaPath = [NSString stringWithUTF8String:_gbaSavePath.c_str()];
         }
     }
+    lock.unlock();
+    if (data) [data writeToFile:dataPath atomically:YES];
+    if (gbaData) [gbaData writeToFile:gbaPath atomically:YES];
 }
 
 // MARK: - Emulation
@@ -390,10 +441,18 @@ static int resolveNDSLanguageFromLocale(void) {
 - (void)runFrame {
     if (!_nds || !_romLoaded) return;
 
+    std::lock_guard<std::mutex> lock(_coreLock);
+
     // Cost of emulation ALONE, which is what decides whether a snapshot fits in
     // the remaining frame budget. Averaged over a second so one slow frame does
     // not disable rewind and one fast one does not re-enable it.
     double frameStart = MelonNowMs();
+
+    // The lid as the player set it, re-applied if a rewind or a loaded state
+    // brought another one back (`setLidClosed:`).
+    if (_nds->IsLidClosed() != (bool)_lidClosed) {
+        _nds->SetLidClosed(_lidClosed);
+    }
 
     _nds->RunFrame();
 
@@ -499,9 +558,13 @@ static int resolveNDSLanguageFromLocale(void) {
 
     // Create a Savestate in save mode
     melonDS::Savestate state;
-    // state defaults to Saving=true
-    if (!_nds->DoSavestate(&state)) return NO;
-    state.Finish();
+    {
+        // The serialise only; the file is written after the lock is released.
+        std::lock_guard<std::mutex> lock(_coreLock);
+        // state defaults to Saving=true
+        if (!_nds->DoSavestate(&state)) return NO;
+        state.Finish();
+    }
 
     if (state.Error) return NO;
 
@@ -513,14 +576,6 @@ static int resolveNDSLanguageFromLocale(void) {
 
 - (BOOL)loadStateFromPath:(NSString *)path {
     if (!_nds || !_romLoaded) return NO;
-    // Loading a state moves the console to a DIFFERENT timeline, so every
-    // snapshot we hold now describes a past that no longer leads here.
-    // Rewinding across that boundary would drop the player into the pre-load
-    // game, which is not a shorter rewind but a wrong one. The session zeroes
-    // its own frame counter, and that is not enough on its own: it gates how far
-    // back you may ask, not which timeline the answer comes from.
-    [self invalidateRewindBuffer];
-
     NSData *data = [NSData dataWithContentsOfFile:path];
     if (!data || data.length == 0) return NO;
 
@@ -529,9 +584,28 @@ static int resolveNDSLanguageFromLocale(void) {
     void *buf = malloc(data.length);
     if (!buf) return NO;
     memcpy(buf, data.bytes, data.length);
-
     melonDS::Savestate state(buf, (melonDS::u32)data.length, false);
-    bool success = _nds->DoSavestate(&state);
+
+    // The header is checked BEFORE anything is touched: a file that is not a
+    // melonDS state, a state from a newer melonDS (a newer Retro Pal on
+    // another device, through iCloud), or a truncated one is refused here with
+    // the console exactly as it was. `DoSavestate` returns true even when the
+    // file's `Error` is set, so both are read, never the return value alone.
+    if (state.Error) {
+        free(buf);
+        return NO;
+    }
+
+    std::lock_guard<std::mutex> lock(_coreLock);
+    // Loading a state moves the console to a DIFFERENT timeline, so every
+    // snapshot we hold now describes a past that no longer leads here.
+    // Rewinding across that boundary would drop the player into the pre-load
+    // game, which is not a shorter rewind but a wrong one. The session zeroes
+    // its own frame counter, and that is not enough on its own: it gates how far
+    // back you may ask, not which timeline the answer comes from.
+    [self invalidateRewindBuffer];
+
+    bool success = _nds->DoSavestate(&state) && !state.Error;
     free(buf);
 
     return success ? YES : NO;
@@ -555,6 +629,9 @@ static int resolveNDSLanguageFromLocale(void) {
     // on the emulation thread (rc_client_do_frame runs between frames, the
     // same thread as runFrame), read-only, no bus side effects.
     if (!_nds || !_romLoaded || !buffer || length <= 0) return 0;
+    // A load on the save queue must not change the RAM under an achievement's
+    // read: a half-loaded value can satisfy a condition that never happened.
+    std::lock_guard<std::mutex> lock(_coreLock);
 
     if (address >= 0x02000000u && address < 0x02400000u) {   // the RA region is the DS's 4MB
         const melonDS::u8 *ram = _nds->MainRAM;
@@ -600,19 +677,24 @@ static int resolveNDSLanguageFromLocale(void) {
 // MARK: - Rewind
 //
 // mGBA appends a full state every frame and diffs it, which is affordable for a
-// GBA because its states are small. A DS state is 19.0 MB (measured, stable):
-// NDS::DoSavestate writes main RAM at MainRAMMaxSize, 16 MB, the DSi figure,
-// whatever the console actually is. Per-frame appends would move about a
-// gigabyte a second, which is why NDS had no rewind.
+// GBA because its states are small. A DS state was 19.0 MB until 1.3.3:
+// NDS::DoSavestate wrote main RAM at MainRAMMaxSize, 16 MB, the DSi figure,
+// whatever the console actually was. It is about 7 MB since our patch 0002
+// (Vendor/melonds-ios/patches), which saves the DS's own 4 MB. Per-frame
+// appends would still move hundreds of megabytes a second, which is why NDS
+// had no rewind.
 //
 // What makes it possible here is our own UI rather than a trick: the rewind
 // button is a single discrete jump from the pause menu, never a scrub, so no
 // intermediate frame is ever shown and per-frame granularity is invisible.
 //
-// Measured on an iPhone 14 Pro, SoulSilver, in play:
+// Measured on an iPhone 14 Pro, SoulSilver, in play, with the 19.0 MB state:
 //   serialize 4.3 ms, diff 1.0 ms, delta 0.33-0.53 MB of a 19.0 MB state
 // and with Low Power Mode on, as a stand-in for older silicon:
 //   serialize 8.4 ms, diff 1.9 ms, same deltas
+// The 7 MB state serialises about a fifth faster (Tools/nds-bench, 3.8 -> 3.0 ms
+// on the host) and the diff reads a third of the bytes; the phone's numbers are
+// to be re-read in the DEBUG [REWIND] lines.
 //
 // The aggregate is trivial, 1% of a core. The hazard is that it lands inside ONE
 // frame of a 16.6 ms budget. Hence the two decisions below.
@@ -626,7 +708,7 @@ static int resolveNDSLanguageFromLocale(void) {
 // THE DIFF RUNS OFF-THREAD. Only the serialize has to be inline, because it
 // reads live emulator state; comparing two buffers we own does not.
 //
-// Memory: two 19 MB buffers, one holding the current state and one receiving
+// Memory: two state-sized buffers, one holding the current state and one receiving
 // each serialize, because you cannot diff against a state you have already
 // overwritten. Plus an undo log of the OLD bytes of changed blocks, roughly
 // 0.5 MB per snapshot. Allocated lazily on the first snapshot, so a session that
@@ -634,7 +716,10 @@ static int resolveNDSLanguageFromLocale(void) {
 
 static const size_t kRewindBlock = 4096;
 static const NSInteger kRewindSecondsPerSnapshot = 5;
-static const size_t kRewindBufferCapacity = 24 * 1024 * 1024;   // states measure 19.0 MB
+// Sized for the 19 MB states of before 1.3.3, and left there: a DSi state
+// would still be that size, and only the pages a snapshot writes are ever
+// touched, so a 7 MB state occupies 7 MB of it.
+static const size_t kRewindBufferCapacity = 24 * 1024 * 1024;
 // Snapshot scheduling, tuned from device measurements rather than guessed.
 //
 // The first version was a yes/no guard at 9 ms and it was wrong in a way the
@@ -688,7 +773,7 @@ static double MelonNowMs(void) {
     _rwStored = 0;
     _rwNewest = -1;
     // NOT marked pending here, deliberately, unlike the invalidation path below.
-    // The first snapshot is what allocates 48 MB of buffers and serializes 19 MB,
+    // The first snapshot is what allocates two 24 MB buffers and serializes a state,
     // and doing that on frame one would put both on the busiest frame of the
     // session and charge them to a player who quits after five seconds. The
     // deferral above is a design decision, not an oversight: a session that never
@@ -747,6 +832,7 @@ static double MelonNowMs(void) {
 /// would compare two unrelated states, find nearly every block changed, and
 /// allocate an undo entry close to the size of the state itself. After this it
 /// is simply a fresh first snapshot with nothing to diff against.
+/// Called with `_coreLock` held (by a load and by a reset).
 - (void)invalidateRewindBuffer {
     if (!_rwCurrent) return;
     if (_rwDiffQueue) dispatch_sync(_rwDiffQueue, ^{});   // never race a running diff
@@ -773,6 +859,9 @@ static double MelonNowMs(void) {
 
 - (void)rewindAppend {
     if (_rwDepth <= 0 || !_nds || !_romLoaded) return;
+    // The whole method: it serialises the console, and a load on the save
+    // queue resets the same ring it writes (invalidateRewindBuffer).
+    std::lock_guard<std::mutex> lock(_coreLock);
 
     // A snapshot falls due every five seconds, but does not have to be taken on
     // that exact frame.
@@ -837,7 +926,7 @@ static double MelonNowMs(void) {
         double d0 = MelonNowMs();
         size_t blocks = (self->_rwStateLength + kRewindBlock - 1) / kRewindBlock;
 
-        // Pass one counts, pass two records. Two passes over 19 MB still costs
+        // Pass one counts, pass two records. Two passes over the state still costs
         // less than allocating for the worst case every time.
         uint32_t changed = 0;
         for (size_t b = 0; b < blocks; b++) {
@@ -894,6 +983,7 @@ static double MelonNowMs(void) {
 /// whole first interval after a state load or a reset, which used to be a
 /// window where the rewind button did nothing at all and said nothing about it.
 - (BOOL)rewindFrames:(NSInteger)count {
+    std::lock_guard<std::mutex> lock(_coreLock);
     if (!_rwCurrent || _rwStateLength == 0) return NO;
     if (!_nds || !_romLoaded) return NO;
 
@@ -933,7 +1023,7 @@ static double MelonNowMs(void) {
     if (!copy) return NO;
     memcpy(copy, _rwCurrent, _rwStateLength);
     melonDS::Savestate loader(copy, (melonDS::u32)_rwStateLength, false);
-    bool ok = _nds->DoSavestate(&loader) && !loader.Error;
+    bool ok = !loader.Error && _nds->DoSavestate(&loader) && !loader.Error;
     free(copy);
 
 #if DEBUG
@@ -949,15 +1039,23 @@ static double MelonNowMs(void) {
 // MARK: - Lifecycle
 
 - (void)shutdown {
+    std::lock_guard<std::mutex> lock(_coreLock);
     [self teardownRewind];
 
     if (_nds) {
         if (_romLoaded) {
             _nds->Stop(melonDS::Platform::StopReason::External);
         }
+        // Join the 3D render thread while the GPU it draws from is still whole.
+        // Left to the destructor, the join happens while the GPU is already
+        // being torn down, and a frame still in flight would finish drawing
+        // from memory that is going away.
+        SoftRenderer3D(*_nds).SetThreaded(false, _nds->GPU);
         _nds.reset();
     }
     _romLoaded = NO;
+    // A new NDS starts with its lid open.
+    _lidClosed = NO;
     _savePath.clear();
     _romName.clear();
     melonDS::Platform::SetNDSSavePath("");
@@ -1044,6 +1142,14 @@ static double MelonNowMs(void) {
 
 - (void)setMicBlowActive:(BOOL)active {
     MelonDSMic_SetBlowActive(active);
+}
+
+// MARK: - Lid
+
+- (void)setLidClosed:(BOOL)closed {
+    _lidClosed = closed;
+    // Only on a change: opening an open lid would raise its IRQ for nothing.
+    if (_nds && _romLoaded && _nds->IsLidClosed() != (bool)closed) _nds->SetLidClosed(closed);
 }
 
 @end

@@ -24,6 +24,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#ifdef __APPLE__
+#include <pthread/qos.h>
+#endif
 
 // Pre-recorded blow waveform from melonDS (local copy with melonDS types dependency removed)
 #include "mic_blow.h"
@@ -297,7 +300,16 @@ struct Thread
 Thread* Thread_Create(std::function<void()> func)
 {
     auto* t = new Thread();
-    t->thread = std::thread(func);
+    t->thread = std::thread([func = std::move(func)]() {
+#ifdef __APPLE__
+        // The only thread the core starts here is the 3D renderer, and the
+        // emulation thread waits on it for every scanline. It gets the same
+        // class as the thread that waits: at a lower one iOS may put it on an
+        // efficiency core, or leave the game waiting behind less urgent work.
+        pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+        func();
+    });
     return t;
 }
 

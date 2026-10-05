@@ -261,8 +261,16 @@ final class CheatLibrary: ObservableObject {
     /// libretro joins a code's words with '+'. Re-lay them the way the cheat
     /// field expects, so a tapped code arrives already correctly shaped.
     /// `nonisolated` for the same reason as `parse`: it is pure.
+    ///
+    /// ';' separates lines too, in the Nintendo 64 files only: 2,101 of their
+    /// codes use it ("81119B7A 0000;81119B7C 0000"), and no file of any other
+    /// console has one (counted in libretro-database, 2026-09-27). Left in, it
+    /// reached the field, which the validator rightly refuses as a character no
+    /// code contains, so every such code tapped from the browser failed.
     nonisolated static func formatCode(_ raw: String) -> String {
-        let tokens = raw.split(separator: "+").map(String.init).filter { !$0.isEmpty }
+        let tokens = raw.split(whereSeparator: { $0 == "+" || $0 == ";" })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
         guard !tokens.isEmpty else { return "" }
 
         func isHex(_ s: String, _ n: Int) -> Bool {

@@ -26,6 +26,16 @@ final class EmulatorAudioEngine {
     private let readPos: UnsafeMutablePointer<Int>
     private let int16Buf: UnsafeMutablePointer<Int16>
 
+    #if DEBUG
+    /// Frames the render callback had to fill with silence because the ring ran
+    /// dry: the audible gap when emulation falls behind. Counted on the audio
+    /// thread, reported every two seconds from `drainSamples` (the emulation
+    /// thread), never logged from the render callback itself.
+    private let paddedFrames: UnsafeMutablePointer<Int>
+    private var paddedReported = 0
+    private var paddedWindowStart = Date()
+    #endif
+
     let sampleRate: Double
 
     private(set) var isRunning = false
@@ -47,6 +57,9 @@ final class EmulatorAudioEngine {
         writePos.deallocate()
         readPos.deallocate()
         int16Buf.deallocate()
+        #if DEBUG
+        paddedFrames.deallocate()
+        #endif
     }
 
     init(bridge: any EmulatorBridge) {
@@ -65,6 +78,11 @@ final class EmulatorAudioEngine {
         self.writePos.pointee = 0
         self.readPos.pointee = 0
         self.int16Buf = .allocate(capacity: 4096 * 2)
+        #if DEBUG
+        self.paddedFrames = .allocate(capacity: 1)
+        self.paddedFrames.pointee = 0
+        let padded = paddedFrames
+        #endif
 
         let ringRef = ring
         let ringCap = ringFrameCount
@@ -107,6 +125,9 @@ final class EmulatorAudioEngine {
                         leftPtr[i] = 0
                         rightPtr[i] = 0
                     }
+                    #if DEBUG
+                    padded.pointee += framesNeeded - framesToRead
+                    #endif
                 }
             }
 
@@ -118,6 +139,9 @@ final class EmulatorAudioEngine {
     /// Call on the emulator thread after each runFrame().
     func drainSamples() {
         guard let bridge = bridge else { return }
+        #if DEBUG
+        reportPaddedFrames()
+        #endif
 
         let maxRead = 4096
         let framesRead = Int(bridge.readAudioSamples(int16Buf, count: maxRead))
@@ -142,6 +166,23 @@ final class EmulatorAudioEngine {
 
         writePos.pointee = (w + framesToWrite) % ringFrameCount
     }
+
+    #if DEBUG
+    /// One line every two seconds, only when silence was padded in that window.
+    /// Read without a lock: a count off by one render callback changes nothing.
+    private func reportPaddedFrames() {
+        guard Date().timeIntervalSince(paddedWindowStart) >= 2 else { return }
+        let total = paddedFrames.pointee
+        let new = total - paddedReported
+        if new > 0 {
+            let ms = Double(new) / sampleRate * 1000
+            print(String(format: "[Audio] %d frames of silence padded in the last 2 s (%.0f ms): emulation fell behind the speaker",
+                         new, ms))
+        }
+        paddedReported = total
+        paddedWindowStart = Date()
+    }
+    #endif
 
     func start() {
         configureAudioSession()

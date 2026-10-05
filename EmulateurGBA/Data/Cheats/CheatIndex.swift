@@ -104,6 +104,29 @@ struct CheatIndex {
         return retail + hacks
     }
 
+    /// The stems of the game the player HOLDS first, the other regions after,
+    /// each group in the order it arrived (2026-09-27).
+    ///
+    /// A title lists every region's file, and the order they arrived in is not
+    /// the player's: Super Mario 64 listed "SUPER MARIO 64", a European file,
+    /// above "Super Mario 64 (USA)", so a USA cartridge was offered European
+    /// addresses first. The code was taken from there, written to an address
+    /// that holds nothing in that release, and did nothing, with no way for
+    /// the player to know why. `ownNames` are the names this dump answers to
+    /// (the file's own, the release its cartridge code names); a stem is the
+    /// game's own when it IS one of them, or one of them followed by a tag of
+    /// its own, "(USA) (GameShark)". Nothing is hidden: the player still
+    /// chooses, and a code from another region stays one scroll away.
+    static func ownReleaseFirst(_ stems: [String], ownNames: [String]) -> [String] {
+        let names = ownNames.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty }
+        func isOwn(_ stem: String) -> Bool {
+            let s = stem.lowercased()
+            return names.contains { s == $0 || s.hasPrefix($0 + " (") }
+        }
+        return stems.filter(isOwn) + stems.filter { !isOwn($0) }
+    }
+
     /// Whether a libretro cheat-file stem names a ROM hack: any parenthesis
     /// nested inside another one.
     static func isHackStem(_ stem: String) -> Bool {

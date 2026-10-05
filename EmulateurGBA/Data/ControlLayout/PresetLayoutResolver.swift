@@ -163,7 +163,7 @@ enum PresetLayoutResolver {
                 default: return 0
                 }
             }
-        case .snes, .ps1, .gbc, .nes:
+        case .snes, .ps1, .n64, .gbc, .nes:
             // NOTHING, and the two that used to nudge here were wrong to.
             //
             // This function is not a place to improve a layout. It is the MIRROR of the
@@ -517,6 +517,15 @@ enum PresetLayoutResolver {
                 size = polishedSize(size, element: element, system: system,
                                     isLandscape: isLandscape, deviceScale: k)
             }
+            // With a controller on its side MENU leaves the full-height picture
+            // for the right gutter, exactly as the game renders it
+            // (`TouchControlsView.applyDefaultLayout`), so the controller
+            // layout editor starts from what the player sees.
+            if controllerConnected, isLandscape, !isNDS, element == .btnMenu {
+                center = EmulatorLayoutGeometry.controllerLandscapeMenuCenter(
+                    current: center, menuSize: size, screen: metalFrame, container: viewSize,
+                    safeRightInset: safeInsets.right, deviceScale: k)
+            }
             buttons[element] = (center, size)
         }
 
@@ -629,6 +638,9 @@ enum PresetLayoutResolver {
         // aspect per video mode to hit that one shape. Matches
         // `PCSXBridge.displayAspect`, and if one moves they both move.
         case .ps1: return 4.0 / 3.0
+        // 4:3 as well: the console drew for a 4:3 television with non-square pixels.
+        // Matches `kN64DisplayAspect` in N64Bridge, and if one moves they both move.
+        case .n64: return 4.0 / 3.0
         }
     }
 

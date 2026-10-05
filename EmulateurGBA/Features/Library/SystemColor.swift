@@ -23,6 +23,9 @@ enum SystemColor {
         // logo: the four coloured symbols are the brand, but a single badge can
         // only be one colour and picking one of the four would name a button.
         case "ps1":  return Color(red: 0.451, green: 0.463, blue: 0.494)   // #737685
+        // INTERIM neutral charcoal until the N64's palette is chosen: a console
+        // badge colour follows the console's dress, which does not exist yet.
+        case "n64":  return Color(red: 0.180, green: 0.180, blue: 0.192)   // #2E2E31
         default: return Color(red: 0.463, green: 0.149, blue: 0.773) // GBA = app-logo purple #7626C5
         }
     }
@@ -37,6 +40,7 @@ enum SystemColor {
         case "snes": return "Super Nintendo"
         case "nes":  return "NES"
         case "ps1":  return "PlayStation"
+        case "n64":  return "Nintendo 64"
         default:     return "Game Boy Advance"
         }
     }

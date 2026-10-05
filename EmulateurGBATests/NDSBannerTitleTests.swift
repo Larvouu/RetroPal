@@ -62,7 +62,13 @@ struct NDSBannerTitleTests {
     func frenchTitle() {
         let rom = nds(titles: platinum)
         #expect(GBAROMParser.ndsBannerTitle(rom, preferredLanguages: ["fr-FR"]) == "Pokémon Version Platine")
-        let info = GBAROMParser.parse(data: rom, fileSize: Int64(rom.count), systemHint: .nds)
+        // `parse` reads the phone's own languages, so the French phone this
+        // case is about is pinned here rather than assumed: left to the device,
+        // the case passed on a French phone only, and failed on 2026-09-23 on
+        // one whose app language was English.
+        let info = LegacyTextEncoding.$preferredLanguagesOverride.withValue(["fr-FR"]) {
+            GBAROMParser.parse(data: rom, fileSize: Int64(rom.count), systemHint: .nds)
+        }
         #expect(info?.title == "Pokémon Version Platine")
         #expect(info?.gameCode == "CPUF")
         print("[nds] fr → \(info?.title ?? "-")")

@@ -287,6 +287,68 @@ struct PS1SkinPalette: Equatable, Codable {
         printHex: 0xC0C0C0, diamondHex: 0x727272)
 }
 
+/// Nintendo 64 (2026-09-27).
+///
+/// THIRTEEN SLOTS, the most of any console, and on purpose: this pad's colours
+/// are a set of separate plastics (a blue A, a green B, four yellow C buttons, a
+/// red START, grey triggers), and the ask was that a skin can split what the
+/// hardware split, A from B, MENU and CLIP from L and R. So every colour the
+/// dress paints is its own slot. What is NOT a slot derives, as on every other
+/// console: each word, letter and triangle set into a button is its button's
+/// colour a shade darker, the grooves and the plaque follow the shell, and the
+/// shoulders' shading is the shell darkened.
+struct N64SkinPalette: Equatable, Codable {
+    var bodyHex: UInt32           // the shell
+    var shouldersHex: UInt32      // L and R
+    var menuButtonsHex: UInt32    // the MENU and CLIP discs
+    var menuIconsHex: UInt32      // the MENU and CLIP glyphs
+    var dpadHex: UInt32           // the cross
+    var dpadMarksHex: UInt32      // the four triangles set into the cross
+    var stickHex: UInt32          // the stick
+    var stickSurroundHex: UInt32  // the raised disc the stick stands in
+    var aHex: UInt32
+    var bHex: UInt32
+    var zHex: UInt32
+    var cHex: UInt32              // the four C buttons
+    var startHex: UInt32
+
+    var body: UIColor          { UIColor(rpHex: bodyHex) }
+    var shoulders: UIColor     { UIColor(rpHex: shouldersHex) }
+    var menuButtons: UIColor   { UIColor(rpHex: menuButtonsHex) }
+    var menuIcons: UIColor     { UIColor(rpHex: menuIconsHex) }
+    var dpad: UIColor          { UIColor(rpHex: dpadHex) }
+    var dpadMarks: UIColor     { UIColor(rpHex: dpadMarksHex) }
+    var stick: UIColor         { UIColor(rpHex: stickHex) }
+    var stickSurround: UIColor { UIColor(rpHex: stickSurroundHex) }
+    var a: UIColor             { UIColor(rpHex: aHex) }
+    var b: UIColor             { UIColor(rpHex: bHex) }
+    var z: UIColor             { UIColor(rpHex: zHex) }
+    var c: UIColor             { UIColor(rpHex: cHex) }
+    var start: UIColor         { UIColor(rpHex: startHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, shouldersHex, menuButtonsHex, menuIconsHex, dpadHex, dpadMarksHex, stickHex,
+         stickSurroundHex, aHex, bHex, zHex, cHex, startHex].allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// The Classic dress, value for value (`DressKind.n64*`, revised 2026-09-27).
+    /// `menuIconsHex` is the glyph the Classic dress derives from its disc
+    /// (#8C8F9E darkened by 0.42, the rule for a light disc), so a skin opened
+    /// from Classic starts exactly where the Classic dress is.
+    static let nostalgia = N64SkinPalette(
+        bodyHex: 0xC4C7CA, shouldersHex: 0x8C8F9E, menuButtonsHex: 0x8C8F9E,
+        menuIconsHex: 0x51535C, dpadHex: 0x8C8F9E, dpadMarksHex: 0x5A5C66,
+        stickHex: 0x787984, stickSurroundHex: 0x8C8F9E, aHex: 0x4070FF, bHex: 0x60C975,
+        zHex: 0xFFCC4A, cHex: 0xFFCC4A, startHex: 0xDB0012)
+
+    /// The Retro Pal recolour: the shell only.
+    static let retroPal: N64SkinPalette = {
+        var p = nostalgia
+        p.bodyHex = 0x253E8B
+        return p
+    }()
+}
+
 // MARK: - The console-tagged palette
 
 enum SkinPalette: Equatable, Codable {
@@ -296,6 +358,7 @@ enum SkinPalette: Equatable, Codable {
     case snes(SNESSkinPalette)
     case nes(NESSkinPalette)
     case ps1(PS1SkinPalette)
+    case n64(N64SkinPalette)
 
     /// The console this palette belongs to (must match the owning CustomSkin's system).
     var system: PresetSystem {
@@ -306,6 +369,7 @@ enum SkinPalette: Equatable, Codable {
         case .snes: return .snes
         case .nes: return .nes
         case .ps1: return .ps1
+        case .n64: return .n64
         }
     }
 
@@ -317,6 +381,7 @@ enum SkinPalette: Equatable, Codable {
         case .snes(let p): return p.isWithinHexRange
         case .nes(let p): return p.isWithinHexRange
         case .ps1(let p): return p.isWithinHexRange
+        case .n64(let p): return p.isWithinHexRange
         }
     }
 
@@ -329,6 +394,7 @@ enum SkinPalette: Equatable, Codable {
         case .snes: return .snes(.nostalgia)
         case .nes: return .nes(.nostalgia)
         case .ps1: return .ps1(.nostalgia)
+        case .n64: return .n64(.nostalgia)
         }
     }
 }

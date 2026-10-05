@@ -31,7 +31,7 @@ import SwiftUI
 /// touch layout exactly — there is no per-console button gating in the app — so
 /// they differ from GBA only in screen aspect (160×144 vs 240×160).
 enum PreviewSystem: String {
-    case gba, gbc, nds, snes, nes, ps1   // gbc = GB + GBC (identical controls + screen)
+    case gba, gbc, nds, snes, nes, ps1, n64   // gbc = GB + GBC (identical controls + screen)
 
     var isNDS: Bool { self == .nds }
 
@@ -44,6 +44,7 @@ enum PreviewSystem: String {
         case .snes: return .snes
         case .nes: return .nes
         case .ps1: return .ps1
+        case .n64: return .n64
         }
     }
 
@@ -55,7 +56,7 @@ enum PreviewSystem: String {
         case .nds: return 256.0 / 384.0   // both screens stacked
         // Straight from the layout engine's own table, so this gallery cannot
         // show a shape the game does not draw.
-        case .snes, .nes, .ps1: return PresetLayoutResolver.displayAspect(layoutSystem)
+        case .snes, .nes, .ps1, .n64: return PresetLayoutResolver.displayAspect(layoutSystem)
         }
     }
 
@@ -67,6 +68,7 @@ enum PreviewSystem: String {
         case .snes: return "SNES screen"
         case .nes: return "NES screen"
         case .ps1: return "PlayStation screen"
+        case .n64: return "Nintendo 64 screen"
         }
     }
 }
@@ -85,8 +87,13 @@ final class InGameLayoutPreviewView: UIView {
     private let screenLabel = UILabel()
     private let controls: TouchControlsView
     private let hitboxOverlay = HitboxOverlayView()   // debug: button hitboxes over the dress
+    /// The DS with its lid closed from the pause menu: the game's own message
+    /// view, on the screen that shows the DS's top picture (Debug ▸ DS lid).
+    private let lidMessage: NDSLidMessageView?
 
-    init(system: PreviewSystem, isLandscape: Bool, safeInsets: UIEdgeInsets) {
+    init(system: PreviewSystem, isLandscape: Bool, safeInsets: UIEdgeInsets,
+         showsLidMessage: Bool = false) {
+        self.lidMessage = (showsLidMessage && system.isNDS) ? NDSLidMessageView() : nil
         self.system = system
         self.isNDS = system.isNDS
         self.isLandscape = isLandscape
@@ -134,6 +141,7 @@ final class InGameLayoutPreviewView: UIView {
         // Debug overlay: outline each button's hitbox on top, so the dress (diagonal pills,
         // wells, labels) can be checked against the real touch rectangles.
         addSubview(hitboxOverlay)
+        if let lidMessage { addSubview(lidMessage) }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -223,11 +231,23 @@ final class InGameLayoutPreviewView: UIView {
         // Reading `isNDS` drew the Super Nintendo's circles as squares, so this
         // overlay was already describing that console wrongly before the
         // PlayStation arrived to make it matter twice.
+        // The Nintendo 64 rounds A, B, Z and its four C buttons instead.
         let hasDiamond: Set<PreviewSystem> = [.nds, .snes, .ps1]
         let round: Set<ControlElement> = hasDiamond.contains(system)
-            ? [.btnA, .btnB, .btnX, .btnY] : []
+            ? [.btnA, .btnB, .btnX, .btnY]
+            : system == .n64 ? [.btnA, .btnB, .btnL2, .btnCUp, .btnCDown, .btnCLeft, .btnCRight] : []
         hitboxOverlay.frames = bf.filter { !round.contains($0.key) }.map { $0.value }
         hitboxOverlay.roundFrames = bf.filter { round.contains($0.key) }.map { $0.value }
+
+        // The lid message where the game puts it: the rendered top picture,
+        // from the same split the renderer uses (the magenta bands above are
+        // the screens' whole bands, the picture sits inside them).
+        if let lidMessage {
+            let rects = PresetLayoutResolver.ndsDefaultScreenRects(in: metalFrame, isLandscape: isLandscape)
+            lidMessage.frame = NDSLidMessageView.topPictureRect(
+                primary: rects.top, secondary: rects.bottom,
+                swapped: UserDefaults.standard.bool(forKey: "ndsSwapScreens"))
+        }
     }
 }
 
@@ -260,8 +280,10 @@ struct InGameLayoutPreviewRepresentable: UIViewRepresentable {
     let system: PreviewSystem
     let isLandscape: Bool
     let safeInsets: UIEdgeInsets
+    var showsLidMessage: Bool = false
     func makeUIView(context: Context) -> InGameLayoutPreviewView {
-        InGameLayoutPreviewView(system: system, isLandscape: isLandscape, safeInsets: safeInsets)
+        InGameLayoutPreviewView(system: system, isLandscape: isLandscape, safeInsets: safeInsets,
+                                showsLidMessage: showsLidMessage)
     }
     func updateUIView(_ uiView: InGameLayoutPreviewView, context: Context) {}
 }
@@ -312,6 +334,8 @@ struct LayoutPreviewGallery: View {
         Config(label: "NES · landscape", system: .nes, isLandscape: true),
         Config(label: "PS1 · portrait", system: .ps1, isLandscape: false),
         Config(label: "PS1 · landscape", system: .ps1, isLandscape: true),
+        Config(label: "N64 · portrait", system: .n64, isLandscape: false),
+        Config(label: "N64 · landscape", system: .n64, isLandscape: true),
     ]
 
     var body: some View {

@@ -38,9 +38,17 @@ private final class DeliveryFlag: @unchecked Sendable {
     var isSet: Bool { lock.lock(); defer { lock.unlock() }; return delivered }
 }
 
-/// Waits for the flag, checking often and giving up after `timeout` seconds. Returns as soon as
-/// it is set, so a healthy run costs a few milliseconds rather than a fixed sleep.
+/// Waits for the flag. First it waits for the main queue to reach everything queued before this
+/// call, which includes the post: the main actor runs on the main queue, in order, so once an
+/// empty hop to it has run, the `DispatchQueue.main.async` post queued earlier has run too (and
+/// an observer registered for `.main` is called inline when the post happens on main). Then it
+/// polls briefly as a second net.
+///
+/// A fixed timeout alone lost the race again on 2026-09-29: other suites run on the main actor
+/// (ShareCardConsoleTests renders its cards there and held the main thread for about 13 seconds
+/// of that run), so the post sat queued past the 5 seconds while nothing was wrong.
 private func waitForDelivery(_ flag: DeliveryFlag, timeout: TimeInterval = 5) async {
+    await MainActor.run {}
     let deadline = Date().addingTimeInterval(timeout)
     while !flag.isSet && Date() < deadline {
         try? await Task.sleep(nanoseconds: 20_000_000)

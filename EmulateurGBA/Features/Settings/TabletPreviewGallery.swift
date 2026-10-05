@@ -47,7 +47,7 @@ struct TabletPreviewDevice: Identifiable {
 enum TabletPreviewPage: String, CaseIterable, Identifiable {
     case library, libraryEmpty, gameDetails, settings, raDashboard, raGame
     case controllerRemap, listPage, pauseMenu
-    case gameBoy, gba, nds, snes, nes, ps1
+    case gameBoy, gba, nds, snes, nes, ps1, n64
 
     var id: String { rawValue }
 
@@ -68,10 +68,11 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .snes: return "In game: Super Nintendo"
         case .nes: return "In game: NES"
         case .ps1: return "In game: PlayStation"
+        case .n64: return "In game: Nintendo 64"
         }
     }
 
-    /// The in-game family, for the six console rows.
+    /// The in-game family, for the seven console rows.
     var previewSystem: PreviewSystem? {
         switch self {
         case .gameBoy: return .gbc
@@ -80,6 +81,7 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .snes: return .snes
         case .nes: return .nes
         case .ps1: return .ps1
+        case .n64: return .n64
         default: return nil
         }
     }
@@ -229,7 +231,7 @@ struct TabletPreviewGallery: View {
             }
         case .pauseMenu:
             OverlayMenuPreviewRepresentable(isNDS: false, safeInsets: TabletPreviewDevice.insets)
-        case .gameBoy, .gba, .nds, .snes, .nes, .ps1:
+        case .gameBoy, .gba, .nds, .snes, .nes, .ps1, .n64:
             InGameLayoutPreviewRepresentable(system: page.previewSystem ?? .gba,
                                              isLandscape: landscape,
                                              safeInsets: TabletPreviewDevice.insets)

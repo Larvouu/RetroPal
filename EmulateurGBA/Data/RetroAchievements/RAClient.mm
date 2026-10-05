@@ -24,6 +24,7 @@
 #import "rc_client.h"
 #import "rc_consoles.h"
 #import "rc_api_request.h"
+#import "rc_api_info.h"
 #import "rc_api_runtime.h"
 #import "rc_api_user.h"
 #import "rc_error.h"
@@ -31,6 +32,7 @@
 #import "RADiscFileReader.h"
 
 #include <time.h>
+#include <vector>
 #import <os/log.h>
 
 /// Hands rcheevos the disc reader.
@@ -55,6 +57,9 @@ static void RAInstallDiscFileReader(rc_hash_filereader_t *out) {
 @end
 
 @implementation RAProgressEntry
+@end
+
+@implementation RAGameTitleEntry
 @end
 
 // MARK: - Static C callbacks (defined after @end, forward-declared here so
@@ -512,6 +517,16 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     if ([ext isEqualToString:@"sfc"] || [ext isEqualToString:@"smc"]) return RC_CONSOLE_SUPER_NINTENDO;
     // rc_hash also skips the 16-byte iNES header, for the same reason.
     if ([ext isEqualToString:@"nes"]) return RC_CONSOLE_NINTENDO;
+    // The Nintendo 64's three byte orders are one console, and rc_hash turns a
+    // `.v64` (halfwords swapped) or an `.n64` (words reversed) back into the
+    // console's own order before hashing (`hash_rom.c`), so all three dumps of
+    // a cartridge resolve to the same set. rcheevos knows all three extensions,
+    // so `identifyAs` stays UNKNOWN; this answer is for `_regions`, which must
+    // exist before the load (see the playlist note below).
+    if ([ext isEqualToString:@"z64"] || [ext isEqualToString:@"n64"]
+        || [ext isEqualToString:@"v64"]) {
+        return RC_CONSOLE_NINTENDO_64;
+    }
     // Every PlayStation container is the same console, and they hash the same
     // way: rc_hash reads the boot executable named by SYSTEM.CNF off track 1
     // and hashes its header plus its bytes, so a `.chd` and the `.cue` + `.bin`
@@ -670,6 +685,49 @@ static void RALogMessage(const char *message, const rc_client_t *client);
                consoleId, (unsigned long)entries.count);
         completion(YES, entries);
         rc_api_destroy_fetch_all_user_progress_response(&progress);
+    }];
+    rc_api_destroy_request(&request);
+}
+
+- (void)fetchGameImagesForIDs:(NSArray<NSNumber *> *)gameIds
+                   completion:(void (^)(BOOL success, NSArray<RAGameTitleEntry *> *entries))completion {
+    if (gameIds.count == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(NO, @[]); });
+        return;
+    }
+    // Copied out: the request builder reads the array while building the URL.
+    std::vector<uint32_t> ids;
+    ids.reserve(gameIds.count);
+    for (NSNumber *n in gameIds) ids.push_back(n.unsignedIntValue);
+    rc_api_fetch_game_titles_request_t params;
+    memset(&params, 0, sizeof(params));
+    params.game_ids = ids.data();
+    params.num_game_ids = (uint32_t)ids.size();
+    rc_api_request_t request;
+    if (rc_api_init_fetch_game_titles_request(&request, &params) != RC_OK) {
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(NO, @[]); });
+        return;
+    }
+    [self performAPIRequest:&request completion:^(const rc_api_server_response_t *response, BOOL transportOK) {
+        if (!transportOK) { completion(NO, @[]); return; }
+        rc_api_fetch_game_titles_response_t titles;
+        int processed = rc_api_process_fetch_game_titles_server_response(&titles, response);
+        if (processed != RC_OK || !titles.response.succeeded) {
+            completion(NO, @[]);
+            rc_api_destroy_fetch_game_titles_response(&titles);
+            return;
+        }
+        NSMutableArray<RAGameTitleEntry *> *entries = [NSMutableArray arrayWithCapacity:titles.num_entries];
+        for (uint32_t i = 0; i < titles.num_entries; i++) {
+            RAGameTitleEntry *entry = [RAGameTitleEntry new];
+            entry.gameId = titles.entries[i].id;
+            const char *url = titles.entries[i].image_url;
+            entry.imageURL = (url && url[0]) ? @(url) : nil;
+            [entries addObject:entry];
+        }
+        RADebugLog("[RA] game images -> %lu entries", (unsigned long)entries.count);
+        completion(YES, entries);
+        rc_api_destroy_fetch_game_titles_response(&titles);
     }];
     rc_api_destroy_request(&request);
 }

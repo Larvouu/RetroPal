@@ -39,6 +39,10 @@ import GameController
 enum KeyboardInput: String, Codable, CaseIterable {
     case up, down, left, right
     case a, b, x, y, l, r, l2, r2, l3, r3, select, start
+    // The Nintendo 64's C buttons. Unbound in the built-in layout, which is
+    // one layout for every console and has no keys to spare for four inputs
+    // only one console reads; the remap page offers them on that console.
+    case cUp, cDown, cLeft, cRight
 
     var gbaInput: GBAInput {
         switch self {
@@ -58,6 +62,10 @@ enum KeyboardInput: String, Codable, CaseIterable {
         case .r3: return .r3
         case .select: return .select
         case .start: return .start
+        case .cUp: return .cUp
+        case .cDown: return .cDown
+        case .cLeft: return .cLeft
+        case .cRight: return .cRight
         }
     }
 
@@ -89,8 +97,19 @@ enum KeyboardInput: String, Codable, CaseIterable {
         case .right: return NSLocalizedString("keyremap.direction.right", comment: "")
         case .select: return "SELECT"
         case .start: return "START"
+        case .cUp, .cDown, .cLeft, .cRight:
+            return RemappableInput(rawValue: rawValue)?.displayName(for: .n64) ?? rawValue
         default: return rawValue.uppercased()
         }
+    }
+
+    /// The row label on one console's page. The Nintendo 64 reads the pad
+    /// remap's own marks, so its trigger row says Z, as the pad page does,
+    /// rather than the generic L2. The other consoles keep `displayName`.
+    func displayName(for system: PresetSystem) -> String {
+        guard system == .n64, !isDirection,
+              let input = RemappableInput(rawValue: rawValue) else { return displayName }
+        return input.displayName(for: system)
     }
 }
 

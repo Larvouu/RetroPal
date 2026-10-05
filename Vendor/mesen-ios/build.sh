@@ -118,9 +118,11 @@ else
     echo "SDK: $SDK_PATH"
 fi
 
-# -O3 and C++17 are the makefile's own settings. LTO is deliberately NOT enabled:
-# melonDS is built -DENABLE_LTO_RELEASE=OFF for the same reason, a thin-LTO
-# static library has to agree with the app target's own LTO setting to link.
+# -O3 and C++17 are the makefile's own settings. LTO is not enabled here. The
+# reason once written here, that an LTO static library must match the app
+# target's own LTO setting to link, was never verified; melonDS is built WITH
+# LTO since 1.3.3 (Vendor/melonds-ios/build.sh), and if that links and measures
+# well on the Mac, the same change can be weighed for this core.
 COMMON_FLAGS="-O3 -fno-strict-aliasing -w $TARGET_FLAGS"
 CXXFLAGS="-std=c++17 $COMMON_FLAGS -I$MESEN_SRC -I$MESEN_SRC/Core -I$MESEN_SRC/Utilities"
 CFLAGS="$COMMON_FLAGS -I$MESEN_SRC -I$MESEN_SRC/Core -I$MESEN_SRC/Utilities"

@@ -38,6 +38,9 @@ struct ControllerRemapView: View {
 
     private let gold = Color(red: 0.91, green: 0.76, blue: 0.42)
 
+    /// For B (`controllerBack`) upright.
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         Group {
             if isLandscape {
@@ -49,6 +52,9 @@ struct ControllerRemapView: View {
                     actionsSection
                 }
                 .uprightLook()
+                // B goes back, as the bar's back button does (on its side the
+                // scaffold declares it).
+                .controllerBack { dismiss() }
             }
         }
         .navigationTitle(NSLocalizedString("settings.remapController", comment: ""))
@@ -103,7 +109,7 @@ struct ControllerRemapView: View {
                         choose(candidate)
                     } label: {
                         HStack(spacing: 10) {
-                            PixelConsoleIcon(console: PixelConsole(candidate))
+                            PresetConsoleIcon(system: candidate)
                                 .frame(width: 26, height: 26)
                                 .accessibilityHidden(true)
                             Text(ConsoleChoiceList.name(candidate))

@@ -266,6 +266,11 @@ struct CheatBrowserSheet: View {
             if entries.isEmpty, let own = ownReleaseName {
                 entries = try await library.entries(forTitle: own, system: system)
             }
+            // The player's own release first (`CheatIndex.ownReleaseFirst`).
+            let order = CheatIndex.ownReleaseFirst(entries.map(\.source),
+                                                   ownNames: [romName, serialName].compactMap { $0 })
+            let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: min)
+            entries.sort { (rank[$0.source] ?? .max) < (rank[$1.source] ?? .max) }
             if entries.isEmpty { try await loadRegionalFallback() }
             // Could not recognise the file, and no other region has it either:
             // drop into search rather than a dead end, seeded with its own name.
@@ -280,10 +285,15 @@ struct CheatBrowserSheet: View {
     /// The game's own release name from its cartridge code, when it keys
     /// differently from the filename (see `CheatIndex.ownReleaseTitle`).
     private var ownReleaseName: String? {
-        guard let gameCode, let romSystem = ROMSystemType(rawValue: system),
-              let name = BoxArtIndex.shared.serialName(gameCode, system: romSystem)
-        else { return nil }
+        guard let name = serialName else { return nil }
         return CheatIndex.ownReleaseTitle(forROMName: romName, serialName: name)
+    }
+
+    /// The release the cartridge code names, region included, whatever the
+    /// file is called: "NSME" is "Super Mario 64 (USA)".
+    private var serialName: String? {
+        guard let gameCode, let romSystem = ROMSystemType(rawValue: system) else { return nil }
+        return BoxArtIndex.shared.serialName(gameCode, system: romSystem)
     }
 
     /// The same cartridge, released elsewhere under another name.

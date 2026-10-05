@@ -62,7 +62,7 @@ struct RALibraryCard: View {
                 .accessibilityHidden(true)
             Text("RetroAchievements")
                 .font(.headline)
-            Button(action: onInfo) {
+            FocusableButton(action: onInfo) {
                 Image(systemName: "info.circle")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -107,6 +107,7 @@ struct RALibraryCard: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { Haptics.tap(); onOpenProfile() }
+        .controllerFocusable(shape: .rounded(16)) { Haptics.tap(); onOpenProfile() }
     }
 
     private var recentsBlock: some View {
@@ -116,7 +117,7 @@ struct RALibraryCard: View {
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             ForEach(recents) { entry in
-                Button { onShareUnlock(entry) } label: {
+                FocusableButton { onShareUnlock(entry) } label: {
                     HStack(spacing: 10) {
                         AsyncImage(url: entry.badgeURL.flatMap(URL.init(string:))) { image in
                             image.resizable().scaledToFill()
@@ -155,7 +156,7 @@ struct RALibraryCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button(action: onConnect) {
+            FocusableButton(action: onConnect) {
                 Text(String(localized: "ra.connect", defaultValue: "Connect your account"))
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)

@@ -80,6 +80,8 @@ struct GameDetailsLandscapeView: View {
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
 
     @State private var cover: LibraryLandscapeCover?
+    /// The "…" panel of file actions is open.
+    @State private var showsFileActions = false
     @State private var previews: [Int: UIImage] = [:]
 
     private var isNDS: Bool { game.systemType == "nds" }
@@ -163,6 +165,11 @@ struct GameDetailsLandscapeView: View {
                     .padding(.top, 16)
                     .padding(.bottom, 22)
                 }
+
+                if showsFileActions {
+                    GameFileActionsPanel(entries: fileActionEntries,
+                                         onClose: { showsFileActions = false })
+                }
             }
             .frame(width: size.width, height: size.height)
         }
@@ -218,7 +225,7 @@ struct GameDetailsLandscapeView: View {
 
     private var topBar: some View {
         HStack(spacing: 12) {
-            Button {
+            FocusableButton(shape: .capsule) {
                 dismiss()
             } label: {
                 LandscapeChrome.circle(systemName: "chevron.left")
@@ -229,36 +236,36 @@ struct GameDetailsLandscapeView: View {
 
             ControllerStatusBadge(tint: .white)
 
-            Menu {
-                Button(action: actions.importSave) {
-                    Label(NSLocalizedString("saveImport.title", comment: ""), systemImage: "square.and.arrow.down")
-                }
-                Button(action: actions.exportSave) {
-                    Label(NSLocalizedString("saveExport.title", comment: ""), systemImage: "square.and.arrow.up")
-                }
-                Button(action: actions.replaceROM) {
-                    Label(NSLocalizedString("details.replaceROM", comment: ""), systemImage: "arrow.triangle.2.circlepath")
-                }
-                Button(action: actions.rename) {
-                    Label(NSLocalizedString("details.rename", comment: ""), systemImage: "pencil")
-                }
-                Button(action: actions.chooseCover) {
-                    Label(NSLocalizedString("details.cover.choose", comment: ""), systemImage: "photo")
-                }
-                if game.coverType == BoxArtManager.coverStateCustom {
-                    Button(action: actions.removeCover) {
-                        Label(NSLocalizedString("details.cover.remove", comment: ""), systemImage: "xmark.circle")
-                    }
-                }
-                Divider()
-                Button(role: .destructive, action: actions.delete) {
-                    Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
-                }
+            // The game's file actions, in a panel of the library's kind rather
+            // than a system menu (2026-09-27): a controller cannot open a
+            // system menu, and every other bar of these pages already opens
+            // panels (the sort and look ones since 2026-09-07).
+            FocusableButton(shape: .capsule) {
+                Haptics.tap()
+                showsFileActions = true
             } label: {
                 LandscapeChrome.circle(systemName: "ellipsis")
             }
         }
         .frame(height: 40)
+    }
+
+    /// The file actions, in the order the system menu had them, delete last.
+    private var fileActionEntries: [GameFileActionsPanel.Entry] {
+        var entries: [GameFileActionsPanel.Entry] = [
+            .init(titleKey: "saveImport.title", systemImage: "square.and.arrow.down", action: actions.importSave),
+            .init(titleKey: "saveExport.title", systemImage: "square.and.arrow.up", action: actions.exportSave),
+            .init(titleKey: "details.replaceROM", systemImage: "arrow.triangle.2.circlepath", action: actions.replaceROM),
+            .init(titleKey: "details.rename", systemImage: "pencil", action: actions.rename),
+            .init(titleKey: "details.cover.choose", systemImage: "photo", action: actions.chooseCover),
+        ]
+        if game.coverType == BoxArtManager.coverStateCustom {
+            entries.append(.init(titleKey: "details.cover.remove", systemImage: "xmark.circle",
+                                 action: actions.removeCover))
+        }
+        entries.append(.init(titleKey: "details.delete", systemImage: "trash",
+                             isDestructive: true, action: actions.delete))
+        return entries
     }
 
     // MARK: - The cover column
@@ -355,7 +362,7 @@ struct GameDetailsLandscapeView: View {
                 if hasSession {
                     // Portrait's icon for the same action, so the two layouts
                     // name it the same way.
-                    Button(action: actions.newGame) {
+                    FocusableButton(shape: .capsule, action: actions.newGame) {
                         HStack(spacing: 8) {
                             Image(systemName: "play.fill")
                             Text(NSLocalizedString("details.newGame", comment: ""))
@@ -371,7 +378,8 @@ struct GameDetailsLandscapeView: View {
                     }
                 }
 
-                Button {
+                // Where a controller's highlight starts on this page.
+                FocusableButton(shape: .capsule, isDefault: true) {
                     if hasSession { actions.resume() } else { actions.newGame() }
                 } label: {
                     HStack(spacing: 8) {
@@ -435,7 +443,7 @@ struct GameDetailsLandscapeView: View {
     }
 
     private func slotChip(_ slot: SaveSlotInfo) -> some View {
-        Button {
+        FocusableButton(shape: .rounded(10)) {
             actions.playSlot(slot.slotIndex)
         } label: {
             VStack(spacing: 6) {
@@ -490,7 +498,7 @@ struct GameDetailsLandscapeView: View {
         case .dashboard(let record):
             LandscapeChrome.card(nil) {
                 RASectionHeader(onInfo: actions.raInfo)
-                Button(action: actions.openAchievements) {
+                FocusableButton(action: actions.openAchievements) {
                     HStack(spacing: 12) {
                         if let boxArt = record.boxArtURL.flatMap(URL.init(string:)) {
                             AsyncImage(url: boxArt) { image in
@@ -584,8 +592,10 @@ struct GameDetailsLandscapeView: View {
         LandscapeChrome.card("Nintendo DS") {
             Toggle(NSLocalizedString("settings.nds.swapScreens", comment: ""), isOn: $ndsSwapScreens)
                 .tint(LibraryLandscapePalette.accent)
+                .controllerToggle($ndsSwapScreens, shape: .rounded(8))
             Toggle(NSLocalizedString("settings.nds.clock.manual", comment: ""), isOn: $ndsClockManual)
                 .tint(LibraryLandscapePalette.accent)
+                .controllerToggle($ndsClockManual, shape: .rounded(8))
             if ndsClockManual {
                 DatePicker(NSLocalizedString("settings.nds.clock.pickerLabel", comment: ""),
                            selection: ndsManualDate)
@@ -605,5 +615,86 @@ struct GameDetailsLandscapeView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(.white)
+    }
+}
+
+
+/// The game page's file actions on its side (2026-09-27): the library's panel
+/// shape (a dimmed page, a dark card, rows), which a finger and a controller
+/// both reach. Choosing a row closes the panel and runs the action, exactly as
+/// the system menu it replaces did.
+struct GameFileActionsPanel: View {
+    struct Entry: Identifiable {
+        let titleKey: String
+        let systemImage: String
+        var isDestructive = false
+        let action: () -> Void
+        var id: String { titleKey }
+    }
+
+    let entries: [Entry]
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onClose)
+                .accessibilityLabel(NSLocalizedString("common.cancel", comment: ""))
+
+            // Scrolls only when the rows outgrow the page (a small phone on
+            // its side, a long language): the rows are never cut to fit.
+            ViewThatFits(in: .vertical) {
+                rows
+                ScrollView(.vertical, showsIndicators: false) { rows }
+            }
+            .padding(.vertical, 6)
+            .frame(width: 300)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(red: 0.07, green: 0.07, blue: 0.10).opacity(0.97))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            .padding(.vertical, 16)
+            // While open, a controller reaches the rows alone; B closes it.
+            .controllerBack(onClose)
+            .controllerModalGroup("details.fileActions")
+        }
+        .transition(.opacity)
+    }
+
+    private var rows: some View {
+            VStack(spacing: 0) {
+                ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                    if index > 0 {
+                        Divider().overlay(Color.white.opacity(0.12))
+                    }
+                    FocusableButton(shape: .rounded(10), isDefault: index == 0) {
+                        Haptics.tap()
+                        onClose()
+                        entry.action()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: entry.systemImage)
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(width: 24)
+                            Text(NSLocalizedString(entry.titleKey, comment: ""))
+                                .font(.subheadline.weight(.medium))
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                        }
+                        .foregroundStyle(entry.isDestructive ? Color.red : Color.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 46)
+                        .contentShape(Rectangle())
+                    }
+                }
+            }
     }
 }

@@ -132,6 +132,24 @@
 				<string>com.retropal.rom.ps1</string>
 			</array>
 		</dict>
+		<!-- Nintendo 64. One entry for the three byte orders a cartridge is
+		     dumped in (.z64, .n64, .v64); the core reads all three. -->
+		<dict>
+			<key>CFBundleTypeIconFiles</key>
+			<array>
+				<string>DocIconN64</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Nintendo 64 ROM</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.retropal.rom.n64</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>Retro Pal Skin</string>
@@ -357,6 +375,25 @@
 					<string>mdf</string>
 					<string>toc</string>
 					<string>cbn</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Nintendo 64 ROM</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.retropal.rom.n64</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>z64</string>
+					<string>n64</string>
+					<string>v64</string>
 				</array>
 			</dict>
 		</dict>

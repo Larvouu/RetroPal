@@ -20,6 +20,8 @@
 //  GBA  header: title 0xA0-0xAB, marker byte 0x96 at 0xB2.
 //  GB   header: title 0x134-0x142, Nintendo logo 0x104-0x133.
 //  NDS  header: title 0x000-0x00B, ARM9/ARM7 descriptors at 0x20/0x30.
+//  N64  header: title 0x20-0x33, game code 0x3B-0x3E, in any of three byte
+//       orders (see `n64ByteOrder`).
 //
 
 import Foundation
@@ -33,6 +35,7 @@ enum ROMSystemType: String {
     case snes = "snes"
     case nes = "nes"
     case ps1 = "ps1"
+    case n64 = "n64"
 
     /// The PlayStation's formats, and the first ones here that are DISCS.
     ///
@@ -67,6 +70,10 @@ enum ROMSystemType: String {
         case "nds":          return .nds
         case "sfc", "smc":   return .snes
         case "nes":          return .nes
+        // One console, three extensions for the three byte orders its
+        // cartridges were dumped in. The core normalises all of them, and the
+        // header check below reads each.
+        case "z64", "n64", "v64": return .n64
         default:
             return discFileExtensions.contains(ext.lowercased()) ? .ps1 : nil
         }
@@ -94,7 +101,7 @@ enum ROMSystemType: String {
     /// Everything the file pickers offer. Sidecars are included so they can be
     /// selected ALONGSIDE their disc; the grouper drops any that arrive alone.
     static let allFileExtensions: [String] =
-        ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes"]
+        ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes", "z64", "n64", "v64"]
         + discFileExtensions.sorted() + discSidecarExtensions.sorted()
 
     /// Whether this system's games arrive as discs rather than cartridges.
@@ -169,6 +176,15 @@ enum GBAROMParser {
         case .gba:
             title = readASCII(data, 0x0A0, 0x0AC)
             gameCode = readASCII(data, 0x0AC, 0x0B0)
+        case .n64:
+            // Name at 0x20 (20 bytes) and the four-character game code at 0x3B
+            // (media, two-letter ID, region: "NSME" is Super Mario 64, USA),
+            // read in the console's own byte order whatever order the dump
+            // is in. The name is JIS X 0201 like the SNES's, which is what a
+            // Japanese cartridge's katakana title needs.
+            let header = n64BigEndianHeader(data) ?? Data()
+            title = readJISX0201(header, 0x20, 0x34)
+            gameCode = readASCII(header, 0x3B, 0x3F)
         case .ps1:
             // A disc carries both, and neither is at an offset. The name and
             // the serial (SCUS-94900 and the like) live in a SYSTEM.CNF inside
@@ -195,12 +211,18 @@ enum GBAROMParser {
     /// bytes — the code survives renaming AND NDS trimming, which is what
     /// box-art matching uses it for.
     static func gameCode(url: URL, system: ROMSystemType) -> String? {
-        guard system == .gba || system == .nds,
+        guard system == .gba || system == .nds || system == .n64,
               let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         guard let header = try? handle.read(upToCount: 0x200) else { return nil }
-        let code = system == .gba ? readASCII(header, 0x0AC, 0x0B0)
-                                  : readASCII(header, 0x00C, 0x010)
+        let code: String
+        switch system {
+        case .gba: code = readASCII(header, 0x0AC, 0x0B0)
+        // The N64's code is read in the console's order whatever the dump's,
+        // exactly as `parse(data:)` reads it.
+        case .n64: code = n64BigEndianHeader(header).map { readASCII($0, 0x3B, 0x3F) } ?? ""
+        default:   code = readASCII(header, 0x00C, 0x010)
+        }
         return code.count >= 3 ? code : nil
     }
 
@@ -229,6 +251,7 @@ enum GBAROMParser {
                   let offset = snesHeaderOffset(full) else { return nil }
             title = readJISX0201(full, offset, offset + 21)
         case .nes:      title = ""   // an iNES header carries no title
+        case .n64:      title = n64BigEndianHeader(header).map { readJISX0201($0, 0x20, 0x34) } ?? ""
         // Nor does a disc, at any offset this function could read. Its caller
         // is box-art matching, which asks "does the library title merely echo
         // the header?" — and with no header title there is no echo to find,
@@ -281,12 +304,13 @@ enum GBAROMParser {
         }
 
         // No usable extension, or the extension disagreed with the bytes.
-        // Sniff most-specific first: NES (4-byte magic) and NDS (strict
+        // Sniff most-specific first: NES and N64 (4-byte magics) and NDS (strict
         // structural check), then GB/GBC (logo), then SNES (a checksum pair,
         // which is weaker than a magic number but still a real test), then GBA
         // (a single marker byte — the weakest test, so it runs last to avoid
         // swallowing anything else).
         if isValidNESFile(data: data) { return .nes }
+        if isValidN64File(data: data) { return .n64 }
         if isValidNDSFile(data: data) { return .nds }
         if isValidGBFile(data: data) {
             // 0x143 = CGB flag: 0x80 = CGB-aware, 0xC0 = CGB-only.
@@ -311,6 +335,7 @@ enum GBAROMParser {
         case .gba:      return isValidGBAFile(data: data)
         case .snes:     return isValidSNESFile(data: data)
         case .nes:      return isValidNESFile(data: data)
+        case .n64:      return isValidN64File(data: data)
         // Unreachable in practice: `resolveSystem` returns a disc hint before
         // it gets here. Answering NO rather than YES anyway, because this
         // function's contract is a byte test and we have none — and it is the
@@ -348,6 +373,78 @@ enum GBAROMParser {
     static func isValidNESFile(data: Data) -> Bool {
         guard data.count >= 16 else { return false }
         return data[0] == 0x4E && data[1] == 0x45 && data[2] == 0x53 && data[3] == 0x1A
+    }
+
+    /// The first word of every N64 cartridge, as the console reads it
+    /// (big-endian, the `.z64` order), and as it lands in the other two dumps:
+    /// `.v64` swaps each 16-bit half, `.n64` reverses each 32-bit word. These
+    /// are the core's own signatures (mupen64plus-core `rom.c`), and the rule
+    /// is its `is_valid_rom`, size parity included, so the importer accepts
+    /// exactly what the core will load.
+    enum N64ByteOrder {
+        case bigEndian, halfwordSwapped, wordSwapped
+    }
+
+    static func n64ByteOrder(_ data: Data) -> N64ByteOrder? {
+        guard data.count >= 0x40 else { return nil }
+        let b = data.startIndex
+        let magic = (data[b], data[b + 1], data[b + 2], data[b + 3])
+        switch magic {
+        case (0x80, 0x37, 0x12, 0x40): return .bigEndian
+        case (0x37, 0x80, 0x40, 0x12): return data.count % 2 == 0 ? .halfwordSwapped : nil
+        case (0x40, 0x12, 0x37, 0x80): return data.count % 4 == 0 ? .wordSwapped : nil
+        default:                       return nil
+        }
+    }
+
+    static func isValidN64File(data: Data) -> Bool {
+        n64ByteOrder(data) != nil
+    }
+
+    /// The first 0x40 bytes of an N64 cartridge (the header) in the console's
+    /// own order, or nil when the data is not an N64 cartridge. Only the header
+    /// is reordered: it is all the parser reads, and a cartridge is up to 64 MB.
+    private static func n64BigEndianHeader(_ data: Data) -> Data? {
+        guard let order = n64ByteOrder(data) else { return nil }
+        var header = [UInt8](data.prefix(0x40))
+        n64ToConsoleOrder(&header, from: order)
+        return Data(header)
+    }
+
+    /// Whether this N64 cartridge boots through libdragon's open-source IPL3
+    /// (the boot code every libdragon game has been built with since 2023),
+    /// which the bundled core cannot run yet: the console's two processors
+    /// lose step in its command queue and the game stops on its own "RSP
+    /// CRASH" screen. Answered from the boot code's own banner,
+    /// " Libdragon IPL3  Coded by Rasky ", which libdragon places inside the
+    /// boot code (`boot/ipl3.c`, section `.banner`), so it is a fact about
+    /// the file rather than a guess from its title or size.
+    static func isLibdragonIPL3(_ data: Data) -> Bool {
+        guard let order = n64ByteOrder(data), data.count >= 0x1000 else { return false }
+        var boot = [UInt8](data.prefix(0x1000))
+        n64ToConsoleOrder(&boot, from: order)
+        return Data(boot).range(of: Data(" Libdragon IPL3 ".utf8)) != nil
+    }
+
+    /// Puts bytes of an N64 dump back in the console's own order, in place.
+    /// `bytes` must start on a word boundary of the file and hold whole words,
+    /// which every read of it does: the header, and the box-art hash's chunks.
+    /// One copy of the reordering, so the header the importer reads and the
+    /// bytes the box-art CRC hashes cannot come out of two different rules.
+    static func n64ToConsoleOrder(_ bytes: inout [UInt8], from order: N64ByteOrder) {
+        switch order {
+        case .bigEndian:
+            break
+        case .halfwordSwapped:
+            for i in stride(from: 0, to: bytes.count - 1, by: 2) {
+                bytes.swapAt(i, i + 1)
+            }
+        case .wordSwapped:
+            for i in stride(from: 0, to: bytes.count - 3, by: 4) {
+                bytes.swapAt(i, i + 3)
+                bytes.swapAt(i + 1, i + 2)
+            }
+        }
     }
 
     /// Every position a SNES cartridge header's TITLE field can occupy, in the
@@ -537,7 +634,8 @@ enum GBAROMParser {
             return true
         }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
-        return isValidNESFile(data: data) || isValidNDSFile(data: data)
+        return isValidNESFile(data: data) || isValidN64File(data: data)
+            || isValidNDSFile(data: data)
             || isValidGBFile(data: data) || isValidSNESFile(data: data)
             || isValidGBAFile(data: data)
     }

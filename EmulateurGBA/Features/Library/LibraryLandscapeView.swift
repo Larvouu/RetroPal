@@ -364,6 +364,20 @@ enum LandscapeChrome {
             .contentShape(Circle())
     }
 
+    /// A bar button that stands out from the glass circles beside it, dressed
+    /// like the Play button: the accent gradient and its glow. The import "+"
+    /// wears it (asked 2026-09-27): adding a game is the one action on that
+    /// row that matters more than the others.
+    static func accentCircle(systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 40, height: 40)
+            .background(Circle().fill(LibraryLandscapePalette.accentGradient))
+            .shadow(color: LibraryLandscapePalette.accent.opacity(0.55), radius: 10, y: 3)
+            .contentShape(Circle())
+    }
+
     /// The Library · Settings pill an iPad shows at the bottom of the library,
     /// of its welcome and of Settings, in BOTH orientations (decided on
     /// device, 2026-09-08). It mirrors the iPhone's upright tab bar, icon over
@@ -397,7 +411,7 @@ enum LandscapeChrome {
     /// language widens the primitive, the name is never cut).
     private static func tabPillItem(systemName: String, title: String,
                                     selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        FocusableButton(shape: .capsule, action: action) {
             VStack(spacing: 3) {
                 Image(systemName: systemName)
                     .font(.system(size: 18, weight: .semibold))
@@ -540,7 +554,18 @@ extension View {
 /// list is the content and is passed through untouched; only its chrome
 /// changes, the same way Settings was done.
 struct LandscapeListScaffold<Content: View>: View {
-    enum Leading { case back, cancel, none }
+    enum Leading {
+        case back, cancel, none
+
+        /// Whether the page has a way back, which B then takes. Spelled out
+        /// rather than `!= .none`, which Swift can read as Optional's `.none`.
+        var hasWayBack: Bool {
+            switch self {
+            case .back, .cancel: return true
+            case .none: return false
+            }
+        }
+    }
 
     let title: String
     var leading: Leading = .back
@@ -563,14 +588,14 @@ struct LandscapeListScaffold<Content: View>: View {
                 HStack(spacing: 12) {
                     switch leading {
                     case .back:
-                        Button {
+                        FocusableButton(shape: .capsule) {
                             dismiss()
                         } label: {
                             LandscapeChrome.circle(systemName: "chevron.left")
                         }
                         .accessibilityLabel(NSLocalizedString("tab.settings", comment: ""))
                     case .cancel:
-                        Button {
+                        FocusableButton(shape: .capsule) {
                             dismiss()
                         } label: {
                             Text(NSLocalizedString("common.cancel", comment: ""))
@@ -609,6 +634,22 @@ struct LandscapeListScaffold<Content: View>: View {
         .environment(\.colorScheme, .dark)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        // B does what the leading button does (`ControllerNavigator`).
+        .modifier(ScaffoldBack(enabled: leading.hasWayBack, back: { dismiss() }))
+    }
+}
+
+/// B on a page with a way back (`controllerBack`), and nothing on a root page.
+struct ScaffoldBack: ViewModifier {
+    let enabled: Bool
+    let back: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.controllerBack(back)
+        } else {
+            content
+        }
     }
 }
 
@@ -682,6 +723,7 @@ struct LandscapeListSwitch<Content: View>: View {
 
     /// A phone on its side, or an iPad window (see `LandscapeSurface`).
     @LandscapeSurface private var isLandscape
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         if isLandscape {
@@ -689,6 +731,8 @@ struct LandscapeListSwitch<Content: View>: View {
         } else {
             content()
                 .uprightLook()
+                // Upright the system bar's back button leads; B does the same.
+                .modifier(ScaffoldBack(enabled: leading.hasWayBack, back: { dismiss() }))
         }
     }
 }
@@ -704,7 +748,7 @@ struct LibraryImportCTA: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        FocusableButton(shape: .rounded(14), isDefault: true, action: action) {
             Label(NSLocalizedString("library.empty.button", comment: ""), systemImage: "plus")
                 .font(.headline)
                 .foregroundColor(.white)
@@ -759,7 +803,7 @@ struct LibraryStepLabel: View {
 
 /// The welcome screen on its side (the library with no game yet): the
 /// library's ground and bar, the pitch on the left (headline, one line, the
-/// seven consoles) and the three steps, the call to action and the two notes
+/// eight consoles) and the three steps, the call to action and the two notes
 /// on the right. Same strings, same order as the upright welcome.
 struct LibraryEmptyLandscapeView: View {
     /// An upright phone in a chosen look (2026-09-07): the pitch above the
@@ -790,15 +834,15 @@ struct LibraryEmptyLandscapeView: View {
                 HStack(spacing: 12) {
                     Spacer(minLength: 8)
                     ControllerStatusBadge(tint: .white)
-                    Button {
+                    FocusableButton(shape: .capsule) {
                         Haptics.tap()
                         showThemePicker = true
                     } label: {
                         LandscapeChrome.circle(systemName: "paintpalette")
                     }
                     .accessibilityLabel(themeStore.theme.name)
-                    Button(action: onImport) {
-                        LandscapeChrome.circle(systemName: "plus")
+                    FocusableButton(shape: .capsule, action: onImport) {
+                        LandscapeChrome.accentCircle(systemName: "plus")
                     }
                     .accessibilityLabel(NSLocalizedString("guide.importRom.title", comment: ""))
                 }
@@ -861,7 +905,7 @@ struct LibraryEmptyLandscapeView: View {
             // Upright the tab bar stays and Settings is a tab, so no circle;
             // an iPad has the pill at the bottom for it (2026-09-08).
             if !upright && !isTablet {
-                Button(action: onSettings) {
+                FocusableButton(shape: .capsule, action: onSettings) {
                     LandscapeChrome.circle(systemName: "gearshape")
                 }
                 .accessibilityLabel(NSLocalizedString("tab.settings", comment: ""))
@@ -880,7 +924,7 @@ struct LibraryEmptyLandscapeView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// The headline, the one line and the seven consoles.
+    /// The headline, the one line and the eight consoles.
     private var pitchColumn: some View {
         VStack(spacing: 14) {
             Text(NSLocalizedString("library.empty.title", comment: ""))
@@ -1022,7 +1066,6 @@ struct LibraryLandscapeView: View {
     @State private var playMenu: LibraryPlayMenuModel?
     @State private var showThemePicker = false
     @State private var showSortPicker = false
-    @State private var newGameConfirm: GameEntity?
     @State private var saveTick = 0
 
     private let selectionHaptic = UISelectionFeedbackGenerator()
@@ -1202,16 +1245,9 @@ struct LibraryLandscapeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
             saveTick &+= 1
         }
-        .alert(NSLocalizedString("details.newGame.confirm.title", comment: ""),
-               isPresented: Binding(get: { newGameConfirm != nil },
-                                    set: { if !$0 { newGameConfirm = nil } })) {
-            Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) { newGameConfirm = nil }
-            Button(NSLocalizedString("details.newGame", comment: "")) {
-                if let game = newGameConfirm { onPlay(game, nil) }
-                newGameConfirm = nil
-            }
-        } message: {
-            Text(NSLocalizedString("details.newGame.confirm.message", comment: ""))
+        // The library's default cover was switched, or an image it needs landed.
+        .onReceive(NotificationCenter.default.publisher(for: BoxArtManager.LibraryCoverSource.didChange)) { _ in
+            saveTick &+= 1
         }
     }
 
@@ -1259,9 +1295,12 @@ struct LibraryLandscapeView: View {
             }
             HStack(spacing: 10) {
                 searchField
-                    .frame(maxWidth: 300)
+                    .frame(minWidth: Self.searchMinWidth, maxWidth: 300)
                 Spacer(minLength: 8)
+                // The badge is served first (it picks the largest of its forms
+                // that fits), the search field keeps at least its minimum.
                 ControllerStatusBadge(tint: .white)
+                    .layoutPriority(1)
             }
         }
         .frame(height: 90)
@@ -1273,7 +1312,7 @@ struct LibraryLandscapeView: View {
     /// for the screen instead, and can show the consoles' drawings and a
     /// highlighted row, which a menu cannot.
     private var sortButton: some View {
-        Button {
+        FocusableButton(shape: .capsule) {
             Haptics.tap()
             showSortPicker = true
         } label: {
@@ -1286,7 +1325,7 @@ struct LibraryLandscapeView: View {
     /// story card (decided on device, 2026-09-05); then the card, the trophy and the plus.
     @ViewBuilder
     private var barTrailingButtons: some View {
-        Button {
+        FocusableButton(shape: .capsule) {
             Haptics.tap()
             showThemePicker = true
         } label: {
@@ -1295,27 +1334,33 @@ struct LibraryLandscapeView: View {
         .accessibilityLabel(themeStore.theme.name)
 
         if showsStats {
-            Button(action: onStats) { LandscapeChrome.circle(systemName: "chart.bar.xaxis") }
+            FocusableButton(shape: .capsule, action: onStats) { LandscapeChrome.circle(systemName: "chart.bar.xaxis") }
                 .accessibilityLabel(NSLocalizedString("library.stats.title", comment: ""))
         }
         if showsRA {
-            Button(action: onRA) { LandscapeChrome.circle(systemName: "trophy") }
+            FocusableButton(shape: .capsule, action: onRA) { LandscapeChrome.circle(systemName: "trophy") }
                 .accessibilityLabel("RetroAchievements")
         }
-        Button(action: onImport) { LandscapeChrome.circle(systemName: "plus") }
+        FocusableButton(shape: .capsule, action: onImport) { LandscapeChrome.accentCircle(systemName: "plus") }
             .accessibilityLabel(NSLocalizedString("guide.importRom.title", comment: ""))
     }
+
+    /// The narrowest the search field gets beside several controllers' badge:
+    /// room for its glass, the magnifier and a few letters of the query.
+    static let searchMinWidth: CGFloat = 140
 
     private var topBar: some View {
         HStack(spacing: 10) {
             sortButton
 
             searchField
-                .frame(maxWidth: isTablet ? 360 : 300)
+                .frame(minWidth: Self.searchMinWidth, maxWidth: isTablet ? 360 : 300)
 
             Spacer(minLength: 8)
 
+            // Served first, like the upright bar's (see there).
             ControllerStatusBadge(tint: .white)
+                .layoutPriority(1)
 
             barTrailingButtons
         }
@@ -1375,6 +1420,34 @@ struct LibraryLandscapeView: View {
                 .opacity(list.isEmpty ? 0 : 0.6)
                 .zIndex(-1000)
                 .allowsHitTesting(false)
+            // The rack is ONE stop for a controller, at the centred cover
+            // (`ControllerNavigator`): left and right turn the rack as a swipe
+            // would, A plays the centred game as Play does, and the highlight
+            // leaves the rack only past its first or last cover.
+            if selectedGame != nil {
+                let centred = geometry.itemSide * LibraryCarouselGeometry.selectedScale
+                Color.clear
+                    .frame(width: centred, height: centred)
+                    .controllerFocusable(shape: .rounded(geometry.itemSide * 0.11 * LibraryCarouselGeometry.selectedScale),
+                                         isDefault: true,
+                                         onMove: { direction in
+                                             switch direction {
+                                             case .left where selectedIndex > 0:
+                                                 select(selectedIndex - 1)
+                                                 return true
+                                             case .right where selectedIndex < list.count - 1:
+                                                 select(selectedIndex + 1)
+                                                 return true
+                                             default:
+                                                 return false
+                                             }
+                                         },
+                                         action: {
+                                             if let game = selectedGame { playTapped(game) }
+                                         })
+                    .allowsHitTesting(false)
+                    .zIndex(-999)
+            }
             ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
                 if abs(index - live) <= radius {
                     let distance = CGFloat(index) - progress
@@ -1462,6 +1535,10 @@ struct LibraryLandscapeView: View {
                         Haptics.tap()
                         onOpenDetails(game)
                     }
+                    .controllerFocusable(shape: .rounded(Self.heroCoverSide * 0.11)) {
+                        Haptics.tap()
+                        onOpenDetails(game)
+                    }
                     // Rename and delete on a long press, as on the rack's
                     // covers and the rows (2026-09-07).
                     .contextMenu {
@@ -1522,7 +1599,7 @@ struct LibraryLandscapeView: View {
     /// Play and (i) at the hero's size: a shorter capsule and a 40-point circle.
     private func heroActions(_ game: GameEntity) -> some View {
         HStack(spacing: 10) {
-            Button {
+            FocusableButton(shape: .capsule, isDefault: true) {
                 Haptics.tap()
                 playTapped(game)
             } label: {
@@ -1538,7 +1615,7 @@ struct LibraryLandscapeView: View {
                 .background(Capsule().fill(LibraryLandscapePalette.accentGradient))
                 .shadow(color: LibraryLandscapePalette.accent.opacity(0.55), radius: 12, y: 3)
             }
-            Button {
+            FocusableButton(shape: .capsule) {
                 Haptics.tap()
                 onOpenDetails(game)
             } label: {
@@ -1651,7 +1728,7 @@ struct LibraryLandscapeView: View {
     private var actionRow: some View {
         if let game = selectedGame {
             HStack(spacing: 12) {
-                Button {
+                FocusableButton(shape: .capsule) {
                     Haptics.tap()
                     playTapped(game)
                 } label: {
@@ -1670,7 +1747,7 @@ struct LibraryLandscapeView: View {
                     .shadow(color: LibraryLandscapePalette.accent.opacity(0.55), radius: 14, y: 4)
                 }
 
-                Button {
+                FocusableButton(shape: .capsule) {
                     Haptics.tap()
                     onOpenDetails(game)
                 } label: {
@@ -1711,8 +1788,16 @@ struct LibraryLandscapeView: View {
             onPlay(game, slot)
         } else {
             // Same guard as Game Details: a fresh start with a session to
-            // resume asks first.
-            newGameConfirm = game
+            // resume asks first. A UIKit alert with navigable actions, so a
+            // controller can answer it too (`ControllerAlert`); the same two
+            // buttons the SwiftUI alert here had.
+            ControllerAlert.present(
+                title: NSLocalizedString("details.newGame.confirm.title", comment: ""),
+                message: NSLocalizedString("details.newGame.confirm.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                    .init(title: NSLocalizedString("details.newGame", comment: "")) { onPlay(game, nil) },
+                ])
         }
     }
 
@@ -1722,7 +1807,7 @@ struct LibraryLandscapeView: View {
     /// and under the bar's plus (2026-09-07; it used to sit in the bottom
     /// corner). No Library half: this screen IS the library (decided on device, 2026-09-04).
     private var settingsButton: some View {
-        Button(action: onSettings) {
+        FocusableButton(shape: .capsule, action: onSettings) {
             LandscapeChrome.circle(systemName: "gearshape")
         }
         .accessibilityLabel(NSLocalizedString("tab.settings", comment: ""))
@@ -2008,7 +2093,7 @@ struct LibraryPlayMenu: View {
                     if index > 0 {
                         Divider().overlay(Color.white.opacity(0.12))
                     }
-                    Button {
+                    FocusableButton(shape: .rounded(10), isDefault: index == 0) {
                         Haptics.tap()
                         onPick(row.slot)
                     } label: {
@@ -2062,6 +2147,9 @@ struct LibraryPlayMenu: View {
                     .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            // While open, a controller reaches the rows alone; B closes it.
+            .controllerBack(onClose)
+            .controllerModalGroup("library.playMenu")
         }
         .transition(.opacity)
     }
@@ -2118,6 +2206,9 @@ struct LibrarySortPicker: View {
                     .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            // While open, a controller reaches the rows alone; B closes it.
+            .controllerBack(onClose)
+            .controllerModalGroup("library.sort")
         }
         .transition(.opacity)
     }
@@ -2164,7 +2255,8 @@ struct LibrarySortPicker: View {
     /// A row: its label at the left, the glass highlight when chosen.
     private func row<Content: View>(selected: Bool, action: @escaping () -> Void,
                                     @ViewBuilder label: () -> Content) -> some View {
-        Button {
+        // The chosen row is where a controller's highlight starts.
+        FocusableButton(shape: .rounded(10), isDefault: selected) {
             Haptics.tap()
             action()
             onClose()
@@ -2202,6 +2294,11 @@ struct LandscapeThemePicker: View {
     let onClose: () -> Void
 
     @ObservedObject private var store = LandscapeThemeStore.shared
+    /// The covers page of this panel is showing (2026-09-27).
+    @State private var showsCovers = false
+    /// The library's default cover (`BoxArtManager.LibraryCoverSource`).
+    @AppStorage(BoxArtManager.LibraryCoverSource.key)
+    private var coverSource: String = BoxArtManager.LibraryCoverSource.boxArt.rawValue
 
     /// The check sits on Classic while the upright phone shows the List, and
     /// on the look otherwise; on a phone on its side, always on the look.
@@ -2215,9 +2312,43 @@ struct LandscapeThemePicker: View {
                 .accessibilityLabel(NSLocalizedString("common.cancel", comment: ""))
 
             VStack(spacing: 0) {
+                if showsCovers {
+                    coversPage
+                } else {
+                    looksPage
+                }
+            }
+            .padding(.top, 6)
+            .frame(width: 280)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(red: 0.07, green: 0.07, blue: 0.10).opacity(0.97))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            // While open, a controller reaches the rows alone; B steps back
+            // from the covers page, then closes the panel.
+            .controllerBack {
+                if showsCovers {
+                    withAnimation(.easeOut(duration: 0.15)) { showsCovers = false }
+                } else {
+                    onClose()
+                }
+            }
+            .controllerModalGroup("library.looks")
+        }
+        .transition(.opacity)
+    }
+
+    /// The looks, the hero switch, and the door to the covers page.
+    @ViewBuilder
+    private var looksPage: some View {
                 if offersClassic {
                     let name = NSLocalizedString("library.theme.classic", comment: "")
-                    Button {
+                    FocusableButton(shape: .rounded(10), isDefault: classicChecked) {
                         Haptics.tap()
                         store.portraitClassic = true
                         onClose()
@@ -2247,7 +2378,7 @@ struct LandscapeThemePicker: View {
                         Divider().overlay(Color.white.opacity(0.12))
                     }
                     let checked = store.theme == theme && !classicChecked
-                    Button {
+                    FocusableButton(shape: .rounded(10), isDefault: checked) {
                         Haptics.tap()
                         store.theme = theme
                         if offersClassic { store.portraitClassic = false }
@@ -2286,22 +2417,104 @@ struct LandscapeThemePicker: View {
                     .tint(store.theme.accent)
                     .padding(.horizontal, 14)
                     .frame(height: 48)
+                    .controllerToggle($store.showsHero, shape: .rounded(10))
+                }
+                // The library's covers, for every game at once (2026-09-27):
+                // they belong to the library, so they are chosen here, beside
+                // its look, and not in Settings.
+                Divider().overlay(Color.white.opacity(0.12))
+                FocusableButton(shape: .rounded(10)) {
+                    Haptics.tap()
+                    withAnimation(.easeOut(duration: 0.15)) { showsCovers = true }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                        Text(NSLocalizedString("library.covers.row", comment: ""))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
                 }
                 Color.clear.frame(height: 6)
+    }
+
+    /// The three sources, the note that says what choosing one does, and a
+    /// way back. The labels are the per-game cover chooser's own, so the two
+    /// places name the same covers the same way.
+    @ViewBuilder
+    private var coversPage: some View {
+        let sources: [(BoxArtManager.LibraryCoverSource, String)] = [
+            (.retroAchievements, "cover.choose.ra"),
+            (.boxArt, "cover.choose.boxart"),
+            (.screenshot, "cover.choose.screenshot"),
+        ]
+        HStack(spacing: 8) {
+            FocusableButton(shape: .rounded(8)) {
+                Haptics.tap()
+                withAnimation(.easeOut(duration: 0.15)) { showsCovers = false }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
-            .padding(.top, 6)
-            .frame(width: 280)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(red: 0.07, green: 0.07, blue: 0.10).opacity(0.97))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            .accessibilityLabel(NSLocalizedString("common.back", comment: ""))
+            Text(NSLocalizedString("library.covers.row", comment: ""))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Spacer(minLength: 0)
         }
-        .transition(.opacity)
+        .padding(.horizontal, 10)
+        .frame(height: 40)
+        ForEach(Array(sources.enumerated()), id: \.offset) { _, entry in
+            let (source, key) = entry
+            let checked = coverSource == source.rawValue
+            Divider().overlay(Color.white.opacity(0.12))
+            FocusableButton(shape: .rounded(10), isDefault: checked) {
+                Haptics.tap()
+                coverSource = source.rawValue
+                NotificationCenter.default.post(name: BoxArtManager.LibraryCoverSource.didChange,
+                                                object: nil)
+                onClose()
+            } label: {
+                HStack(spacing: 12) {
+                    Text(NSLocalizedString(key, comment: ""))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    if checked {
+                        Image(systemName: "checkmark")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(store.theme.highlight)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(minHeight: 48)
+                .contentShape(Rectangle())
+            }
+            .accessibilityAddTraits(checked ? [.isButton, .isSelected] : .isButton)
+        }
+        Divider().overlay(Color.white.opacity(0.12))
+        Text(NSLocalizedString("library.covers.note", comment: ""))
+            .font(.caption)
+            .foregroundStyle(.white.opacity(0.6))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
     }
 
     /// The List's swatch: the system's light ground with a grey ring, the
@@ -2367,6 +2580,14 @@ struct LibraryLandscapeBackground: View {
     var dimmed: Bool = false
 
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
+    /// A running game holds every ground still, wherever it is drawn (the
+    /// library, the game page, Settings...): they sit alive under the game's
+    /// cover and their clock ran on the emulator's thread. See
+    /// `EmulationActivity` for the measurement behind it.
+    @ObservedObject private var emulation = EmulationActivity.shared
+
+    /// The caller's reason to hold still, or a game running.
+    private var holdsStill: Bool { isPaused || emulation.isRunning }
 
     private struct Blob: Identifiable {
         enum Role { case accent, highlight }
@@ -2412,7 +2633,7 @@ struct LibraryLandscapeBackground: View {
             let size = geo.size
             ZStack {
                 theme.ground
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isPaused)) { context in
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: holdsStill)) { context in
                     let t = context.date.timeIntervalSinceReferenceDate
                     // The glows scale with the SHORT side. On a phone this ground
                     // is only ever drawn on its side, where the short side is the
@@ -2443,7 +2664,7 @@ struct LibraryLandscapeBackground: View {
                     .resizable(resizingMode: .tile)
                     .interpolation(.none)
                     .opacity(0.05)
-                LibraryLandscapeParticlesView(isPaused: isPaused, theme: theme)
+                LibraryLandscapeParticlesView(isPaused: holdsStill, theme: theme)
                 if dimmed {
                     Color.black.opacity(LandscapeChrome.groundFilm)
                 }
@@ -2564,7 +2785,17 @@ final class LibraryLandscapeParticleLayerView: UIView {
     /// with the area, against the largest phone, which never exceeds one.
     private static let phoneReferenceArea: CGFloat = 956 * 440
 
+    /// Paused means STOPPED, not only "no new dust" (2026-09-23). A birth rate of
+    /// zero alone left the live particles drifting out over their lifetime,
+    /// up to twenty seconds of drawing under a game or on a Reduce Motion
+    /// screen. Hidden, the layer is not rendered at all; shown again, it
+    /// resumes with the birth rate below. No implicit fade: `hidden` is
+    /// animatable on a plain sublayer.
     private func updateBirthRate() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        emitter.isHidden = paused
         guard !paused else { emitter.birthRate = 0; return }
         let area = bounds.width * bounds.height
         emitter.birthRate = Float(max(1, area / Self.phoneReferenceArea))

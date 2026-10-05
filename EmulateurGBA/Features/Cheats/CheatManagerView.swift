@@ -88,9 +88,17 @@ struct CheatManagerView: View {
     /// calls), and PCSX-ReARMed reduces whatever is pasted to GameShark / Action
     /// Replay address-value pairs (`retro_cheat_set` in its own libretro.c).
     /// GB and GBC keep the Game Boy family's answer, which is the default.
+    ///
+    /// The Nintendo 64 shares the PlayStation's answer because it is the same
+    /// shape, not a similar one: Mupen64Plus-Next's `retro_cheat_set` also reads
+    /// hex address-value pairs, and N64 GameShark / Action Replay codes are
+    /// eight digits of address then four of value, one pair per line. The
+    /// hint, the example and the refusal read the same for both consoles in
+    /// every language, so one set of strings serves both.
     private var formatKey: String {
         switch systemKey {
         case "nds", "snes", "nes", "ps1": return systemKey
+        case "n64": return "ps1"
         default: return "gba"
         }
     }
@@ -530,6 +538,8 @@ struct CheatManagerView: View {
                                                         : "cheats.invalid.characters", comment: "")
         case .unpairedLine:
             return NSLocalizedString("cheats.invalid.pairs", comment: "")
+        case .placeholderValue:
+            return NSLocalizedString("cheats.invalid.placeholder", comment: "")
         case nil:
             return NSLocalizedString("cheats.invalid." + formatKey, comment: "")
         }

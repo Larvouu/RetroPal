@@ -186,6 +186,23 @@ struct SkinEditorView: View {
                     ("skin.editor.dpad", ps1Binding(\.padHex)),
                     ("skin.editor.faceButtons", ps1Binding(\.diamondHex)),
                     ("skin.editor.printedText", ps1Binding(\.printHex))]
+        // Every colour the dress paints is a slot (`N64SkinPalette`), so A can
+        // differ from B and MENU / CLIP from L / R. Ordered as the eye meets
+        // them: the shell, then the pad from its top edge down.
+        case .n64:
+            return [("skin.editor.body", n64Binding(\.bodyHex)),
+                    ("skin.editor.shoulders", n64Binding(\.shouldersHex)),
+                    ("skin.editor.menuButtons", n64Binding(\.menuButtonsHex)),
+                    ("skin.editor.menuIcons", n64Binding(\.menuIconsHex)),
+                    ("skin.editor.stick", n64Binding(\.stickHex)),
+                    ("skin.editor.stickSurround", n64Binding(\.stickSurroundHex)),
+                    ("skin.editor.dpad", n64Binding(\.dpadHex)),
+                    ("skin.editor.dpadMarks", n64Binding(\.dpadMarksHex)),
+                    ("skin.editor.faceA", n64Binding(\.aHex)),
+                    ("skin.editor.faceB", n64Binding(\.bHex)),
+                    ("skin.editor.faceZ", n64Binding(\.zHex)),
+                    ("skin.editor.cButtons", n64Binding(\.cHex)),
+                    ("skin.editor.startButton", n64Binding(\.startHex))]
         case .gbc:
             return [("skin.editor.body", gbcBinding(\.bodyHex)),
                     ("skin.editor.surround", gbcBinding(\.surroundHex)),
@@ -252,6 +269,11 @@ struct SkinEditorView: View {
                         palette = .ps1(p)
                     }
                 })
+    }
+
+    private func n64Binding(_ kp: WritableKeyPath<N64SkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .n64(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .n64(var p) = palette { p[keyPath: kp] = v; palette = .n64(p) } })
     }
 
     private var saveButton: some View {

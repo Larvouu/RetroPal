@@ -3,7 +3,8 @@
 //  EmulateurGBA
 //
 //  A value snapshot of a game controller's button states at one instant.
-//  ControllerManager snapshots the live GCExtendedGamepad into this struct,
+//  ControllerManager snapshots the live GCExtendedGamepad (or, for a pad iOS
+//  offers without that profile, its physical input profile) into this struct,
 //  and the button-mapping logic then works off the snapshot. That keeps the
 //  mapping pure and unit-testable with a hand-built value, no hardware.
 //
@@ -23,6 +24,15 @@ struct ControllerInputSource {
     var down = false
     var left = false
     var right = false
+    /// The D-pad ALONE, without the left stick folded in. `up` and the three
+    /// others are what every console with a digital pad reads; these are for
+    /// the Nintendo 64, whose stick is its own analog control and whose D-pad
+    /// is a separate input a game reads for something else, so a push of the
+    /// stick must not also press the D-pad.
+    var padUp = false
+    var padDown = false
+    var padLeft = false
+    var padRight = false
     var shoulderL = false
     var shoulderR = false
     var menu = false            // physical Menu/Start button
@@ -116,10 +126,14 @@ extension ControllerInputSource {
         rightStickX = CGFloat(g.rightThumbstick.xAxis.value)
         rightStickY = CGFloat(g.rightThumbstick.yAxis.value)
         let stick = Self.stickDirections(x: leftStickX, y: leftStickY)
-        up = g.dpad.up.isPressed || stick & GBAInput.up.rawValue != 0
-        down = g.dpad.down.isPressed || stick & GBAInput.down.rawValue != 0
-        left = g.dpad.left.isPressed || stick & GBAInput.left.rawValue != 0
-        right = g.dpad.right.isPressed || stick & GBAInput.right.rawValue != 0
+        padUp = g.dpad.up.isPressed
+        padDown = g.dpad.down.isPressed
+        padLeft = g.dpad.left.isPressed
+        padRight = g.dpad.right.isPressed
+        up = padUp || stick & GBAInput.up.rawValue != 0
+        down = padDown || stick & GBAInput.down.rawValue != 0
+        left = padLeft || stick & GBAInput.left.rawValue != 0
+        right = padRight || stick & GBAInput.right.rawValue != 0
         shoulderL = g.leftShoulder.isPressed
         shoulderR = g.rightShoulder.isPressed
         menu = g.buttonMenu.isPressed
@@ -129,5 +143,80 @@ extension ControllerInputSource {
         leftTrigger = g.leftTrigger.isPressed
         rightTrigger = g.rightTrigger.isPressed
         rightStickClick = g.rightThumbstickButton?.isPressed ?? false
+    }
+}
+
+extension ControllerInputSource {
+    /// One directional element read off a profile: its four directions as the
+    /// framework resolves them, and its two axes (y positive UP).
+    struct DirectionalState {
+        var up = false
+        var down = false
+        var left = false
+        var right = false
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+    }
+
+    /// Snapshot a controller from its elements, looked up BY NAME, which is
+    /// how a pad that iOS recognises without the extended-gamepad profile is
+    /// read. The case this serves is a stick-less USB-C pad such as the 8BitDo
+    /// FlipPad: its owner saw no controller at all in Settings while other
+    /// emulators, which read every pad this way, worked (support mail,
+    /// 2026-09-26). Any element the pad lacks reads as released; Options
+    /// counts as present only if the pad has one, like `init(_:)` below.
+    /// The micro-gamepad names are the fallback for the d-pad and the two
+    /// buttons that profile carries.
+    ///
+    /// Pure on purpose, fed with plain dictionaries, so the name mapping is
+    /// unit-tested without hardware; `init(profile:)` only reads the live
+    /// values into them.
+    init(buttons: [String: Bool], dpads: [String: DirectionalState]) {
+        func button(_ names: String...) -> Bool? {
+            for name in names { if let pressed = buttons[name] { return pressed } }
+            return nil
+        }
+        faceA = button(GCInputButtonA, GCInputMicroGamepadButtonA) ?? false
+        faceB = button(GCInputButtonB) ?? false
+        faceX = button(GCInputButtonX, GCInputMicroGamepadButtonX) ?? false
+        faceY = button(GCInputButtonY) ?? false
+        shoulderL = button(GCInputLeftShoulder) ?? false
+        shoulderR = button(GCInputRightShoulder) ?? false
+        menu = button(GCInputButtonMenu) ?? false
+        let optionsState = button(GCInputButtonOptions)
+        options = optionsState ?? false
+        hasOptions = (optionsState != nil)
+        leftStickClick = button(GCInputLeftThumbstickButton) ?? false
+        leftTrigger = button(GCInputLeftTrigger) ?? false
+        rightTrigger = button(GCInputRightTrigger) ?? false
+        rightStickClick = button(GCInputRightThumbstickButton) ?? false
+
+        let pad = dpads[GCInputDirectionPad] ?? dpads[GCInputMicroGamepadDpad] ?? DirectionalState()
+        let leftStick = dpads[GCInputLeftThumbstick] ?? DirectionalState()
+        let rightStick = dpads[GCInputRightThumbstick] ?? DirectionalState()
+        leftStickX = leftStick.x
+        leftStickY = leftStick.y
+        rightStickX = rightStick.x
+        rightStickY = rightStick.y
+        let stick = Self.stickDirections(x: leftStickX, y: leftStickY)
+        padUp = pad.up
+        padDown = pad.down
+        padLeft = pad.left
+        padRight = pad.right
+        up = padUp || stick & GBAInput.up.rawValue != 0
+        down = padDown || stick & GBAInput.down.rawValue != 0
+        left = padLeft || stick & GBAInput.left.rawValue != 0
+        right = padRight || stick & GBAInput.right.rawValue != 0
+    }
+
+    /// Snapshot a live physical input profile (see `init(buttons:dpads:)`).
+    init(profile: GCPhysicalInputProfile) {
+        self.init(
+            buttons: profile.buttons.mapValues { $0.isPressed },
+            dpads: profile.dpads.mapValues { d in
+                DirectionalState(up: d.up.isPressed, down: d.down.isPressed,
+                                 left: d.left.isPressed, right: d.right.isPressed,
+                                 x: CGFloat(d.xAxis.value), y: CGFloat(d.yAxis.value))
+            })
     }
 }

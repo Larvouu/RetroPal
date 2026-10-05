@@ -55,6 +55,13 @@ struct RAShareScaffold<Picker: View>: View {
     private var hasPicker: Bool { Picker.self != EmptyView.self }
 
     var body: some View {
+        cardBody
+            // B (Circle on a PlayStation pad) closes the card, as its close
+            // button does (`ControllerNavigator`, asked 2026-09-27).
+            .controllerBack(onClose)
+    }
+
+    private var cardBody: some View {
         Group {
             if verticalSizeClass == .compact {
                 landscapeLayout

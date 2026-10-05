@@ -93,6 +93,18 @@ struct AppShellView: View {
         .onChange(of: selectedTab) { _ in
             Haptics.tap()
         }
+        // L and R on player 1's controller switch tabs, and so does left or
+        // right past the edge of a tab's page (`ControllerNavigator`).
+        .onAppear {
+            ControllerNavigator.shared.onSwitchTab = { delta in
+                let tabs: [AppTab] = [.library, .settings]
+                guard let index = tabs.firstIndex(of: selectedTab) else { return false }
+                let next = index + delta
+                guard tabs.indices.contains(next) else { return false }
+                selectedTab = tabs[next]
+                return true
+            }
+        }
         // Measured from behind the tab view so nothing about its layout
         // changes. Until the first pass lands the value is nil and the
         // surfaces read the window, as they always did.

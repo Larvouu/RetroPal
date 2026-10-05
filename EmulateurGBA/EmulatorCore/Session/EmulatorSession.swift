@@ -88,11 +88,14 @@ final class EmulatorSession: ObservableObject {
     /// and Pal Park writes to it).
     private var gbaSlot2Basename: String?
 
-    /// Feed the PlayStation's analog sticks, each axis -1...1, **y positive
-    /// DOWN**, which is what UIKit, libretro and the PlayStation all use.
+    /// Feed the analog sticks, each axis -1...1, **y positive DOWN**, which is
+    /// what UIKit and libretro use. On the PlayStation they are the DualShock's
+    /// two sticks. On the Nintendo 64 the left one is the control stick and the
+    /// right one reaches the C buttons, which is how a modern pad's right stick
+    /// plays an N64 game.
     ///
     /// A no-op on every other core, exactly as `configureGBASlot2` is a no-op
-    /// off the DS: the protocol stays the four cores' common contract and the
+    /// off the DS: the protocol stays the cores' common contract and the
     /// console-specific surfaces are reached through a cast.
     ///
     /// No flip here. GameController is the one source that measures +1 as UP,
@@ -100,10 +103,18 @@ final class EmulatorSession: ObservableObject {
     /// path had to negate on the way in so this could negate back, and a value
     /// that passes through two negations to arrive unchanged is a sign error
     /// waiting for someone to remove one of them.
-    func setAnalogSticks(leftX: CGFloat, leftY: CGFloat, rightX: CGFloat, rightY: CGFloat) {
-        guard let pcsx = bridge as? PCSXBridge else { return }
-        pcsx.setLeftStickX(Float(leftX), y: Float(leftY))
-        pcsx.setRightStickX(Float(rightX), y: Float(rightY))
+    ///
+    /// `player` is 0-based (0 = player 1, the touch sticks' player), like
+    /// `setKeys(_:player:)`.
+    func setAnalogSticks(leftX: CGFloat, leftY: CGFloat, rightX: CGFloat, rightY: CGFloat,
+                         player: Int = 0) {
+        if let pcsx = bridge as? PCSXBridge {
+            pcsx.setLeftStickX(Float(leftX), y: Float(leftY), player: player)
+            pcsx.setRightStickX(Float(rightX), y: Float(rightY), player: player)
+        } else if let n64 = bridge as? N64Bridge {
+            n64.setStickX(Float(leftX), y: Float(leftY), player: player)
+            n64.setCStickX(Float(rightX), y: Float(rightY), player: player)
+        }
     }
 
     /// Press the PlayStation pad's ANALOG switch. A no-op on every other core.
@@ -168,7 +179,7 @@ final class EmulatorSession: ObservableObject {
     /// "gba" as they always have, because the signal set is frozen and altering
     /// a dimension's existing values would rewrite history on the dashboards.
     /// Each new console simply adds a value: "snes" and "nes" at 1.2.5, "ps1"
-    /// with the PlayStation.
+    /// with the PlayStation, "n64" with the Nintendo 64.
     private var analyticsSystem: String = "gba"
 
     func loadROM(at url: URL) -> Bool {
@@ -176,6 +187,7 @@ final class EmulatorSession: ObservableObject {
         case "nds":         analyticsSystem = "nds"
         case "sfc", "smc":  analyticsSystem = "snes"
         case "nes":         analyticsSystem = "nes"
+        case "z64", "n64", "v64": analyticsSystem = "n64"
         // Every disc extension reports one value. The dimension names the
         // CONSOLE, and which container a player's copy happens to be in is a
         // different question that this signal was never asked.
@@ -322,6 +334,26 @@ final class EmulatorSession: ObservableObject {
         return bridge.createFrameImage()
     }
 
+    /// The game's own pixel grid behind the image `createScreenshotImage`
+    /// returns right now: the live picture, both DS screens stacked. It is the
+    /// image's own size on every console but two. The PlayStation and the
+    /// Nintendo 64 hand out stills already stretched to 4:3, because their
+    /// pixels are not square, so a 640x240 N64 picture is a 640x480 image whose
+    /// real rows still number 240. The filter shader draws its rows and cells
+    /// on this grid (`gameSize`), never on the stretched image.
+    var screenshotPixelGrid: CGSize {
+        CGSize(width: screenWidth, height: totalBufferHeight)
+    }
+
+    /// `screenshotPixelGrid` for a still just taken, or nil when it is the
+    /// still's own size: nil on every console but the PlayStation and the
+    /// Nintendo 64, so a share card that splits a DS still into its two screens
+    /// never applies the whole stack's grid to a half.
+    func filterPixelGrid(for image: CGImage) -> CGSize? {
+        let grid = screenshotPixelGrid
+        return grid == CGSize(width: image.width, height: image.height) ? nil : grid
+    }
+
     /// Dual-screen capture for NDS screenshot + clip cards. Falls back to single-screen for
     /// GBA/GB/GBC. Honours the NDS "Swap screens" setting so the share cards show the same top/bottom
     /// order as in-game (both the screenshot and the clip capture flow through here).
@@ -354,6 +386,25 @@ final class EmulatorSession: ObservableObject {
         bridge.setKeys(keys)
     }
 
+    /// One player's buttons, 0-based. Player 1 takes the path every core has;
+    /// the others reach only a core whose console had their port (the caller
+    /// feeds no more players than `PresetSystem.playerCount`, and a test holds
+    /// every multi-player console's bridge to implementing this).
+    func setKeys(_ keys: UInt32, player: Int) {
+        if player == 0 {
+            bridge.setKeys(keys)
+        } else {
+            bridge.setKeys?(keys, player: player)
+        }
+    }
+
+    /// How many players have a controller now, capped by the caller at the
+    /// console's count. Only a console whose ports must be told (SNES, NES)
+    /// listens; see `EmulatorBridge.setConnectedPlayers:`.
+    func setConnectedPlayers(_ count: Int) {
+        bridge.setConnectedPlayers?(count)
+    }
+
     // MARK: - Touch Screen (NDS)
 
     func touchScreen(x: Int, y: Int) {
@@ -368,6 +419,14 @@ final class EmulatorSession: ObservableObject {
 
     func setMicBlowActive(_ active: Bool) {
         (bridge as? MelonDSBridge)?.setMicBlowActive(active)
+    }
+
+    // MARK: - Lid (NDS)
+
+    /// Close or open the DS's lid (see `MelonDSBridge.setLidClosed`). A no-op
+    /// on every other console.
+    func setLidClosed(_ closed: Bool) {
+        (bridge as? MelonDSBridge)?.setLidClosed(closed)
     }
 
     // MARK: - Speed

@@ -78,7 +78,7 @@ struct ControlPresetsView: View {
             // The console's own drawing, before its name. Six rows of text read
             // as a list of words; the same six with their machines in front read
             // as a list of consoles, which is what the row is actually about.
-            PixelConsoleIcon(console: PixelConsole(system))
+            PresetConsoleIcon(system: system)
                 .frame(width: 26, height: 26)
                 .accessibilityHidden(true)
             Text(label)
@@ -190,6 +190,7 @@ struct ControlPresetsView: View {
         case .snes: return "SNES"
         case .nes: return "NES"
         case .ps1: return "PS1"
+        case .n64: return "N64"
         }
     }
 
@@ -274,7 +275,7 @@ struct ConsoleChoiceGrid: View {
                     selection = system
                 } label: {
                     VStack(spacing: 6) {
-                        PixelConsoleIcon(console: PixelConsole(system))
+                        PresetConsoleIcon(system: system)
                             .frame(width: 40, height: 40)
                         Text(ConsoleChoiceList.name(system))
                             .font(.caption2)
@@ -332,6 +333,7 @@ struct ConsoleChoiceList: View {
         case .snes: return "Super Nintendo"
         case .nes:  return "NES"
         case .ps1:  return "PlayStation"
+        case .n64:  return "Nintendo 64"
         }
     }
 
@@ -346,7 +348,7 @@ struct ConsoleChoiceList: View {
                     // remap screen and the controller-layout screen as well, so
                     // putting the drawing here is what makes all three read the
                     // same rather than one of them reading better.
-                    PixelConsoleIcon(console: PixelConsole(system))
+                    PresetConsoleIcon(system: system)
                         .frame(width: 26, height: 26)
                         .accessibilityHidden(true)
                     Text(Self.name(system)).foregroundColor(.primary)

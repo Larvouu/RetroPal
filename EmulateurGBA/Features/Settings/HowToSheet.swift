@@ -70,7 +70,7 @@ struct HowToSheet<Header: View>: View {
 
                 // Same confirm as the What's New sheet: purple to blue, the
                 // app's standard "understood" button.
-                Button {
+                FocusableButton(isDefault: true) {
                     dismiss()
                 } label: {
                     Text(NSLocalizedString("whatsnew.dismiss", comment: ""))
@@ -91,6 +91,8 @@ struct HowToSheet<Header: View>: View {
         // meant every one of them started half-hidden.
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        // B closes it, as the button at its foot does (`ControllerNavigator`).
+        .controllerBack { dismiss() }
     }
 
     /// Numbered like a procedure, coloured like the What's New bullets: the

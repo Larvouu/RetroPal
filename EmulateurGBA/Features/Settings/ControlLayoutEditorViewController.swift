@@ -182,6 +182,11 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
             case .stickLeft, .stickRight: btn = AnalogStickView()
             case .btnA, .btnB, .btnX, .btnY:
                 btn = ActionButton(label: element.displayName(for: system))
+            case .btnCUp, .btnCDown, .btnCLeft, .btnCRight:
+                btn = ActionButton(label: element.cButtonFace ?? element.displayName(for: system))
+            // The Nintendo 64's Z is a round face, the third corner of A-B-Z.
+            case .btnL2 where system == .n64:
+                btn = ActionButton(label: element.displayName(for: system))
             case .btnL, .btnR, .btnL2, .btnR2:
                 btn = ShoulderButton(label: element.displayName(for: system))
             case .btnStart, .btnSelect, .btnMic, .btnMode, .btnL3, .btnR3:

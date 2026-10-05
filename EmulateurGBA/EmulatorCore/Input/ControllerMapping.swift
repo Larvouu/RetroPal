@@ -30,6 +30,8 @@ enum RemappableInput: String, Codable, CaseIterable {
     // (`leftThumbstickButton` / `rightThumbstickButton`) and which had nowhere
     // to go until the PlayStation gave them a console button to be.
     case l3, r3
+    // The Nintendo 64's C buttons, a console input no other pad has.
+    case cUp, cDown, cLeft, cRight
 
     var gbaInput: GBAInput {
         switch self {
@@ -45,6 +47,10 @@ enum RemappableInput: String, Codable, CaseIterable {
         case .r2: return .r2
         case .l3: return .l3
         case .r3: return .r3
+        case .cUp: return .cUp
+        case .cDown: return .cDown
+        case .cLeft: return .cLeft
+        case .cRight: return .cRight
         }
     }
 
@@ -71,6 +77,18 @@ enum RemappableInput: String, Codable, CaseIterable {
     /// (`PhysicalButton.displayName(for:)`), so one row can read "◯ → ✕" and
     /// mean it.
     func displayName(for system: PresetSystem) -> String {
+        // The Nintendo 64 prints Z on its trigger and marks its C buttons with
+        // a C and an arrow, the same marks its on-screen buttons carry.
+        if system == .n64 {
+            switch self {
+            case .l2: return "Z"
+            case .cUp: return ControlElement.btnCUp.cButtonFace ?? displayName
+            case .cDown: return ControlElement.btnCDown.cButtonFace ?? displayName
+            case .cLeft: return ControlElement.btnCLeft.cButtonFace ?? displayName
+            case .cRight: return ControlElement.btnCRight.cButtonFace ?? displayName
+            default: return displayName
+            }
+        }
         guard system == .ps1 else { return displayName }
         switch self {
         case .a: return "◯"
@@ -86,6 +104,15 @@ enum RemappableInput: String, Codable, CaseIterable {
     /// The same input said out loud, for VoiceOver: a symbol is a fine label to
     /// look at and a poor one to hear.
     func accessibleName(for system: PresetSystem) -> String {
+        if system == .n64 {
+            switch self {
+            case .cUp: return "C up"
+            case .cDown: return "C down"
+            case .cLeft: return "C left"
+            case .cRight: return "C right"
+            default: return displayName(for: system)
+            }
+        }
         guard system == .ps1 else { return displayName }
         switch self {
         case .a: return "Circle"
@@ -111,6 +138,10 @@ enum RemappableInput: String, Codable, CaseIterable {
         // the first that exist at all.
         case .ps1: return [.a, .b, .x, .y, .l, .r, .l2, .r2,
                            .l3, .r3, .select, .start]
+        // Its own pad: A, B, the three triggers (Z is `l2`), START and the
+        // four C buttons. No SELECT, no X or Y.
+        case .n64: return [.a, .b, .l, .r, .l2, .start,
+                           .cUp, .cDown, .cLeft, .cRight]
         }
     }
 }
@@ -259,6 +290,15 @@ struct ControllerMapping: Codable, Equatable {
     /// additionally accepts L3 for pads without an Options button — a custom
     /// mapping is explicit and can bind L3 by hand.)
     static func defaults(for system: PresetSystem) -> ControllerMapping {
+        // The Nintendo 64's built-in layout, the one `ControllerManager.buttonMask`
+        // applies with no mapping. C left and C right have no button there
+        // (the right stick reaches them), so they start unbound.
+        if system == .n64 {
+            return ControllerMapping(assignments: [
+                .a: .faceA, .b: .faceX, .cUp: .faceY, .cDown: .faceB,
+                .l: .shoulderL, .r: .shoulderR, .l2: .leftTrigger, .start: .menu,
+            ])
+        }
         var a: [RemappableInput: PhysicalButton] = [
             .a: .faceA, .b: .faceB, .select: .options, .start: .menu,
         ]

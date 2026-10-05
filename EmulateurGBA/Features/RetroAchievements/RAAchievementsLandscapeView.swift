@@ -143,13 +143,13 @@ struct RAAchievementsLandscapeView: View {
 
     private var topBar: some View {
         HStack(spacing: 12) {
-            Button(action: onAbout) {
+            FocusableButton(action: onAbout) {
                 LandscapeChrome.circle(systemName: "info")
             }
             .accessibilityLabel(Text(String(localized: "ra.about.title",
                                             defaultValue: "About RetroAchievements")))
             Spacer(minLength: 8)
-            Button(action: onDone) {
+            FocusableButton(action: onDone) {
                 Text(String(localized: "common.done", defaultValue: "Done"))
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.white)
@@ -335,7 +335,7 @@ struct RAAchievementsLandscapeView: View {
                     Divider().overlay(Color.white.opacity(LandscapeChrome.cardFill))
                 }
                 if ach.unlocked {
-                    Button {
+                    FocusableButton {
                         onShare(ach)
                     } label: {
                         RAAchievementRow(ach: ach)
@@ -344,6 +344,9 @@ struct RAAchievementsLandscapeView: View {
                     .buttonStyle(.plain)
                 } else {
                     RAAchievementRow(ach: ach)
+                        // Reachable, with nothing to do: a controller walks the list
+                        // through it, which is how it scrolls to the next achievements.
+                        .controllerFocusable(action: nil)
                 }
             }
         }

@@ -21,6 +21,8 @@ struct RetroAchievementsView: View {
     @ObservedObject private var raIndex = RAGameIndex.shared
     /// A phone on its side, or an iPad window (see `LandscapeSurface`).
     @LandscapeSurface private var isLandscape
+    /// For B (`controllerBack`): back to the library.
+    @Environment(\.dismiss) private var dismiss
 
     /// Rows or badge wall for the expanded games, user-switchable from the
     /// toolbar (persisted; independent from the dashboard's own choice).
@@ -164,6 +166,8 @@ struct RetroAchievementsView: View {
             RABadgeDetailSheet(ach: detail.ach)
         }
         .onAppear { ra.refreshProgressIfNeeded() }
+        // B goes back to the library, as the back button does.
+        .controllerBack { dismiss() }
     }
 
     /// The landscape layout, fed with this page's facts and one closure per
@@ -236,7 +240,7 @@ struct RetroAchievementsView: View {
     }
 
     private var aboutButton: some View {
-        Button { showAbout = true } label: {
+        FocusableButton { showAbout = true } label: {
             Image(systemName: "info.circle")
         }
         .accessibilityLabel(Text(String(localized: "ra.about.title",
@@ -292,6 +296,11 @@ struct RetroAchievementsView: View {
             expandedBody(record)
         } label: {
             gameRowLabel(record)
+                // A controller's A opens or closes the game, as a tap on the
+                // row does.
+                .controllerFocusable(shape: .cell) {
+                    if expandedHash == record.romHash { expandedHash = nil } else { expand(record) }
+                }
         }
     }
 
@@ -334,7 +343,7 @@ struct RetroAchievementsView: View {
         let unlocked = achievements.filter { $0.unlocked }.sorted { $0.rarity > $1.rarity }
         let locked = achievements.filter { !$0.unlocked }
         if let filename = raIndex.filename(forROMHash: record.romHash) {
-            Button {
+            FocusableButton {
                 gameDashboard = GameDashboardTarget(romURL: romsDir.appendingPathComponent(filename))
             } label: {
                 HStack {
@@ -366,7 +375,7 @@ struct RetroAchievementsView: View {
         } else {
             ForEach(Array((unlocked + locked).enumerated()), id: \.offset) { _, ach in
                 if ach.unlocked {
-                    Button {
+                    FocusableButton {
                         shareTarget = RAShareTarget(
                             achievement: ach,
                             gameName: record.title ?? "",
@@ -378,6 +387,9 @@ struct RetroAchievementsView: View {
                     .buttonStyle(.plain)
                 } else {
                     RAAchievementRow(ach: ach)
+                        // Reachable, with nothing to do: a controller walks the list
+                        // through it, which is how it scrolls to the next achievements.
+                        .controllerFocusable(action: nil)
                 }
             }
         }

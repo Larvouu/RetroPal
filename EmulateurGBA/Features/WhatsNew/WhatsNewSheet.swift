@@ -18,8 +18,9 @@ struct WhatsNewContent {
     struct ContentSection {
         let titleKey: String
         let bulletKeys: [String]
-        /// Asset names drawn side by side under this section's bullets, in the
-        /// order the bullet names them. Empty for every section but one.
+        /// Asset names drawn side by side at the top of this section, above its
+        /// title, in the order the bullets name them. Empty for every section
+        /// but one.
         ///
         /// These are the drawings the Appearance button already wears, so the
         /// console in the notes, the console in the picker and the console you
@@ -56,23 +57,24 @@ struct WhatsNewContent {
     /// here without touching the sheet.
     var wearsTheNewLook: Bool = false
 
-    /// The CURRENT release's notes, written 2026-09-10 for 1.3.1 with the
-    /// train's scope settled (four items deferred to 1.3.2 the same day).
-    /// Every bullet describes something in the tree and device-verified;
-    /// nothing here is planned. **This release must not submit while these
-    /// notes describe less than it ships** — the once-per-update gate
-    /// compares against `version`, so stale notes fail silent rather than
-    /// loudly. No Pro line this release, so no `{PRO}` token: the looks,
-    /// the cover chooser and the keyboard remap are all free.
+    /// The CURRENT release's notes, written 2026-09-27 for 1.3.3 (1.3.2, the
+    /// stutter patch, shipped with no sheet of its own: its notes were the
+    /// App Store's). Every bullet describes something in the tree; nothing
+    /// here is planned. **This release must not submit while these notes
+    /// describe less than it ships** — the once-per-update gate compares
+    /// against `version`, so stale notes fail silent rather than loudly. The
+    /// one `{PRO}` names what Pro adds to the new console (its dress in your
+    /// own colours), the way the PlayStation's notes did; controllers and
+    /// moving around with one are free, like all controller support.
     ///
-    /// The 1.2.5 sections were removed rather than left in place. A leftover
+    /// The 1.3.1 sections were removed rather than left in place. A leftover
     /// section is copy about a release the player already has, sitting in a
     /// sheet that only opens to say what is new, and it would ship the moment
     /// someone forgot to look.
     ///
-    /// Ordered by what a player actually gains: the console first because it IS
-    /// the release, then getting a game into it (a disc is the first thing this
-    /// console does differently from every other one here), then the pad.
+    /// Ordered by what a player gains: the console first because it IS the
+    /// release, then playing it together, then doing everything with the
+    /// controller in hand, then the covers a support mail asked for.
     ///
     /// ⚠ THE PRO NOTICE IS GONE, and its absence is a decision (decided on device,
     /// 2026-08-27). It announced a coming lifetime price rise, and by the time
@@ -82,25 +84,25 @@ struct WhatsNewContent {
     /// them, it is an apology to nobody. Do not reinstate it, and do not
     /// replace it with a "prices have changed" line.
     static let current = WhatsNewContent(
-        version: "1.3.1",
+        version: "1.3.3",
         noticeKey: nil,
         sections: [
-            // The look first, because it is what a player meets before
-            // anything else in this release; then the new device; then the
-            // pads a support mail asked for; then the language work, which
-            // is invisible until it is yours; then the rest.
+            // The Nintendo 64, with its drawing, as the PlayStation had its own.
             ContentSection(titleKey: "whatsnew.s1.title",
-                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2", "whatsnew.s1.b3"]),
+                           bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2", "whatsnew.s1.b3",
+                                        "whatsnew.s1.b4"],
+                           artNames: ["console-n64"]),
             ContentSection(titleKey: "whatsnew.s2.title",
-                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2"]),
+                           bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2", "whatsnew.s2.b3"]),
             ContentSection(titleKey: "whatsnew.s3.title",
                            bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2"]),
             ContentSection(titleKey: "whatsnew.s4.title",
                            bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2"]),
+            // The rare thing last: the DS's lid, for a handful of puzzles.
             ContentSection(titleKey: "whatsnew.s5.title",
-                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2", "whatsnew.s5.b3",
-                                        "whatsnew.s5.b4"]),
+                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2", "whatsnew.s5.b3"]),
         ],
+        // The app wears the look everywhere since 1.3.1; its notes keep it.
         wearsTheNewLook: true
     )
 }
@@ -179,17 +181,21 @@ struct WhatsNewSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        if content.wearsTheNewLook {
-            // The library's moving ground under the notes, the sections on
-            // glass, the subtree dark: the release's look, worn by the sheet
-            // that announces it. Scoped to this subtree, never the window.
-            sheetBody
-                .background(LibraryLandscapeBackground(isPaused: reduceMotion, dimmed: true)
-                                .ignoresSafeArea())
-                .environment(\.colorScheme, .dark)
-        } else {
-            sheetBody
+        Group {
+            if content.wearsTheNewLook {
+                // The library's moving ground under the notes, the sections on
+                // glass, the subtree dark: the release's look, worn by the sheet
+                // that announces it. Scoped to this subtree, never the window.
+                sheetBody
+                    .background(LibraryLandscapeBackground(isPaused: reduceMotion, dimmed: true)
+                                    .ignoresSafeArea())
+                    .environment(\.colorScheme, .dark)
+            } else {
+                sheetBody
+            }
         }
+        // B closes it, as the button at its foot does (`ControllerNavigator`).
+        .controllerBack { dismiss() }
     }
 
     private var sheetBody: some View {
@@ -220,7 +226,7 @@ struct WhatsNewSheet: View {
                 // Same treatment as the skin picker's OK button (purple→blue
                 // gradient, radius 12) so the dismiss reads as the app's
                 // standard confirm.
-                Button {
+                FocusableButton(isDefault: true) {
                     dismiss()
                 } label: {
                     Text(NSLocalizedString("whatsnew.dismiss", comment: ""))
@@ -274,6 +280,11 @@ struct WhatsNewSheet: View {
 
     private func sectionContent(_ section: WhatsNewContent.ContentSection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            // A new console's drawing opens its section, above the title
+            // (asked 2026-09-27): it names the section before the words do.
+            if !section.artNames.isEmpty {
+                artRow(section.artNames)
+            }
             Text(NSLocalizedString(section.titleKey, comment: ""))
                 .font(.headline)
             ForEach(section.bulletKeys, id: \.self) { key in
@@ -289,9 +300,6 @@ struct WhatsNewSheet: View {
                         // a sentence with a hole where the product name was.
                         .accessibilityLabel(Self.plainText(raw))
                 }
-            }
-            if !section.artNames.isEmpty {
-                artRow(section.artNames)
             }
         }
     }

@@ -112,7 +112,28 @@ NS_ASSUME_NONNULL_BEGIN
 @optional
 - (void)awaitDisplayFrame;
 @required
+/// Player 1's buttons. Every core implements it; on a one-player console it is
+/// the whole input.
 - (void)setKeys:(uint32_t)keys;
+
+// MARK: - Players (consoles with several controller ports)
+
+@optional
+/// The buttons of player `player`, 0-based (0 = player 1, the same pad as
+/// `setKeys:`). Implemented by the cores whose console had more than one port
+/// (`PresetSystem.playerCount`); the session never calls it with a player the
+/// console does not have.
+- (void)setKeys:(uint32_t)keys player:(NSInteger)player;
+
+/// How many players have a controller right now, capped at the console's own
+/// count. Only a core whose console must be TOLD a pad is plugged in implements
+/// it (MesenCE: an SNES or NES port is empty until something plugs into it, and
+/// a second pad changes what some games do at boot, so port 2 is filled only
+/// when a second player exists). The PlayStation and N64 cores keep every port
+/// plugged from boot, as their libretro frontends always have, so an idle
+/// player there is simply a pad nobody presses.
+- (void)setConnectedPlayers:(NSInteger)count;
+@required
 
 // MARK: - Video
 

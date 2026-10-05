@@ -89,6 +89,13 @@ struct ClipShareView: View {
     }
 
     var body: some View {
+        cardBody
+            // B (Circle on a PlayStation pad) closes the card, as its close
+            // button does (`ControllerNavigator`, asked 2026-09-27).
+            .controllerBack(onClose)
+    }
+
+    private var cardBody: some View {
         VStack(spacing: 0) {
             hintHeader
             Group {

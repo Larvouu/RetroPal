@@ -48,7 +48,7 @@ struct LegalView: View {
                     )
                     licenseRow(
                         titleKey: "legal.mgba",
-                        copyright: "Copyright (c) 2013-2024 Jeffrey Pfau",
+                        copyright: "Copyright (c) 2013-2025 Jeffrey Pfau",
                         licenseKey: "legal.mgba.licenseLine",
                         descriptionKey: "legal.mgba.description"
                     )
@@ -76,9 +76,39 @@ struct LegalView: View {
                         licenseKey: "legal.pcsx.licenseLine",
                         descriptionKey: "legal.pcsx.description"
                     )
+                    licenseRow(
+                        titleKey: "legal.mupen",
+                        // From the source files' own headers: the Mupen64Plus
+                        // core's authors, and M4xw, who made it the libretro
+                        // "Next" core this app runs.
+                        copyright: "Copyright (C) 2002 Hacktarux, 2008-2009 Richard Goedeken, "
+                                 + "2012 CasualJames; (C) 2020 M4xw",
+                        licenseKey: "legal.mupen.licenseLine",
+                        descriptionKey: "legal.mupen.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.parallelrdp",
+                        // Verbatim from its LICENSE.
+                        copyright: "Copyright (c) 2020 Themaister",
+                        licenseKey: "legal.parallelrdp.licenseLine",
+                        descriptionKey: "legal.parallelrdp.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.moltenvk",
+                        // Verbatim from its README.
+                        copyright: "Copyright (c) 2015-2026 The Brenwill Workshop Ltd.",
+                        licenseKey: "legal.moltenvk.licenseLine",
+                        descriptionKey: "legal.moltenvk.description"
+                    )
                     Text(NSLocalizedString("legal.compliance", comment: ""))
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    // The full texts, one page per licence, with every component
+                    // compiled into the app (2026-09-27).
+                    NavigationLink(destination: ThirdPartyLicensesView()) {
+                        Text(NSLocalizedString("legal.thirdParty.title", comment: ""))
+                            .font(.subheadline)
+                    }
                 } header: {
                     sectionHeader("legal.licenses.title", systemImage: "doc.text")
                 }

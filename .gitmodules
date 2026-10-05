@@ -10,3 +10,9 @@
 [submodule "Vendor/pcsx_rearmed"]
 	path = Vendor/pcsx_rearmed
 	url = https://github.com/libretro/pcsx_rearmed.git
+[submodule "Vendor/mupen64plus-libretro-nx"]
+	path = Vendor/mupen64plus-libretro-nx
+	url = https://github.com/libretro/mupen64plus-libretro-nx.git
+[submodule "Vendor/MoltenVK"]
+	path = Vendor/MoltenVK
+	url = https://github.com/KhronosGroup/MoltenVK.git

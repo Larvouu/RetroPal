@@ -44,7 +44,7 @@ import Foundation
 enum BatterySaveSystem {
     /// .sav file — accepts GBA, GB, GBC and NES targets.
     case savFamily
-    /// .srm file — accepts NDS, SNES and PlayStation targets.
+    /// .srm file — accepts NDS, SNES, PlayStation and Nintendo 64 targets.
     case srmFamily
     /// .mcd file — a PlayStation memory card, and nothing else uses the name.
     case mcdFamily
@@ -74,7 +74,10 @@ enum BatterySaveSystem {
         // libretro frontends write the card out as `.srm`. So the two names a
         // player is likely to already have both land on the right game, which
         // matters more than tidiness on a console whose save model is new here.
-        case .srmFamily: return ["nds", "snes", "ps1"]
+        // The Nintendo 64 joins it because its core keeps every kind of
+        // cartridge and Controller Pak save in one block, which libretro
+        // frontends write out as `.srm`; see `knownSaveSizes`.
+        case .srmFamily: return ["nds", "snes", "ps1", "n64"]
         case .mcdFamily: return ["ps1"]
         }
     }
@@ -100,7 +103,12 @@ enum BatterySaveSystem {
             //      these three additions every ordinary SNES save would have been
             //      rejected as "not a battery save" on import, which is why the
             //      size set is a property of the FAMILY and not of one console.
-            return [512, 2048, 8192, 32768, 65536, 131072, 262144, 524288, 1048576, 8388608]
+            // N64: 296,960 bytes, one size for every cartridge, because the
+            //      core's block holds all of the console's save memories side
+            //      by side (2 KB EEPROM, four 32 KB Controller Paks, 32 KB SRAM,
+            //      128 KB FlashRAM) whichever the game uses. The loader refuses
+            //      any other size, so a standalone .eep/.sra/.fla is not taken.
+            return [512, 2048, 8192, 32768, 65536, 131072, 262144, 296960, 524288, 1048576, 8388608]
         case .mcdFamily:
             // A PlayStation memory card is exactly one size, 128 KB: fifteen
             // blocks of 8 KB plus the directory. Anything else under this name

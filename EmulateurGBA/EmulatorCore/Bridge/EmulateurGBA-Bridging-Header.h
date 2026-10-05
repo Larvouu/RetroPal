@@ -16,6 +16,7 @@
 #import "MelonDSBridge.h"
 #import "MesenBridge.h"
 #import "PCSXBridge.h"
+#import "N64Bridge.h"
 
 // RetroAchievements (rc_client) ObjC++ wrapper, exposed to Swift.
 #import "../../Data/RetroAchievements/RAClient.h"

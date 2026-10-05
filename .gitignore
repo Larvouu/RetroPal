@@ -23,6 +23,9 @@ Packages/
 *.sfc
 *.smc
 *.nes
+*.z64
+*.n64
+*.v64
 *.zip
 
 # PlayStation discs. Same rule as the cartridges above, and listed BEFORE any
@@ -43,6 +46,12 @@ Packages/
 *.sbi
 # Memory cards, which hold save data exactly as a .sav does.
 *.mcd
+# Nintendo 64 save files in the formats other emulators write (EEPROM, SRAM,
+# FlashRAM, Controller Pak), for the same reason.
+*.eep
+*.sra
+*.fla
+*.mpk
 
 # Save-state compatibility fixtures. A save state is a dump of the running
 # game's memory, so it carries the same content as the ROM above it and follows
@@ -52,6 +61,16 @@ Packages/
 EmulateurGBATests/Fixtures/SaveStateCompat/**/*.state
 EmulateurGBATests/Fixtures/SaveStateCompat/**/*.sav
 EmulateurGBATests/Fixtures/SaveStateCompat/*.state
+# Except the two fixtures made from freely redistributable homebrew (their
+# licences sit beside them): a guard that lives on one Mac only disappears with
+# that Mac. Retail games and their states still never enter the repository.
+!EmulateurGBATests/Fixtures/SaveStateCompat/melonds/traffic-escape-ds.nds
+!EmulateurGBATests/Fixtures/SaveStateCompat/melonds/traffic-escape-ds.state
+!EmulateurGBATests/Fixtures/SaveStateCompat/mgba/anguna.gba
+!EmulateurGBATests/Fixtures/SaveStateCompat/mgba/anguna.state
+
+# The owner's own game files, states and saves, handed over for testing and
+# benchmarking (commercial ROMs among them). Local only, never committed.
 
 # Compiled emulator cores (built on the Mac by Vendor/*-ios/build.sh, never
 # committed: they are large, host-specific, and the public repo must ship the

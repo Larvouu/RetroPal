@@ -168,7 +168,7 @@ struct SaveStateCompatibilityTests {
 
     // MARK: - Fixture location
 
-    private struct Fixture {
+    struct Fixture {
         let rom: URL
         let state: URL
         let goldenSav: URL?
@@ -177,11 +177,9 @@ struct SaveStateCompatibilityTests {
     /// Fixtures live in the source tree next to this file:
     ///   EmulateurGBATests/Fixtures/SaveStateCompat/<coreDir>/
     /// holding one ROM (matching `romExtensions`), one `.state`, and an optional
-    /// `.sav` golden. Located via `#filePath` so no Copy-Bundle-Resources wiring
-    /// is needed. Consequence: run these on the iOS Simulator or a Mac, not a
-    /// physical device (a device cannot read the Mac source tree). To run on a
-    /// device instead, add the fixtures to the test target's Copy Bundle
-    /// Resources and load them from `Bundle(for:)`.
+    /// `.sav` golden. Located via `#filePath` where the source tree can be read
+    /// (a Mac), and in the test bundle where it cannot (a phone), for the cores
+    /// whose manifest names its files (`locateBundledFixture`).
     /// Whether a capture was ever committed for this core. The manifest is the only part of a
     /// fixture that CAN be committed, so it is what tells a MISSING capture apart from one that
     /// was never taken.
@@ -193,8 +191,8 @@ struct SaveStateCompatibilityTests {
     /// `EXPECTED.txt` therefore produced two copy commands writing the same
     /// destination, and the build failed with "Multiple commands produce". The
     /// per-core name makes the flattened names unique, so a third core is safe
-    /// to add. Nothing reads these from the bundle: the loader below uses
-    /// `#filePath` and reads the source tree.
+    /// to add. The bundle copy is read only for a manifest whose first line
+    /// names its files (`locateBundledFixture`); this check reads the source tree.
     private static func manifestExists(coreDir: String) -> Bool {
         let manifest = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -210,13 +208,13 @@ struct SaveStateCompatibilityTests {
         return (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) != nil
     }
 
-    private static func locateFixture(coreDir: String, romExtensions: [String]) -> Fixture? {
+    static func locateFixture(coreDir: String, romExtensions: [String]) -> Fixture? {
         let dir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures/SaveStateCompat/\(coreDir)", isDirectory: true)
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
-            return nil
+            return locateBundledFixture(coreDir: coreDir)
         }
         guard let rom = entries.first(where: { romExtensions.contains($0.pathExtension.lowercased()) }),
               let state = entries.first(where: { $0.pathExtension.lowercased() == "state" })
@@ -224,4 +222,44 @@ struct SaveStateCompatibilityTests {
         let goldenSav = entries.first(where: { $0.pathExtension.lowercased() == "sav" })
         return Fixture(rom: rom, state: state, goldenSav: goldenSav)
     }
+
+    /// On a device, and anywhere else the source tree cannot be read. Every file
+    /// under Fixtures/ is also copied into the test bundle, FLAT (see
+    /// `manifestExists`), so a fixture can be found there by NAME, and the names
+    /// come from the first line of the core's manifest:
+    ///   files: <rom> <state> [<sav>]
+    /// Only the fixtures committed with the repository carry that line (melonds
+    /// and mgba, freely redistributable homebrew). A manifest without it, or no
+    /// manifest in the bundle, is nil, which the caller reports as a skip,
+    /// exactly as before this existed.
+    ///
+    /// Why it exists: before 1.3.3 no case of this suite ever ran anywhere. The
+    /// app cannot build for the Simulator (the cores are built for iphoneos
+    /// only), a phone cannot read `#filePath`, and My Mac's sandbox refuses the
+    /// listing. Green meant "skipped" on every runtime.
+    private static func locateBundledFixture(coreDir: String) -> Fixture? {
+        let bundle = Bundle(for: FixtureBundleToken.self)
+        guard let manifest = bundle.url(forResource: "EXPECTED-\(coreDir)", withExtension: "txt"),
+              let text = try? String(contentsOf: manifest, encoding: .utf8),
+              let first = text.split(separator: "\n", omittingEmptySubsequences: false).first,
+              first.hasPrefix("files:")
+        else { return nil }
+        let names = first.dropFirst("files:".count).split(separator: " ").map(String.init)
+        guard names.count >= 2 else { return nil }
+        let urls = names.map { name -> URL? in
+            let ext = (name as NSString).pathExtension
+            let base = (name as NSString).deletingPathExtension
+            return bundle.url(forResource: base, withExtension: ext)
+        }
+        // A manifest that names files the bundle does not hold is a capture that
+        // went missing, not one that was never taken: say so rather than skip.
+        guard let rom = urls[0], let state = urls[1] else {
+            Issue.record("EXPECTED-\(coreDir).txt names \(names.joined(separator: ", ")) but the test bundle does not hold them all. Check that Fixtures/SaveStateCompat/\(coreDir) is in the test target.")
+            return nil
+        }
+        return Fixture(rom: rom, state: state, goldenSav: urls.count > 2 ? urls[2] : nil)
+    }
 }
+
+/// Anchors `Bundle(for:)` on the test bundle (a Swift Testing suite is a struct).
+private final class FixtureBundleToken {}

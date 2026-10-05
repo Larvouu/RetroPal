@@ -91,14 +91,17 @@ constant uint kFilterCRT = 4;
 constant uint kFilterSmooth = 5;
 constant uint kFilterSharp = 6;
 
-// Mirrors Swift's FilterUniforms — keep layouts in sync (16 bytes).
+// Mirrors Swift's EmulatorMetalView.FilterUniforms, the one Swift copy (the
+// offscreen VideoFilterRenderer sends the same struct): 24 bytes, and
+// VideoFilterPreviewTests holds the two to that.
 struct FilterUniforms {
     uint filterType;
     uint screenCount;   // 1, or 2 for the stacked NDS texture (per-screen CRT warp)
     // The TEXTURE's pixel size (e.g. 240x160, 256x384, 1024x512), which for
-    // every console but the PlayStation is also the live picture's size. Paired
-    // with the vertex stage's `uvScale` it always resolves to the live pixel
-    // grid: uv is scaled down by the same factor gameSize is scaled up.
+    // every console but the PlayStation and the Nintendo 64 is also the live
+    // picture's size. Paired with the vertex stage's `uvScale` it always
+    // resolves to the live pixel grid: uv is scaled down by the same factor
+    // gameSize is scaled up.
     float2 gameSize;
     // The fraction of the texture the live picture occupies — the same value the
     // vertex stage multiplies its texture coordinates by. Only the CRT filter

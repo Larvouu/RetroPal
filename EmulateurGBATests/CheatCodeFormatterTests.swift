@@ -199,4 +199,28 @@ struct CheatCodeFormatterTests {
         #expect(CheatCodeFormatter.problem(in: "DD82-64DC", isNDS: false, system: "snes") == nil)
         #expect(CheatCodeFormatter.problem(in: "7E0DBE:63", isNDS: false, system: "snes") == .invalidCharacter)
     }
+
+    // MARK: - A value left to fill in
+
+    /// Cheat lists print a blank as X's. The player is told to fill it in,
+    /// not that the code has characters it should not have.
+    @Test("A blank value printed as X's is named as one")
+    func namesPlaceholderValues() {
+        #expect(CheatCodeFormatter.problem(in: "8011895F XXXX", isNDS: false, system: "n64")
+                == .placeholderValue)
+        #expect(CheatCodeFormatter.problem(in: "D01C6A7D 0010\n8011895F XXXX", isNDS: false,
+                                           system: "n64") == .placeholderValue)
+        #expect(CheatCodeFormatter.problem(in: "7FC136XX", isNDS: false, system: "snes")
+                == .placeholderValue)
+        // A filled-in value is an ordinary code again.
+        #expect(CheatCodeFormatter.problem(in: "8011895F 0063", isNDS: false, system: "n64") == nil)
+    }
+
+    /// X is a Game Genie letter on the NES, so a code there is never a blank.
+    @Test("NES Game Genie codes with X's are not mistaken for blanks")
+    func nesGameGenieIsNotAPlaceholder() {
+        #expect(CheatCodeFormatter.problem(in: "SXXOPO", isNDS: false, system: "nes") == nil)
+        #expect(CheatCodeFormatter.problem(in: "XXXXXX", isNDS: false, system: "nes") == nil)
+    }
+
 }

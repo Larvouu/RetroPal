@@ -68,6 +68,10 @@ SYSTEMS = {
     "snes": {"db": "no-intro", "dir": "Nintendo - Super Nintendo Entertainment System"},
     "nes":  {"db": "no-intro", "dir": "Nintendo - Nintendo Entertainment System"},
     "ps1":  {"db": "redump", "dir": "Sony - PlayStation", "crc": False, "serial": False},
+    # Its CRCs are of the console's own byte order (the DAT lists `.z64`
+    # files); the app hashes a `.v64` or `.n64` in that order too. Its serial
+    # is the four-character code at header offset 0x3B ("NZLP").
+    "n64":  {"db": "no-intro", "dir": "Nintendo - Nintendo 64"},
 }
 
 # libretro thumbnail filename substitution (documented set, '&' verified live).

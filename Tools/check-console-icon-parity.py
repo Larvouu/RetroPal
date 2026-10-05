@@ -28,7 +28,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SWIFT = os.path.join(ROOT, "EmulateurGBA", "Features", "Library", "ConsoleIconRow.swift")
-CONSOLES = {"snes": "console-snes.svg", "nes": "console-nes.svg", "ps1": "console-ps1.svg"}
+CONSOLES = {"snes": "console-snes.svg", "nes": "console-nes.svg", "ps1": "console-ps1.svg",
+            "n64": "console-n64.svg"}
 
 NUM = r"-?[\d.]+"
 

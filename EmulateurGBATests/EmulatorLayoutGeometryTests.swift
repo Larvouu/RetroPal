@@ -23,9 +23,13 @@ enum ButtonShape {
     case circle(center: CGPoint, radius: CGFloat)
     case rect(CGRect)
 
-    static func of(_ e: ControlElement, _ r: CGRect) -> ButtonShape {
+    static func of(_ e: ControlElement, _ r: CGRect, system: PresetSystem? = nil) -> ButtonShape {
         switch e {
-        case .btnA, .btnB, .btnX, .btnY, .btnMenu:
+        // The Nintendo 64's C buttons are round-hitboxed too (`N64TouchControlsView`).
+        case .btnA, .btnB, .btnX, .btnY, .btnMenu, .btnCUp, .btnCDown, .btnCLeft, .btnCRight:
+            return .circle(center: CGPoint(x: r.midX, y: r.midY), radius: min(r.width, r.height) / 2)
+        // Z is a round face on the Nintendo 64 only; the PlayStation's L2 stays a bar.
+        case .btnL2 where system == .n64:
             return .circle(center: CGPoint(x: r.midX, y: r.midY), radius: min(r.width, r.height) / 2)
         default:
             return .rect(r)
@@ -74,6 +78,7 @@ struct EmulatorLayoutGeometryTests {
         case .snes: return 8.0 / 7.0
         case .nes: return 248.0 / 240.0
         case .ps1: return 4.0 / 3.0
+        case .n64: return 4.0 / 3.0
         }
     }
 
@@ -494,7 +499,7 @@ struct EmulatorLayoutGeometryTests {
         let pristine = ControllerLayout()
 
         for (label, size, isLandscape) in devices {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
                 let expected = EmulatorLayoutGeometry.screenFrame(
                     deviceSize: size, safeInsets: .zero,
                     hasTouchScreen: system == .nds, isLandscape: isLandscape,
@@ -542,6 +547,51 @@ struct EmulatorLayoutGeometryTests {
         }
     }
 
+    /// With a controller on its side the picture takes the full height; MENU
+    /// must never sit on it (device report on the Nintendo 64, 2026-09-27).
+    /// Every one-picture console, three phones, the resolver the game and the
+    /// controller layout editor share. It must also stay inside the page.
+    @Test func controllerLandscapeMenuNeverCoversThePicture() {
+        let devices: [(String, CGSize)] = [
+            ("14 Pro", Self.proLandscape), ("SE", Self.seLandscape),
+            ("Pro Max", CGSize(width: 956, height: 440)),
+        ]
+        for (label, size) in devices {
+            for system in [PresetSystem.gba, .gbc, .snes, .nes, .ps1, .n64] {
+                let scene = PresetLayoutResolver.resolveController(
+                    layout: ControllerLayout(), system: system, isLandscape: true,
+                    viewSize: size, safeInsets: .zero)
+                guard let menu = scene.buttons[.btnMenu], let screen = scene.screens[.main]?.frame else {
+                    Issue.record("\(label) \(system): no Menu or no picture")
+                    continue
+                }
+                let rect = CGRect(x: menu.center.x - menu.baseSize.width / 2,
+                                  y: menu.center.y - menu.baseSize.height / 2,
+                                  width: menu.baseSize.width, height: menu.baseSize.height)
+                #expect(!rect.intersects(screen), "\(label) \(system): Menu \(rect) covers the picture \(screen)")
+                #expect(CGRect(origin: .zero, size: size).contains(rect),
+                        "\(label) \(system): Menu \(rect) leaves the page")
+            }
+        }
+    }
+
+    /// The rule itself: a Menu already clear of the picture does not move; one
+    /// on it goes to the middle of the right gutter at its own height.
+    @Test func controllerLandscapeMenuRule() {
+        let container = CGSize(width: 852, height: 393)
+        let screen = CGRect(x: 164, y: 0, width: 524, height: 393)
+        let size = CGSize(width: 44, height: 44)
+        let clear = CGPoint(x: 100, y: 360)
+        #expect(EmulatorLayoutGeometry.controllerLandscapeMenuCenter(
+            current: clear, menuSize: size, screen: screen, container: container,
+            safeRightInset: 0, deviceScale: 1) == clear)
+        let moved = EmulatorLayoutGeometry.controllerLandscapeMenuCenter(
+            current: CGPoint(x: 426, y: 360), menuSize: size, screen: screen, container: container,
+            safeRightInset: 0, deviceScale: 1)
+        #expect(approx(moved.x, (688 + 844) / 2))
+        #expect(approx(moved.y, 360))
+    }
+
     /// Menu may be shrunk by the user, but never below a comfortable tap target:
     /// with a controller attached it is the only on-screen way back to the pause
     /// menu, so an over-shrunk Menu would strand the player.
@@ -556,7 +606,7 @@ struct EmulatorLayoutGeometryTests {
 
         for (size, isLandscape) in [(Self.proPortrait, false), (Self.sePortrait, false),
                                     (Self.proLandscape, true), (Self.seLandscape, true)] {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: layout, system: system, isLandscape: isLandscape,
                     viewSize: size, safeInsets: .zero)
@@ -590,7 +640,7 @@ struct EmulatorLayoutGeometryTests {
             (Self.seLandscape, true, Self.sePortrait, Self.seLandscape),
         ]
         for (size, isLandscape, portrait, landscape) in cases {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1] {
+            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
                 let seeded = PresetLayoutResolver.seededControllerLayout(
                     system: system,
                     portraitSize: portrait, portraitInsets: .zero,
@@ -1683,7 +1733,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 440, height: 956), UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
              CGSize(width: 956, height: 440), UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64] {
             for (name, portrait, pInsets, landscape, lInsets) in devices {
                 for (size, insets, isLandscape) in [(portrait, pInsets, false), (landscape, lInsets, true)] {
                     let rects = realRects(system: system, isLandscape: isLandscape,
@@ -1692,8 +1742,8 @@ struct SNESAndNESLayoutTests {
                     for i in 0..<elements.count {
                         for j in (i + 1)..<elements.count {
                             let e1 = elements[i], e2 = elements[j]
-                            let depth = ButtonShape.penetration(ButtonShape.of(e1, rects[e1]!),
-                                                                ButtonShape.of(e2, rects[e2]!))
+                            let depth = ButtonShape.penetration(ButtonShape.of(e1, rects[e1]!, system: system),
+                                                                ButtonShape.of(e2, rects[e2]!, system: system))
                             let page = isLandscape ? "landscape" : "portrait"
                             #expect(depth < 0.5,
                                     "\(system) \(name) \(page): \(e1.rawValue) overlaps \(e2.rawValue) by \(depth)pt")
@@ -1717,7 +1767,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 956, height: 440),
              UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64] {
             for (name, size, insets) in devices {
                 let k = EmulatorLayoutGeometry.deviceScale(for: size)
                 let screen = EmulatorLayoutGeometry.screenFrame(

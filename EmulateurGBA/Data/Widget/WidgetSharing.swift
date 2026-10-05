@@ -76,6 +76,7 @@ enum WidgetSharing {
             case "snes": return "Super Nintendo"
             case "nes": return "NES"
             case "ps1": return "PlayStation"
+            case "n64": return "Nintendo 64"
             default: return "Game Boy Advance"
             }
         }

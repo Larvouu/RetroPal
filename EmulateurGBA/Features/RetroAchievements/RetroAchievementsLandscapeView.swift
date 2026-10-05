@@ -99,7 +99,7 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
 
     private var topBar: some View {
         HStack(spacing: 12) {
-            Button {
+            FocusableButton {
                 dismiss()
             } label: {
                 LandscapeChrome.circle(systemName: "chevron.left")
@@ -107,7 +107,7 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
             .accessibilityLabel(NSLocalizedString("tab.library", comment: ""))
             Spacer(minLength: 8)
             ControllerStatusBadge(tint: .white)
-            Button(action: onAbout) {
+            FocusableButton(action: onAbout) {
                 LandscapeChrome.circle(systemName: "info")
             }
             .accessibilityLabel(Text(String(localized: "ra.about.title",
@@ -178,7 +178,7 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
     private func gameCard(_ record: RAGameRecord) -> some View {
         let isOpen = expandedHash == record.romHash
         return LandscapeChrome.card(nil) {
-            Button {
+            FocusableButton {
                 onToggle(record)
             } label: {
                 HStack(spacing: 12) {

@@ -2,54 +2,59 @@
 //  ConsoleIconRow.swift
 //  EmulateurGBA
 //
-//  The seven supported consoles as small pixel-art icons with their names,
+//  The eight supported consoles as small pixel-art icons with their names,
 //  shown in the empty-library onboarding. The first four are ported 1:1 —
 //  coordinates AND palette — from the website's ConsoleIcon.astro (the systems
 //  strip on retropal.fr), so the onboarding and the site read as one family:
 //  the grey DMG, the purple GBC, the indigo GBA with its shoulders, and the
 //  cream DS clamshell, all with the DMG-green screens.
 //
-//  The Super Nintendo, the NES and the PlayStation join them from the
-//  `console-snes` / `console-nes` / `console-ps1` imagesets,
-//  the same drawings the Appearance button wears, in the same coordinates. They
-//  are the only three here that are not handhelds, so each is drawn as its
-//  machine with its pad below it — which is also what keeps them from reading as
-//  one more grey slab beside the DMG. The PlayStation goes further and is drawn
-//  from ABOVE, because a third grey slab is exactly what it would otherwise be.
+//  The Super Nintendo, the NES, the PlayStation and the Nintendo 64 join them
+//  from the `console-snes` / `console-nes` / `console-ps1` / `console-n64`
+//  imagesets, the same drawings the Appearance button wears, in the same
+//  coordinates. They are the only four here that are not handhelds, so each is
+//  drawn as its machine with its pad below it, which is also what keeps them
+//  from reading as one more grey slab beside the DMG. The PlayStation and the
+//  Nintendo 64 go further and are drawn from ABOVE, because their fronts are
+//  plain boxes and their tops (the disc lid, the cartridge) are what a player
+//  recognises.
 //
 
 import SwiftUI
 
-/// Three then four: GB · GBC · GBA, then NDS · NES · SNES · PS1. Columns take
-/// their LABEL's natural width (equal-width columns truncated "GAME BOY
-/// ADVANCE"); the spacers distribute what's left, and `fixedSize` makes
-/// truncation impossible — every name renders whole, all at one size.
+/// Four then four: the handhelds, then the home consoles, which is the split
+/// that means something. Columns take their LABEL's natural width (equal-width
+/// columns truncated "GAME BOY ADVANCE"); the spacers distribute what's left,
+/// and `fixedSize` makes truncation impossible: every name renders whole, all
+/// at one size.
 ///
-/// Two rows rather than one of seven: at that many columns the labels either
-/// wrap or shrink, and the icon size is what makes these read as consoles.
+/// Rows rather than one of eight: at that many columns the labels either wrap
+/// or shrink, and the icon size is what makes these read as consoles.
 ///
-/// WHY 3+4 AND NOT 4+3, which is the arrangement that groups better. Four
-/// handhelds then three home consoles is the more meaningful split and the one
-/// that would still work at eight. It is also the WIDER row, because it puts
-/// "GAME BOY ADVANCE" and "NINTENDO DS" in the same row: measured with the
-/// export tool's own text metrics, 4+3 needs 296 design points against 3+4's
-/// 272, and the narrowest phone offers 327 after this view's 24pt padding.
-///
-/// Both fit. 3+4 wins on what happens if the measurement is wrong: it was taken
-/// with Liberation Sans, not the SF Pro the app actually draws, and if SF Pro
-/// runs 10% wider then 4+3 lands at 374 of 375 and the names spill, while 3+4
-/// still has 28 points in hand. It also leaves the first row exactly as it
-/// shipped, so adding a console moves nothing that was already right.
-///
-/// A lone seventh on a third row was considered and rejected: it reads as an
-/// afterthought, which is the opposite of what a new console should read as.
+/// WHY `ViewThatFits`. The four handhelds' row measures 296 design points with
+/// the export tool's text metrics, and the narrowest phone offers 327 after
+/// this view's padding. That is the same margin the seven-console layout was
+/// rejected at (2026-08), because the measurement is taken with Liberation Sans
+/// and not the SF Pro the app draws: if SF Pro runs 10% wider, the names spill.
+/// So the layout is not a bet on a font. 4 + 4 when it fits, and otherwise
+/// 3 + 3 + 2 (230, 204 and 123 points), which fits any phone with room to
+/// spare. The last row's two are a PAIR, the two newest machines, not one
+/// console left over, which is what a lone seventh on a row of its own read as.
 struct ConsoleIconRow: View {
     var body: some View {
-        VStack(spacing: 14) {
-            row([.gb, .gbc, .gba])
-            row([.nds, .nes, .snes, .ps1])
+        ViewThatFits(in: .horizontal) {
+            rows([[.gb, .gbc, .gba, .nds], [.nes, .snes, .ps1, .n64]])
+            rows([[.gb, .gbc, .gba], [.nds, .nes, .snes], [.ps1, .n64]])
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func rows(_ layout: [[PixelConsole]]) -> some View {
+        VStack(spacing: 14) {
+            ForEach(Array(layout.enumerated()), id: \.offset) { _, consoles in
+                row(consoles)
+            }
+        }
     }
 
     private func row(_ consoles: [PixelConsole]) -> some View {
@@ -77,13 +82,17 @@ struct ConsoleIconRow: View {
 }
 
 enum PixelConsole {
-    case gb, gbc, gba, nds, nes, snes, ps1
+    case gb, gbc, gba, nds, nes, snes, ps1, n64
 
     /// The drawing for a LAYOUT family. GB and GBC share one layout and one
     /// `PresetSystem`, so that family wears the Game Boy Color's machine: it is
     /// the one of the two whose own colour tells it apart from the Game Boy
     /// Advance beside it.
-    init(_ system: PresetSystem) {
+    ///
+    /// nil for a console whose drawing does not exist yet: `PresetConsoleIcon`
+    /// then keeps the icon's room empty rather than borrowing another machine.
+    /// Every console has one today; the optional is where the next one starts.
+    init?(_ system: PresetSystem) {
         switch system {
         case .gba:  self = .gba
         case .gbc:  self = .gbc
@@ -91,6 +100,7 @@ enum PixelConsole {
         case .snes: self = .snes
         case .nes:  self = .nes
         case .ps1:  self = .ps1
+        case .n64:  self = .n64
         }
     }
 
@@ -103,6 +113,7 @@ enum PixelConsole {
         case .nes:  return "NES"
         case .snes: return "Super Nintendo"
         case .ps1:  return "PlayStation"
+        case .n64:  return "Nintendo 64"
         }
     }
 
@@ -119,6 +130,23 @@ enum PixelConsole {
         // Taller than the other two machines because this one carries a pad
         // whose GRIPS hang below the body every other pad here ends at.
         case .ps1:      return CGSize(width: 92, height: 70)
+        // The same height, for the same reason: its pad's prongs hang low.
+        case .n64:      return CGSize(width: 92, height: 70)
+        }
+    }
+}
+
+/// A layout family's drawing, for the settings lists that choose a console.
+/// Empty for a console with no drawing yet (see `PixelConsole.init(_:)`); the
+/// caller's frame keeps the rows aligned either way.
+struct PresetConsoleIcon: View {
+    let system: PresetSystem
+
+    var body: some View {
+        if let console = PixelConsole(system) {
+            PixelConsoleIcon(console: console)
+        } else {
+            Color.clear
         }
     }
 }
@@ -173,6 +201,22 @@ struct PixelConsoleIcon: View {
     private static let psCircle = Color(red: 0xE2 / 255, green: 0x4F / 255, blue: 0x65 / 255)
     private static let psCross = Color(red: 0x67 / 255, green: 0x92 / 255, blue: 0xD9 / 255)
     private static let psSquare = Color(red: 0xE0 / 255, green: 0x79 / 255, blue: 0xAF / 255)
+    // The Nintendo 64: the set's only DARK machine, a lifted charcoal so it
+    // keeps its shape on a dark page, and its pad in the dress's own colours
+    // (`DressKind.n64Body` and the buttons, 2026-09-27), so this drawing and
+    // the console painted around the running game agree.
+    private static let n64Body = Color(red: 0x5C / 255, green: 0x5E / 255, blue: 0x66 / 255)
+    private static let n64Top = Color(red: 0x6C / 255, green: 0x6E / 255, blue: 0x76 / 255)
+    private static let n64Band = Color(red: 0x45 / 255, green: 0x47 / 255, blue: 0x4E / 255)
+    private static let n64Grey = Color(red: 0x8C / 255, green: 0x8F / 255, blue: 0x9E / 255)
+    private static let n64Lamp = Color(red: 0xD9 / 255, green: 0x41 / 255, blue: 0x2B / 255)
+    private static let n64Pad = Color(red: 0xC4 / 255, green: 0xC7 / 255, blue: 0xCA / 255)
+    private static let n64Cross = Color(red: 0x5A / 255, green: 0x5C / 255, blue: 0x66 / 255)
+    private static let n64Stick = Color(red: 0x78 / 255, green: 0x79 / 255, blue: 0x84 / 255)
+    private static let n64Start = Color(red: 0xDB / 255, green: 0x00 / 255, blue: 0x12 / 255)
+    private static let n64A = Color(red: 0x40 / 255, green: 0x70 / 255, blue: 0xFF / 255)
+    private static let n64B = Color(red: 0x60 / 255, green: 0xC9 / 255, blue: 0x75 / 255)
+    private static let n64C = Color(red: 0xFF / 255, green: 0xCC / 255, blue: 0x4A / 255)
 
     var body: some View {
         Canvas { ctx, size in
@@ -358,6 +402,40 @@ struct PixelConsoleIcon: View {
                 rect(40.5, 46, 4, 2, Self.padInk); rect(47.5, 46, 4, 2, Self.padInk)
                 dot(60, 43.8, 2.1, Self.psTriangle); dot(63.2, 47, 2.1, Self.psCircle)
                 dot(60, 50.2, 2.1, Self.psCross); dot(56.8, 47, 2.1, Self.psSquare)
+
+            case .n64:
+                // Machine, SEEN FROM ABOVE like the PlayStation: its front is a
+                // dark box, and what reads as a Nintendo 64 is on top, the
+                // cartridge standing in its slot between the two sliders. The
+                // front band carries the four ports, the other half of the
+                // recognition. Coordinates are `console-n64.svg`'s.
+                rect(8, 2, 76, 22, Self.n64Body); rect(8, 2, 76, 5, Self.n64Top)
+                rect(8, 24, 76, 6, Self.n64Band); frame(8, 24, 76, 6)
+                frame(8, 2, 76, 28)
+                rect(30, 7, 32, 14, Self.n64Top); frame(30, 7, 32, 14)
+                rect(35, 10, 22, 7, Self.n64Grey); frame(35, 10, 22, 7)
+                rect(17, 12, 7, 3, Self.n64Grey); rect(68, 12, 7, 3, Self.n64Grey)
+                rect(28, 26, 6, 2, Self.n64Grey); rect(38, 26, 6, 2, Self.n64Grey)
+                rect(48, 26, 6, 2, Self.n64Grey); rect(58, 26, 6, 2, Self.n64Grey)
+                dot(14, 27, 1.4, Self.n64Lamp)
+                // THE TRIDENT, one outline for the PlayStation pad's reason:
+                // prongs built from rectangles would draw the body's bottom edge
+                // across the top of each. The MIDDLE prong reaches further down
+                // than the outer two, which splay, and the top edge rises in a tab
+                // across the middle 30% of the body. Symmetric about x 46.
+                poly([(22, 36), (38, 36), (38, 34), (54, 34), (54, 36), (70, 36),
+                      (74, 40), (74, 56), (72, 65), (63, 65), (60, 54), (53, 54),
+                      (52, 69), (40, 69), (39, 54), (32, 54), (29, 65), (20, 65),
+                      (18, 56), (18, 40)],
+                     Self.n64Pad)
+                rect(22.5, 43.75, 7, 2.5, Self.n64Cross); rect(24.75, 41.5, 2.5, 7, Self.n64Cross)
+                // START level with the cross's centre; the stick on the line where
+                // the body ends and the prongs begin.
+                dot(46, 45, 1.6, Self.n64Start)
+                dot(46, 54, 3.4, Self.ink); dot(46, 54, 2.6, Self.n64Stick)
+                dot(66, 39.7, 1.3, Self.n64C); dot(66, 45.3, 1.3, Self.n64C)
+                dot(63.2, 42.5, 1.3, Self.n64C); dot(68.8, 42.5, 1.3, Self.n64C)
+                dot(57, 46, 2, Self.n64B); dot(61, 49, 2.2, Self.n64A)
             }
         }
     }

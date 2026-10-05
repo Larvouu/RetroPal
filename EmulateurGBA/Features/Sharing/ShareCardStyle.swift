@@ -77,11 +77,19 @@ enum ShareCardStyle: String {
                     // palette carried before the dress existed; the palette moved
                     // to the real value and this copy did not follow.
                     return [Color(red: 0.745, green: 0.745, blue: 0.737), Color(red: 0.604, green: 0.604, blue: 0.596)]
+                case .n64:
+                    // The Nintendo 64's shell, #C4C7CA, the dress's own body.
+                    return [Color(red: 0.769, green: 0.780, blue: 0.792),
+                            Color(red: 0.627, green: 0.637, blue: 0.649)]
                 }
             }
         }
-        return [Color(red: 0.22, green: 0.12, blue: 0.34), Color(red: 0.07, green: 0.04, blue: 0.13)]
+        return Self.classicExtrude
     }
+
+    /// The Classic card's extruded edge: the purple brand plastic.
+    static let classicExtrude = [Color(red: 0.22, green: 0.12, blue: 0.34),
+                                 Color(red: 0.07, green: 0.04, blue: 0.13)]
 }
 
 /// The game-specific skin context the screenshot + clip cards carry: the per-game
@@ -95,6 +103,10 @@ struct ShareCardSkinContext {
     /// clip cards bake exactly what the screen shows. `.none` without a game
     /// context.
     var filter: VideoFilter = .none
+    /// The game's own pixel grid behind the screenshot, when it is not the
+    /// still's size (PlayStation, Nintendo 64: see
+    /// `EmulatorSession.filterPixelGrid`). The filter draws on it.
+    var filterPixelGrid: CGSize? = nil
 
     /// No game context (Debug previews): the legacy global key, no skin option.
     static let none = ShareCardSkinContext(styleKey: ShareCardStyle.choiceKey, skin: nil)
@@ -107,7 +119,12 @@ struct ShareCardSkinContext {
     static func forRom(romName: String, system: PresetSystem) -> ShareCardSkinContext {
         let key = ShareCardStyle.choiceKey(forRom: romName)
         let filter = VideoFilter.effective(forRomBasename: romName)
-        guard ControlLayoutStore.shared.activePreset(system: system) == nil else {
+        // A console whose card cannot draw its machine has no skin style to
+        // offer, whatever the stored selection says: the card would render the
+        // Classic look under the skin's name. The Nintendo 64 is dressed in game
+        // before it has a console card, so this asks about the card.
+        guard ScreenshotCardRenderer.hasConsoleCard(system),
+              ControlLayoutStore.shared.activePreset(system: system) == nil else {
             return ShareCardSkinContext(styleKey: key, skin: nil, filter: filter)
         }
         switch SkinSelection.decode(UserDefaults.standard.string(forKey: "skin_\(romName)")) {
@@ -175,6 +192,7 @@ extension DressVariant {
             case .snes: return SNESSkinPalette.nostalgia.body
             case .nes: return NESSkinPalette.nostalgia.body
             case .ps1: return PS1SkinPalette.nostalgia.body
+            case .n64: return DressKind.n64Body
             }
         case .retroPal:
             switch system {
@@ -184,6 +202,7 @@ extension DressVariant {
             case .snes: return RetroPalPalette.snesBody
             case .nes: return RetroPalPalette.nesBody
             case .ps1: return PS1SkinPalette.retroPal.body
+            case .n64: return RetroPalPalette.n64Body
             }
         case .custom(.gbc(let p)): return p.body
         case .custom(.gba(let p)): return p.body
@@ -191,6 +210,7 @@ extension DressVariant {
         case .custom(.snes(let p)): return p.body
         case .custom(.nes(let p)): return p.body
         case .custom(.ps1(let p)): return p.body
+        case .custom(.n64(let p)): return p.body
         }
     }
 
@@ -200,6 +220,11 @@ extension DressVariant {
     /// NDS ink untouched), body −39% luma for a custom body (NintendoDSSkin.ink).
     func cardEdgeColor(for system: PresetSystem) -> UIColor {
         switch system {
+        // The triggers' grey, the dress's structure colour (it has no screen
+        // surround), on both dresses: Retro Pal changes the shell only. A
+        // custom skin's L and R take that role.
+        case .n64:
+            return n64.shoulders
         case .ps1:
             switch self {
             case .nostalgia:           return PS1SkinPalette.nostalgia.surround
@@ -275,8 +300,16 @@ extension DressVariant {
                                            p.faceAHex, p.faceBHex, p.faceXHex, p.faceYHex])
         case .custom(.nes(let p)):
             return "custom-nes-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex])
+        // Every slot the card draws, the two added on 2026-08-27 included: without
+        // them an edit to either served the card rendered before it.
         case .custom(.ps1(let p)):
-            return "custom-ps1-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex])
+            return "custom-ps1-" + hexes([p.bodyHex, p.surroundHex, p.padHex, p.faceHex,
+                                          p.printHex, p.diamondHex])
+        case .custom(.n64(let p)):
+            return "custom-n64-" + hexes([p.bodyHex, p.shouldersHex, p.menuButtonsHex,
+                                          p.menuIconsHex, p.dpadHex, p.dpadMarksHex, p.stickHex,
+                                          p.stickSurroundHex, p.aHex, p.bHex, p.zHex, p.cHex,
+                                          p.startHex])
         }
     }
 }
