@@ -26,3 +26,6 @@
 "widget.slot.3" = "Slotul 3";
 "widget.slot.4" = "Slotul 4";
 "widget.slot.5" = "Slotul 5";
+
+/* The Mega Drive's name as sold in this market (Genesis in the Americas) */
+"console.name.md" = "Mega Drive";

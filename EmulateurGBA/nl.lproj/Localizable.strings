@@ -10,11 +10,11 @@
 "library.empty.subtitle" = "Speel je retrogames op je iPhone. Geen advertenties, geen persoonlijke tracking.";
 "library.empty.subtitle.ipad" = "Speel je retrogames op je iPad. Geen advertenties, geen persoonlijke tracking.";
 "library.empty.button" = "Spel toevoegen";
-"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 of .chd) op je iPhone, via Safari, AirDrop of iCloud Drive.";
-"library.empty.step1.ipad" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 of .chd) op je iPad, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step1" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso of .pbp) op je iPhone, via Safari, AirDrop of iCloud Drive.";
+"library.empty.step1.ipad" = "Zet een spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso of .pbp) op je iPad, via Safari, AirDrop of iCloud Drive.";
 "library.empty.step2" = "Tik op %@ en kies het bestand in de Bestanden-app.";
 "library.empty.step3" = "Spelen. Je voortgang wordt automatisch opgeslagen";
-"library.empty.romHint" = "Nog geen ROMs? Er bestaan veel gratis, legale spellen. Zoek online naar \"GBA homebrew\".";
+"library.empty.romHint" = "Nog geen games? Er bestaan veel gratis, legale. Zoek online naar \"GBA homebrew\".";
 "library.empty.legal" = "Importeer alleen bestanden die je legaal bezit.";
 "library.search" = "Spellen zoeken";
 "library.sort.lastPlayed" = "Laatst gespeeld";
@@ -41,7 +41,8 @@
 "details.newGame" = "Vanaf titelscherm starten";
 "details.saveSlots" = "Snelle saveslots";
 "details.delete" = "Spel verwijderen";
-"details.delete.confirm" = "Dit spel en alle opslaggegevens verwijderen?";
+"details.delete.confirm" = "Dit spel verwijderen?";
+"details.delete.confirm.message" = "De savestates en cheats worden verwijderd. De save in het spel blijft bewaard: importeer je het spel opnieuw, dan is je voortgang terug.";
 "details.rename" = "Hernoemen";
 "details.rename.title" = "Spel hernoemen";
 "details.cover.choose" = "Cover kiezen";
@@ -106,6 +107,8 @@
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
 "settings.clipButton" = "Clipknop";
+"details.playAsP2" = "Speel als Speler 2";
+"details.playAsP2.caption" = "Jij speelt Speler 2, met de aanraakbediening of je controller, en het spel speelt Speler 1: oefen vanaf de andere kant tegen de computer. Een tweede controller speelt Speler 1.";
 "settings.nds.swapScreens" = "Schermen wisselen";
 "settings.nds.language" = "Speltaal";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -151,7 +154,7 @@
 "pro.benefit.speed" = "Alle snelheden: 0,25x tot 4x";
 "pro.benefit.slots" = "5 opslagslots (in plaats van 2)";
 "pro.benefit.rewind" = "30 seconden terugspoelen";
-"pro.benefit.cheats" = "Cheatcodes (GameShark / Action Replay)";
+"pro.benefit.cheats" = "Cheatcodes (Action Replay, Game Genie, GameShark en meer)";
 "pro.benefit.controls" = "Eigen lay-outs en controllerknoppen";
 "pro.benefit.speed.short" = "Alle snelheden";
 "pro.benefit.slots.short" = "5 opslagslots";
@@ -226,7 +229,7 @@
 "legal.melonds" = "melonDS-licentie";
 "legal.importantNotice.title" = "Belangrijke mededeling";
 "legal.aboutApp.title" = "Over deze app";
-"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES-, PlayStation- en Nintendo 64-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
+"legal.aboutApp.description1" = "Retro Pal is een lokale emulatorfrontend voor Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES-, PlayStation-, Nintendo 64-, Mega Drive-, Master System-, Game Gear- en PSP-spellen. De app downloadt, verspreidt of biedt geen toegang tot enige spelinhoud. Alle ROM-bestanden moeten door de gebruiker worden geïmporteerd vanuit de eigen apparaatopslag via de Bestanden-app.";
 "legal.aboutApp.description2" = "Deze app biedt geen spellencatalogus, verspreidt geen spelinhoud en faciliteert het downloaden van auteursrechtelijk beschermd materiaal niet.";
 "legal.privacy.title" = "Privacy";
 "legal.privacy.description" = "Je games en savegames blijven op je apparaat. Om de app te verbeteren stuurt Retro Pal alleen anonieme gebruiksstatistieken, zonder persoonlijke gegevens en zonder advertentie-id's.";
@@ -237,13 +240,19 @@
 "legal.melonds.description" = "melonDS is een Nintendo DS-emulator die in deze app wordt gebruikt als emulator-engine voor DS-spellen. De broncode van melonDS is beschikbaar op [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
 "legal.mesen" = "MesenCE-licentie";
 "legal.mesen.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
-"legal.mesen.description" = "MesenCE is een Super Nintendo- en NES-emulator die in deze app wordt gebruikt als emulator-engine voor SNES- en NES-spellen. De broncode van MesenCE is beschikbaar op [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.mesen.description" = "MesenCE is een multisysteememulator die in deze app wordt gebruikt als emulator-engine voor Super Nintendo-, NES-, Master System- en Game Gear-spellen. De broncode van MesenCE is beschikbaar op [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.pcsx" = "PCSX-ReARMed-licentie";
 "legal.pcsx.licenseLine" = "Gelicentieerd onder de GNU General Public License v2.0 of later (GPL-2.0-or-later)";
 "legal.pcsx.description" = "PCSX-ReARMed is een PlayStation-emulator die in deze app als emulatie-engine voor PlayStation-games wordt gebruikt. De broncode van PCSX-ReARMed is beschikbaar op [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.mupen" = "Mupen64Plus-Next-licentie";
 "legal.mupen.licenseLine" = "Gelicentieerd onder de GNU General Public License v2.0 of later (GPL-2.0-or-later)";
 "legal.mupen.description" = "Mupen64Plus-Next is een Nintendo 64-emulator die in deze app als emulatie-engine voor Nintendo 64-games wordt gebruikt, samen met de signaalprocessor cxd4 van Iconoclast (CC0). Hij wordt gebruikt met enkele wijzigingen, die als patchbestanden bij de broncode worden gepubliceerd. De broncode van Mupen64Plus-Next is beschikbaar op [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx)";
+"legal.blastem" = "BlastEm-licentie";
+"legal.blastem.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 of later (GPL-3.0-or-later)";
+"legal.blastem.description" = "BlastEm is een Mega Drive-emulator die in deze app als emulatie-engine voor Mega Drive-games wordt gebruikt. Hij wordt gebruikt met enkele wijzigingen, die als patchbestanden bij de broncode worden gepubliceerd. De broncode van BlastEm is beschikbaar op [https://www.retrodev.com/repos/blastem](https://www.retrodev.com/repos/blastem)";
+"legal.ppsspp" = "PPSSPP-licentie";
+"legal.ppsspp.licenseLine" = "Gelicentieerd onder de GNU General Public License v2.0 of later (GPL-2.0-or-later)";
+"legal.ppsspp.description" = "PPSSPP is een PSP-emulator die in deze app als emulatie-engine voor PSP-games wordt gebruikt. De broncode van PPSSPP is beschikbaar op [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp)";
 "legal.parallelrdp" = "ParaLLEl-RDP-licentie";
 "legal.parallelrdp.licenseLine" = "Gelicentieerd onder de MIT-licentie";
 "legal.parallelrdp.description" = "ParaLLEl-RDP tekent in deze app het beeld van de Nintendo 64 op de grafische processor. De broncode van ParaLLEl-RDP is beschikbaar op [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
@@ -253,7 +262,7 @@
 "legal.retropal" = "Retro Pal-licentie";
 "legal.retropal.licenseLine" = "Gelicentieerd onder de GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "De volledige broncode van Retro Pal is beschikbaar op [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). De software wordt geleverd zonder enige garantie.";
-"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en PCSX-ReARMed (GPL-2.0 of later), die ongewijzigd worden gebruikt, op melonDS (GPL-3.0), dat met twee kleine wijzigingen wordt gebruikt, op MesenCE (GPL-3.0), dat met één kleine wijziging wordt gebruikt, en op Mupen64Plus-Next (GPL-2.0 of later), dat met enkele wijzigingen wordt gebruikt, samen met ParaLLEl-RDP (MIT), de signaalprocessor cxd4 (CC0) en MoltenVK (Apache License 2.0). Elke wijziging wordt als patchbestand bij de broncode gepubliceerd. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
+"legal.compliance" = "Retro Pal wordt gedistribueerd onder de GNU General Public License v3.0. De app bouwt voort op mGBA (Mozilla Public License 2.0) en PCSX-ReARMed (GPL-2.0 of later), die ongewijzigd worden gebruikt, op MesenCE (GPL-3.0) en PPSSPP (GPL-2.0 of later), die elk met één kleine wijziging worden gebruikt, op melonDS (GPL-3.0) en BlastEm (GPL-3.0 of later), die elk met twee kleine wijzigingen worden gebruikt, en op Mupen64Plus-Next (GPL-2.0 of later), dat met enkele wijzigingen wordt gebruikt, samen met ParaLLEl-RDP (MIT), de signaalprocessor cxd4 (CC0) en MoltenVK (Apache License 2.0). Elke wijziging wordt als patchbestand bij de broncode gepubliceerd. De volledige bijbehorende broncode is beschikbaar in de hierboven gelinkte repository, en de software wordt geleverd zonder enige garantie.";
 "legal.thirdParty.title" = "Licenties van derden";
 "legal.thirdParty.caption" = "De volledige tekst van elke licentie waaronder de software in Retro Pal wordt verspreid, met de onderdelen die haar gebruiken.";
 "legal.thirdParty.usedBy" = "Gebruikt door";
@@ -273,6 +282,8 @@
 "overlay.sound.off" = "Geluid uit";
 "overlay.overwrite.title" = "Slot %@ overschrijven?";
 "overlay.overwrite.message" = "Dit vervangt de bestaande opslagstatus.";
+"overlay.save.failed.title" = "Opslaan in slot %@ mislukt";
+"overlay.save.failed.message" = "Het slot houdt zijn vorige opslagstatus. Probeer het opnieuw. Mislukt het steeds, maak dan opslagruimte vrij of sluit andere apps.";
 "overlay.overwrite" = "Overschrijven";
 "overlay.load.confirm.title" = "Slot %@ laden?";
 "overlay.load.confirm.message" = "Niet-opgeslagen voortgang gaat verloren.";
@@ -283,6 +294,9 @@
 "cheats.hint.snes" = "Pro Action Replay- of Game Genie-formaat (XXXX-XXXX)";
 "cheats.hint.nes" = "Pro Action Rocky- of Game Genie-formaat (letters)";
 "cheats.hint.ps1" = "GameShark- of Action Replay-formaat (XXXXXXXX YYYY)";
+"cheats.hint.md" = "Pro Action Replay-formaat (XXXXXX:YYYY)";
+"cheats.hint.sega8" = "Game Genie- (XXX-XXX) of Pro Action Replay-formaat (XXXX:YYYY)";
+"cheats.hint.psp" = "CWCheat-formaat (_L 0xXXXXXXXX 0xYYYYYYYY)";
 "cheats.namePlaceholder" = "Naam (optioneel)";
 "cheats.edit.title" = "Code bewerken";
 "cheats.edit.hint" = "Deze code bewerken";
@@ -292,6 +306,9 @@
 "cheats.invalid.snes" = "Code niet herkend. Verwacht: Game Genie (XXXX-XXXX) of Pro Action Replay (acht tekens).";
 "cheats.invalid.nes" = "Code niet herkend. Verwacht: Game Genie (zes of acht letters) of Pro Action Rocky (acht tekens).";
 "cheats.invalid.ps1" = "Code niet herkend. Verwacht: GameShark- of Action Replay-formaat (XXXXXXXX YYYY, één paar per regel).";
+"cheats.invalid.md" = "Code niet herkend. Verwacht: Pro Action Replay-formaat (XXXXXX:YYYY, één code per regel). Game Genie-codes werken niet op deze console.";
+"cheats.invalid.sega8" = "Code niet herkend. Verwacht: Game Genie (XXX-XXX of XXX-XXX-XXX) of Pro Action Replay (XXXX:YYYY, één code per regel).";
+"cheats.invalid.psp" = "Code niet herkend. Verwacht: CWCheat-formaat (_L 0xXXXXXXXX 0xYYYYYYYY, één paar per regel).";
 "cheats.empty" = "Geen actieve cheats";
 "cheats.findHint" = "Codes zijn makkelijk online te vinden. Zoek naar de cheat codes van je spel.";
 "cheats.clearAll" = "Alles wissen";
@@ -337,6 +354,7 @@
 "remap.press" = "Druk op een knop…";
 "remap.reset" = "Standaardwaarden herstellen";
 "remap.footer" = "Tik op een knop en druk daarna op de controllerknop die je wilt toewijzen. De D-pad en stick besturen altijd de D-pad.";
+"remap.footer.analogStick" = "Tik op een knop en druk daarna op de controllerknop die je wilt toewijzen. Op deze console bestuurt de D-pad de D-pad en is de linkerstick de analoge stick.";
 "remap.noController" = "Verbind een controller om de knoppen toe te wijzen.";
 "remap.actions.header" = "Sneltoetsen";
 "remap.action.fastForward" = "Vooruitspoelen (vasthouden)";
@@ -403,7 +421,7 @@
 "saveImport.overwrite.title" = "Bestaande save";
 "saveImport.overwrite.message" = "%@ heeft al een save. Deze wordt als back-up bewaard als je hem vervangt.";
 "saveImport.overwrite.confirm" = "Vervangen";
-"saveImport.error.invalidFormat" = "Dit bestand is geen herkende save. Importeer een .sav- of .srm-bestand uit een andere emulator.";
+"saveImport.error.invalidFormat" = "Dit bestand is geen herkende save. Importeer een .sav-, .srm- of .mcd-bestand uit een andere emulator.";
 "saveImport.error.wrongSystem" = "Deze save is niet compatibel met dit spel.";
 "saveImport.error.duplicateExists" = "Er bestaat al een save voor dit spel.";
 "saveImport.error.fileAccessDenied" = "Het geselecteerde bestand kon niet worden gelezen.";
@@ -413,13 +431,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Spel toevoegen";
 "guide.importRom.intro" = "Retro Pal bevat geen games. Je levert je eigen ROM-bestanden aan, waarvan je de rechten bezit (je eigen cartridges of gratis, legale homebrew-games).";
-"guide.importRom.step1" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin) op je iPhone: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
-"guide.importRom.step1.ipad" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin) op je iPad: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
+"guide.importRom.step1" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin, of een PSP-game als .iso, .cso, .chd of .pbp) op je iPhone: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
+"guide.importRom.step1.ipad" = "Zet het gamebestand (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, of een PlayStation-disc als .chd, of .cue met bijbehorende .bin, of een PSP-game als .iso, .cso, .chd of .pbp) op je iPad: download het in Safari, stuur het via AirDrop vanaf een computer of gebruik iCloud Drive.";
 "guide.importRom.step2" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPhone of iCloud Drive).";
 "guide.importRom.step2.ipad" = "Controleer of het in de Bestanden-app staat (onder Downloads, Op mijn iPad of iCloud Drive).";
 "guide.importRom.step3" = "Tik in Retro Pal op de knop + bovenaan de bibliotheek.";
 "guide.importRom.step4" = "Kies het bestand. De game verschijnt meteen in je bibliotheek, klaar om te spelen.";
-"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u. Een .zip kan ook, of die nu één game bevat, alle bestanden van één disc, of meerdere games om uit te kiezen. .7z wordt niet ondersteund. Importeer alleen bestanden die je legaal bezit.";
+"guide.importRom.footer" = "Ondersteunde formaten: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u, en PSP-games als .iso, .cso, .chd of .pbp. Een .zip kan ook, of die nu één game bevat, alle bestanden van één disc, of meerdere games om uit te kiezen. .7z wordt niet ondersteund. Importeer alleen bestanden die je legaal bezit.";
 "settings.guides.section" = "Handleidingen";
 "settings.controller.row" = "Controller";
 "common.done" = "Klaar";
@@ -442,6 +460,8 @@
 "saveImport.mismatch.title" = "Save van een ander spel?";
 "saveImport.mismatch.message" = "De bestandsnaam komt niet overeen met %@. Importeer alleen als je zeker weet dat de save bij dit spel hoort.";
 "saveImport.mismatch.confirm" = "Toch importeren";
+"saveOpen.choose.caption" = "Bij welke game hoort \"%@\"? De namen die er het meest op lijken staan bovenaan.";
+"saveOpen.noGame" = "Geen enkele game in je bibliotheek kan deze save gebruiken. Importeer eerst de game en open de save daarna opnieuw.";
 "saveExport.title" = "Save exporteren";
 "saveExport.none.title" = "Geen save om te exporteren";
 "saveExport.none.message" = "Dit spel heeft nog geen save. Sla eerst op via het eigen menu van het spel en kom dan terug om die te exporteren.";
@@ -514,6 +534,8 @@
 "skin.editor.surround" = "Rand";
 "skin.editor.dpad" = "D-pad";
 "skin.editor.abButtons" = "A/B-knoppen";
+"skin.editor.abcButtons" = "A/B/C-knoppen";
+"skin.editor.xyzButtons" = "X/Y/Z-knoppen";
 "skin.editor.faceButtons" = "Actieknoppen";
 "skin.editor.faceA" = "A-knop";
 "skin.editor.faceB" = "B-knop";
@@ -556,6 +578,9 @@
 "skin.editor.faceZ" = "Z-knop";
 "skin.editor.cButtons" = "C-knoppen";
 "skin.editor.startButton" = "START-knop";
+"skin.editor.plates" = "Knopplaatjes";
+"skin.editor.accent" = "Rode bies";
+"skin.editor.onAccent" = "Opdruk op het rood";
 
 
 /* RetroAchievements */
@@ -615,9 +640,11 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Geen toegang tot het geselecteerde bestand. Probeer het te importeren via de Bestanden-app.";
 "import.error.copyFailed" = "De game kon niet naar Retro Pal worden gekopieerd. Maak opslagruimte vrij en probeer het opnieuw.";
-"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 en .v64, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u.";
+"import.error.invalidROM" = "Dit bestand is geen game die Retro Pal kan lezen. Ondersteunde games: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms en .gg, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u, en PSP-games als .iso, .cso, .chd of .pbp.";
 "import.error.discMissingFiles" = "Deze disc mist bestanden die je niet hebt geselecteerd: %@. Selecteer de .cue en al zijn .bin-bestanden samen, in één keer.";
-"import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc-, .nds-, .sfc-, .smc-, .nes-, .z64-, .n64- en .v64-games, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u; andere consoles worden niet ondersteund.";
+"import.console.title" = "Voor welke console is deze game?";
+"import.console.message" = "Retro Pal kan aan het bestand niet zien of \"%@\" een PlayStation- of een PSP-game is. Kies de console, zodat de game op de juiste start.";
+"import.error.zipNoROM" = "Geen gamebestand gevonden in deze ZIP. Retro Pal leest .gba-, .gb-, .gbc-, .nds-, .sfc-, .smc-, .nes-, .z64-, .n64-, .v64-, .md-, .gen-, .smd-, .sms- en .gg-games, plus PlayStation-discs als .chd, .cue met bijbehorende .bin, of .m3u, en PSP-games als .iso, .cso, .chd of .pbp; andere consoles worden niet ondersteund.";
 "import.error.zipExtractionFailed" = "Deze ZIP kon niet worden geopend. Pak hem uit in de Bestanden-app en importeer het gamebestand direct.";
 "import.error.zipUnsupportedCompression" = "Deze ZIP gebruikt een compressiemethode die Retro Pal niet kan lezen, zoals LZMA of BZIP2. Het bestand is niet beschadigd. Pak het uit in de Bestanden-app en importeer de game rechtstreeks, of maak de ZIP opnieuw met standaardcompressie.";
 "import.error.zipEncrypted" = "Deze ZIP is beveiligd met een wachtwoord. Pak het uit in de Bestanden-app en importeer daarna het gamebestand rechtstreeks.";
@@ -685,12 +712,18 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Deze code bevat onverwachte tekens. Cheatcodes gebruiken alleen 0-9, A-F, spaties en streepjes.";
+"cheats.invalid.characters.md" = "Deze code bevat onverwachte tekens. Deze cheatcodes gebruiken alleen 0-9, A-F, spaties, streepjes en dubbele punten.";
+"cheats.invalid.characters.psp" = "Deze code bevat onverwachte tekens. PSP-cheatcodes gebruiken alleen _L, 0x, de cijfers 0-9, de letters A-F en spaties.";
 "cheats.invalid.characters.nes" = "Deze code bevat onverwachte tekens. NES-codes gebruiken de Game Genie-letters A P Z L G I T Y E O X U K S V N, of 0-9 en A-F, plus spaties en streepjes.";
 "cheats.invalid.pairs" = "Action Replay DS-codes gaan per paar: elke regel heeft twee blokken van acht tekens nodig, bijvoorbeeld 94000130 FCFF0000.";
-"cheats.invalid.placeholder" = "Bij deze code kies je zelf een waarde. Vervang elke X door een hexadecimaal cijfer (0-9 of A-F), bijvoorbeeld XXXX door 0063.";
+"cheats.invalid.pairs.psp" = "CWCheat-codes gaan per paar: elke regel heeft twee getallen na _L nodig, bijvoorbeeld _L 0x20123456 0x0000270F.";
+"cheats.invalid.placeholder" = "Bij deze code kies je zelf een waarde. Vervang elke X of ? door een hexadecimaal cijfer (0-9 of A-F), bijvoorbeeld XXXX door 0063.";
 "n64.displayLost.title" = "Het beeld wordt niet meer bijgewerkt";
 "n64.displayLost.message" = "De grafische processor reageert niet meer, dus het beeld van de game kan niet meer worden getoond. Sluit af om je voortgang op te slaan en open de game daarna opnieuw om verder te spelen.";
 "n64.displayLost.quit" = "Opslaan en afsluiten";
+"psp.bootFailed.title" = "Deze game kon niet worden gestart";
+"psp.bootFailed.message" = "De PSP-emulator kon dit bestand niet starten. Als deze game al eerder werkte, sluit Retro Pal dan helemaal af, open de app opnieuw en probeer het nog eens. Zo niet, dan is het misschien beschadigd of onvolledig, of het is een kopie die de emulator niet kan lezen, zoals een versleutelde image. Je opgeslagen voortgang en je andere games blijven ongemoeid.";
+"psp.bootFailed.quit" = "Afsluiten";
 "n64.libdragonUnsupported" = "Deze Nintendo 64-game is gemaakt met een recente homebrew-toolkit (libdragon) die Retro Pal nog niet ondersteunt. Nintendo 64-cartridgegames hebben hier geen last van.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -737,25 +770,26 @@
 "externalDisplay.idle.hint.ipad" = "Start een game op je iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "De Nintendo 64";
-"whatsnew.s1.b1" = "Nintendo 64-games draaien nu in Retro Pal, en de console is gratis voor iedereen.";
-"whatsnew.s1.b2" = "Saves, savestates, cheatcodes, prestaties en officiële hoezen werken vanaf dag één.";
-"whatsnew.s1.b3" = "Op het scherm liggen de stick, A, B, Z en de vier C-knoppen onder je duimen. Met een controller bedient de rechterstick de C-knoppen.";
-"whatsnew.s1.b4" = "Rond het spel draagt hij zijn eigen behuizing, staand en liggend. Met {PRO} schilder je hem in je eigen kleuren.";
-"whatsnew.s2.title" = "Tot vier controllers";
-"whatsnew.s2.b1" = "Verbind tot vier controllers en speel samen: twee spelers op de NES, de Super Nintendo en de PlayStation, vier op de Nintendo 64. Gratis.";
-"whatsnew.s2.b2" = "In Instellingen bepaalt het onderdeel Spelers hun volgorde. Speler 1 speelt op de consoles voor één speler en bedient de menu's; druk op een knop van een controller om zijn rij te laten oplichten.";
-"whatsnew.s2.b3" = "De balk van de bibliotheek toont de batterij van elke controller.";
-"whatsnew.s3.title" = "De hele app met een controller";
-"whatsnew.s3.b1" = "Ga met de richtingsknoppen door de bibliotheek, de pagina van een spel, RetroAchievements en Instellingen: A opent, B gaat terug, L en R wisselen tussen Bibliotheek en Instellingen, en een kader laat zien waar je bent.";
-"whatsnew.s3.b2" = "Tijdens het spelen opent de Home-knop van de controller, of Start en Select een seconde ingedrukt, het pauzemenu. Daar sla je op, laad je en stop je zonder het scherm aan te raken.";
-"whatsnew.s4.title" = "Covers";
-"whatsnew.s4.b1" = "Kies de cover van al je games in één keer met de paletknop {PALETTE}, onder Covers: officiële hoes, RetroAchievements-afbeelding of schermafbeelding. Een cover die je voor één spel hebt gekozen, blijft staan.";
-"whatsnew.s4.b2" = "Een spel waarvan de cover zijn RetroAchievements-afbeelding was geworden, krijgt zijn officiële hoes terug, en de RetroAchievements-afbeelding staat al klaar voordat je het spel ooit hebt geopend.";
-"whatsnew.s5.title" = "En verder";
-"whatsnew.s5.b1" = "Op de DS kan het pauzemenu de console dichtklappen, voor de zeldzame puzzels die daarom vragen. Hij blijft dicht tot je op een willekeurige knop drukt.";
-"whatsnew.s5.b2" = "DS-games lopen soepeler, vooral in de energiebesparingsmodus, en het geluid hapert niet meer tijdens het spelen.";
-"whatsnew.s5.b3" = "DS-savestates nemen nog maar ongeveer een derde van de ruimte in. Je bestaande savestates laden gewoon; een nieuwe opent op je andere apparaten zodra die deze update ook hebben.";
+"whatsnew.s1.title" = "Vier nieuwe consoles";
+"whatsnew.s1.b1" = "Mega Drive-, Master System-, Game Gear- en PSP-games speel je nu in Retro Pal, en alle vier zijn gratis voor iedereen.";
+"whatsnew.s1.b2" = "Saves, savestates, prestaties en officiële hoezen werken op alle vier vanaf dag één, en met {PRO} ook cheatcodes.";
+"whatsnew.s1.b3" = "Twee spelers op de Mega Drive en de Master System. De Mega Drive heeft zijn controller met zes knoppen op het scherm.";
+"whatsnew.s1.b4" = "Hun screenshot- en clipkaarten tonen de console zelf, en met {PRO} maak je voor alle vier eigen skins.";
+"whatsnew.s2.title" = "De Nintendo 64";
+"whatsnew.s2.b1" = "Met {PRO} spoel je op de Nintendo 64 nu tot 30 seconden terug, waar het eerst bij 5 ophield.";
+"whatsnew.s2.b2" = "Nintendo 64-games vragen minder van je telefoon: tot 18% minder werk per beeld in de energiebesparingsmodus.";
+"whatsnew.s2.b3" = "Nintendo 64-savestates zijn nu zo'n tien keer kleiner dan eerst.";
+"whatsnew.s3.title" = "Klassiek";
+"whatsnew.s3.b1" = "Klassiek is nu een eigen look, ook liggend: een effen zwarte achtergrond, onder de paletknop {PALETTE}.";
+"whatsnew.s4.title" = "En verder";
+"whatsnew.s4.b1" = "Open een game of een save rechtstreeks vanuit de Bestanden-app of via AirDrop, en Retro Pal zet hem op de juiste plek.";
+"whatsnew.s4.b2" = "Houd het Retro Pal-icoon op je beginscherm ingedrukt om ons te laten weten dat er iets mis is.";
+"whatsnew.s4.b3" = "Als een savestate niet kan worden opgeslagen, zegt Retro Pal dat nu, in plaats van stil te falen. En voordat een savestate wordt geladen, blijft er een kopie van de save van het spel in de Bestanden-app: een oudere savestate kan je nooit definitief een nieuwere save kosten.";
+"whatsnew.s4.b4" = "De knoppen van elke console hebben nu reliëf, met een rand van licht en schaduw.";
+"whatsnew.s4.b5" = "De Master System, de Game Gear en de PSP dragen elk het uiterlijk van hun eigen console, tot op de knoppen.";
+"whatsnew.s4.b6" = "Met {PRO} spoelt één tik op Terugspoelen op elke console 10 seconden terug; houd hem ingedrukt om tot 30 te kiezen.";
+"whatsnew.s4.b7" = "Het paneel Weergave in het pauzemenu werkt met een controller: behuizingen, schermfilters en alle knoppen.";
+"whatsnew.s4.b8" = "Kies op de pagina van een spel Speel als Speler 2 op consoles voor twee of meer spelers: je speelt Speler 2, met aanraakbediening of een controller, en oefent vanaf de andere kant tegen de computer.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Er zijn geen prestaties uit deze reeks geladen.";
@@ -766,3 +800,10 @@
 "library.untitled" = "Game zonder titel";
 "guide.controller.keyboard" = "Fysiek toetsenbord: pijltjes bewegen, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Toetsen worden op hun positie gelezen, dus de letters zijn die van een QWERTY-toetsenbord. Bluetooth-controllers die iOS als toetsenbord herkent, zoals de 8BitDo Zero in toetsenbordmodus, werken ook. Elke toets kun je opnieuw toewijzen in Instellingen, Controller, zolang het toetsenbord is verbonden. Op de iPhone verdwijnen de knoppen op het scherm zolang er een toetsenbord is verbonden.";
 "guide.controller.keyboard.ipad" = "Fysiek toetsenbord: pijltjes bewegen, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Toetsen worden op hun positie gelezen, dus de letters zijn die van een QWERTY-toetsenbord. Bluetooth-controllers die iOS als toetsenbord herkent, zoals de 8BitDo Zero in toetsenbordmodus, werken ook. Elke toets kun je opnieuw toewijzen in Instellingen, Controller, zolang het toetsenbord is verbonden.";
+
+/* The Mega Drive's name as sold in this market (Genesis in the Americas) */
+"console.name.md" = "Mega Drive";
+
+/* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
+"feedback.mail.subject" = "Feedback over Retro Pal";
+"feedback.mail.body" = "Vertel ons wat er misgaat, en met welke game als het om een game gaat:\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";

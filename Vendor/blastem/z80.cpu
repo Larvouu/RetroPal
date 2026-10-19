@@ -1,0 +1,2513 @@
+info
+	prefix z80_
+	opcode_size 8
+	extra_tables cb ed dded fded ddcb fdcb dd fd
+	body z80_run_op
+	sync_cycle z80_sync_cycle
+	interrupt z80_interrupt
+	include z80_util.c
+	header z80.h
+	
+declare
+	void init_z80_opts(z80_options * options, memmap_chunk const * chunks, uint32_t num_chunks, memmap_chunk const * io_chunks, uint32_t num_io_chunks, uint32_t clock_divider, uint32_t io_address_mask);
+	z80_context * init_z80_context(z80_options *options);
+	void z80_run(z80_context *context, uint32_t target_cycle);
+	void z80_assert_reset(z80_context * context, uint32_t cycle);
+	void z80_clear_reset(z80_context * context, uint32_t cycle);
+	void z80_assert_busreq(z80_context * context, uint32_t cycle);
+	void z80_clear_busreq(z80_context * context, uint32_t cycle);
+	void z80_assert_nmi(z80_context *context, uint32_t cycle);
+	uint8_t z80_get_busack(z80_context * context, uint32_t cycle);
+	void z80_invalidate_code_range(z80_context *context, uint32_t start, uint32_t end);
+	void z80_adjust_cycles(z80_context * context, uint32_t deduction);
+	void z80_serialize(z80_context *context, serialize_buffer *buf);
+	void z80_deserialize(deserialize_buffer *buf, void *vcontext);
+	void zinsert_breakpoint(z80_context * context, uint16_t address, uint8_t * bp_handler);
+	void zremove_breakpoint(z80_context * context, uint16_t address);
+	void z80_options_free(z80_options *opts);
+	void z80_sync_cycle(z80_context *context, uint32_t target_cycle);
+	void z80_clock_divider_updated(z80_options *options);
+
+regs
+	main 8 b c d e h l f a
+	alt 8 b' c' d' e' h' l' f' a'
+	i 8
+	r 8
+	rhigh 8
+	iff1 8
+	iff2 8
+	imode 8
+	sp 16
+	ix 16
+	iy 16
+	pc 16
+	wz 16
+	nflag 8
+	last_flag_result 8
+	pvflag 8
+	chflags 8
+	zflag 8
+	scratch1 16
+	scratch2 16
+	busreq 8
+	busack 8
+	reset 8
+	io_map ptrmemmap_chunk
+	io_chunks 32
+	io_mask 32
+	int_cycle 32
+	int_end_cycle 32
+	int_value 8
+	nmi_cycle 32
+	system ptrvoid
+	fastread ptr8 64
+	fastwrite ptr8 64
+	mem_pointers ptr8 4
+	
+flags
+	register f
+	S 7 sign last_flag_result.7
+	Z 6 zero zflag
+	Y 5 bit-5 last_flag_result.5
+	H 4 half-carry chflags.3
+	P 2 parity pvflag
+	V 2 overflow pvflag
+	X 3 bit-3 last_flag_result.3
+	N 1 none nflag
+	C 0 carry chflags.7
+
+	
+z80_op_fetch
+	cycles 1
+	r += 1
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	
+z80_run_op
+	#printf "Z80: %X @ %d\n" pc cycles
+	#printf "Z80: %X - A: %X, B: %X, C: %X D: %X, E: %X, H: %X, L: %X, SP: %X, IX: %X, IY: %X @ %d\n" pc a b c d e h l sp ix iy cycles
+	z80_op_fetch
+	dispatch scratch1
+
+z80_interrupt
+	if cycles >=U nmi_cycle
+		
+		nmi_cycle = 0xFFFFFFFF
+		iff1 = 0
+		local pch 8
+		pch = pc >> 8
+		meta high pch
+		meta low pc
+		z80_push
+		pc = 0x66
+		update_sync
+	
+	else
+		if iff1
+			if cycles >=U int_cycle
+			
+				iff1 = 0
+				iff2 = 0
+				cycles 6
+				update_sync
+				
+				switch imode
+				case 0
+					dispatch int_value
+				
+				case 1
+					dispatch 0xFF
+				
+				case 2
+					pc = i << 8
+					pc |= int_value
+					#CD is call
+					dispatch 0xCD
+				end
+				
+			end
+		end
+	end
+	
+	
+11001011 cb_prefix
+	z80_op_fetch
+	dispatch scratch1 cb
+
+11011101 dd_prefix
+	z80_op_fetch
+	dispatch scratch1 dd
+
+11101101 ed_prefix
+	z80_op_fetch
+	dispatch scratch1 ed
+
+11111101 fd_prefix
+	z80_op_fetch
+	dispatch scratch1 fd
+	
+dd 11001011 ddcb_prefix
+	z80_calc_index ix
+	cycles 2
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	dispatch scratch1 ddcb
+	
+fd 11001011 fdcb_prefix
+	z80_calc_index iy
+	cycles 2
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	dispatch scratch1 fdcb
+	
+z80_check_cond
+	arg cond 8
+	local invert 8
+	switch cond
+	case 0
+		meta istrue invert
+		invert = !zflag
+	
+	case 1
+		meta istrue zflag
+	
+	case 2
+		meta istrue invert
+		invert = ~chflags
+		invert &= 0x80
+	
+	case 3
+		meta istrue invert
+		invert = chflags & 0x80
+	
+	case 4
+		meta istrue invert
+		invert = !pvflag
+	
+	case 5
+		meta istrue pvflag
+	
+	case 6
+		meta istrue invert
+		invert = ~last_flag_result
+		invert &= 0x80
+	
+	case 7
+		meta istrue invert
+		invert = 0x80 & last_flag_result	
+	end
+	
+z80_fetch_hl
+	scratch1 = h << 8
+	scratch1 |= l
+	ocall read_8
+	
+z80_store_hl
+	scratch2 = h << 8
+	scratch2 |= l
+	ocall write_8
+
+z80_fetch_immed
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	
+z80_fetch_immed16
+	scratch1 = pc
+	ocall read_8
+	wz = scratch1
+	pc += 1
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	scratch1 <<= 8
+	wz |= scratch1
+
+z80_fetch_immed_reg16
+	scratch1 = pc
+	ocall read_8
+	low = scratch1
+	pc += 1
+	scratch1 = pc
+	ocall read_8
+	high = scratch1
+	pc += 1
+	
+z80_fetch_immed_to_reg16
+	scratch1 = pc
+	ocall read_8
+	reg = scratch1
+	pc += 1
+	scratch1 = pc
+	ocall read_8
+	pc += 1
+	scratch1 <<= 8
+	reg |= scratch1
+
+01RRR110 ld_from_hl
+	z80_fetch_hl
+	main.R = scratch1
+
+01DDDSSS ld_from_reg
+	main.D = main.S
+	
+dd 01DDD100 ld_from_ixh
+	invalid D 6
+	main.D = ix >> 8
+	
+dd 01100SSS ld_to_ixh
+	invalid S 6
+	local tmp 16
+	ix &= 0xFF
+	tmp = main.S << 8
+	ix |= tmp
+	
+dd 0110D10S ld_ixb_to_ixb
+
+dd 01DDD101 ld_from_ixl
+	invalid D 6
+	main.D = ix
+	
+dd 01101SSS ld_to_ixl
+	invalid S 6
+	ix &= 0xFF00
+	ix |= main.S
+	
+dd 01100101 ld_ixl_to_ixh
+	local tmp 16
+	tmp = ix << 8
+	ix &= 0xFF
+	ix |= tmp
+	
+dd 01101100 ld_ixh_to_ixl
+	local tmp 16
+	tmp = ix >> 8
+	ix &= 0xFF00
+	ix |= tmp
+	
+fd 01DDD100 ld_from_iyh
+	invalid D 6
+	main.D = iy >> 8
+	
+fd 01100SSS ld_to_iyh
+	invalid S 6
+	local tmp 16
+	iy &= 0xFF
+	tmp = main.S << 8
+	iy |= tmp
+	
+fd 0110D10S ld_iyb_to_iyb
+
+fd 01DDD101 ld_from_iyl
+	invalid D 6
+	main.D = iy
+	
+fd 01101SSS ld_to_iyl
+	invalid S 6
+	iy &= 0xFF00
+	iy |= main.S
+	
+fd 01100101 ld_iyl_to_iyh
+	local tmp 16
+	tmp = iy << 8
+	iy &= 0xFF
+	iy |= tmp
+	
+fd 01101100 ld_iyh_to_iyl
+	local tmp 16
+	tmp = iy >> 8
+	iy &= 0xFF00
+	iy |= tmp
+	
+z80_calc_index
+	arg index 16
+	wz = index
+	z80_fetch_immed
+	sext 16 scratch1 scratch1
+	wz += scratch1
+
+z80_fetch_index
+	arg index 16
+	z80_calc_index index
+	scratch1 = wz
+	cycles 5
+	ocall read_8
+	
+z80_store_index
+	scratch2 = wz
+	ocall write_8
+	
+dd 01RRR110 ld_from_ix
+	z80_fetch_index ix
+	main.R = scratch1
+
+fd 01RRR110 ld_from_iy
+	z80_fetch_index iy
+	main.R = scratch1
+
+00RRR110 ld_immed
+	z80_fetch_immed
+	main.R = scratch1
+	
+dd 00100110 ld_immed_ixh
+	z80_fetch_immed
+	scratch1 <<= 8
+	ix &= 0xFF
+	ix |= scratch1
+	
+dd 00101110 ld_immed_ixl
+	z80_fetch_immed
+	ix &= 0xFF00
+	ix |= scratch1
+	
+fd 00100110 ld_immed_iyh
+	z80_fetch_immed
+	scratch1 <<= 8
+	iy &= 0xFF
+	iy |= scratch1
+	
+fd 00101110 ld_immed_iyl
+	z80_fetch_immed
+	iy &= 0xFF00
+	iy |= scratch1
+
+01110RRR ld_to_hl
+	scratch1 = main.R
+	z80_store_hl
+
+dd 01110RRR ld_to_ix
+	z80_calc_index ix
+	scratch2 = wz
+	scratch1 = main.R
+	cycles 5
+	ocall write_8
+
+fd 01110RRR ld_to_iy
+	z80_calc_index iy
+	scratch2 = wz
+	scratch1 = main.R
+	cycles 5
+	ocall write_8
+
+00110110 ld_to_hl_immed
+	z80_fetch_immed
+	z80_store_hl
+	
+dd 00110110 ld_to_ixd_immed
+	z80_calc_index ix
+	z80_fetch_immed
+	cycles 2
+	scratch2 = wz
+	ocall write_8
+	
+fd 00110110 ld_to_iyd_immed
+	z80_calc_index iy
+	z80_fetch_immed
+	cycles 2
+	scratch2 = wz
+	ocall write_8
+
+00001010 ld_a_from_bc
+	wz = b << 8
+	wz |= c
+	scratch1 = wz
+	wz += 1
+	ocall read_8
+	a = scratch1
+
+00011010 ld_a_from_de
+	wz = d << 8
+	wz |= e
+	scratch1 = wz
+	wz += 1
+	ocall read_8
+	a = scratch1
+
+00111010 ld_a_from_immed
+	z80_fetch_immed16
+	scratch1 = wz
+	wz += 1
+	ocall read_8
+	a = scratch1
+	
+00000010 ld_a_to_bc
+	local tmp 8
+	scratch2 = b << 8
+	scratch2 |= c
+	scratch1 = a
+	tmp = c + 1
+	wz = a << 8
+	wz |= tmp
+	ocall write_8
+	
+00010010 ld_a_to_de
+	local tmp 8
+	scratch2 = d << 8
+	scratch2 |= e
+	scratch1 = a
+	tmp = e + 1
+	wz = a << 8
+	wz |= tmp
+	ocall write_8
+
+00110010 ld_a_to_immed
+	local tmp 16
+	z80_fetch_immed16
+	scratch2 = wz
+	scratch1 = a
+	wz += 1
+	ocall write_8
+	wz &= 0xFF
+	tmp = a << 8
+	wz |= tmp
+
+ed 01000111 ld_i_a
+	i = a
+	cycles 1
+
+ed 01001111 ld_r_a
+	r = a
+	rhigh = 0x80 & a
+	cycles 1
+
+ed 01011111 ld_a_r
+	cycles 1
+	a = 0x7F & r
+	a |= rhigh
+	update_flags SZYH0XN0
+	pvflag = iff2
+	
+ed 01010111 ld_a_i
+	cycles 1
+	a = i
+	update_flags SZYH0XN0
+	pvflag = iff2
+
+00000001 ld_bc_immed
+	meta high b
+	meta low c
+	z80_fetch_immed_reg16
+
+00010001 ld_de_immed
+	meta high d
+	meta low e
+	z80_fetch_immed_reg16
+
+00100001 ld_hl_immed
+	meta high h
+	meta low l
+	z80_fetch_immed_reg16
+
+00110001 ld_sp_immed
+	meta reg sp
+	z80_fetch_immed_to_reg16
+
+dd 00100001 ld_ix_immed
+	meta reg ix
+	z80_fetch_immed_to_reg16
+
+fd 00100001 ld_iy_immed
+	meta reg iy
+	z80_fetch_immed_to_reg16
+	
+z80_fetch16_from_immed
+	z80_fetch_immed16
+	scratch1 = wz
+	ocall read_8
+	low = scratch1
+	wz += 1
+	scratch1 = wz
+	ocall read_8
+	high = scratch1
+	wz += 1
+
+00101010 ld_hl_from_immed
+	meta low l
+	meta high h
+	z80_fetch16_from_immed
+
+ed 01001011 ld_bc_from_immed
+	meta low c
+	meta high b
+	z80_fetch16_from_immed
+
+ed 01011011 ld_de_from_immed
+	meta low e
+	meta high d
+	z80_fetch16_from_immed
+
+ed 01101011 ld_hl_from_immed_slow
+	meta low l
+	meta high h
+	z80_fetch16_from_immed
+	
+z80_fetch_reg16_from_immed
+	z80_fetch_immed16
+	scratch1 = wz
+	ocall read_8
+	reg = scratch1
+	wz += 1
+	scratch1 = wz
+	ocall read_8
+	scratch1 <<= 8
+	reg |= scratch1
+	wz += 1
+
+ed 01111011 ld_sp_from_immed
+	meta reg sp
+	z80_fetch_reg16_from_immed
+
+dd 00101010 ld_ix_from_immed
+	meta reg ix
+	z80_fetch_reg16_from_immed
+
+fd 00101010 ld_iy_from_immed
+	meta reg iy
+	z80_fetch_reg16_from_immed
+
+00100010 ld_hl_to_immed
+	z80_fetch_immed16
+	scratch2 = wz
+	scratch1 = l
+	ocall write_8
+	wz += 1
+	scratch2 = wz
+	scratch1 = h
+	ocall write_8
+	wz += 1
+	
+dd 00100010 ld_ix_to_immed
+	z80_fetch_immed16
+	scratch2 = wz
+	scratch1 = ix
+	ocall write_8
+	wz += 1
+	scratch2 = wz
+	scratch1 = ix >> 8
+	ocall write_8
+	wz += 1
+	
+fd 00100010 ld_iy_to_immed
+	z80_fetch_immed16
+	scratch2 = wz
+	scratch1 = iy
+	ocall write_8
+	wz += 1
+	scratch2 = wz
+	scratch1 = iy >> 8
+	ocall write_8
+	wz += 1
+	
+z80_regpair_to_immed
+	z80_fetch_immed16
+	scratch2 = wz
+	scratch1 = low
+	ocall write_8
+	wz += 1
+	scratch1 = high
+	scratch2 = wz
+	ocall write_8
+	wz += 1
+	
+ed 01000011 ld_bc_to_immed
+	meta low c
+	meta high b
+	z80_regpair_to_immed
+
+ed 01010011 ld_de_to_immed
+	meta low e
+	meta high d
+	z80_regpair_to_immed
+	
+ed 01100011 ld_hl_to_immed_slow
+	meta low l
+	meta high h
+	z80_regpair_to_immed
+	
+ed 01110011 ld_sp_to_immed
+	meta low sp
+	local sph 8
+	sph = sp >> 8
+	meta high sph
+	z80_regpair_to_immed
+
+11111001 ld_sp_hl
+	cycles 2
+	sp = h << 8
+	sp |= l
+	
+dd 11111001 ld_sp_ix
+	cycles 2
+	sp = ix
+
+fd 11111001 ld_sp_iy
+	cycles 2
+	sp = iy
+
+z80_push
+	cycles 1
+	sp -= 1
+	scratch2 = sp
+	scratch1 = high
+	ocall write_8
+	sp -= 1
+	scratch2 = sp
+	scratch1 = low
+	ocall write_8
+
+11000101 push_bc
+	meta high b
+	meta low c
+	z80_push
+
+11010101 push_de
+	meta high d
+	meta low e
+	z80_push
+
+11100101 push_hl
+	meta high h
+	meta low l
+	z80_push
+
+11110101 push_af
+	meta high a
+	meta low f
+	z80_push
+	
+dd 11100101 push_ix
+	local ixh 8
+	ixh = ix >> 8
+	meta high ixh
+	meta low ix
+	z80_push
+
+fd 11100101 push_iy
+	local iyh 8
+	iyh = iy >> 8
+	meta high iyh
+	meta low iy
+	z80_push
+
+z80_pop
+	mov sp scratch1
+	ocall read_8
+	sp += 1
+	low = scratch1
+	scratch1 = sp
+	ocall read_8
+	sp += 1
+	high = scratch1
+
+11000001 pop_bc
+	meta high b
+	meta low c
+	z80_pop
+
+11010001 pop_de
+	meta high d
+	meta low e
+	z80_pop
+
+11100001 pop_hl
+	meta high h
+	meta low l
+	z80_pop
+
+11110001 pop_af
+	meta high a
+	meta low f
+	z80_pop
+
+dd 11100001 pop_ix
+	local ixh 16
+	meta high ixh
+	meta low ix
+	z80_pop
+	ixh <<= 8
+	ix |= ixh
+
+fd 11100001 pop_iy
+	local iyh 16
+	meta high iyh
+	meta low iy
+	z80_pop
+	iyh <<= 8
+	iy |= iyh
+
+11101011 ex_de_hl
+	xchg e l
+	xchg d h
+
+00001000 ex_af_af
+	xchg a a'
+	xchg f f'
+
+11011001 exx
+	xchg b b'
+	xchg c c'
+	xchg d d'
+	xchg e e'
+	xchg h h'
+	xchg l l'
+
+11100011 ex_sp_hl
+	scratch1 = sp
+	ocall read_8
+	xchg l scratch1
+	cycles 1
+	scratch2 = sp
+	ocall write_8
+	scratch1 = sp + 1
+	ocall read_8
+	xchg h scratch1
+	cycles 2
+	scratch2 = sp + 1
+	ocall write_8
+	wz = h << 8
+	wz |= l
+	
+dd 11100011 ex_sp_ix
+	scratch1 = sp
+	ocall read_8
+	wz = scratch1
+	scratch1 = ix
+	cycles 1
+	scratch2 = sp
+	ocall write_8
+	scratch1 = sp + 1
+	ocall read_8
+	scratch1 <<= 8
+	wz |= scratch1
+	scratch1 = ix >> 8
+	cycles 2
+	scratch2 = sp + 1
+	ocall write_8
+	ix = wz
+	
+fd 11100011 ex_sp_iy
+	scratch1 = sp
+	ocall read_8
+	wz = scratch1
+	scratch1 = iy
+	cycles 1
+	scratch2 = sp
+	ocall write_8
+	scratch1 = sp + 1
+	ocall read_8
+	scratch1 <<= 8
+	wz |= scratch1
+	scratch1 = iy >> 8
+	cycles 2
+	scratch2 = sp + 1
+	ocall write_8
+	iy = wz
+
+10000RRR add_reg
+	a += main.R
+	update_flags SZYHVXN0C
+	
+dd 10000100 add_ixh
+	scratch1 = ix >> 8
+	a += scratch1
+	update_flags SZYHVXN0C
+	
+dd 10000101 add_ixl
+	scratch1 = ix & 0xFF
+	a += scratch1
+	update_flags SZYHVXN0C
+	
+fd 10000100 add_iyh
+	lsr iy 8 scratch1
+	add a scratch1 a
+	update_flags SZYHVXN0C
+	
+fd 10000101 add_iyl
+	and iy 0xFF scratch1
+	add a scratch1 a
+	update_flags SZYHVXN0C
+	
+10000110 add_hl
+	z80_fetch_hl
+	add a scratch1 a
+	update_flags SZYHVXN0C
+	
+dd 10000110 add_ixd
+	z80_fetch_index ix
+	add a scratch1 a
+	update_flags SZYHVXN0C
+	
+fd 10000110 add_iyd
+	z80_fetch_index iy
+	add a scratch1 a
+	update_flags SZYHVXN0C
+
+11000110 add_immed
+	z80_fetch_immed
+	add a scratch1 a
+	update_flags SZYHVXN0C
+	
+z80_add16_hl
+	arg src 16
+	lsl h 8 hlt
+	or l hlt hlt
+	add 1 hlt wz
+	add src hlt hlt
+	update_flags YHXN0C
+	mov hlt l
+	lsr hlt 8 h
+	cycles 7
+	
+00001001 add_hl_bc
+	local hlw 16
+	local bcw 16
+	meta hlt hlw
+	lsl b 8 bcw
+	or c bcw bcw
+	z80_add16_hl bcw
+	
+00011001 add_hl_de
+	local hlw 16
+	local dew 16
+	meta hlt hlw
+	lsl d 8 dew
+	or e dew dew
+	z80_add16_hl dew
+	
+00101001 add_hl_hl
+	local hlw 16
+	meta hlt hlw
+	z80_add16_hl hlw
+	
+00111001 add_hl_sp
+	local hlw 16
+	meta hlt hlw
+	z80_add16_hl sp
+	
+dd 00001001 add_ix_bc
+	lsl b 8 scratch1
+	or c scratch1 scratch1
+	add scratch1 ix ix
+	update_flags YHXN0C
+	cycles 7
+	
+dd 00011001 add_ix_de
+	lsl d 8 scratch1
+	or e scratch1 scratch1
+	add scratch1 ix ix
+	update_flags YHXN0C
+	cycles 7
+	
+dd 00101001 add_ix_ix
+	add ix ix ix
+	update_flags YHXN0C
+	cycles 7
+	
+dd 00111001 add_ix_sp
+	add sp ix ix
+	update_flags YHXN0C
+	cycles 7
+	
+fd 00001001 add_iy_bc
+	lsl b 8 scratch1
+	or c scratch1 scratch1
+	add scratch1 iy iy
+	update_flags YHXN0C
+	cycles 7
+	
+fd 00011001 add_iy_de
+	lsl d 8 scratch1
+	or e scratch1 scratch1
+	add scratch1 iy iy
+	update_flags YHXN0C
+	cycles 7
+	
+fd 00101001 add_iy_iy
+	add iy iy iy
+	update_flags YHXN0C
+	cycles 7
+	
+fd 00111001 add_iy_sp
+	add sp iy iy
+	update_flags YHXN0C
+	cycles 7
+	
+10001RRR adc_reg
+	adc a main.R a
+	update_flags SZYHVXN0C
+	
+dd 10001100 adc_ixh
+	lsr ix 8 scratch1
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+dd 10001101 adc_ixl
+	and ix 0xFF scratch1
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+fd 10001100 adc_iyh
+	lsr iy 8 scratch1
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+fd 10001101 adc_iyl
+	and iy 0xFF scratch1
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+
+10001110 adc_hl
+	z80_fetch_hl
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+dd 10001110 adc_ixd
+	z80_fetch_index ix
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+fd 10001110 adc_iyd
+	z80_fetch_index iy
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+
+11001110 adc_immed
+	z80_fetch_immed
+	adc a scratch1 a
+	update_flags SZYHVXN0C
+	
+z80_adc16_hl
+	arg src 16
+	lsl h 8 hlt
+	or l hlt hlt
+	add 1 hlt wz
+	adc src hlt hlt
+	update_flags SZYHVXN0C
+	mov hlt l
+	lsr hlt 8 h
+	cycles 7
+	
+ed 01001010 adc_hl_bc
+	local hlw 16
+	local bcw 16
+	meta hlt hlw
+	lsl b 8 bcw
+	or c bcw bcw
+	z80_adc16_hl bcw
+	
+ed 01011010 adc_hl_de
+	local hlw 16
+	local dew 16
+	meta hlt hlw
+	lsl d 8 dew
+	or e dew dew
+	z80_adc16_hl dew
+	
+ed 01101010 adc_hl_hl
+	local hlw 16
+	meta hlt hlw
+	z80_adc16_hl hlw
+
+	
+ed 01111010 adc_hl_sp
+	local hlw 16
+	meta hlt hlw
+	z80_adc16_hl sp
+
+10010RRR sub_reg
+	sub main.R a a
+	update_flags SZYHVXN1C
+	
+dd 10010100 sub_ixh
+	lsr ix 8 scratch1
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+	
+dd 10010101 sub_ixl
+	and ix 0xFF scratch1
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+	
+fd 10010100 sub_iyh
+	lsr iy 8 scratch1
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+	
+fd 10010101 sub_iyl
+	and iy 0xFF scratch1
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+	
+10010110 sub_hl
+	z80_fetch_hl
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+	
+dd 10010110 sub_ixd
+	z80_fetch_index ix
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+
+fd 10010110 sub_iyd
+	z80_fetch_index iy
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+
+11010110 sub_immed
+	z80_fetch_immed
+	sub scratch1 a a
+	update_flags SZYHVXN1C
+
+10011RRR sbc_reg
+	sbc main.R a a
+	update_flags SZYHVXN1C
+	
+dd 10011100 sbc_ixh
+	lsr ix 8 scratch1
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+dd 10011101 sbc_ixl
+	and ix 0xFF scratch1
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+fd 10011100 sbc_iyh
+	lsr iy 8 scratch1
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+fd 10011101 sbc_iyl
+	and iy 0xFF scratch1
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+	
+10011110 sbc_hl
+	z80_fetch_hl
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+dd 10011110 sbc_ixd
+	z80_fetch_index ix
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+
+fd 10011110 sbc_iyd
+	z80_fetch_index iy
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+
+11011110 sbc_immed
+	z80_fetch_immed
+	sbc scratch1 a a
+	update_flags SZYHVXN1C
+	
+z80_sbc16_hl
+	arg src 16
+	lsl h 8 hlt
+	or l hlt hlt
+	add 1 hlt wz
+	sbc src hlt hlt
+	update_flags SZYHVXN1C
+	mov hlt l
+	lsr hlt 8 h
+	cycles 7
+	
+ed 01000010 sbc_hl_bc
+	local hlw 16
+	local bcw 16
+	meta hlt hlw
+	lsl b 8 bcw
+	or c bcw bcw
+	z80_sbc16_hl bcw
+	
+ed 01010010 sbc_hl_de
+	local hlw 16
+	local dew 16
+	meta hlt hlw
+	lsl d 8 dew
+	or e dew dew
+	z80_sbc16_hl dew
+	
+ed 01100010 sbc_hl_hl
+	local hlw 16
+	meta hlt hlw
+	z80_sbc16_hl hlw
+
+	
+ed 01110010 sbc_hl_sp
+	local hlw 16
+	meta hlt hlw
+	z80_sbc16_hl sp
+
+10100RRR and_reg
+	and a main.R a
+	update_flags SZYH1PXN0C0
+	
+dd 10100100 and_ixh
+	lsr ix 8 scratch1
+	and scratch1 a a
+	update_flags SZYH1PXN0C0
+	
+dd 10100101 and_ixl
+	and ix a a
+	update_flags SZYH1PXN0C0
+	
+fd 10100100 and_iyh
+	lsr iy 8 scratch1
+	and scratch1 a a
+	update_flags SZYH1PXN0C0
+	
+fd 10100101 and_iyl
+	and iy a a
+	update_flags SZYH1PXN0C0
+	
+10100110 and_hl
+	z80_fetch_hl
+	and a scratch1 a
+	update_flags SZYH1PXN0C0
+	
+dd 10100110 and_ixd
+	z80_fetch_index ix
+	and a scratch1 a
+	update_flags SZYH1PXN0C0
+	
+fd 10100110 and_iyd
+	z80_fetch_index iy
+	and a scratch1 a
+	update_flags SZYH1PXN0C0
+
+11100110 and_immed
+	z80_fetch_immed
+	and a scratch1 a
+	update_flags SZYH1PXN0C0
+	
+10110RRR or_reg
+	or a main.R a
+	update_flags SZYH0PXN0C0
+	
+dd 10110100 or_ixh
+	lsr ix 8 scratch1
+	or scratch1 a a
+	update_flags SZYH0PXN0C0
+	
+dd 10110101 or_ixl
+	or ix a a
+	update_flags SZYH0PXN0C0
+	
+fd 10110100 or_iyh
+	lsr iy 8 scratch1
+	or scratch1 a a
+	update_flags SZYH0PXN0C0
+	
+fd 10110101 or_iyl
+	or iy a a
+	update_flags SZYH0PXN0C0
+	
+10110110 or_hl
+	z80_fetch_hl
+	or a scratch1 a
+	update_flags SZYH0PXN0C0
+	
+dd 10110110 or_ixd
+	z80_fetch_index ix
+	or a scratch1 a
+	update_flags SZYH0PXN0C0
+	
+fd 10110110 or_iyd
+	z80_fetch_index iy
+	or a scratch1 a
+	update_flags SZYH0PXN0C0
+
+11110110 or_immed
+	z80_fetch_immed
+	or a scratch1 a
+	update_flags SZYH0PXN0C0
+	
+10101RRR xor_reg
+	xor a main.R a
+	update_flags SZYH0PXN0C0
+	
+dd 10101100 xor_ixh
+	lsr ix 8 scratch1
+	xor scratch1 a a
+	update_flags SZYH0PXN0C0
+	
+dd 10101101 xor_ixl
+	xor ix a a
+	update_flags SZYH0PXN0C0
+	
+fd 10101100 xor_iyh
+	lsr iy 8 scratch1
+	xor scratch1 a a
+	update_flags SZYH0PXN0C0
+	
+fd 10101101 xor_iyl
+	xor iy a a
+	update_flags SZYH0PXN0C0
+	
+10101110 xor_hl
+	z80_fetch_hl
+	xor a scratch1 a
+	update_flags SZYH0PXN0C0
+	
+dd 10101110 xor_ixd
+	z80_fetch_index ix
+	xor a scratch1 a
+	update_flags SZYH0PXN0C0
+	
+fd 10101110 xor_iyd
+	z80_fetch_index iy
+	xor a scratch1 a
+	update_flags SZYH0PXN0C0
+
+11101110 xor_immed
+	z80_fetch_immed
+	xor a scratch1 a
+	update_flags SZYH0PXN0C0
+
+10111RRR cp_reg
+	mov main.R last_flag_result
+	cmp main.R a
+	update_flags SZHVN1C
+	
+dd 10111100 cp_ixh
+	local tmp 8
+	lsr ix 8 tmp
+	mov tmp last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+dd 10111101 cp_ixl
+	local tmp 8
+	mov ix tmp
+	mov ix last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+fd 10111100 cp_iyh
+	local tmp 8
+	lsr iy 8 tmp
+	mov tmp last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+fd 10111101 cp_iyl
+	local tmp 8
+	mov iy tmp
+	mov iy last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+10111110 cp_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	mov scratch1 last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+dd 10111110 cp_ixd
+	local tmp 8
+	z80_fetch_index ix
+	mov scratch1 tmp
+	mov scratch1 last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+	
+fd 10111110 cp_iyd
+	local tmp 8
+	z80_fetch_index iy
+	mov scratch1 tmp
+	mov scratch1 last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+
+11111110 cp_immed
+	local tmp 8
+	z80_fetch_immed
+	mov scratch1 tmp
+	mov scratch1 last_flag_result
+	cmp tmp a
+	update_flags SZHVN1C
+
+00RRR100 inc_reg
+	add 1 main.R main.R
+	update_flags SZYHVXN0
+	
+dd 00100100 inc_ixh
+	local tmp 16
+	add 0x100 ix ix
+	update_flags SYHVXN0
+	tmp = 0xFF00 & ix
+	update_flags Z
+	
+dd 00101100 inc_ixl
+	local tmp 8
+	mov ix tmp
+	add 1 tmp tmp
+	update_flags SZYHVXN0
+	and 0xFF00 ix ix
+	or tmp ix ix
+	
+fd 00100100 inc_iyh
+	local tmp 16
+	add 0x100 iy iy
+	update_flags SYHVXN0
+	tmp = 0xFF00 & iy
+	update_flags Z
+	
+fd 00101100 inc_iyl
+	local tmp 8
+	mov iy tmp
+	add 1 tmp tmp
+	update_flags SZYHVXN0
+	and 0xFF00 iy iy
+	or tmp iy iy
+	
+00110100 inc_hl
+	local tmp 8
+	z80_fetch_hl
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	add 1 tmp tmp
+	update_flags SZYHVXN0
+	mov tmp scratch1
+	cycles 1
+	z80_store_hl
+	
+dd 00110100 inc_ixd
+	local tmp 8
+	z80_fetch_index ix
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	add 1 tmp tmp
+	update_flags SZYHVXN0
+	mov tmp scratch1
+	cycles 1
+	z80_store_index
+
+fd 00110100 inc_iyd
+	local tmp 8
+	z80_fetch_index iy
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	add 1 tmp tmp
+	update_flags SZYHVXN0
+	mov tmp scratch1
+	cycles 1
+	z80_store_index
+	
+z80_inc_pair
+	arg high 8
+	arg low 8
+	cycles 2
+	local word 16
+	lsl high 8 word
+	or low word word
+	add 1 word word
+	mov word low
+	lsr word 8 high
+	
+00000011 inc_bc
+	z80_inc_pair b c
+	
+00010011 inc_de
+	z80_inc_pair d e
+	
+00100011 inc16_hl
+	z80_inc_pair h l
+
+00110011 inc_sp
+	add 1 sp sp
+	
+dd 00100011 inc_ix
+	add 1 ix ix
+
+fd 00100011 inc_iy
+	add 1 iy iy
+
+00RRR101 dec_reg
+	sub 1 main.R main.R
+	update_flags SZYHVXN1
+	
+dd 00100101 dec_ixh
+	local tmp 16
+	sub 0x100 ix ix
+	update_flags SYHVXN1
+	tmp = 0xFF00 & ix
+	update_flags Z
+	
+dd 00101101 dec_ixl
+	local tmp 8
+	mov ix tmp
+	sub 1 tmp tmp
+	update_flags SZYHVXN1
+	and 0xFF00 ix ix
+	or tmp ix ix
+	
+fd 00100101 dec_iyh
+	local tmp 16
+	sub 0x100 iy iy
+	update_flags SYHVXN1
+	tmp = 0xFF00 & iy
+	update_flags Z
+	
+fd 00101101 dec_iyl
+	local tmp 8
+	mov iy tmp
+	sub 1 tmp tmp
+	update_flags SZYHVXN1
+	and 0xFF00 iy iy
+	or tmp iy iy
+	
+00110101 dec_hl
+	local tmp 8
+	z80_fetch_hl
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	sub 1 tmp tmp
+	update_flags SZYHVXN1
+	mov tmp scratch1
+	cycles 1
+	z80_store_hl
+	
+dd 00110101 dec_ixd
+	local tmp 8
+	z80_fetch_index ix
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	sub 1 tmp tmp
+	update_flags SZYHVXN1
+	mov tmp scratch1
+	cycles 1
+	z80_store_index
+
+fd 00110101 dec_iyd
+	local tmp 8
+	z80_fetch_index iy
+	#TODO: Either make DSL compiler smart enough to optimize these unnecessary moves out
+	#or add some syntax to force a certain size on an operation so they are unnecessary
+	mov scratch1 tmp
+	sub 1 tmp tmp
+	update_flags SZYHVXN1
+	mov tmp scratch1
+	cycles 1
+	z80_store_index
+	
+z80_dec_pair
+	arg high 8
+	arg low 8
+	local word 16
+	lsl high 8 word
+	or low word word
+	sub 1 word word
+	mov word low
+	lsr word 8 high
+	cycles 2
+	
+00001011 dec_bc
+	z80_dec_pair b c
+	
+00011011 dec_de
+	z80_dec_pair d e
+	
+00101011 dec16_hl
+	z80_dec_pair h l
+
+00111011 dec_sp
+	sub 1 sp sp
+	
+dd 00101011 dec_ix
+	sub 1 ix ix
+
+fd 00101011 dec_iy
+	sub 1 iy iy
+
+00101111 cpl
+	a = ~a
+	update_flags YH1XN1
+
+ed 01DDD100 neg
+	a = -a
+	update_flags SZYHVXN1C
+
+00111111 ccf
+	local tmp 8
+	and 0x80 last_flag_result last_flag_result
+	and 0x7F a tmp
+	or tmp last_flag_result last_flag_result
+	and 0x80 chflags chflags
+	lsr chflags 4 tmp
+	or tmp chflags chflags
+	xor 0x80 chflags chflags
+	update_flags N0
+
+00110111 scf
+	local tmp 8
+	and 0x80 last_flag_result last_flag_result
+	and 0x7F a tmp
+	or tmp last_flag_result last_flag_result
+	update_flags H0N0C1
+
+00000000 nop
+
+01110110 halt
+	cmp nmi_cycle cycles
+	if cycles >=U nmi_cycle
+	
+	else
+		if cycles >=U int_cycle
+		
+			if iff1
+			else
+				pc -= 1
+			end
+		
+		else
+			pc -= 1
+		end
+	end
+
+11110011 di
+	iff1 = 0
+	iff2 = 0
+	update_sync
+
+11111011 ei
+	iff1 = 1
+	iff2 = 1
+	update_sync
+	
+	if cycles >=U int_cycle
+		int_cycle = cycles + 1
+	end
+
+ed 01D00110 im0
+	mov 0 imode
+
+ed 01D10110 im1
+	mov 1 imode
+
+ed 01D11110 im2
+	mov 2 imode
+	
+ed 01D01110 im3
+	#some sources call this mode 0/1, but unclear
+	#if the behavior is really different from im 0
+	mov 0 imode
+	
+11000011 jp
+	z80_fetch_immed16
+	mov wz pc
+	
+11101001 jp_hl
+	lsl h 8 pc
+	or l pc pc
+	
+dd 11101001 jp_ix
+	mov ix pc
+	
+fd 11101001 jp_iy
+	mov iy pc
+	
+11CCC010 jp_cc
+	z80_check_cond C
+	z80_fetch_immed16
+	if istrue
+		pc = wz
+	end
+	
+00011000 jr
+	z80_fetch_immed
+	#TODO: determine if this updates wz
+	sext 16 scratch1 scratch1
+	add scratch1 pc pc
+	cycles 5
+	
+001CC000 jr_cc
+	z80_check_cond C
+	z80_fetch_immed
+	
+	if istrue
+		sext 16 scratch1 scratch1
+		pc += scratch1
+		cycles 5
+	end
+	
+00010000 djnz
+	cycles 1
+	z80_fetch_immed
+	b -= 1
+	
+	if b
+		sext 16 scratch1 scratch1
+		pc += scratch1
+		cycles 5
+	end
+	
+
+11001101 call_uncond
+	z80_fetch_immed16
+	local pch 8
+	lsr pc 8 pch
+	meta high pch
+	meta low pc
+	z80_push
+	mov wz pc
+	
+11CCC100 call_cond
+	local pch 8
+	z80_fetch_immed16
+	z80_check_cond C
+	
+	if istrue
+		pch = pc >> 8
+		meta high pch
+		meta low pc
+		z80_push
+		pc = wz
+	end
+	
+11TTT111 rst
+	local pch 8
+	lsr pc 8 pch
+	meta high pch
+	meta low pc
+	z80_push
+	lsl T 3 scratch1
+	mov scratch1 pc
+
+11001001 ret
+	local pch 16
+	meta high pch
+	meta low pc
+	z80_pop
+	lsl pch 8 pch
+	or pch pc pc
+	
+ed 01001101 reti
+	local pch 16
+	cycles 1
+	meta high pch
+	meta low pc
+	z80_pop
+	lsl pch 8 pch
+	or pch pc pc
+	
+ed 01NN1101 retn
+	mov iff2 iff1
+	local pch 16
+	cycles 1
+	meta high pch
+	meta low pc
+	z80_pop
+	lsl pch 8 pch
+	or pch pc pc
+	
+11CCC000 ret_cond
+	local pch 16
+	cycles 1
+	z80_check_cond C
+	if istrue
+		meta high pch
+		meta low pc
+		z80_pop
+		pch = pch << 8
+		pc |= pch
+	end
+
+11011011 in_abs
+	z80_fetch_immed
+	ocall io_read8
+	mov scratch1 a
+	
+ed 01RRR000 in_bc
+	lsl b 8 scratch1
+	or c scratch1 scratch1
+	ocall io_read8
+	mov scratch1 main.R
+	
+z80_ini_ind
+	arg change 16
+	local tmp 8
+	cycles 1
+	
+	lsl 8 b wz
+	or c wz wz
+	add change wz wz
+	
+	sub 1 b b
+	update_flags SZYX
+	
+	lsl b 8 scratch1
+	or c scratch1 scratch1
+	ocall io_read8
+	
+	and 0x80 scratch1 nflag
+	
+	mov wz tmp
+	add tmp scratch1 tmp
+	update_flags C
+	
+	z80_store_hl
+	
+	lsl h 8 scratch2
+	or l scratch2 scratch2
+	add change scratch2 scratch2
+	mov scratch2 l
+	lsr scratch2 8 h
+	
+	and 7 tmp tmp
+	xor b tmp tmp
+	update_flags P
+	lsr chflags 4 tmp
+	or tmp chflags chflags
+	
+ed 10100010 ini
+	z80_ini_ind 1
+	
+ed 10110010 inir
+	z80_ini_ind 1
+	if zflag
+	else
+		pc -= 2
+		cycles 5
+	end
+	
+ed 10101010 ind
+	z80_ini_ind -1
+	
+ed 10111010 indr
+	z80_ini_ind -1
+	if zflag
+	else
+		pc -= 2
+		cycles 5
+	end
+	
+11010011 out_abs
+	z80_fetch_immed
+	mov scratch1 scratch2
+	mov a scratch1
+	ocall io_write8
+	
+ed 01RRR001 out_bc
+	lsl b 8 scratch2
+	or c scratch2 scratch2
+	mov main.R scratch1
+	ocall io_write8
+	
+z80_outi_outd
+	arg change 16
+	local tmp 8
+	cycles 1
+	z80_fetch_hl
+	
+	and 0x80 scratch1 nflag
+	
+	lsl h 8 scratch2
+	or l scratch2 scratch2
+	add change scratch2 scratch2
+	mov scratch2 l
+	lsr scratch2 8 h
+	
+	add l scratch1 tmp
+	update_flags C
+	and 7 tmp tmp
+	
+	lsl b 8 scratch2
+	or c scratch2 scratch2
+	ocall io_write8
+	
+	sub 1 b b
+	update_flags SZYX
+	
+	lsl 8 b wz
+	or c wz wz
+	add change wz wz
+	
+	xor b tmp tmp
+	update_flags P
+	lsr chflags 4 tmp
+	or tmp chflags chflags
+	
+ed 10100011 outi
+	z80_outi_outd 1
+
+ed 10110011 otir
+	z80_outi_outd 1
+	if zflag
+	else
+		pc -= 2
+		cycles 5
+	end
+	
+ed 10101011 outd
+	z80_outi_outd -1
+	
+ed 10111011 otdr
+	z80_outi_outd -1
+	if zflag
+	else
+		pc -= 2
+		cycles 5
+	end
+	
+00000111 rlca
+	rol a 1 a
+	update_flags YH0XN0C
+	
+00010111 rla
+	rlc a 1 a
+	update_flags YH0XN0C
+	
+00001111 rrca
+	ror a 1 a
+	update_flags YH0XN0C
+
+00011111 rra
+	rrc a 1 a
+	update_flags YH0XN0C
+	
+cb 00000RRR rlc
+	rol main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00000110 rlc_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	rol tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_rlc_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	rol tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00000110 rlc_ixd
+	local tmp 8
+	z80_rlc_index tmp
+	
+ddcb 00000RRR rlc_ixd_reg
+	z80_rlc_index main.R
+	
+fdcb 00000110 rlc_iyd
+	local tmp 8
+	z80_rlc_index tmp
+	
+fdcb 00000RRR rlc_iyd_reg
+	z80_rlc_index main.R
+	
+cb 00010RRR rl
+	rlc main.R 1 main.R
+	update_flags SZYH0PXN0C
+
+cb 00010110 rl_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	rlc tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_rl_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	rlc tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00010110 rl_ixd
+	local tmp 8
+	z80_rl_index tmp
+	
+fdcb 00010110 rl_iyd
+	local tmp 8
+	z80_rl_index tmp
+	
+	
+ddcb 00010RRR rl_ixd_reg
+	z80_rl_index main.R
+	
+fdcb 00010RRR rl_iyd_reg
+	z80_rl_index main.R
+	
+cb 00001RRR rrc
+	ror main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00001110 rrc_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	ror tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_rrc_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	ror tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00001110 rrc_ixd
+	local tmp 8
+	z80_rrc_index tmp
+	
+ddcb 00001RRR rrc_ixd_reg
+	z80_rrc_index main.R
+	
+fdcb 00001110 rrc_iyd
+	local tmp 8
+	z80_rrc_index tmp
+	
+fdcb 00001RRR rrc_iyd_reg
+	z80_rrc_index main.R
+	
+cb 00011RRR rr
+	rrc main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00011110 rr_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	rrc tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_rr_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	rrc tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00011110 rr_ixd
+	local tmp 8
+	z80_rr_index tmp
+	
+ddcb 00011RRR rr_ixd_reg
+	z80_rr_index main.R
+	
+fdcb 00011110 rr_iyd
+	local tmp 8
+	z80_rr_index tmp
+	
+fdcb 00011RRR rr_iyd_reg
+	z80_rr_index main.R
+	
+cb 00100RRR sla
+	lsl main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00100110 sla_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	lsl tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_sla_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	lsl tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00100110 sla_ixd
+	local tmp 8
+	z80_sla_index tmp
+	
+ddcb 00100RRR sla_ixd_reg
+	z80_sla_index main.R
+	
+fdcb 00100110 sla_iyd
+	local tmp 8
+	z80_sla_index tmp
+	
+fdcb 00100RRR sla_iyd_reg
+	z80_sla_index main.R
+	
+cb 00101RRR sra
+	asr main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00101110 sra_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	asr tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_sra_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	asr tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00101110 sra_ixd
+	local tmp 8
+	z80_sra_index tmp
+	
+ddcb 00101RRR sra_ixd_reg
+	z80_sra_index main.R
+	
+fdcb 00101110 sra_iyd
+	local tmp 8
+	z80_sra_index tmp
+	
+fdcb 00101RRR sra_iyd_reg
+	z80_sra_index main.R
+	
+cb 00110RRR sll
+	lsl main.R 1 main.R
+	update_flags SZ0YH0XN0C
+	or 1 main.R main.R
+	update_flags P
+	
+cb 00110110 sll_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	lsl tmp 1 tmp
+	update_flags SZ0YH0XN0C
+	or 1 tmp tmp
+	update_flags P
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_sll_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	lsl tmp 1 tmp
+	update_flags SZ0YH0XN0C
+	or 1 tmp tmp
+	update_flags P
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00110110 sll_ixd
+	local tmp 8
+	z80_sll_index tmp
+	
+ddcb 00110RRR sll_ixd_reg
+	z80_sll_index main.R
+	
+fdcb 00110110 sll_iyd
+	local tmp 8
+	z80_sll_index tmp
+	
+fdcb 00110RRR sll_iyd_reg
+	z80_sll_index main.R
+	
+cb 00111RRR srl
+	lsr main.R 1 main.R
+	update_flags SZYH0PXN0C
+	
+cb 00111110 srl_hl
+	local tmp 8
+	z80_fetch_hl
+	mov scratch1 tmp
+	lsr tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_hl
+	
+z80_srl_index
+	arg tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	mov scratch1 tmp
+	lsr tmp 1 tmp
+	update_flags SZYH0PXN0C
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 00111110 srl_ixd
+	local tmp 8
+	z80_srl_index tmp
+	
+ddcb 00111RRR srl_ixd_reg
+	z80_srl_index main.R
+	
+fdcb 00111110 srl_iyd
+	local tmp 8
+	z80_srl_index tmp
+	
+fdcb 00111RRR srl_iyd_reg
+	z80_srl_index main.R
+	
+cb 01BBBRRR bit_reg
+	local tmp 8
+	lsl 1 B tmp
+	mov main.R last_flag_result
+	and main.R tmp tmp
+	update_flags SZH1PN0
+	
+cb 01BBB110 bit_hl
+	local tmp 8
+	z80_fetch_hl
+	cycles 1
+	lsl 1 B tmp
+	lsr wz 8 last_flag_result
+	and scratch1 tmp tmp
+	update_flags SZH1PN0
+	
+	
+ddcb 01BBBRRR bit_ixd
+	local tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	lsl 1 B tmp
+	lsr wz 8 last_flag_result
+	and scratch1 tmp tmp
+	update_flags SZH1PN0
+	
+fdcb 01BBBRRR bit_iyd
+	local tmp 8
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	lsl 1 B tmp
+	lsr wz 8 last_flag_result
+	and scratch1 tmp tmp
+	update_flags SZH1PN0
+	
+cb 10BBBRRR res_reg
+	local tmp 8
+	tmp = 1 << B
+	tmp = ~tmp
+	main.R &= tmp
+	
+cb 10BBB110 res_hl
+	z80_fetch_hl
+	cycles 1
+	local tmp 8
+	tmp = 1 << B
+	tmp = ~tmp
+	scratch1 &= tmp
+	z80_store_hl
+	
+z80_res_index
+	arg bit 8
+	arg tmp 8
+	tmp = 1 << bit
+	tmp = ~tmp
+	scratch1 = wz
+	ocall read_8
+	cycles 1
+	tmp &= scratch1
+	scratch1 = tmp
+	z80_store_index
+	
+ddcb 10BBB110 res_ixd
+	local tmp 8
+	z80_res_index B tmp
+	
+ddcb 10BBBRRR res_ixd_reg
+	z80_res_index B main.R
+	
+fdcb 10BBB110 res_iyd
+	local tmp 8
+	z80_res_index B tmp
+	
+fdcb 10BBBRRR res_iyd_reg
+	z80_res_index B main.R
+	
+cb 11BBBRRR set_reg
+	local tmp 8
+	lsl 1 B tmp
+	or main.R tmp main.R
+	
+cb 11BBB110 set_hl
+	z80_fetch_hl
+	cycles 1
+	local tmp 8
+	lsl 1 B tmp
+	or scratch1 tmp scratch1
+	z80_store_hl
+	
+z80_set_index
+	arg bit 8
+	arg tmp 8
+	lsl 1 bit tmp
+	mov wz scratch1
+	ocall read_8
+	cycles 1
+	or scratch1 tmp tmp
+	mov tmp scratch1
+	z80_store_index
+	
+ddcb 11BBB110 set_ixd
+	local tmp 8
+	z80_set_index B tmp
+	
+ddcb 11BBBRRR set_ixd_reg
+	z80_set_index B main.R
+	
+fdcb 11BBB110 set_iyd
+	local tmp 8
+	z80_set_index B tmp
+	
+fdcb 11BBBRRR set_iyd_reg
+	z80_set_index B main.R
+	
+z80_fetch_mod_hl
+	local tmp 16
+	arg change 16
+	lsl h 8 tmp
+	or l tmp tmp
+	mov tmp scratch1
+	add change tmp tmp
+	mov tmp l
+	lsr tmp 8 h
+	ocall read_8
+	cycles 2
+	
+z80_ldd_ldi
+	arg change 16
+	local tmp 16
+	local tmp8 8
+	z80_fetch_mod_hl change
+	
+	add a scratch1 tmp8
+	update_flags H0XN0
+	
+	and 0x2 tmp8 tmp8
+	lsl tmp8 4 tmp8
+	and 0x88 last_flag_result last_flag_result
+	or tmp8 last_flag_result last_flag_result
+	
+	lsl d 8 tmp
+	or e tmp tmp
+	mov tmp scratch2
+	add change tmp tmp
+	mov tmp e
+	lsr tmp 8 d
+	ocall write_8
+	
+	lsl b 8 tmp
+	or c tmp tmp
+	sub 1 tmp tmp
+	
+	mov tmp c
+	lsr tmp 8 b
+	mov c pvflag
+	or b pvflag pvflag
+	
+
+ed 10100000 ldi
+	z80_ldd_ldi 1
+
+ed 10101000 ldd
+	z80_ldd_ldi -1
+
+ed 10110000 ldir
+	z80_ldd_ldi 1
+	if pvflag
+		wz = pc + 1
+		pc -= 2
+		cycles 5
+	end
+
+ed 10111000 lddr
+	z80_ldd_ldi -1
+	if pvflag
+		wz = pc + 1
+		pc -= 2
+		cycles 5
+	end
+	
+z80_cpd_cpi
+	local tmp 16
+	local tmp8 8
+	local hf 8
+	arg change 16
+	
+	z80_fetch_mod_hl change
+	sub scratch1 a tmp8
+	update_flags SZHN1
+	
+	lsr chflags 3 hf
+	and 1 hf hf
+	
+	sub hf tmp8 tmp8
+	update_flags X
+	
+	and 0x2 tmp8 tmp8
+	lsl tmp8 4 tmp8
+	and 0x88 last_flag_result last_flag_result
+	or tmp8 last_flag_result last_flag_result
+	
+	lsl b 8 tmp
+	or c tmp tmp
+	sub 1 tmp tmp
+	
+	mov tmp c
+	lsr tmp 8 b
+	mov c pvflag
+	or b pvflag pvflag
+	
+	cycles 5
+	
+ed 10100001 cpi
+	z80_cpd_cpi 1
+	
+ed 10101001 cpd
+	z80_cpd_cpi -1
+	
+ed 10110001 cpir
+	z80_cpd_cpi 1
+	if pvflag
+		if zflag		
+		else
+			wz = pc + 1
+			pc -= 2
+			cycles 5
+		end
+	end
+	
+ed 10111001 cpdr
+	z80_cpd_cpi -1
+	if pvflag
+		if zflag
+		else
+			wz = pc + 1
+			pc -= 2
+			cycles 5
+		end
+	end
+
+00100111 daa
+	local diff 8
+	local tmp 8
+	local low 8
+	low = a & 0xF
+	tmp = chflags & 8
+	if tmp
+		diff = 6
+	else
+		if low >=U 0xA
+			diff = 6
+		else
+			diff = 0
+		end
+	end
+	
+	tmp = chflags & 0x80
+	if tmp
+		diff |= 0x60
+		update_flags C1
+	else	
+		if a >=U 0x9A
+			diff |= 0x60
+			update_flags C1
+		else
+			update_flags C0
+		end
+	end
+	
+	if nflag
+		a -= diff
+		update_flags SZYHPX
+	else
+		a += diff
+		update_flags SZYHPX
+	end
+	
+dd OOOOOOOO dd_normal
+	dispatch O
+
+fd OOOOOOOO fd_normal
+	dispatch O
+	
+ed 01101111 rld
+	local tmp 8
+	local tmp2 8
+	z80_fetch_hl
+	cycles 4
+	
+	lsr scratch1 4 tmp
+	
+	lsl scratch1 4 scratch1
+	
+	and 0xF a tmp2
+	or tmp2 scratch1 scratch1
+	
+	and 0xF0 a a
+	or tmp a a
+	update_flags SZYH0XPN0
+	z80_store_hl
+	
+ed 01100111 rrd
+	local tmp 8
+	local tmp2 8
+	z80_fetch_hl
+	cycles 4
+	
+	and 0xF scratch1 tmp
+	lsr scratch1 4 scratch1
+	
+	lsl a 4 tmp2
+	or tmp2 scratch1 scratch1
+	
+	and 0xF0 a a
+	or tmp a a
+	update_flags SZYH0XPN0
+	z80_store_hl
+	
+ed XXXXXXXX ed_nop

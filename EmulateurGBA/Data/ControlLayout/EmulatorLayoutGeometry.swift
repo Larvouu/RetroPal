@@ -174,6 +174,76 @@ enum EmulatorLayoutGeometry {
     /// has a quarter of the page (asked 2026-09-27).
     static let n64CButtonSize: CGFloat = 46
 
+    /// The Mega Drive's six faces, one size for all six: the real pad's two
+    /// rows are close to the same size, and six buttons have to fit where the
+    /// Super Nintendo fits four (the right half of an upright page, the right
+    /// gutter on its side). Smaller than the DS face's 63.8 for that reason;
+    /// the gap is the space left between two neighbours in a row and between
+    /// the rows, and the rise is how much each button sits above its left
+    /// neighbour, which is what makes the two rows the pad's arc rather than a
+    /// grid. Named so the device review can move them.
+    ///
+    /// 50 on its side is forced by the 14 Pro: the right gutter between the
+    /// picture and the Dynamic Island's inset is about 169 points there, and
+    /// three faces and two gaps measure 166 at 50 (172 at 52 reached the
+    /// island).
+    static let mdFaceSize: CGFloat = 56
+    static let mdLandscapeFaceSize: CGFloat = 50
+    static let mdFaceGap: CGFloat = 8
+    static let mdFaceRise: CGFloat = 12
+    /// X Y Z against A B C: smaller on the six-button pad (about four fifths
+    /// across in close photographs, asked 2026-10-08). The rows keep their
+    /// centres, so the upper row simply leaves more room round itself.
+    static let mdUpperFaceScale: CGFloat = 0.82
+
+    /// The six-button arc's half extents from its centre, the largest face
+    /// (A B C) deciding both: across, one step and a half face; up and down,
+    /// half the rows' spacing, one rise and a half face.
+    /// Only the tablet page reads it, so its faces are the tablet's
+    /// (`ControlLayoutDefaults.tabletSize`).
+    static func mdArcHalfExtent(isLandscape: Bool, deviceScale k: CGFloat) -> CGSize {
+        let face = ControlLayoutDefaults.tabletSize(.btnA, system: .md, isLandscape: isLandscape,
+                                                    deviceScale: k)
+        let step = face.width + mdFaceGap * k
+        let rowOffset = (face.height + mdFaceGap * k) / 2
+        return CGSize(width: step + face.width / 2,
+                      height: rowOffset + mdFaceRise * k + face.height / 2)
+    }
+
+    /// THE MEGA DRIVE ON AN IPAD (asked 2026-10-08), its own page as the
+    /// Nintendo 64 has (`ControlLayoutDefaults.mdTablet`). Reference points:
+    /// the margin from each column to the window's edge and from the lowest
+    /// control to the bottom, the gap between groups, the gap between the
+    /// picture and MENU under it (the surround reaches the same distance
+    /// above the picture), and the margin kept round the cross (where the
+    /// dress draws its bowl) and round the six buttons.
+    static let mdTabletEdge: CGFloat = 20
+    static let mdTabletBottom: CGFloat = 24
+    static let mdTabletGap: CGFloat = 12
+    static let mdTabletMenuGap: CGFloat = 16
+    static let mdBowlMargin: CGFloat = 8
+    /// On its side, where the two thumbs rest: the line the cross and the six
+    /// buttons are centred on, as a fraction of the window's height. Below the
+    /// middle, where hands holding an iPad by its sides reach without moving.
+    static let mdTabletLandscapeThumbLine: CGFloat = 0.60
+
+    /// The band an upright iPad keeps under the Mega Drive's picture, in
+    /// points: MENU and the surround's foot, then the controls (CLIP over the
+    /// six buttons on the right, MODE over the cross on the left), then the
+    /// bottom margin. Every number is the page's own (`mdTablet`), so the picture
+    /// takes everything else.
+    static func mdTabletPortraitControlsHeight(deviceScale k: CGFloat) -> CGFloat {
+        func size(_ e: ControlElement) -> CGSize {
+            ControlLayoutDefaults.tabletSize(e, system: .md, isLandscape: false, deviceScale: k)
+        }
+        let menuBand = mdTabletMenuGap * k + size(.btnMenu).height + mdLandscapeSurroundBottom * k
+        let arc = mdArcHalfExtent(isLandscape: false, deviceScale: k)
+        let right = size(.btnClip).height + mdTabletGap * k + 2 * (arc.height + mdBowlMargin * k)
+        let left = size(.btnSelect).height + mdTabletGap * k
+            + size(.dpad).height + 2 * mdBowlMargin * k
+        return menuBand + mdTabletGap * k + max(left, right) + mdTabletBottom * k
+    }
+
     /// Reference size, chosen per element for the console being laid out.
     ///
     /// The `isNDS:` overload above is kept exactly as it was and still answers
@@ -181,6 +251,32 @@ enum EmulatorLayoutGeometry {
     /// through this change. Only the SNES asks a different question.
     static func referenceSize(_ element: ControlElement, system: PresetSystem,
                               isLandscape: Bool) -> CGSize {
+        // The Mega Drive is laid out on the Super Nintendo's page, so every
+        // control the two share takes the Super Nintendo's size; its six faces
+        // are its own, L and R included (they are X and Z here, round faces in
+        // the upper row, not shoulder bars).
+        // The Game Gear's cross a step smaller than the Game Boy page's (asked
+        // 2026-10-10), the speaker under it taking the room. Its centre stays
+        // where the page puts it, so nothing else moves.
+        if system == .gg, element == .dpad {
+            let pad = referenceSize(.dpad, isNDS: false, isLandscape: isLandscape)
+            return CGSize(width: pad.width * ggPadScale, height: pad.height * ggPadScale)
+        }
+        // The Master System's 1 and 2 are the same size on its pad, side by
+        // side (its dress, 2026-10-10): both take B's, the smaller of the two
+        // the NES page gives, which leaves the right gutter room for the grey
+        // plate each sits on.
+        if system == .sms, element == .btnA {
+            return referenceSize(.btnB, system: .nes, isLandscape: isLandscape)
+        }
+        if system == .md {
+            if ControlElement.mdFaces.contains(element) {
+                var side = isLandscape ? mdLandscapeFaceSize : mdFaceSize
+                if ControlElement.mdUpperRow.contains(element) { side *= mdUpperFaceScale }
+                return CGSize(width: side, height: side)
+            }
+            return referenceSize(element, system: .snes, isLandscape: isLandscape)
+        }
         // The Nintendo 64 started on the PlayStation's page (`layoutPage`), so
         // every control the two share takes the PlayStation's size unless it
         // was asked otherwise below. The four C buttons are its own.
@@ -208,6 +304,27 @@ enum EmulatorLayoutGeometry {
             default:
                 return referenceSize(element, system: .ps1, isLandscape: isLandscape)
             }
+        }
+        // The PSP is laid out on the PlayStation's page (`layoutPage`) and is
+        // that pad without the controls it lacks, so every control it has takes
+        // the PlayStation's size, the nub its left stick's.
+        if system == .psp {
+            // The cross a step smaller than the PlayStation's (asked 2026-10-10):
+            // on the PSP it is the second-rank control, the nub under it the first.
+            if element == .dpad {
+                let pad = referenceSize(.dpad, system: .ps1, isLandscape: isLandscape)
+                return CGSize(width: pad.width * pspPadScale, height: pad.height * pspPadScale)
+            }
+            // On its side the four faces a little smaller than the PlayStation's
+            // (which take the DS's landscape size, 63.8): the diamond's width is
+            // what sets each gutter, and every point it gives back goes to the
+            // picture (asked 2026-10-10: the picture was too small on its side).
+            // Still well above the 44-point comfort floor.
+            if isLandscape, [.btnA, .btnB, .btnX, .btnY].contains(element) {
+                let f = referenceSize(element, system: .ps1, isLandscape: true)
+                return CGSize(width: f.width * pspLandscapeFaceScale, height: f.height * pspLandscapeFaceScale)
+            }
+            return referenceSize(element, system: .ps1, isLandscape: isLandscape)
         }
         // The PlayStation joins the Super Nintendo here, and for the same
         // reason: its pad is the DS's shape too, a cross and four buttons in a
@@ -300,6 +417,25 @@ enum EmulatorLayoutGeometry {
                     container.height - margin - menuSize.height / 2)
         return CGPoint(x: x, y: y)
     }
+    /// The same question upright, for a one-picture console: with a controller
+    /// the picture grows down into the band the pad used to take, and MENU, the
+    /// one control left, can end up ON it where the page placed it relative to
+    /// controls that are now hidden. Found 2026-10-10 by the real-inset sweep on
+    /// the iPads: the PSP's MENU 12 points into the picture on a 13-inch, the
+    /// NES's wholly on it on all three. MENU then drops to just under the
+    /// picture, at its own x, kept inside the page. Where it already clears the
+    /// picture (every phone, every other console) it does not move.
+    /// `pictureBottom` and the result are in the same space as `current`.
+    static func controllerPortraitMenuCenter(current: CGPoint, menuSize: CGSize,
+                                             pictureBottom: CGFloat, containerHeight: CGFloat,
+                                             deviceScale k: CGFloat) -> CGPoint {
+        guard current.y - menuSize.height / 2 < pictureBottom else { return current }
+        let margin = 8 * k
+        let y = min(pictureBottom + margin + menuSize.height / 2,
+                    containerHeight - margin - menuSize.height / 2)
+        return CGPoint(x: current.x, y: y)
+    }
+
     /// NDS portrait: minimum height reserved below the screens for the controls.
     static let ndsPortraitControlsReserve: CGFloat = 280
     /// GBA portrait: extra top padding below the safe area before the screen.
@@ -367,6 +503,60 @@ enum EmulatorLayoutGeometry {
     /// phones that do not are width-bound here and lose nothing to it.
     static let snesLandscapeIndicatorReserve: CGFloat = 21
 
+    /// The Mega Drive dress's landscape surround (`MegaDriveSkin`): how far it
+    /// reaches above the picture, and below the SELECT · MENU · START row. Here
+    /// because the picture is placed from them (`mdLandscapePictureTop`).
+    static let mdLandscapeSurroundTop: CGFloat = 12
+    static let mdLandscapeSurroundBottom: CGFloat = 10
+
+    /// The Mega Drive's picture on its side, on a phone: the block the dress
+    /// draws (the surround, the picture in it and the MODE · MENU · START row
+    /// it takes in) CENTRED on the page, asked 2026-10-08. The page is the
+    /// Super Nintendo's, which puts its picture under a fixed top margin, and
+    /// that fits the Super Nintendo because its picture is as tall as the page
+    /// allows; the Mega Drive's 4:3 picture is narrower-shaped, is bound by the
+    /// width instead, and so was left with all the spare height under the
+    /// block. Never lower than leaves the home indicator's flat reserve under
+    /// the block, never higher than the Super Nintendo's margin, so a picture
+    /// with no spare height lands exactly where it did.
+    static func mdLandscapePictureTop(deviceHeight h: CGFloat, pictureHeight: CGFloat,
+                                      deviceScale k: CGFloat) -> CGFloat {
+        func height(_ e: ControlElement) -> CGFloat {
+            buttonSize(e, system: .md, isLandscape: true, deviceScale: k).height
+        }
+        // The row is centred on START's line (`ControlLayoutDefaults.snes`),
+        // and the tallest of the three sets its bottom.
+        let rowBottom = gbcLandscapeRowGap * k + height(.btnStart) / 2
+            + max(height(.btnStart), height(.btnSelect), height(.btnMenu)) / 2
+        let above = mdLandscapeSurroundTop * k
+        let below = rowBottom + mdLandscapeSurroundBottom * k
+        let centred = (h - (above + pictureHeight + below)) / 2 + above
+        let lowest = h - snesLandscapeIndicatorReserve - below - pictureHeight
+        return max(snesLandscapeTopMargin * k, min(centred, lowest))
+    }
+
+    /// The Master System's dress on its side (2026-10-10, asked that day): the
+    /// picture's surround reaches this far above it and below the CLIP · MENU
+    /// · PAUSE row it takes in, and the block is centred on the page.
+    static let smsLandscapeSurroundTop: CGFloat = 12
+    static let smsLandscapeSurroundBottom: CGFloat = 10
+
+    /// The top of the Master System's picture on its side: the surround, the
+    /// picture and the row stuck `gbcLandscapeRowGap` under it CENTRED on the
+    /// page, as the Mega Drive's block is (`mdLandscapePictureTop`). The
+    /// picture keeps the size the NES page gives it; only where it sits moves.
+    /// Never lower than leaves the home indicator's flat reserve under the
+    /// block, never above the page's top.
+    static func smsLandscapePictureTop(deviceHeight h: CGFloat, pictureHeight: CGFloat,
+                                       deviceScale k: CGFloat) -> CGFloat {
+        let row = buttonSize(.btnMenu, system: .sms, isLandscape: true, deviceScale: k).height
+        let above = smsLandscapeSurroundTop * k
+        let below = gbcLandscapeRowGap * k + row + smsLandscapeSurroundBottom * k
+        let centred = (h - (above + pictureHeight + below)) / 2 + above
+        let lowest = h - snesLandscapeIndicatorReserve - below - pictureHeight
+        return max(0, min(centred, lowest))
+    }
+
     // MARK: - GB/GBC screen (decoupled from GBA)
 
     /// GB/GBC own their screen geometry so changes to the GBA screen never move them.
@@ -410,6 +600,10 @@ enum EmulatorLayoutGeometry {
                             deviceScale k: CGFloat) -> CGRect {
         // The picture is the page's: the Nintendo 64 frames its game exactly as
         // the PlayStation does, so it is answered as that console everywhere below.
+        // One rule below is the Mega Drive's own, so it is noted first.
+        let isMD = (system == .md)
+        let isPSP = (system == .psp)
+        let isSMS = (system == .sms)
         let system = system.layoutPage
         let menuStrip = controllerMenuStrip * k
         // GB/GBC derive their on-screen HEIGHT from a fixed 3:2 shape (independent of
@@ -437,6 +631,13 @@ enum EmulatorLayoutGeometry {
             } else {
                 // A tablet window without a controller takes the tablet page below;
                 // with one, the picture fills the window as it does on a phone.
+                // THE PSP ON AN IPAD ON ITS SIDE (asked 2026-10-11: the picture
+                // bigger): side panels only as wide as its column of controls
+                // needs, the picture takes the rest.
+                if isPSP, LayoutFamily.of(deviceSize) == .tablet, !controllerConnected {
+                    return pspTabletLandscapeScreenFrame(deviceSize: deviceSize, gameAspect: gameAspect,
+                                                         deviceScale: k)
+                }
                 if LayoutFamily.of(deviceSize) == .tablet, !controllerConnected {
                     return tabletLandscapeScreenFrame(
                         deviceSize: deviceSize, safeInsets: safeInsets,
@@ -446,6 +647,13 @@ enum EmulatorLayoutGeometry {
                 // panel width AND the on-screen WIDTH (derived from the GB/GBC display shape),
                 // so the two console dresses line up; each system then takes its own HEIGHT from
                 // its aspect (GBA keeps 3:2, GB/GBC its 10:9). Both top-aligned.
+                // THE PSP keeps gutters only as wide as its own controls need
+                // (`pspLandscapePanel`), so its wide picture takes the rest
+                // (asked 2026-10-10: the picture was too small on its side).
+                if isPSP && !controllerConnected {
+                    return pspLandscapeScreenFrame(deviceSize: deviceSize, gameAspect: gameAspect,
+                                                   deviceScale: k)
+                }
                 let panelWidth: CGFloat = controllerConnected ? 0 : gbcLandscapePanel * k
                 let availW = deviceSize.width - panelWidth * 2
                 // The SNES gives up a little height at BOTH ends, and only this console does.
@@ -477,8 +685,20 @@ enum EmulatorLayoutGeometry {
                 // that leaves UNDER the picture: its SELECT · MENU · START row lives
                 // there rather than in a gutter. It reserves nothing at either end,
                 // so the two bands are equal and the row sits in the lower one.
-                let y: CGFloat = (system == .gba || system == .ps1)
-                    ? (availH - fitH) / 2 : topInset
+                // THE MEGA DRIVE, on the Super Nintendo's page, centres its
+                // block (`mdLandscapePictureTop`).
+                let y: CGFloat
+                if system == .gba || system == .ps1 {
+                    y = (availH - fitH) / 2
+                } else if isMD && snesInset {
+                    y = mdLandscapePictureTop(deviceHeight: deviceSize.height,
+                                              pictureHeight: fitH, deviceScale: k)
+                } else if isSMS && nesInset {
+                    y = smsLandscapePictureTop(deviceHeight: deviceSize.height,
+                                               pictureHeight: fitH, deviceScale: k)
+                } else {
+                    y = topInset
+                }
                 return CGRect(x: x, y: y, width: fitW, height: fitH)
             }
         } else {
@@ -520,6 +740,52 @@ enum EmulatorLayoutGeometry {
             // whether the caller passes real insets or the zero ones
             // `ControlLayoutDefaults` recomputes with; the reference band already
             // holds the phone's bottom inset, which is deeper than an iPad's.
+            // THE MEGA DRIVE ON AN IPAD takes the window's whole width upright
+            // (asked 2026-10-08): its own page packs the controls into the band
+            // it needs (`mdTabletPortraitControlsHeight`), where the shared rule
+            // kept the 14 Pro's band scaled and left the picture 595 points wide
+            // on a 744-point mini. The surround reaches above the picture as far
+            // as MENU sits below it, so the picture starts that far down.
+            // THE PSP ON A PHONE (asked 2026-10-10: the picture sat too high):
+            // full width, lowered so the pad's block below it is as tall as the
+            // controls need (`pspPortraitControlsHeight`, home indicator
+            // included) and no taller. The page then reads picture, shoulders,
+            // clusters, SELECT · START, with no empty band anywhere. Never above
+            // the GBA's top padding, which is where the picture sat lowest
+            // before (the PlayStation's own padding is 8).
+            if isPSP, !hasTouchScreen, !controllerConnected, LayoutFamily.of(deviceSize) == .phone {
+                let w = availW
+                let h = w / gameAspect
+                let top = safeInsets.top + gbaPortraitTopPadding * k
+                let low = deviceSize.height - pspPortraitControlsHeight(deviceScale: k) - h
+                // Raised by the triangle's height (asked 2026-10-12), the
+                // controls staying where they are: `pspPortraitPictureLift`
+                // says how far it actually rose, and the layout puts the
+                // controls that hang from the picture back down by as much.
+                let lift = pspPortraitPictureLift(deviceScale: k, top: top, low: low)
+                return CGRect(x: 0, y: max(top, low) - lift, width: w, height: h)
+            }
+            // THE PSP ON AN UPRIGHT IPAD (asked 2026-10-11: the picture lower),
+            // as on the phone: full width, as low as leaves its controls their
+            // band (`pspTabletPortraitControlsHeight`), never above the top reserve.
+            if isPSP, !hasTouchScreen, !controllerConnected, LayoutFamily.of(deviceSize) == .tablet {
+                var w = availW
+                var h = w / gameAspect
+                let room = deviceSize.height - tabletLandscapeTopReserve - pspTabletPortraitControlsHeight(deviceScale: k)
+                if h > room { h = max(0, room); w = h * gameAspect }
+                let low = deviceSize.height - pspTabletPortraitControlsHeight(deviceScale: k) - h
+                return CGRect(x: (availW - w) / 2, y: max(safeInsets.top + tabletLandscapeTopReserve, low),
+                              width: w, height: h)
+            }
+            if isMD, !hasTouchScreen, !controllerConnected, LayoutFamily.of(deviceSize) == .tablet {
+                let above = mdTabletMenuGap * k
+                let room = deviceSize.height - tabletLandscapeTopReserve - above
+                    - mdTabletPortraitControlsHeight(deviceScale: k)
+                var w = availW
+                var h = w / gameAspect
+                if h > room { h = max(0, room); w = h * gameAspect }
+                return CGRect(x: (availW - w) / 2, y: safeInsets.top + above, width: w, height: h)
+            }
             let maxH: CGFloat = (LayoutFamily.of(deviceSize) == .tablet && !hasTouchScreen)
                 ? deviceSize.height - tabletLandscapeTopReserve - extraPadding
                     - (controllerConnected
@@ -588,6 +854,129 @@ enum EmulatorLayoutGeometry {
     /// unused margin, and on a tablet the picture takes all of it. Its panel is
     /// wider by this much (the first sweep had A seven points off the window).
     static let tabletLandscapeSNESPanelExtra: CGFloat = 20
+
+    /// The PSP on a phone held sideways (2026-10-10): each gutter exactly as
+    /// wide as the widest cluster it holds (the diamond) and a margin each
+    /// side, plus the side safe area; the picture takes all the width between,
+    /// capped by the page's height above its row, and is centred in that
+    /// height. Measured against the PlayStation's fixed panel, the picture is
+    /// 12 % wider on a 14 Pro and a third wider on an SE (no side inset).
+    ///
+    /// Inset-free like every landscape frame here (the layout recomputes it
+    /// with zero insets, `ControlLayoutDefaults.psp`), so the side inset is a
+    /// flat reference value: the 59 points of the notched phones, which are
+    /// the ones held sideways with an island; the SE, whose deviceScale is
+    /// lowest, is the one phone without it and is told so by its shape.
+    static let pspLandscapeSideInset: CGFloat = 59
+    static let pspLandscapeGutterMargin: CGFloat = 8
+    static let pspLandscapeFaceScale: CGFloat = 0.85
+    /// The row band under the picture on its side (SELECT · START and the
+    /// indicator), in reference points.
+    static let pspLandscapeRowBand: CGFloat = 48
+    /// Upright on a phone, the height kept under the picture for the pad: the
+    /// stack `ControlLayoutDefaults.psp` builds, measured from its own parts
+    /// rather than written as a constant, so every phone gets exactly the
+    /// room it needs and no empty band (a constant left the SE's cross on the
+    /// nub). Top to bottom: the shoulder row and its recess, the cross, the
+    /// nub with the diamond level with it, SELECT · START, and their lift above
+    /// the bottom of the glass (which holds the home indicator, as the layout's
+    /// own `pspPortraitBottomLift` does, so no inset is counted twice).
+    static func pspPortraitControlsHeight(deviceScale k: CGFloat) -> CGFloat {
+        func s(_ e: ControlElement) -> CGSize { buttonSize(e, system: .psp, isLandscape: false, deviceScale: k) }
+        let face = s(.btnA).width
+        let diamondHalf = face * ControlLayoutDefaults.diamondStep + face / 2
+        let gap = ControlLayoutDefaults.pspGap * k
+        let shoulders = ControlLayoutDefaults.pspPortraitShoulderTop * k
+            + max(s(.btnL).height, s(.btnMenu).height) + ControlLayoutDefaults.pspShoulderRecessDepth * k
+        let left = s(.dpad).height + gap + s(.stickLeft).height / 2
+        let thumbToRow = max(s(.stickLeft).height / 2, diamondHalf) + gap
+        let row = max(s(.btnSelect).height, s(.btnStart).height) + ControlLayoutDefaults.pspPortraitBottomLift * k
+        return shoulders + gap + max(left, diamondHalf * 2) + thumbToRow + row
+    }
+    /// Upright on a phone, how far the picture rises above the pad's block:
+    /// the triangle's whole height (asked 2026-10-12), less whatever the top
+    /// padding does not leave (the SE's picture would otherwise reach it).
+    /// One answer for the frame here and for the layout, which moves the
+    /// controls hanging from the picture's edge (L, R, MENU, CLIP) back down by
+    /// it, so none of them moves on the glass.
+    static func pspPortraitPictureLift(deviceScale k: CGFloat, top: CGFloat, low: CGFloat) -> CGFloat {
+        let triangle = buttonSize(.btnX, system: .psp, isLandscape: false, deviceScale: k).height
+        return max(0, min(triangle, max(top, low) - top))
+    }
+
+    /// The PSP's cross against the PlayStation's.
+    static let pspPadScale: CGFloat = 0.8
+    /// The Game Gear's cross against the Game Boy's.
+    static let ggPadScale: CGFloat = 0.8
+
+    private static func pspLandscapeScreenFrame(deviceSize: CGSize, gameAspect: CGFloat,
+                                                deviceScale k: CGFloat) -> CGRect {
+        let face = buttonSize(.btnA, system: .psp, isLandscape: true, deviceScale: k).width
+        let diamond = face * (2 * ControlLayoutDefaults.diamondStep + 1)
+        // A phone without a notch (a home button) has no side safe area: its
+        // shape is 16:9, where every notched phone is about 19.5:9.
+        let notched = deviceSize.width / max(1, deviceSize.height) > 2
+        let inset = notched ? pspLandscapeSideInset : 0
+        let panel = inset + diamond + pspLandscapeGutterMargin * 2 * k
+        let availW = deviceSize.width - panel * 2
+        let availH = deviceSize.height - pspLandscapeRowBand * k - snesLandscapeIndicatorReserve
+        var w = availW
+        var h = w / gameAspect
+        if h > availH { h = availH; w = h * gameAspect }
+        // Centred in the glass's height (asked 2026-10-12: it sat high, centred
+        // in the height ABOVE the row), or, where the row of four under it
+        // would then not fit, as low as leaves that row its height and a row
+        // gap (`pspRowGap`, the one between SELECT and START) above and below
+        // it. The row follows the picture (`ControlLayoutDefaults.psp`).
+        let row = [ControlElement.btnSelect, .btnStart, .btnMenu, .btnClip]
+            .map { buttonSize($0, system: .psp, isLandscape: true, deviceScale: k).height }.max() ?? 0
+        let lowest = deviceSize.height - snesLandscapeIndicatorReserve
+            - row - 2 * ControlLayoutDefaults.pspRowGap * k - h
+        let y = max((availH - h) / 2, min((deviceSize.height - h) / 2, lowest))
+        return CGRect(x: (deviceSize.width - w) / 2, y: y, width: w, height: h)
+    }
+
+    /// The PSP on an iPad on its side: each side panel the width of its widest
+    /// column (the diamond, or the cross over the nub) and a margin either
+    /// side; the picture as large as the rest of the width and the height above
+    /// SELECT · START allow, centred in the height above that row.
+    private static func pspTabletLandscapeScreenFrame(deviceSize: CGSize, gameAspect: CGFloat,
+                                                      deviceScale k: CGFloat) -> CGRect {
+        func s(_ e: ControlElement) -> CGSize {
+            ControlLayoutDefaults.tabletSize(e, system: .psp, isLandscape: true, deviceScale: k)
+        }
+        let face = s(.btnA).width
+        let diamond = face * (2 * ControlLayoutDefaults.diamondStep + 1)
+        let column = max(diamond, s(.dpad).width * ControlLayoutDefaults.ps1PlateauScale)
+        let panel = ControlLayoutDefaults.n64TabletEdge * k + column + ControlLayoutDefaults.n64TabletGap * k
+        let availW = deviceSize.width - panel * 2
+        let row = max(s(.btnSelect).height, s(.btnStart).height) + tabletLandscapeRowGap * k * 2
+        let availH = deviceSize.height - tabletLandscapeTopReserve - tabletLandscapeBottomReserve - row
+        var w = availW
+        var h = w / gameAspect
+        if h > availH { h = availH; w = h * gameAspect }
+        return CGRect(x: (deviceSize.width - w) / 2, y: tabletLandscapeTopReserve + (availH - h) / 2,
+                      width: w, height: h)
+    }
+
+    /// The band an upright iPad keeps under the PSP's picture: what its tablet
+    /// page stacks (L and R, the cross over the nub or the diamond, SELECT ·
+    /// START) and the bottom margin, so the picture sits just above it.
+    static func pspTabletPortraitControlsHeight(deviceScale k: CGFloat) -> CGFloat {
+        func s(_ e: ControlElement) -> CGSize {
+            ControlLayoutDefaults.tabletSize(e, system: .psp, isLandscape: false, deviceScale: k)
+        }
+        let gap = ControlLayoutDefaults.n64TabletGap * k
+        let face = s(.btnA).width
+        let diamondHalf = face * ControlLayoutDefaults.diamondStep + face / 2
+        let stickReach = s(.stickLeft).width * ControlLayoutDefaults.ps1StickBossSpan / 2
+        let padReach = s(.dpad).width * ControlLayoutDefaults.ps1PlateauScale / 2
+        let left = stickReach * 2 + gap + padReach * 2
+        let right = diamondHalf * 2
+        let shoulders = s(.btnL).height + gap + s(.btnClip).height + gap
+        return gap + shoulders + max(left, right) + gap
+            + max(s(.btnSelect).height, s(.btnStart).height) + ControlLayoutDefaults.n64TabletBottom * k
+    }
 
     private static func tabletLandscapeScreenFrame(deviceSize: CGSize, safeInsets: UIEdgeInsets,
                                                    gameAspect: CGFloat, system: PresetSystem,

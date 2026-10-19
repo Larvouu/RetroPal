@@ -318,7 +318,7 @@ struct PresetLayoutResolverTests {
             }
 
             // The game sets no flag for these five, so the resolver may not either.
-            for system in [PresetSystem.gbc, .nes, .snes, .ps1, .n64] {
+            for system in [PresetSystem.gbc, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp] {
                 let moved = differing(system)
                 #expect(moved.isEmpty,
                         Comment(rawValue: "\(label) \(system): the resolver polishes "

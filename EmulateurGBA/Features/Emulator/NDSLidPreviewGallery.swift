@@ -22,17 +22,10 @@ struct NDSLidPreviewGallery: View {
         let landscapeInsets: UIEdgeInsets
     }
 
-    private let devices: [Device] = [
-        Device(name: "iPhone SE", portrait: CGSize(width: 375, height: 667),
-               portraitInsets: UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0),
-               landscapeInsets: .zero),
-        Device(name: "iPhone 14 Pro", portrait: CGSize(width: 393, height: 852),
-               portraitInsets: UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0),
-               landscapeInsets: UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
-        Device(name: "iPhone 16 Pro Max", portrait: CGSize(width: 440, height: 956),
-               portraitInsets: UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0),
-               landscapeInsets: UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
-    ] + TabletPreviewDevice.all.map {
+    private let devices: [Device] = PhonePreviewDevice.all.map {
+        Device(name: $0.name, portrait: $0.portrait,
+               portraitInsets: $0.portraitInsets, landscapeInsets: $0.landscapeInsets)
+    } + TabletPreviewDevice.all.map {
         Device(name: $0.name, portrait: $0.portrait,
                portraitInsets: TabletPreviewDevice.insets, landscapeInsets: TabletPreviewDevice.insets)
     }

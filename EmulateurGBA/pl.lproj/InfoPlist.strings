@@ -10,6 +10,16 @@
 "Game Boy ROM" = "ROM Game Boy";
 "Nintendo DS ROM" = "ROM Nintendo DS";
 "Super Nintendo ROM" = "ROM Super Nintendo";
+"Nintendo 64 ROM" = "ROM Nintendo 64";
+"Mega Drive / Genesis ROM" = "ROM Mega Drive";
+"Master System ROM" = "ROM Master System";
+"Game Gear ROM" = "ROM Game Gear";
 "NES ROM" = "ROM NES";
 "PlayStation disc" = "Płyta PlayStation";
+"PSP game" = "Gra na PSP";
+"Game save" = "Zapis gry";
 "Retro Pal Skin" = "Skin Retro Pal";
+
+/* The Home Screen quick action under the app icon (Info.plist UIApplicationShortcutItems). */
+"Something wrong?" = "Coś nie działa?";
+"Please leave us feedback so we can fix it" = "Napisz do nas, abyśmy mogli to naprawić";

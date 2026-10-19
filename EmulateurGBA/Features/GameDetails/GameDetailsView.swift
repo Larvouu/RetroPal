@@ -16,6 +16,11 @@ struct GameDetailsView: View {
     @ObservedObject var game: GameEntity
     let onPlay: (URL, Int?) -> Void  // (romURL, slotToLoad?)
     let onDelete: () -> Void
+    /// A battery save opened from outside the app (Files, the share sheet,
+    /// AirDrop) and routed to this game by the library, which already read and
+    /// classified it and knows it fits this console. Written here, through the
+    /// same path as this page's own "Import Save", then set back to nil.
+    var openedSave: Binding<OpenedSave?> = .constant(nil)
 
     /// Observed so the save-slots screen warns (instead of silently showing an
     /// empty list) when iCloud was the user's store but is momentarily unreachable.
@@ -26,6 +31,9 @@ struct GameDetailsView: View {
     @ObservedObject private var raIndex = RAGameIndex.shared
 
     @State private var showAchievements = false
+    /// "Play as Player 2" for this game (`PlayAsPlayerTwo`), mirrored from
+    /// UserDefaults under the game's own key, read at `onAppear`.
+    @State private var playsAsPlayerTwo = false
     @State private var showRAInfo = false
     @State private var showRALogin = false
 
@@ -235,7 +243,7 @@ struct GameDetailsView: View {
         if ControllerAlert.controllerInHand {
             ControllerAlert.present(
                 title: NSLocalizedString("details.delete.confirm", comment: ""),
-                message: nil,
+                message: NSLocalizedString("details.delete.confirm.message", comment: ""),
                 actions: [
                     .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
                     .init(title: NSLocalizedString("details.delete", comment: ""), style: .destructive) { onDelete() },
@@ -263,6 +271,7 @@ struct GameDetailsView: View {
                     saveStatesSection.landscapeGlassRow()
                     achievementsSection(.belowSlots).landscapeGlassRow()
                     slot2Section.landscapeGlassRow()
+                    playerTwoSection.landscapeGlassRow()
                     ndsSettingsSection.landscapeGlassRow()
                     manageSection.landscapeGlassRow()
                     achievementsSection(.bottom).landscapeGlassRow()
@@ -306,6 +315,7 @@ struct GameDetailsView: View {
         .onAppear {
             refreshSlots()
             slot2Filename = UserDefaults.standard.string(forKey: slot2Key)
+            playsAsPlayerTwo = PlayAsPlayerTwo.isOn(romBasename: romName)
             // Make sure this game's RA eligibility is known (resolves
             // credential-free; no-op once cached).
             if let filename = game.romFilePath, let romHash = game.romHash {
@@ -315,7 +325,10 @@ struct GameDetailsView: View {
             }
             Haptics.tap()  // gentle tick on opening a game's details (push only;
                            // this onAppear doesn't fire returning from gameplay)
+            applyOpenedSave()
         }
+        // The page may already be on screen when a save for it arrives.
+        .onChange(of: openedSave.wrappedValue) { _ in applyOpenedSave() }
         // A save state changed on disk — either a local write just landed (the
         // auto-save on quit/background completes after this view re-appeared) or
         // iCloud pulled a remote save. Re-read the slots so the resume preview
@@ -334,6 +347,10 @@ struct GameDetailsView: View {
                 onDelete()
             }
             Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {}
+        } message: {
+            // What it deletes and what it keeps, said plainly: the title used
+            // to promise "all save data" while the in-game save was kept.
+            Text(NSLocalizedString("details.delete.confirm.message", comment: ""))
         }
         .confirmationDialog(NSLocalizedString("details.newGame.confirm.title", comment: ""), isPresented: $showNewGameConfirm, titleVisibility: .visible) {
             Button(NSLocalizedString("details.newGame", comment: "")) {
@@ -406,6 +423,8 @@ struct GameDetailsView: View {
             raState: raState,
             slot2Game: game.systemType == "nds" ? slot2Game : nil,
             iCloudUnavailable: iCloudSync.shouldWarnUnavailable,
+            playsAsPlayerTwo: PlayAsPlayerTwo.isOffered(systemType: game.systemType)
+                ? playsAsPlayerTwoBinding : nil,
             ndsSwapScreens: $ndsSwapScreens,
             ndsClockManual: $ndsClockManual,
             ndsManualDate: ndsManualDate,
@@ -473,8 +492,14 @@ struct GameDetailsView: View {
         if let record, record.isEligible, !record.hasKnownEmptySet {
             return ra.isLoggedIn ? .dashboard(record) : .invite
         }
-        if record != nil || RAClient.consoleId(forROMPath: filename) == 0 {
-            return .unavailable(isPBP: Self.isUnhashableDiscContainer(filename))
+        // The full path, not the stored name: a PSP `.iso` is told from a
+        // PlayStation one by reading the file (`RAClient.consoleIdForROMPath`).
+        if record != nil
+            || RAClient.consoleId(forROMPath: romsDir.appendingPathComponent(filename).path) == 0 {
+            // The `.pbp` advice ("the same game as .chd earns achievements")
+            // is the PlayStation's; a PSP game's `.pbp` gets the plain line.
+            return .unavailable(isPBP: game.systemType != ROMSystemType.psp.rawValue
+                                && Self.isUnhashableDiscContainer(filename))
         }
         return .hidden
     }
@@ -903,20 +928,49 @@ struct GameDetailsView: View {
         }
     }
 
+    /// The binding the Player 2 row toggles: the page's mirror and the stored
+    /// value together, under this game's key.
+    private var playsAsPlayerTwoBinding: Binding<Bool> {
+        Binding(
+            get: { playsAsPlayerTwo },
+            set: { on in
+                playsAsPlayerTwo = on
+                UserDefaults.standard.set(on, forKey: PlayAsPlayerTwo.key(romBasename: romName))
+            })
+    }
+
+    /// "Play as Player 2", on the consoles with a second port only, with the
+    /// line that says what it does: it is not obvious that it follows the
+    /// player's controller too (rule: explain a non-obvious feature).
+    @ViewBuilder
+    private var playerTwoSection: some View {
+        if PlayAsPlayerTwo.isOffered(systemType: game.systemType) {
+            Section(footer: Text(NSLocalizedString("details.playAsP2.caption", comment: ""))) {
+                Toggle(isOn: playsAsPlayerTwoBinding) {
+                    Label(NSLocalizedString("details.playAsP2", comment: ""), systemImage: "person.2")
+                }
+                .tint(uprightLook ? LibraryLandscapePalette.accent : nil)
+                .controllerToggle(playsAsPlayerTwoBinding)
+            }
+        }
+    }
+
     /// Single management section. Import/export-save (the per-game battery
     /// save) and rename are non-destructive and sit above the destructive
     /// delete at the bottom.
     private var manageSection: some View {
         Section {
-            Button {
-                showSavePicker = true
-            } label: {
-                Label(NSLocalizedString("saveImport.title", comment: ""), systemImage: "square.and.arrow.down")
-            }
-            Button {
-                exportSave()
-            } label: {
-                Label(NSLocalizedString("saveExport.title", comment: ""), systemImage: "square.and.arrow.up")
+            if hasBatterySaveFile {
+                Button {
+                    showSavePicker = true
+                } label: {
+                    Label(NSLocalizedString("saveImport.title", comment: ""), systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    exportSave()
+                } label: {
+                    Label(NSLocalizedString("saveExport.title", comment: ""), systemImage: "square.and.arrow.up")
+                }
             }
             Button {
                 showROMPicker = true
@@ -966,16 +1020,24 @@ struct GameDetailsView: View {
         // Run the replace synchronously while the picker's security scope is valid,
         // capturing the result as a closure to present once the sheet dismisses.
         let outcome: () -> Void
+        let importer = ROMImporter(context: viewContext)
         do {
-            try ROMImporter(context: viewContext).replaceROMFile(for: game, from: url)
+            try importer.replaceROMFile(for: game, from: url)
             outcome = {
                 saveInfo = SaveImportInfo(
                     title: NSLocalizedString("replaceROM.success.title", comment: ""),
                     message: NSLocalizedString("replaceROM.success.message", comment: ""))
             }
         } catch ROMImportError.differentGame {
+            Analytics.signal("rom_import", ["result": "error", "errorType": "differentGame", "method": "replace",
+                                            "system": game.systemType ?? "unknown",
+                                            "reason": ImportFailureReason.differentGame.rawValue])
             outcome = { showImportError(NSLocalizedString("replaceROM.error.differentGame", comment: "")) }
         } catch {
+            Analytics.signal("rom_import", ["result": "error",
+                                            "errorType": (error as? ROMImportError)?.analyticsID ?? "unknown",
+                                            "method": "replace", "system": game.systemType ?? "unknown",
+                                            "reason": ErrorTelemetry.importReason(for: error, noted: importer.takeFailureCause()).rawValue])
             outcome = { showImportError(NSLocalizedString("replaceROM.error.invalid", comment: "")) }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: outcome)
@@ -996,13 +1058,17 @@ struct GameDetailsView: View {
                                saveBasename: String) {
         switch result {
         case .failure(let error):
+            Analytics.signalOnce("save_import_fail", ["method": "picker", "system": game.systemType ?? "unknown",
+                                                      "reason": ErrorTelemetry.saveImportReason(for: error).rawValue])
             showImportError(error.errorDescription)
         case .success(let pending):
-            // The picker is save-only, but a user could still pick a `.srm`
-            // for a GBA game (or vice versa). Reject a save whose family
-            // doesn't match THIS game.
+            // Reject a save no game of THIS console could have written: its
+            // size is not one of this console's save sizes (a 512 KB DS save
+            // picked for a GBA game), or it is a memory card for a cartridge.
             guard let sys = game.systemType,
-                  pending.system.compatibleSystemTypes.contains(sys) else {
+                  pending.consoles.contains(sys) else {
+                Analytics.signalOnce("save_import_fail", ["method": "picker", "system": game.systemType ?? "unknown",
+                                                          "reason": SaveImportFailureReason.wrongSystem.rawValue])
                 showImportError(NSLocalizedString("saveImport.error.wrongSystem", comment: ""))
                 return
             }
@@ -1015,6 +1081,26 @@ struct GameDetailsView: View {
                 pendingMismatch = pending
             } else {
                 applySave(pending, overwriting: false)
+            }
+        }
+    }
+
+    /// A save routed here from outside the app. Its name is either this
+    /// game's ROM name (written at once) or not, when the player picked this
+    /// game in the library's chooser: then the same "Save from a different
+    /// game?" question as this page's own import, naming the game, because a
+    /// tap in a list of similar names is an easy one to get wrong and a raw
+    /// save carries nothing that could tell (device test, 2026-10-07: a wrong
+    /// pick was imported and reported as a success). The delay lets the push
+    /// finish, since an alert presented mid-transition is dropped.
+    private func applyOpenedSave() {
+        guard let save = openedSave.wrappedValue else { return }
+        openedSave.wrappedValue = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if save.baseName != romName {
+                pendingMismatch = save.pending
+            } else {
+                applySave(save.pending, overwriting: false)
             }
         }
     }
@@ -1032,6 +1118,8 @@ struct GameDetailsView: View {
         } catch BatterySaveImportError.duplicateExists {
             pendingOverwrite = pending
         } catch let error as BatterySaveImportError {
+            // A failed WRITE is already `save_failure {kind: battery_write}`,
+            // sent where it happened (`BatterySaveImporter.writeImport`).
             showImportError(error.errorDescription)
         } catch {
             showImportError(error.localizedDescription)
@@ -1039,6 +1127,13 @@ struct GameDetailsView: View {
     }
 
     // MARK: - Battery-save export (this game)
+
+    /// Whether this game keeps its save in one battery file, which is what the
+    /// import and export rows move. Every console does but the PSP, whose
+    /// games write a FOLDER on their memory stick (`PSP/SAVEDATA/<game id>/`,
+    /// `PSPBridge.setMemoryStickDirectory`): one file in or out would be no
+    /// save at all, so the two rows are not offered for it.
+    private var hasBatterySaveFile: Bool { game.systemType != ROMSystemType.psp.rawValue }
 
     /// Share this game's in-game battery save. The file is copied to a temp
     /// name other emulators expect for the system (.sav for GBA/GB/GBC/NES,
@@ -1064,7 +1159,11 @@ struct GameDetailsView: View {
         switch game.systemType {
         // The N64's is the core's combined block (EEPROM, Controller Paks,
         // SRAM, FlashRAM), which is the `.srm` RetroArch writes and reads.
-        case "nds", "snes", "n64": ext = "srm"
+        // The Mega Drive's is the cartridge's save RAM as libretro hands it
+        // over, the `.srm` RetroArch reads and writes for that console too.
+        case "nds", "snes", "n64", "md": ext = "srm"
+        // The Master System's and the Game Gear's go out as `.sav` (the
+        // default below), the name MesenCE itself writes for both.
         case "ps1":         ext = "mcd"
         default:            ext = "sav"
         }
@@ -1077,6 +1176,8 @@ struct GameDetailsView: View {
             try FileManager.default.copyItem(at: source, to: dest)
             exportedSave = ExportedSave(url: dest)
         } catch {
+            Analytics.signal("save_failure", ["kind": "battery_export", "system": game.systemType ?? "unknown",
+                                              "reason": ErrorTelemetry.writeReason(for: error).rawValue])
             // A failed export MUST notify (never a silent failure).
             saveInfo = SaveImportInfo(
                 title: NSLocalizedString("saveExport.title", comment: ""),

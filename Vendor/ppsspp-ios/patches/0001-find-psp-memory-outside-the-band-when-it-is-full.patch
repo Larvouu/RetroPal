@@ -1,0 +1,99 @@
+Find the PSP's memory outside the 4-6 GB band when the band is full
+
+On iOS, MemoryMap_Setup does not let the system place the emulated PSP's
+memory: it tries a base every 8 MB from 4 GB to 6 GB and builds its views at
+fixed offsets from it (Memory_TryBase). In an app that has been running a
+while, that band fills with memory the app does not control (Metal's
+IOAccelerator regions, IOSurfaces, malloc's small and large zones), and once
+no base is left the boot fails with "MemoryMap_Setup: Failed finding a memory
+base". Measured in Retro Pal (Debug memory map at boot): 66 of 256 bases free
+when the PSP is the first game after launch, 12 after one short game on each
+of the other consoles, and a long session reached none (every PSP game failed
+to boot until the app was killed).
+
+Nothing on the interpreter needs the base in that band: on iOS memory is
+reached as base + (address & MEMVIEW32_MASK), a full 64-bit add, and the ARM64
+JIT, which on iOS never runs (the port forces the IR interpreter without JIT),
+already turns pointerify off by itself for a base not aligned to 4 GB
+(Arm64IRJit.cpp). So, only after every base in the band has failed, ask the
+system for a free range of the size the views span (Memory_ViewSpan: the end
+of the highest view, with the same skips and masking as Memory_TryBase),
+release it, and build the views there. A first boot in a fresh app still takes
+the band exactly as before.
+
+Checked on the host with MemoryMap_Setup, Memory_TryBase and the view table
+taken verbatim from this file, on iOS settings, against a simulated address
+space: band partly taken, the band base is found as before; band full, the
+unpatched code fails and the patched code places the views above it, and every
+PSP address (RAM, its uncached mirror, VRAM and its mirror, scratchpad, the
+64 MB models' extra RAM) lands on mapped memory.
+
+Applied at build time by Vendor/ppsspp-ios/build.sh.
+
+diff --git a/Core/MemMap.cpp b/Core/MemMap.cpp
+index a7b5cae..49b8e3b 100644
+--- a/Core/MemMap.cpp
++++ b/Core/MemMap.cpp
+@@ -41,6 +41,10 @@
+ #include "Core/MIPS/JitCommon/JitCommon.h"
+ #include "Common/Thread/ParallelLoop.h"
+ 
++#if PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
++#include <mach/mach.h>
++#endif
++
+ namespace Memory {
+ 
+ // The base pointer to the auto-mirrored arena.
+@@ -135,6 +139,23 @@ static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
+ 	return false;
+ }
+ 
++#if PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
++// How far past base the views Memory_TryBase creates reach: the end of the
++// highest one, with the same skips and the same masking.
++static size_t Memory_ViewSpan(MemMapSetupFlags flags) {
++	size_t span = 0;
++	for (int i = 0; i < ARRAY_SIZE(views); i++) {
++		const MemoryView &view = views[i];
++		if (view.size == 0 || SkipView(flags, view.flags) || CanIgnoreView(view))
++			continue;
++		const size_t end = (size_t)(view.virtual_address & MEMVIEW32_MASK) + view.size;
++		if (end > span)
++			span = end;
++	}
++	return span;
++}
++#endif
++
+ static bool Memory_TryBase(MemMapSetupFlags flags) {
+ 	// OK, we know where to find free space. Now grab it!
+ 	// We just mimic the popular BAT setup.
+@@ -255,6 +276,27 @@ bool MemoryMap_Setup(MemMapSetupFlags flags) {
+ 				return true;
+ 			}
+ 		}
++#if PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
++		// The 4-6 GB band fills up in a long-running app (Metal and malloc take
++		// it over time), and nothing on the IR interpreter needs the base
++		// there: memory is reached as base + (address & MEMVIEW32_MASK), and
++		// the ARM64 JIT turns pointerify off by itself for an unaligned base.
++		// So let the system pick a free range of the size the views span, and
++		// build the views there.
++		for (int attempt = 0; attempt < 4; attempt++) {
++			const size_t span = Memory_ViewSpan(flags);
++			vm_address_t probe = 0;
++			if (vm_allocate(mach_task_self(), &probe, span, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
++				break;
++			}
++			vm_deallocate(mach_task_self(), probe, span);
++			base = (u8 *)probe;
++			if (Memory_TryBase(flags)) {
++				INFO_LOG(Log::MemMap, "Memory base at %p, outside the 4-6 GB band (full).", base);
++				return true;
++			}
++		}
++#endif
+ 		ERROR_LOG(Log::MemMap, "MemoryMap_Setup: Failed finding a memory base.");
+ 		return false;
+ 	}

@@ -486,10 +486,20 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     /// compiled against it; a different format makes them invalid for it.
     var mirrorPixelFormat: MTLPixelFormat { colorPixelFormat }
 
-    /// Native frame size of the running game, so a mirror can letterbox
-    /// itself for single-screen consoles. nil when nothing is attached.
+    /// The shape of the running game, so a mirror can letterbox itself for
+    /// single-screen consoles. nil when nothing is attached.
+    ///
+    /// The DISPLAY shape the core declares, which is the one the phone frames
+    /// the picture in (`EmulatorViewController.layoutGameView`), not the
+    /// buffer's pixel size. The two agree on the handhelds, the SNES, the NES,
+    /// the Master System, the Game Gear and the PSP; they do not on the Mega
+    /// Drive (320x224 or 256x224 drawn for a 4:3 television) or the
+    /// PlayStation (many widths, one 4:3 screen), which the television showed
+    /// stretched sideways while the phone showed them right (found 2026-10-10).
     var mirrorGameSize: CGSize? {
         guard let session else { return nil }
+        let aspect = session.displayAspect
+        if aspect > 0 { return CGSize(width: aspect, height: 1) }
         return CGSize(width: session.screenWidth, height: session.totalBufferHeight)
     }
 

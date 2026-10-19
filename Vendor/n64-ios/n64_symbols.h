@@ -38,6 +38,10 @@
 #define retro_run                        n64_retro_run
 #define retro_serialize                  n64_retro_serialize
 #define retro_serialize_size             n64_retro_serialize_size
+/* Ours, added by patches/0008 for the rewind (see N64Bridge.mm, Rewind). */
+#define retro_serialize_in_frame         n64_retro_serialize_in_frame
+#define retro_serialize_in_frame_result  n64_retro_serialize_in_frame_result
+#define retro_serialize_in_frame_cancel  n64_retro_serialize_in_frame_cancel
 #define retro_set_audio_sample           n64_retro_set_audio_sample
 #define retro_set_audio_sample_batch     n64_retro_set_audio_sample_batch
 #define retro_set_controller_port_device n64_retro_set_controller_port_device

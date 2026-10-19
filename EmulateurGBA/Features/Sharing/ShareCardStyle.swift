@@ -14,6 +14,7 @@
 
 import UIKit
 import SwiftUI
+import CoreData
 
 enum ShareCardStyle: String {
     case nostalgia
@@ -81,6 +82,14 @@ enum ShareCardStyle: String {
                     // The Nintendo 64's shell, #C4C7CA, the dress's own body.
                     return [Color(red: 0.769, green: 0.780, blue: 0.792),
                             Color(red: 0.627, green: 0.637, blue: 0.649)]
+                // The Mega Drive's black shell, through the same gradient the
+                // skin path uses, so the two cannot disagree.
+                case .md:
+                    return DressVariant.nostalgia.cardExtrudeColors(for: .md)
+                // The three dressed 2026-10-10, through the same gradient
+                // the skin path uses, as the Mega Drive's.
+                case .sms, .gg, .psp:
+                    return DressVariant.nostalgia.cardExtrudeColors(for: system)
                 }
             }
         }
@@ -144,9 +153,43 @@ struct ShareCardSkinContext {
 }
 
 extension PresetSystem {
-    /// The console for a ROM filename, by extension (the same mapping the emulator
-    /// derives from its ROM type). nil for an unknown extension.
+    /// The console for a ROM filename: the one the library recorded at import,
+    /// else read from the extension (the same mapping the emulator derives from
+    /// its ROM type). nil for an unknown extension.
+    ///
+    /// The library first because two consoles share extensions: a PSP game
+    /// and a PlayStation disc are both `.iso` or `.pbp`, and only the file's
+    /// bytes tell them apart, which the importer read once and stored
+    /// (`GameEntity.systemType`). By extension alone a PSP achievement card
+    /// wore the PlayStation's dress. The callers pass the library key
+    /// (`GameEntity.romFilePath`), so the lookup is exact.
     static func forRomFilename(_ filename: String) -> PresetSystem? {
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "romFilePath == %@", filename)
+        request.fetchLimit = 1
+        if let stored = (try? PersistenceController.shared.container.viewContext.fetch(request))?
+            .first?.systemType,
+           let system = ROMSystemType(rawValue: stored) {
+            switch system {
+            case .gb, .gbc: return .gbc
+            case .gba: return .gba
+            case .nds: return .nds
+            case .snes: return .snes
+            case .nes: return .nes
+            case .ps1: return .ps1
+            case .n64: return .n64
+            case .md: return .md
+            case .sms: return .sms
+            case .gg: return .gg
+            case .psp: return .psp
+            }
+        }
+        return forRomExtension(filename)
+    }
+
+    /// The console a filename's extension declares, for a game the library
+    /// does not hold.
+    static func forRomExtension(_ filename: String) -> PresetSystem? {
         let ext = (filename as NSString).pathExtension.lowercased()
         switch ext {
         case "gb", "gbc": return .gbc
@@ -154,6 +197,14 @@ extension PresetSystem {
         case "nds":        return .nds
         case "sfc", "smc": return .snes
         case "nes":        return .nes
+        case "z64", "n64", "v64": return .n64
+        case "md", "gen", "smd":  return .md
+        case "sms":               return .sms
+        case "gg":                return .gg
+        // The PSP's own compressed image. Its `.iso` and `.pbp` are shared with
+        // the PlayStation and only the file's bytes tell them apart
+        // (`ROMSystemType.resolve(url:)`), which callers holding the file use.
+        case "cso":               return .psp
         // A disc has ten possible extensions and they are already enumerated
         // once, by the importer that has to accept them. Asked rather than
         // re-listed: written out here, this switch returned nil for every
@@ -193,6 +244,11 @@ extension DressVariant {
             case .nes: return NESSkinPalette.nostalgia.body
             case .ps1: return PS1SkinPalette.nostalgia.body
             case .n64: return DressKind.n64Body
+            case .md: return MDSkinPalette.nostalgia.body
+            // Each one's own shell, as its dress resolves it.
+            case .sms: return DressKind.smsLook(.nostalgia).body
+            case .gg: return DressKind.ggLook(.nostalgia).body
+            case .psp: return PSPSkinPalette.nostalgia.body
             }
         case .retroPal:
             switch system {
@@ -203,6 +259,10 @@ extension DressVariant {
             case .nes: return RetroPalPalette.nesBody
             case .ps1: return PS1SkinPalette.retroPal.body
             case .n64: return RetroPalPalette.n64Body
+            case .md: return MDSkinPalette.retroPal.body
+            case .sms: return DressKind.smsLook(.retroPal).body
+            case .gg: return DressKind.ggLook(.retroPal).body
+            case .psp: return PSPSkinPalette.retroPal.body
             }
         case .custom(.gbc(let p)): return p.body
         case .custom(.gba(let p)): return p.body
@@ -211,6 +271,10 @@ extension DressVariant {
         case .custom(.nes(let p)): return p.body
         case .custom(.ps1(let p)): return p.body
         case .custom(.n64(let p)): return p.body
+        case .custom(.md(let p)): return p.body
+        case .custom(.sms(let p)): return p.body
+        case .custom(.gg(let p)): return p.body
+        case .custom(.psp(let p)): return p.body
         }
     }
 
@@ -225,6 +289,22 @@ extension DressVariant {
         // custom skin's L and R take that role.
         case .n64:
             return n64.shoulders
+        // The cross's plastic, the console's structure colour on both looks.
+        case .md:
+            return md.pad
+        // The panel round the picture, each dress's structure colour, as the
+        // other consoles' surrounds are. The PSP's panel is pure black on both
+        // looks, which the card's black surround swallows, so it takes L and
+        // R's colour instead, the Nintendo 64's rule: the PSP-1000's silver on
+        // Nostalgia, and on Retro Pal the shell, the bars being clear glass
+        // over it (`PSPSkinPalette.retroPal`).
+        case .sms:
+            return DressKind.smsLook(self).surround
+        case .gg:
+            return DressKind.ggLook(self).surround
+        case .psp:
+            let p = ConsoleSkinView.pspVariant(self).pspPalette ?? .nostalgia
+            return p.shoulders
         case .ps1:
             switch self {
             case .nostalgia:           return PS1SkinPalette.nostalgia.surround
@@ -310,6 +390,20 @@ extension DressVariant {
                                           p.menuIconsHex, p.dpadHex, p.dpadMarksHex, p.stickHex,
                                           p.stickSurroundHex, p.aHex, p.bHex, p.zHex, p.cHex,
                                           p.startHex])
+        case .custom(.md(let p)):
+            return "custom-md-" + hexes([p.bodyHex, p.padHex, p.abcHex, p.xyzHex,
+                                         p.smallButtonsHex, p.labelsHex])
+                + (p.incisedLabels ? "-i" : "")
+        case .custom(.sms(let p)):
+            return "custom-sms-" + hexes([p.bodyHex, p.surroundHex, p.plateHex, p.accentHex,
+                                          p.keysHex, p.onAccentHex, p.inkHex])
+        case .custom(.gg(let p)):
+            return "custom-gg-" + hexes([p.bodyHex, p.surroundHex, p.buttonsHex, p.startHex,
+                                         p.glyphsHex, p.inkHex])
+        case .custom(.psp(let p)):
+            return "custom-psp-" + hexes([p.bodyHex, p.surroundHex, p.controlsHex, p.printHex,
+                                          p.shouldersHex, p.stickHex])
+                + (p.glass ? "-g" : "")
         }
     }
 }

@@ -101,39 +101,54 @@ enum CheatCodeFormatter {
     /// caret to the end on every keystroke, which is worse than no formatting
     /// at all. Typing and pasting are how codes are actually entered, and both
     /// are appends.
-    static func formatted(_ new: String, previous: String, isNDS: Bool) -> String {
+    static func formatted(_ new: String, previous: String, isNDS: Bool,
+                          system: String = "") -> String {
         guard previous.isEmpty || (new.count > previous.count && new.hasPrefix(previous)) else {
             return new
         }
         // Fold fullwidth input as it is typed, so the field shows the code the
         // validator will read rather than one that only looks like it.
         let lines = normalized(new).components(separatedBy: "\n")
-        return lines.map { regroup($0.uppercased(), isNDS: isNDS) }.joined(separator: "\n")
+        return lines.map { regroup($0.uppercased(), isNDS: isNDS, system: system) }
+            .joined(separator: "\n")
     }
 
     /// Splits an unbroken run of hex into the blocks its length implies.
     /// Lengths that are ambiguous are left exactly as typed.
-    private static func regroup(_ line: String, isNDS: Bool) -> String {
+    private static func regroup(_ line: String, isNDS: Bool, system: String = "") -> String {
         let compact = line.replacingOccurrences(of: " ", with: "")
         guard !compact.isEmpty, compact.allSatisfy(\.isHexDigit) else { return line }
+        // The Mega Drive's Pro Action Replay codes are printed with a colon
+        // between the six-digit address and the value (FFFE20:0063, or
+        // FFFE12:09 for a byte), so a run of ten or eight digits takes one.
+        if system == "md", compact.count == 10 || compact.count == 8 {
+            return split(compact, at: 6, separator: ":")
+        }
+        // The Master System's and the Game Gear's Pro Action Replay codes are
+        // eight digits, printed as a four-digit address, a colon and the value
+        // (00C0:0F05). Typed in one run, they take the colon the same way.
+        if system == "sms" || system == "gg", compact.count == 8 {
+            return split(compact, at: 4, separator: ":")
+        }
         switch compact.count {
         case 16:
             // Action Replay DS, GameShark GBA v3, Action Replay GBA.
             return split(compact, at: 8)
-        case 12 where !isNDS:
+        case 12 where !isNDS && system != "psp":
             // CodeBreaker GBA, and the PlayStation's GameShark / Action Replay,
             // which share the shape: eight digits of address then four of
             // value. The DS is excluded because its codes come in 8+8 pairs and
-            // a 12-digit run there is a half-typed one, not a whole code.
+            // a 12-digit run there is a half-typed one, not a whole code; so is
+            // the PSP, whose CWCheat lines are 8+8 as well.
             return split(compact, at: 8)
         default:
             return line
         }
     }
 
-    private static func split(_ s: String, at index: Int) -> String {
+    private static func split(_ s: String, at index: Int, separator: String = " ") -> String {
         let cut = s.index(s.startIndex, offsetBy: index)
-        return String(s[..<cut]) + " " + String(s[cut...])
+        return String(s[..<cut]) + separator + String(s[cut...])
     }
 
     // MARK: - Validation
@@ -141,17 +156,28 @@ enum CheatCodeFormatter {
     /// The shape problem, if there is one we can name. `nil` means "hand it to
     /// the core", not "this code is valid".
     /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
-    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"` / `"n64"`, for the same reason `advisory`
+    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"` / `"n64"` / `"md"` / `"sms"` / `"gg"` / `"psp"`, for the same reason `advisory`
     ///   takes one:
     ///   the alphabet a code may use is a fact about the console, and the view's
     ///   `isNDS` flag describes a keyboard layout.
     static func problem(in code: String, isNDS: Bool, system: String = "") -> Problem? {
         guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        if system == "psp" { return pspProblem(in: code) }
         // Before the character check, which would otherwise answer first with
         // a sentence that is true and useless here. Not on the NES, whose Game
         // Genie alphabet includes X: "SXXOPO" is a code there, not a blank.
-        if system != "nes", containsPlaceholder(code) { return .placeholderValue }
-        let permitted = system == "nes" ? allowed.union(nesGameGenieLetters) : allowed
+        // One X is a blank only where X can be nothing else: Master System and
+        // Game Gear codes are hex in both their formats, and so is a Mega Drive
+        // Pro Action Replay code, which carries its colon. X is a letter of the
+        // Mega Drive Game Genie's alphabet ("AX0A-RA58"), which has no colon.
+        let singleX = system == "sms" || system == "gg" || (system == "md" && code.contains(":"))
+        if system != "nes", containsPlaceholder(code, singleX: singleX) {
+            return .placeholderValue
+        }
+        // The Mega Drive's codes carry a colon (FFFE20:0063), and so do the
+        // Master System's and the Game Gear's Pro Action Replay codes.
+        let permitted = system == "nes" ? allowed.union(nesGameGenieLetters)
+            : system == "md" || system == "sms" || system == "gg" ? allowed.union([":"]) : allowed
         if code.contains(where: { !permitted.contains($0) }) { return .invalidCharacter }
 
         // Only the DS format is unambiguous enough to check block by block. GBA
@@ -168,14 +194,64 @@ enum CheatCodeFormatter {
         return nil
     }
 
-    /// A block made of hex digits and X's with at least two X's in a row: a
-    /// value to fill in. No real code can contain one, because X is not a hex
-    /// digit, so this cannot flag a code the core would have accepted.
-    private static func containsPlaceholder(_ code: String) -> Bool {
-        let hexOrX = Set("0123456789ABCDEFX")
+    /// The PSP's CWCheat codes, read the way PSPBridge reads them
+    /// (`PSPCheatLines`): each line `_L 0xAAAAAAAA 0xVVVVVVVV`, the `_L` and the
+    /// `0x` optional, a `_C` title line copied along with the code skipped
+    /// whatever it says. Every other line must be exactly two hex numbers of up
+    /// to eight digits; that is the whole format, so here, unlike the GBA, the
+    /// shape can be judged in full.
+    private static func pspProblem(in code: String) -> Problem? {
+        let lines = pspLines(code)
+        if containsPlaceholder(lines.joined(separator: "\n")) { return .placeholderValue }
+        for line in lines {
+            var body = line.uppercased()
+            if body.hasPrefix("_L") { body.removeFirst(2) }
+            let words = body.split(separator: " ").map(String.init)
+            let digits = words.map { $0.hasPrefix("0X") ? String($0.dropFirst(2)) : $0 }
+            if digits.contains(where: { $0.isEmpty || !$0.allSatisfy { allowedHex.contains($0) } }) {
+                return .invalidCharacter
+            }
+            guard words.count == 2, digits.allSatisfy({ $0.count <= 8 }) else { return .unpairedLine }
+        }
+        return nil
+    }
+
+    private static let allowedHex = Set("0123456789ABCDEF")
+
+    /// The code's lines, a code pasted the way code lists store it (its lines
+    /// joined by spaces, "_L 0x... 0x... _L 0x... 0x...") split before each
+    /// "_L" a space follows, exactly as PSPBridge splits it.
+    static func pspLines(_ code: String) -> [String] {
+        let split = code.replacingOccurrences(of: #"(?<=\S)[ \t]+(?=_[Ll][ \t])"#, with: "\n",
+                                              options: .regularExpression)
+        return split.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.uppercased().hasPrefix("_C") }
+    }
+
+    /// A block made of hex digits and X's with at least two X's in a row, or
+    /// holding a question mark: a value to fill in. No real code can contain
+    /// one, because neither X nor "?" is a hex digit, so this cannot flag a
+    /// code the core would have accepted.
+    ///
+    /// The question mark is how libretro's Sega files print the blank: 525
+    /// codes of the Mega Drive's, Master System's and Game Gear's folders
+    /// ("FFFE10:??", "00C0-820?", whose name says "Replace ? With 1-8"),
+    /// counted 2026-10-10. They reached the generic character message, which
+    /// told the player to remove the very character they were meant to
+    /// replace. "?" is in no console's alphabet. The NES is left out by the
+    /// caller as before (its Game Genie letters are not in this set either).
+    ///
+    /// `singleX`: on the three Sega consoles one X is a blank too. Their codes
+    /// are hex Pro Action Replay with no letter alphabet (no Game Genie X to
+    /// collide with), and libretro's Game Gear Columns prints its only code
+    /// "00C6-990X" (audit 2026-10-11: it got the generic character message).
+    private static func containsPlaceholder(_ code: String, singleX: Bool = false) -> Bool {
+        let blank = Set("0123456789ABCDEFX?")
         return code.uppercased()
-            .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "-" })
-            .contains { $0.contains("XX") && $0.allSatisfy { hexOrX.contains($0) } }
+            .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "-" || $0 == ":" })
+            .contains { ($0.contains(singleX ? "X" : "XX") || $0.contains("?"))
+                && $0.allSatisfy { blank.contains($0) } }
     }
 
     // MARK: - Advisories

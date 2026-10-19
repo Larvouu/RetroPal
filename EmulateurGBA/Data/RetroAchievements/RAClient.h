@@ -193,11 +193,26 @@ typedef void (^RALoginCompletion)(BOOL success, NSString *_Nullable token,
 /// The loaded game's RA id (0 when no game is loaded or the ROM has no set).
 - (uint32_t)currentGameID;
 
+/// The loaded game's RA console, as rcheevos identified it (0 when none). The
+/// answer for a game already loaded, where `consoleIdForROMPath:` needs the
+/// file itself to tell a PSP `.iso` from a PlayStation one.
+- (uint32_t)currentGameConsoleID;
+
 // MARK: - Game identification (no login required)
 
 /// The RA console id for a ROM path, from its extension
 /// (.gba/.gbc/.gb/.nds). 0 for anything else (no RA support here).
 + (uint32_t)consoleIdForROMPath:(NSString *)path;
+
+/// Whether a PlayStation disc file (`.cue`, `.chd`, `.iso`, `.bin`, `.img`,
+/// `.m3u`...) is POSITIVELY another console's disc, read through the same CD
+/// reader the achievements use: a PlayStation 2 disc (its SYSTEM.CNF names a
+/// BOOT2 and no BOOT), a Sega CD or Saturn disc ("SEGA" opening its first
+/// sector or naming its volume), or a PSP UMD (PSP_GAME). NO for a PlayStation
+/// disc and for anything that cannot be read cleanly: only a certain answer
+/// refuses a game at import (2026-10-12; those discs used to import as
+/// PlayStation games and fail only when played).
++ (BOOL)isOtherConsolesDiscAtPath:(NSString *)path;
 
 /// Compute the RetroAchievements hash (rc_hash MD5 form) of the ROM at `path`.
 /// nil when the console is unsupported or the file is unreadable. Pure file

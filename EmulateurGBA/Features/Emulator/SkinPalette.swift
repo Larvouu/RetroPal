@@ -285,6 +285,11 @@ struct PS1SkinPalette: Equatable, Codable {
     static let retroPal = PS1SkinPalette(
         bodyHex: 0x1F1F1F, surroundHex: 0x000000, padHex: 0x727272, faceHex: 0x727272,
         printHex: 0xC0C0C0, diamondHex: 0x727272)
+
+    /// The PSP's two looks in the PlayStation's slots, as the shared dress
+    /// code reads them. Their own palette is `PSPSkinPalette` (2026-10-11).
+    static var pspNostalgia: PS1SkinPalette { PSPSkinPalette.nostalgia.asPS1 }
+    static var pspRetroPal: PS1SkinPalette { PSPSkinPalette.retroPal.asPS1 }
 }
 
 /// Nintendo 64 (2026-09-27).
@@ -349,6 +354,186 @@ struct N64SkinPalette: Equatable, Codable {
     }()
 }
 
+/// The Mega Drive's dress, every colour it paints a slot, as on the Nintendo 64.
+/// Both built-in palettes were given 2026-10-08, verbatim below.
+///
+/// The labels are the one thing the two looks do differently. Classic PRINTS
+/// them, in one light ink on dark plastic (`labelsHex`). Retro Pal SETS each one
+/// INTO its own button, the button's colour a shade darker, the Nintendo 64's
+/// rule (`DressKind.n64Incised`), so there it is no colour of its own:
+/// `incisedLabels` says which, and a custom skin starts from Classic's printed
+/// ink, which it may recolour.
+struct MDSkinPalette: Equatable, Codable {
+    var bodyHex: UInt32          // the shell
+    var padHex: UInt32           // the cross
+    var abcHex: UInt32           // A, B and C
+    var xyzHex: UInt32           // X, Y and Z
+    var smallButtonsHex: UInt32  // MODE and START, MENU and CLIP
+    var labelsHex: UInt32        // the printed letters, words and the MENU / CLIP glyphs
+    var incisedLabels: Bool
+
+    var body: UIColor         { UIColor(rpHex: bodyHex) }
+    var pad: UIColor          { UIColor(rpHex: padHex) }
+    var abc: UIColor          { UIColor(rpHex: abcHex) }
+    var xyz: UIColor          { UIColor(rpHex: xyzHex) }
+    var smallButtons: UIColor { UIColor(rpHex: smallButtonsHex) }
+    var labels: UIColor       { UIColor(rpHex: labelsHex) }
+
+    /// The mark on a control of colour `plate`: Classic's printed ink, or the
+    /// plate itself a shade darker when the marks are set in.
+    func label(on plate: UIColor) -> UIColor {
+        incisedLabels ? DressKind.n64Incised(plate) : labels
+    }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, padHex, abcHex, xyzHex, smallButtonsHex, labelsHex].allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// Classic (given 2026-10-08): a #202125 shell, every control #2F2F2F, the
+    /// letters, words and MENU / CLIP glyphs printed #C0C0CD.
+    static let nostalgia = MDSkinPalette(bodyHex: 0x202125, padHex: 0x2F2F2F, abcHex: 0x2F2F2F,
+                                         xyzHex: 0x2F2F2F, smallButtonsHex: 0x2F2F2F,
+                                         labelsHex: 0xC0C0CD, incisedLabels: false)
+
+    /// Retro Pal (given 2026-10-08): a #DCDCDA shell, A B C #933A53, X Y Z
+    /// #929292, the cross #494949, MODE and START the shell's own colour, and
+    /// every label set into its button. MENU and CLIP were not named; they
+    /// take MODE and START's treatment, the shell with the glyph set in, as
+    /// they share those two's colour on Classic.
+    static let retroPal = MDSkinPalette(bodyHex: 0xDCDCDA, padHex: 0x494949, abcHex: 0x933A53,
+                                        xyzHex: 0x929292, smallButtonsHex: 0xDCDCDA,
+                                        labelsHex: 0xC0C0CD, incisedLabels: true)
+}
+
+/// The Master System's dress (2026-10-10), every colour it paints a slot,
+/// as on the Mega Drive. Both built-in looks are the values the dress drew
+/// before these palettes existed (`DressKind.smsLook`), so neither moves.
+///
+/// What is NOT a slot: the shading every piece derives from its own colour
+/// (the faces a step lighter than the cross, which is one rubber on the pad),
+/// and the black of the holes, seats and the PAUSE plate, which are holes in
+/// the shell rather than a colour of it.
+struct SMSSkinPalette: Equatable, Codable {
+    var bodyHex: UInt32      // the shell
+    var surroundHex: UInt32  // the panel round the picture
+    var plateHex: UInt32     // the grey squares the cross and 1 and 2 sit on
+    var accentHex: UInt32    // the red: the keyline round the cross, the bars, the line under the panel
+    var keysHex: UInt32      // the rubber of the cross, 1, 2, PAUSE's rocker, MENU and CLIP
+    var onAccentHex: UInt32  // printed on the red bars and on PAUSE, the arrowheads, the MENU / CLIP glyphs
+    var inkHex: UInt32       // printed on the shell: CONTROL PAD, Retro Pal
+
+    var body: UIColor     { UIColor(rpHex: bodyHex) }
+    var surround: UIColor { UIColor(rpHex: surroundHex) }
+    var plate: UIColor    { UIColor(rpHex: plateHex) }
+    var accent: UIColor   { UIColor(rpHex: accentHex) }
+    var keys: UIColor     { UIColor(rpHex: keysHex) }
+    var onAccent: UIColor { UIColor(rpHex: onAccentHex) }
+    var ink: UIColor      { UIColor(rpHex: inkHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, surroundHex, plateHex, accentHex, keysHex, onAccentHex, inkHex]
+            .allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// Classic (sampled from the pad's photographs, agreed 2026-10-10).
+    static let nostalgia = SMSSkinPalette(bodyHex: 0x232325, surroundHex: 0x111112, plateHex: 0x6E6F73,
+                                          accentHex: 0xC4281E, keysHex: 0x2B2B2D, onAccentHex: 0xF2F2F2,
+                                          inkHex: 0xF2F2F2)
+    /// The light Retro Pal (2026-10-10, approved 10-11): the shell pale, the
+    /// red kept, anything printed on the shell dark.
+    static let retroPal = SMSSkinPalette(bodyHex: 0xE4E4E6, surroundHex: 0x1C1C1E, plateHex: 0xB9BABF,
+                                         accentHex: 0xC4281E, keysHex: 0x3A3A3E, onAccentHex: 0xF2F2F2,
+                                         inkHex: 0x2B2B2D)
+}
+
+/// The Game Gear's dress (given verbatim 2026-10-10), every colour it paints
+/// a slot. Both built-in looks are the dress's own values (`DressKind.ggLook`).
+///
+/// What is NOT a slot: the three pills and the lamp beside the picture, which
+/// are the console's printed marks (like the PlayStation's four symbols), and
+/// the derived shading.
+struct GGSkinPalette: Equatable, Codable {
+    var bodyHex: UInt32      // the shell
+    var surroundHex: UInt32  // the panel round the picture
+    var buttonsHex: UInt32   // the cross, 1, 2, MENU and CLIP
+    var startHex: UInt32     // START's disc
+    var glyphsHex: UInt32    // the MENU / CLIP glyphs, and POWER on the panel
+    var inkHex: UInt32       // printed on the shell: the 1 · 2 figure, START's word
+
+    var body: UIColor     { UIColor(rpHex: bodyHex) }
+    var surround: UIColor { UIColor(rpHex: surroundHex) }
+    var buttons: UIColor  { UIColor(rpHex: buttonsHex) }
+    var start: UIColor    { UIColor(rpHex: startHex) }
+    var glyphs: UIColor   { UIColor(rpHex: glyphsHex) }
+    var ink: UIColor      { UIColor(rpHex: inkHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, surroundHex, buttonsHex, startHex, glyphsHex, inkHex].allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// Classic (given verbatim 2026-10-10).
+    static let nostalgia = GGSkinPalette(bodyHex: 0x4D5763, surroundHex: 0x10171A, buttonsHex: 0x2A343C,
+                                         startHex: 0x6993D7, glyphsHex: 0xEDF2F4, inkHex: 0xEDF2F4)
+    /// The light Retro Pal (2026-10-10, approved 10-11).
+    static let retroPal = GGSkinPalette(bodyHex: 0xD9DCE0, surroundHex: 0x2A3036, buttonsHex: 0x8A929B,
+                                        startHex: 0x6993D7, glyphsHex: 0xEDF2F4, inkHex: 0x2A3036)
+}
+
+/// The PSP's dress (2026-10-11), every colour it paints a slot. The PSP
+/// wears the PlayStation's pad SHAPES, so the dress code reads it through
+/// `asPS1` (its PlayStation view, field for field what the two built-in PSP
+/// looks were until this palette); what is its own (L and R, the nub, the
+/// glass) is read here. `DressVariant.isPSP` asks for THIS type, not for two
+/// exact colour values, so a custom skin keeps every piece that is the PSP's.
+///
+/// What is NOT a slot: the four symbols' SHAPES, drawn in the marks' one grey
+/// as on the PSP-1000 (`printHex`), and POWER's green, a light the shell
+/// shows rather than a colour of it.
+struct PSPSkinPalette: Equatable, Codable {
+    var bodyHex: UInt32       // the shell, and the plastic of the cross, faces, SELECT and START
+    var surroundHex: UInt32   // the panel round the picture
+    var controlsHex: UInt32   // the cross, the four faces, MENU and CLIP
+    var printHex: UInt32      // the marks: the symbols, the triangles in the arrows, the words
+    var shouldersHex: UInt32  // L and R
+    var stickHex: UInt32      // the nub
+    /// The Retro Pal look: the faces, the arrows and L / R drawn as clear glass
+    /// over the shell (their slots then carry the shell's colour, the glass is
+    /// drawn over it). A look, not a colour, so a skin keeps the one it started from.
+    var glass: Bool
+
+    var body: UIColor      { UIColor(rpHex: bodyHex) }
+    var surround: UIColor  { UIColor(rpHex: surroundHex) }
+    var controls: UIColor  { UIColor(rpHex: controlsHex) }
+    var print: UIColor     { UIColor(rpHex: printHex) }
+    var shoulders: UIColor { UIColor(rpHex: shouldersHex) }
+    var stick: UIColor     { UIColor(rpHex: stickHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, surroundHex, controlsHex, printHex, shouldersHex, stickHex].allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// The PlayStation palette the shared dress code reads: shell, panel, the
+    /// one control plastic (cross, faces' backing), the print.
+    var asPS1: PS1SkinPalette {
+        PS1SkinPalette(bodyHex: bodyHex, surroundHex: surroundHex, padHex: controlsHex,
+                       faceHex: controlsHex, printHex: printHex, diamondHex: controlsHex)
+    }
+
+    /// Nostalgia (given verbatim 2026-10-10): the piano-black shell and the
+    /// controls #2F2F2F, glossy black on black as on the PSP-1000; the marks
+    /// #A7A7A7; L and R the PSP-1000's silver #F3F3F3; the nub the shell's
+    /// black #1E1E1E.
+    static let nostalgia = PSPSkinPalette(bodyHex: 0x2F2F2F, surroundHex: 0x000000, controlsHex: 0x2F2F2F,
+                                          printHex: 0xA7A7A7, shouldersHex: 0xF3F3F3, stickHex: 0x1E1E1E,
+                                          glass: false)
+    /// Retro Pal (given verbatim 2026-10-10): a light grey shell #D4D4D4, the
+    /// marks #6D7073, the nub #AFB2B6; the faces, the arrows and L / R clear
+    /// glass over the shell.
+    static let retroPal = PSPSkinPalette(bodyHex: 0xD4D4D4, surroundHex: 0x000000, controlsHex: 0xD4D4D4,
+                                         printHex: 0x6D7073, shouldersHex: 0xD4D4D4, stickHex: 0xAFB2B6,
+                                         glass: true)
+}
+
 // MARK: - The console-tagged palette
 
 enum SkinPalette: Equatable, Codable {
@@ -359,6 +544,10 @@ enum SkinPalette: Equatable, Codable {
     case nes(NESSkinPalette)
     case ps1(PS1SkinPalette)
     case n64(N64SkinPalette)
+    case md(MDSkinPalette)
+    case sms(SMSSkinPalette)
+    case gg(GGSkinPalette)
+    case psp(PSPSkinPalette)
 
     /// The console this palette belongs to (must match the owning CustomSkin's system).
     var system: PresetSystem {
@@ -370,6 +559,10 @@ enum SkinPalette: Equatable, Codable {
         case .nes: return .nes
         case .ps1: return .ps1
         case .n64: return .n64
+        case .md: return .md
+        case .sms: return .sms
+        case .gg: return .gg
+        case .psp: return .psp
         }
     }
 
@@ -382,6 +575,10 @@ enum SkinPalette: Equatable, Codable {
         case .nes(let p): return p.isWithinHexRange
         case .ps1(let p): return p.isWithinHexRange
         case .n64(let p): return p.isWithinHexRange
+        case .md(let p): return p.isWithinHexRange
+        case .sms(let p): return p.isWithinHexRange
+        case .gg(let p): return p.isWithinHexRange
+        case .psp(let p): return p.isWithinHexRange
         }
     }
 
@@ -395,6 +592,10 @@ enum SkinPalette: Equatable, Codable {
         case .nes: return .nes(.nostalgia)
         case .ps1: return .ps1(.nostalgia)
         case .n64: return .n64(.nostalgia)
+        case .md: return .md(.nostalgia)
+        case .sms: return .sms(.nostalgia)
+        case .gg: return .gg(.nostalgia)
+        case .psp: return .psp(.nostalgia)
         }
     }
 }

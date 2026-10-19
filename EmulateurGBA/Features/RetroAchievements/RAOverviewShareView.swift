@@ -298,6 +298,12 @@ struct RAOverviewCardView: View {
         case 12: return "PlayStation"
         case 2: return "Nintendo 64"
         case 18: return "Nintendo DS"
+        // The Mega Drive was missing the same way since its achievements
+        // (2026-10-08); found adding the Master System and the Game Gear.
+        case 1: return SystemColor.name("md")
+        case 11: return SystemColor.name("sms")
+        case 15: return SystemColor.name("gg")
+        case 41: return SystemColor.name("psp")
         default: return nil
         }
     }

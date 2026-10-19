@@ -16,3 +16,7 @@
 [submodule "Vendor/MoltenVK"]
 	path = Vendor/MoltenVK
 	url = https://github.com/KhronosGroup/MoltenVK.git
+[submodule "Vendor/ppsspp"]
+	path = Vendor/ppsspp
+	url = https://github.com/hrydgard/ppsspp.git
+	shallow = true

@@ -216,6 +216,21 @@ struct CheatCodeFormatterTests {
         #expect(CheatCodeFormatter.problem(in: "8011895F 0063", isNDS: false, system: "n64") == nil)
     }
 
+    /// On the three Sega consoles one X is a blank too: Game Gear Columns'
+    /// only browser code is "00C6-990X" (audit 2026-10-11). Elsewhere a single
+    /// X keeps its old answer.
+    @Test("A single X is a blank on the Sega consoles")
+    func singleXIsABlankOnSega() {
+        for system in ["gg", "sms"] {
+            #expect(CheatCodeFormatter.problem(in: "00C6-990X", isNDS: false, system: system) == .placeholderValue)
+        }
+        #expect(CheatCodeFormatter.problem(in: "FFFE2C:000X", isNDS: false, system: "md") == .placeholderValue)
+        #expect(CheatCodeFormatter.problem(in: "AX0A-RA58", isNDS: false, system: "md") != .placeholderValue,
+                "A Mega Drive Game Genie code was read as a blank to fill in.")
+        #expect(CheatCodeFormatter.problem(in: "00C6-9906", isNDS: false, system: "gg") == nil)
+        #expect(CheatCodeFormatter.problem(in: "8011895F 000X", isNDS: false, system: "n64") == .invalidCharacter)
+    }
+
     /// X is a Game Genie letter on the NES, so a code there is never a blank.
     @Test("NES Game Genie codes with X's are not mistaken for blanks")
     func nesGameGenieIsNotAPlaceholder() {
@@ -223,4 +238,42 @@ struct CheatCodeFormatterTests {
         #expect(CheatCodeFormatter.problem(in: "XXXXXX", isNDS: false, system: "nes") == nil)
     }
 
+
+    // MARK: - The Mega Drive
+
+    /// Pro Action Replay codes, printed with a colon between the address and
+    /// the value (BlastEmBridge's cheats, checked on the core with
+    /// Tools/md-bench --poke: FFFE20:0063 is Sonic 1's rings, 99).
+    @Test("Mega Drive codes take a colon, and only there")
+    func megaDriveCodesTakeAColon() {
+        #expect(CheatCodeFormatter.problem(in: "FFFE20:0063", isNDS: false, system: "md") == nil)
+        #expect(CheatCodeFormatter.problem(in: "FFFE12:09\nFFFE20:0063", isNDS: false, system: "md") == nil)
+        #expect(CheatCodeFormatter.problem(in: "FFFE20:XXXX", isNDS: false, system: "md") == .placeholderValue)
+        #expect(CheatCodeFormatter.problem(in: "FFFE20;0063", isNDS: false, system: "md") == .invalidCharacter)
+        #expect(CheatCodeFormatter.problem(in: "800C1B24:0063", isNDS: false, system: "ps1") == .invalidCharacter)
+    }
+
+    /// libretro's lists hold four-digit values at ODD addresses (written for
+    /// Genesis Plus GX): FFFE21:00E0 is Sonic 2's "224 rings (official code)",
+    /// FFF761:6411 Sonic's "Super Speed!". BlastEmBridge applies them by GPGX's
+    /// rule (00YY a byte there, any other value the word below), checked on the
+    /// core with Tools/md-bench --poke, so the field must let them through.
+    @Test("Mega Drive codes at odd addresses reach the core")
+    func megaDriveOddAddressCodesPass() {
+        #expect(CheatCodeFormatter.problem(in: "FFFE21:00E0", isNDS: false, system: "md") == nil)
+        #expect(CheatCodeFormatter.problem(in: "FFF761:6411", isNDS: false, system: "md") == nil)
+        #expect(CheatCodeFormatter.formatted("FFFE2100E0", previous: "", isNDS: false, system: "md")
+                == "FFFE21:00E0")
+    }
+
+    @Test("A Mega Drive code typed without its colon gets one")
+    func megaDriveCodesAreRegrouped() {
+        #expect(CheatCodeFormatter.formatted("FFFE200063", previous: "", isNDS: false, system: "md")
+                == "FFFE20:0063")
+        #expect(CheatCodeFormatter.formatted("fffe1209", previous: "", isNDS: false, system: "md")
+                == "FFFE12:09")
+        // The same ten digits elsewhere are left as typed.
+        #expect(CheatCodeFormatter.formatted("FFFE200063", previous: "", isNDS: false, system: "ps1")
+                == "FFFE200063")
+    }
 }

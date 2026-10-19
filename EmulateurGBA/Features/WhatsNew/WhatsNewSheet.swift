@@ -57,50 +57,45 @@ struct WhatsNewContent {
     /// here without touching the sheet.
     var wearsTheNewLook: Bool = false
 
-    /// The CURRENT release's notes, written 2026-09-27 for 1.3.3 (1.3.2, the
-    /// stutter patch, shipped with no sheet of its own: its notes were the
-    /// App Store's). Every bullet describes something in the tree; nothing
-    /// here is planned. **This release must not submit while these notes
-    /// describe less than it ships** — the once-per-update gate compares
-    /// against `version`, so stale notes fail silent rather than loudly. The
-    /// one `{PRO}` names what Pro adds to the new console (its dress in your
-    /// own colours), the way the PlayStation's notes did; controllers and
-    /// moving around with one are free, like all controller support.
+    /// The CURRENT release's notes, written 2026-10-09 for 1.3.4. Every bullet
+    /// describes something in the tree; nothing here is planned. **This release
+    /// must not submit while these notes describe less than it ships** (the
+    /// once-per-update gate compares against `version`, so stale notes fail
+    /// silent rather than loudly). Each `{PRO}` names what it gates: the
+    /// cheats on the four consoles, their custom skins (creating one is Pro;
+    /// the token was missing until the 2026-10-12 audit), the Nintendo 64's 30
+    /// seconds, the 10-second tap with its 30-second long press. Numbers are measured ones
+    /// (rewritten 2026-10-11, his ask: specific, with numbers): N64 states 9 to
+    /// 13 times smaller (said "about ten"), Low Power Mode 13 to 18 % less work
+    /// per frame (said "up to 18%").
     ///
-    /// The 1.3.1 sections were removed rather than left in place. A leftover
-    /// section is copy about a release the player already has, sitting in a
-    /// sheet that only opens to say what is new, and it would ship the moment
-    /// someone forgot to look.
+    /// The 1.3.3 sections were removed rather than left in place: a leftover
+    /// section is copy about a release the player already has.
     ///
-    /// Ordered by what a player gains: the console first because it IS the
-    /// release, then playing it together, then doing everything with the
-    /// controller in hand, then the covers a support mail asked for.
+    /// Ordered by what a player gains: the four consoles first because they
+    /// ARE the release, then the Nintendo 64 the last release brought, then the
+    /// look, then the rest, the new consoles' dresses included (2026-10-11).
     ///
     /// ⚠ THE PRO NOTICE IS GONE, and its absence is a decision (decided on device,
-    /// 2026-08-27). It announced a coming lifetime price rise, and by the time
-    /// this sheet shows, that rise will have happened. The people who needed
-    /// warning were warned in 1.2.5, which is what the notice was for. Telling
-    /// somebody arriving today that it used to be cheaper is not a courtesy to
-    /// them, it is an apology to nobody. Do not reinstate it, and do not
-    /// replace it with a "prices have changed" line.
+    /// 2026-08-27). Do not reinstate it, and do not replace it with a "prices
+    /// have changed" line.
     static let current = WhatsNewContent(
-        version: "1.3.3",
+        version: "1.3.4",
         noticeKey: nil,
         sections: [
-            // The Nintendo 64, with its drawing, as the PlayStation had its own.
+            // The four new consoles, with their drawings, as the Nintendo 64 had its own.
             ContentSection(titleKey: "whatsnew.s1.title",
                            bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2", "whatsnew.s1.b3",
                                         "whatsnew.s1.b4"],
-                           artNames: ["console-n64"]),
+                           artNames: ["console-md", "console-sms", "console-gg", "console-psp"]),
             ContentSection(titleKey: "whatsnew.s2.title",
                            bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2", "whatsnew.s2.b3"]),
             ContentSection(titleKey: "whatsnew.s3.title",
-                           bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2"]),
+                           bulletKeys: ["whatsnew.s3.b1"]),
             ContentSection(titleKey: "whatsnew.s4.title",
-                           bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2"]),
-            // The rare thing last: the DS's lid, for a handful of puzzles.
-            ContentSection(titleKey: "whatsnew.s5.title",
-                           bulletKeys: ["whatsnew.s5.b1", "whatsnew.s5.b2", "whatsnew.s5.b3"]),
+                           bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2", "whatsnew.s4.b3",
+                                        "whatsnew.s4.b4", "whatsnew.s4.b5", "whatsnew.s4.b6",
+                                        "whatsnew.s4.b7", "whatsnew.s4.b8"]),
         ],
         // The app wears the look everywhere since 1.3.1; its notes keep it.
         wearsTheNewLook: true

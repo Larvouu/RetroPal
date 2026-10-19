@@ -108,13 +108,16 @@ struct ControlPresetsView: View {
                 Button {
                     editingPreset = preset
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(preset.name)
-                                .foregroundColor(.primary)
-                                .font(.body)
-                            systemTag(preset.systems.system)
-                        }
+                    HStack(spacing: 10) {
+                        // The name, then its console's drawing to the right of it
+                        // (asked 2026-10-09), the machine the active-layout rows
+                        // above already carry, rather than a text tag under it.
+                        Text(preset.name)
+                            .foregroundColor(.primary)
+                            .font(.body)
+                        PresetConsoleIcon(system: preset.systems.system)
+                            .frame(width: 26, height: 26)
+                            .accessibilityLabel(Text(verbatim: ConsoleChoiceList.name(preset.systems.system)))
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundColor(.secondary)
@@ -181,36 +184,6 @@ struct ControlPresetsView: View {
 
     // MARK: - Helpers
 
-    /// Short uppercase tag for a preset's system, shown next to its name.
-    private static func systemLabel(_ system: PresetSystem) -> String {
-        switch system {
-        case .gba: return "GBA"
-        case .gbc: return "GB / GBC"
-        case .nds: return "NDS"
-        case .snes: return "SNES"
-        case .nes: return "NES"
-        case .ps1: return "PS1"
-        case .n64: return "N64"
-        }
-    }
-
-    /// The console tag, in the LIBRARY's badge: same type, same padding, same corner, and the
-    /// same per-console colour from `SystemColor`. It was a grey semi-transparent pill, which
-    /// made every preset's console look alike in a list whose whole job is telling them apart —
-    /// and the library had already solved that, one screen away.
-    ///
-    /// The label stays this screen's ("GB / GBC" rather than the library's per-game "GB" or
-    /// "GBC"), because a preset really does cover both, and the colour is `.gbc`'s either way.
-    private func systemTag(_ system: PresetSystem) -> some View {
-        Text(Self.systemLabel(system))
-            .font(.system(size: 9, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(SystemColor.color(system.rawValue))
-            .cornerRadius(4)
-    }
-
     private func reload() {
         presets = store.loadPresets()
         for system in ConsoleChoiceList.all {
@@ -260,7 +233,8 @@ struct ControlPresetsView: View {
 ///
 /// Built like the pause menu's Appearance button, which is where this shape
 /// already exists in the app: the machine on top, its name under it. The
-/// selected tile takes the same purple the list's checkmark took.
+/// selected tile takes the same purple the list's checkmark took, its name in
+/// white.
 struct ConsoleChoiceGrid: View {
     let systems: [PresetSystem]
     @Binding var selection: PresetSystem
@@ -282,7 +256,10 @@ struct ConsoleChoiceGrid: View {
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .minimumScaleFactor(0.7)
-                            .foregroundColor(selection == system ? tint : .secondary)
+                            // White on the selected tile (asked 2026-10-09): the purple
+                            // border and wash already say which one is chosen, and the
+                            // name reads better in plain white over them.
+                            .foregroundColor(selection == system ? .white : .secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -334,6 +311,10 @@ struct ConsoleChoiceList: View {
         case .nes:  return "NES"
         case .ps1:  return "PlayStation"
         case .n64:  return "Nintendo 64"
+        case .md:   return SystemColor.name("md")
+        case .sms:  return SystemColor.name("sms")
+        case .gg:   return SystemColor.name("gg")
+        case .psp:  return SystemColor.name("psp")
         }
     }
 
@@ -422,7 +403,7 @@ private struct EditorWrapper: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> ControlLayoutEditorViewController {
         Analytics.signalOnce("controls_editor", ["action": "opened", "system": "\(system)"])
-        Analytics.signal("pro_feature_used", ["feature": "custom_controls"])
+        Analytics.signal("pro_feature_used", ["feature": "custom_controls", "system": "\(system)"])
         let vc = ControlLayoutEditorViewController(system: system, preset: preset)
         vc.delegate = context.coordinator
         return vc

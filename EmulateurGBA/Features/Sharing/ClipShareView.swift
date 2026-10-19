@@ -57,27 +57,14 @@ struct ClipShareView: View {
     /// Preview ready = the raw gameplay clip has finished encoding.
     private var ready: Bool { model.gameplayURL != nil }
 
-    /// The faux-thickness extrude colour for the 3/4 preview tilt — mirrors
-    /// ScreenshotShareView.cardEdgeColors (the word-of-truth screenshot card): each
-    /// console card extrudes in its own body colour (Nostalgia's per-console pairs,
-    /// or the current skin's body for the "skin" style) so the edge reads as that
-    /// console's plastic; the Classic card keeps the purple brand edge.
+    /// The faux-thickness extrude colour for the 3/4 preview tilt: the screenshot
+    /// card's own answer (`ShareCardStyle.extrudeEdgeColors`), each console card in
+    /// its body colour and the Classic card in the purple brand edge. This view kept
+    /// a copy that knew only the GB/GBC, GBA and DS, so the five consoles added
+    /// since tilted their Nostalgia clip card in the brand purple (found 2026-10-08
+    /// auditing the Mega Drive's cards); asking the one source ends that.
     private var cardEdgeColors: [Color] {
-        if effectiveStyle == .skin, let skin = model.skinContext.skin {
-            return skin.variant.cardExtrudeColors(for: model.system)
-        }
-        if model.system == .gbc && effectiveStyle == .nostalgia {
-            return [Color(red: 0.66, green: 0.65, blue: 0.64), Color(red: 0.50, green: 0.49, blue: 0.48)]
-        }
-        if model.system == .gba && effectiveStyle == .nostalgia {
-            // The GBA main body purple (#7558EB), so the extruded 3D edge reads as the console body.
-            return [Color(red: 0.510, green: 0.410, blue: 0.950), Color(red: 0.380, green: 0.270, blue: 0.800)]
-        }
-        if model.system == .nds && effectiveStyle == .nostalgia {
-            // The NDS main body grey (#C4C4C4), so the extruded 3D edge reads as the console body.
-            return [Color(red: 0.820, green: 0.820, blue: 0.820), Color(red: 0.680, green: 0.680, blue: 0.680)]
-        }
-        return [Color(red: 0.22, green: 0.12, blue: 0.34), Color(red: 0.07, green: 0.04, blue: 0.13)]
+        effectiveStyle.extrudeEdgeColors(system: model.system, skin: model.skinContext.skin)
     }
 
     /// The per-game style picker, fed the game's key + (when dressed) its skin option.

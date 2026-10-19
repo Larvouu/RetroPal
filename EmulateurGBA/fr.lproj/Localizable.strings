@@ -10,11 +10,11 @@
 "library.empty.subtitle" = "Jouez à vos jeux rétro sur iPhone. Sans pub, sans pistage personnel.";
 "library.empty.subtitle.ipad" = "Jouez à vos jeux rétro sur iPad. Sans pub, sans pistage personnel.";
 "library.empty.button" = "Ajouter un jeu";
-"library.empty.step1" = "Récupérez un jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 ou .chd) sur votre iPhone, via Safari, AirDrop ou iCloud Drive.";
-"library.empty.step1.ipad" = "Récupérez un jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 ou .chd) sur votre iPad, via Safari, AirDrop ou iCloud Drive.";
+"library.empty.step1" = "Récupérez un jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso ou .pbp) sur votre iPhone, via Safari, AirDrop ou iCloud Drive.";
+"library.empty.step1.ipad" = "Récupérez un jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso ou .pbp) sur votre iPad, via Safari, AirDrop ou iCloud Drive.";
 "library.empty.step2" = "Appuyez sur %@, puis choisissez le fichier dans l'app Fichiers.";
 "library.empty.step3" = "Jouez. Votre progression est sauvegardée automatiquement";
-"library.empty.romHint" = "Pas encore de ROM ? De nombreux jeux gratuits et légaux existent. Cherchez « GBA homebrew » en ligne.";
+"library.empty.romHint" = "Pas encore de jeux ? Il en existe beaucoup de gratuits et légaux. Cherchez « GBA homebrew » en ligne.";
 "library.empty.legal" = "N'importez que des fichiers que vous possédez légalement.";
 "library.search" = "Rechercher";
 "library.sort.lastPlayed" = "Dernier joué";
@@ -41,7 +41,8 @@
 "details.newGame" = "Démarrer à l'écran-titre";
 "details.saveSlots" = "Sauvegardes rapides";
 "details.delete" = "Supprimer le jeu";
-"details.delete.confirm" = "Supprimer ce jeu et toutes les sauvegardes ?";
+"details.delete.confirm" = "Supprimer ce jeu ?";
+"details.delete.confirm.message" = "Ses états de sauvegarde et ses codes sont supprimés. Sa sauvegarde en jeu est conservée : en réimportant le jeu, vous retrouvez votre progression.";
 "details.rename" = "Renommer";
 "details.rename.title" = "Renommer le jeu";
 "details.cover.choose" = "Choisir une jaquette";
@@ -106,6 +107,8 @@
 "settings.dpad" = "Croix directionnelle";
 "settings.joystick" = "Joystick";
 "settings.clipButton" = "Bouton clip";
+"details.playAsP2" = "Jouer en Joueur 2";
+"details.playAsP2.caption" = "Vous jouez le Joueur 2, aux commandes tactiles ou à la manette, et le jeu fait jouer le Joueur 1 : entraînez-vous contre l'ordinateur depuis l'autre côté. Une deuxième manette joue le Joueur 1.";
 "settings.nds.swapScreens" = "Inverser les écrans";
 "settings.nds.language" = "Langue du jeu";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -151,7 +154,7 @@
 "pro.benefit.speed" = "Toutes les vitesses : 0,25x à 4x";
 "pro.benefit.slots" = "5 emplacements de sauvegarde";
 "pro.benefit.rewind" = "Rembobinage 30 secondes";
-"pro.benefit.cheats" = "Codes triche (GameShark / Action Replay)";
+"pro.benefit.cheats" = "Codes triche (Action Replay, Game Genie, GameShark et autres)";
 "pro.benefit.controls" = "Contrôles personnalisés (tactile et manette)";
 "pro.benefit.speed.short" = "Toutes les vitesses";
 "pro.benefit.slots.short" = "5 emplacements de sauvegarde";
@@ -226,7 +229,7 @@
 "legal.melonds" = "Licence melonDS";
 "legal.importantNotice.title" = "Avis important";
 "legal.aboutApp.title" = "À propos de cette app";
-"legal.aboutApp.description1" = "Retro Pal est un émulateur local pour les jeux Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation et Nintendo 64. Il ne télécharge, ne distribue et ne donne accès à aucun contenu de jeu. Tous les fichiers ROM doivent être importés par l'utilisateur depuis son propre stockage via l'app Fichiers.";
+"legal.aboutApp.description1" = "Retro Pal est un émulateur local pour les jeux Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation, Nintendo 64, Mega Drive, Master System, Game Gear et PSP. Il ne télécharge, ne distribue et ne donne accès à aucun contenu de jeu. Tous les fichiers ROM doivent être importés par l'utilisateur depuis son propre stockage via l'app Fichiers.";
 "legal.aboutApp.description2" = "Cette app ne fournit aucun catalogue de jeux, ne distribue aucun contenu de jeu et ne facilite pas le téléchargement de contenu protégé par le droit d'auteur.";
 "legal.privacy.title" = "Confidentialité";
 "legal.privacy.description" = "Vos jeux et sauvegardes restent sur votre appareil. Pour améliorer l'app, Retro Pal envoie uniquement des statistiques d'usage anonymes, sans donnée personnelle ni identifiant publicitaire.";
@@ -237,13 +240,19 @@
 "legal.melonds.description" = "melonDS est un émulateur Nintendo DS utilisé comme moteur d'émulation pour les jeux DS dans cette app. Le code source de melonDS est disponible sur [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
 "legal.mesen" = "Licence MesenCE";
 "legal.mesen.licenseLine" = "Sous licence GNU General Public License v3.0 (GPL-3.0)";
-"legal.mesen.description" = "MesenCE est un émulateur Super Nintendo et NES utilisé comme moteur d'émulation pour les jeux SNES et NES dans cette app. Le code source de MesenCE est disponible sur [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.mesen.description" = "MesenCE est un émulateur multisystème utilisé comme moteur d'émulation pour les jeux Super Nintendo, NES, Master System et Game Gear dans cette app. Le code source de MesenCE est disponible sur [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.pcsx" = "Licence PCSX-ReARMed";
 "legal.pcsx.licenseLine" = "Sous licence GNU General Public License v2.0 ou ultérieure (GPL-2.0-or-later)";
 "legal.pcsx.description" = "PCSX-ReARMed est un émulateur PlayStation utilisé comme moteur d'émulation pour les jeux PlayStation dans cette application. Le code source de PCSX-ReARMed est disponible sur [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.mupen" = "Licence Mupen64Plus-Next";
 "legal.mupen.licenseLine" = "Sous licence GNU General Public License v2.0 ou ultérieure (GPL-2.0-or-later)";
 "legal.mupen.description" = "Mupen64Plus-Next est un émulateur Nintendo 64 utilisé comme moteur d'émulation pour les jeux Nintendo 64 dans cette app, avec le processeur de signal cxd4 d'Iconoclast (CC0). Il est utilisé avec quelques modifications, publiées sous forme de fichiers patch à côté du code source. Le code source de Mupen64Plus-Next est disponible sur [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx)";
+"legal.blastem" = "Licence BlastEm";
+"legal.blastem.licenseLine" = "Sous licence GNU General Public License v3.0 ou ultérieure (GPL-3.0-or-later)";
+"legal.blastem.description" = "BlastEm est un émulateur Mega Drive utilisé comme moteur d'émulation pour les jeux Mega Drive dans cette app. Il est utilisé avec quelques modifications, publiées sous forme de fichiers patch à côté du code source. Le code source de BlastEm est disponible sur [https://www.retrodev.com/repos/blastem](https://www.retrodev.com/repos/blastem)";
+"legal.ppsspp" = "Licence PPSSPP";
+"legal.ppsspp.licenseLine" = "Sous licence GNU General Public License v2.0 ou ultérieure (GPL-2.0-or-later)";
+"legal.ppsspp.description" = "PPSSPP est un émulateur PSP utilisé comme moteur d'émulation pour les jeux PSP dans cette application. Le code source de PPSSPP est disponible sur [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp)";
 "legal.parallelrdp" = "Licence ParaLLEl-RDP";
 "legal.parallelrdp.licenseLine" = "Sous licence MIT";
 "legal.parallelrdp.description" = "ParaLLEl-RDP dessine l'image de la Nintendo 64 sur le processeur graphique dans cette app. Le code source de ParaLLEl-RDP est disponible sur [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
@@ -253,7 +262,7 @@
 "legal.retropal" = "Licence Retro Pal";
 "legal.retropal.licenseLine" = "Sous licence GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Le code source complet de Retro Pal est disponible sur [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Le logiciel est fourni sans aucune garantie.";
-"legal.compliance" = "Retro Pal est distribué sous licence GNU General Public License v3.0. L'app s'appuie sur mGBA (Mozilla Public License 2.0) et PCSX-ReARMed (GPL-2.0 ou ultérieure), utilisés sans modification, sur melonDS (GPL-3.0), utilisé avec deux petites modifications, sur MesenCE (GPL-3.0), utilisé avec une petite modification, et sur Mupen64Plus-Next (GPL-2.0 ou ultérieure), utilisé avec quelques modifications, accompagné de ParaLLEl-RDP (MIT), du processeur de signal cxd4 (CC0) et de MoltenVK (Apache License 2.0). Chaque modification est publiée sous forme de fichier patch à côté du code source. Le code source complet correspondant est disponible dans le dépôt indiqué ci-dessus, et le logiciel est fourni sans aucune garantie.";
+"legal.compliance" = "Retro Pal est distribué sous licence GNU General Public License v3.0. L'app s'appuie sur mGBA (Mozilla Public License 2.0) et PCSX-ReARMed (GPL-2.0 ou ultérieure), utilisés sans modification, sur MesenCE (GPL-3.0) et PPSSPP (GPL-2.0 ou ultérieure), utilisés chacun avec une petite modification, sur melonDS (GPL-3.0) et BlastEm (GPL-3.0 ou ultérieure), utilisés chacun avec deux petites modifications, et sur Mupen64Plus-Next (GPL-2.0 ou ultérieure), utilisé avec quelques modifications, accompagné de ParaLLEl-RDP (MIT), du processeur de signal cxd4 (CC0) et de MoltenVK (Apache License 2.0). Chaque modification est publiée sous forme de fichier patch à côté du code source. Le code source complet correspondant est disponible dans le dépôt indiqué ci-dessus, et le logiciel est fourni sans aucune garantie.";
 "legal.thirdParty.title" = "Licences tierces";
 "legal.thirdParty.caption" = "Le texte complet de chaque licence sous laquelle est distribué le logiciel inclus dans Retro Pal, avec les composants qui l'utilisent.";
 "legal.thirdParty.usedBy" = "Utilisée par";
@@ -273,6 +282,8 @@
 "overlay.sound.off" = "Son désactivé";
 "overlay.overwrite.title" = "Écraser l'emplacement %@ ?";
 "overlay.overwrite.message" = "Cela remplacera la sauvegarde existante.";
+"overlay.save.failed.title" = "Impossible d'enregistrer dans l'emplacement %@";
+"overlay.save.failed.message" = "L'emplacement garde sa sauvegarde précédente. Réessayez. Si l'échec se répète, libérez de l'espace de stockage ou fermez d'autres apps.";
 "overlay.overwrite" = "Écraser";
 "overlay.load.confirm.title" = "Charger l'emplacement %@ ?";
 "overlay.load.confirm.message" = "La progression non sauvegardée sera perdue.";
@@ -283,6 +294,9 @@
 "cheats.hint.snes" = "Format Game Genie (XXXX-XXXX) ou Pro Action Replay";
 "cheats.hint.nes" = "Format Game Genie (lettres) ou Pro Action Rocky";
 "cheats.hint.ps1" = "Format GameShark ou Action Replay (XXXXXXXX YYYY)";
+"cheats.hint.md" = "Format Pro Action Replay (XXXXXX:YYYY)";
+"cheats.hint.sega8" = "Format Game Genie (XXX-XXX) ou Pro Action Replay (XXXX:YYYY)";
+"cheats.hint.psp" = "Format CWCheat (_L 0xXXXXXXXX 0xYYYYYYYY)";
 "cheats.namePlaceholder" = "Nom (facultatif)";
 "cheats.edit.title" = "Modifier le code";
 "cheats.edit.hint" = "Modifier ce code";
@@ -292,6 +306,9 @@
 "cheats.invalid.snes" = "Code non reconnu. Format attendu : Game Genie (XXXX-XXXX) ou Pro Action Replay (huit caractères).";
 "cheats.invalid.nes" = "Code non reconnu. Format attendu : Game Genie (six ou huit lettres) ou Pro Action Rocky (huit caractères).";
 "cheats.invalid.ps1" = "Code non reconnu. Format attendu : GameShark ou Action Replay (XXXXXXXX YYYY, une paire par ligne).";
+"cheats.invalid.md" = "Code non reconnu. Format attendu : Pro Action Replay (XXXXXX:YYYY, un code par ligne). Les codes Game Genie ne fonctionnent pas sur cette console.";
+"cheats.invalid.sega8" = "Code non reconnu. Format attendu : Game Genie (XXX-XXX ou XXX-XXX-XXX) ou Pro Action Replay (XXXX:YYYY, un code par ligne).";
+"cheats.invalid.psp" = "Code non reconnu. Format attendu : CWCheat (_L 0xXXXXXXXX 0xYYYYYYYY, une paire par ligne).";
 "cheats.empty" = "Aucun code triche actif";
 "cheats.findHint" = "Les codes se trouvent facilement en ligne. Cherchez les cheat codes de votre jeu.";
 "cheats.clearAll" = "Tout effacer";
@@ -337,6 +354,7 @@
 "remap.press" = "Appuyez sur un bouton…";
 "remap.reset" = "Rétablir les valeurs par défaut";
 "remap.footer" = "Touchez un bouton, puis appuyez sur le bouton de la manette à lui associer. La croix et le stick contrôlent toujours la croix directionnelle.";
+"remap.footer.analogStick" = "Touchez un bouton, puis appuyez sur le bouton de la manette à lui associer. Sur cette console, la croix contrôle la croix directionnelle et le stick gauche est son stick analogique.";
 "remap.noController" = "Connectez une manette pour remapper ses boutons.";
 "remap.actions.header" = "Raccourcis";
 "remap.action.fastForward" = "Avance rapide (maintenir)";
@@ -403,7 +421,7 @@
 "saveImport.overwrite.title" = "Sauvegarde existante";
 "saveImport.overwrite.message" = "%@ possède déjà une sauvegarde. Elle sera conservée en copie de secours si vous la remplacez.";
 "saveImport.overwrite.confirm" = "Remplacer";
-"saveImport.error.invalidFormat" = "Ce fichier n'est pas une sauvegarde reconnue. Importez un fichier .sav ou .srm exporté depuis un autre émulateur.";
+"saveImport.error.invalidFormat" = "Ce fichier n'est pas une sauvegarde reconnue. Importez un fichier .sav, .srm ou .mcd exporté depuis un autre émulateur.";
 "saveImport.error.wrongSystem" = "Cette sauvegarde n'est pas compatible avec ce jeu.";
 "saveImport.error.duplicateExists" = "Une sauvegarde existe déjà pour ce jeu.";
 "saveImport.error.fileAccessDenied" = "Impossible de lire le fichier sélectionné.";
@@ -413,13 +431,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Ajouter un jeu";
 "guide.importRom.intro" = "Retro Pal ne contient aucun jeu. Vous fournissez vos propres fichiers ROM, dont vous possédez légalement les droits (vos propres cartouches ou des jeux homebrew gratuits et légaux).";
-"guide.importRom.step1" = "Mettez le fichier du jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, ou un disque PlayStation en .chd, ou .cue avec son .bin) sur votre iPhone : téléchargez-le dans Safari, envoyez-le par AirDrop depuis un ordinateur, ou passez par iCloud Drive.";
-"guide.importRom.step1.ipad" = "Mettez le fichier du jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, ou un disque PlayStation en .chd, ou .cue avec son .bin) sur votre iPad : téléchargez-le dans Safari, envoyez-le par AirDrop depuis un ordinateur, ou passez par iCloud Drive.";
+"guide.importRom.step1" = "Mettez le fichier du jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, ou un disque PlayStation en .chd, ou .cue avec son .bin, ou un jeu PSP en .iso, .cso, .chd ou .pbp) sur votre iPhone : téléchargez-le dans Safari, envoyez-le par AirDrop depuis un ordinateur, ou passez par iCloud Drive.";
+"guide.importRom.step1.ipad" = "Mettez le fichier du jeu (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, ou un disque PlayStation en .chd, ou .cue avec son .bin, ou un jeu PSP en .iso, .cso, .chd ou .pbp) sur votre iPad : téléchargez-le dans Safari, envoyez-le par AirDrop depuis un ordinateur, ou passez par iCloud Drive.";
 "guide.importRom.step2" = "Vérifiez qu'il apparaît dans l'app Fichiers (dans « Téléchargements », « Sur mon iPhone » ou iCloud Drive).";
 "guide.importRom.step2.ipad" = "Vérifiez qu'il apparaît dans l'app Fichiers (dans « Téléchargements », « Sur mon iPad » ou iCloud Drive).";
 "guide.importRom.step3" = "Dans Retro Pal, touchez le bouton + en haut de la bibliothèque.";
 "guide.importRom.step4" = "Choisissez le fichier. Le jeu apparaît aussitôt dans votre bibliothèque, prêt à jouer.";
-"guide.importRom.footer" = "Formats acceptés : .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u. Un .zip fonctionne aussi, qu'il contienne un seul jeu, tous les fichiers d'un disque, ou plusieurs jeux à choisir. Le .7z n'est pas pris en charge. N'importez que des fichiers que vous possédez légalement.";
+"guide.importRom.footer" = "Formats acceptés : .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u, et les jeux PSP en .iso, .cso, .chd ou .pbp. Un .zip fonctionne aussi, qu'il contienne un seul jeu, tous les fichiers d'un disque, ou plusieurs jeux à choisir. Le .7z n'est pas pris en charge. N'importez que des fichiers que vous possédez légalement.";
 "settings.guides.section" = "Guides";
 "settings.controller.row" = "Manette";
 "common.done" = "Terminé";
@@ -442,6 +460,8 @@
 "saveImport.mismatch.title" = "Sauvegarde d'un autre jeu ?";
 "saveImport.mismatch.message" = "Le nom du fichier ne correspond pas à %@. Importez-la seulement si vous êtes certain qu'elle appartient à ce jeu.";
 "saveImport.mismatch.confirm" = "Importer quand même";
+"saveOpen.choose.caption" = "À quel jeu appartient « %@ » ? Les noms les plus proches sont en premier.";
+"saveOpen.noGame" = "Aucun jeu de votre bibliothèque ne peut utiliser cette sauvegarde. Importez d'abord le jeu, puis ouvrez à nouveau sa sauvegarde.";
 "saveExport.title" = "Exporter la sauvegarde";
 "saveExport.none.title" = "Aucune sauvegarde à exporter";
 "saveExport.none.message" = "Ce jeu n'a pas encore de sauvegarde en jeu. Sauvegardez depuis le menu du jeu, puis revenez ici pour l'exporter.";
@@ -514,6 +534,8 @@
 "skin.editor.surround" = "Contour";
 "skin.editor.dpad" = "Croix";
 "skin.editor.abButtons" = "Boutons A/B";
+"skin.editor.abcButtons" = "Boutons A/B/C";
+"skin.editor.xyzButtons" = "Boutons X/Y/Z";
 "skin.editor.faceButtons" = "Boutons d'action";
 "skin.editor.faceA" = "Bouton A";
 "skin.editor.faceB" = "Bouton B";
@@ -556,6 +578,9 @@
 "skin.editor.faceZ" = "Bouton Z";
 "skin.editor.cButtons" = "Boutons C";
 "skin.editor.startButton" = "Bouton START";
+"skin.editor.plates" = "Plaques des boutons";
+"skin.editor.accent" = "Liseré rouge";
+"skin.editor.onAccent" = "Texte sur le rouge";
 
 /* RetroAchievements */
 "ra.settings.title" = "RetroAchievements";
@@ -614,9 +639,11 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Impossible d'accéder au fichier sélectionné. Essayez de l'importer depuis l'app Fichiers.";
 "import.error.copyFailed" = "Le jeu n'a pas pu être copié dans Retro Pal. Libérez de l'espace de stockage et réessayez.";
-"import.error.invalidROM" = "Ce fichier n'est pas un jeu lisible par Retro Pal. Jeux pris en charge : .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 et .v64, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u.";
+"import.error.invalidROM" = "Ce fichier n'est pas un jeu lisible par Retro Pal. Jeux pris en charge : .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms et .gg, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u, et les jeux PSP en .iso, .cso, .chd ou .pbp.";
 "import.error.discMissingFiles" = "Ce disque a besoin de fichiers qui n'ont pas été sélectionnés : %@. Sélectionnez le .cue et tous ses fichiers .bin ensemble, en une seule fois.";
-"import.error.zipNoROM" = "Aucun fichier de jeu trouvé dans ce ZIP. Retro Pal lit les jeux .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 et .v64, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u ; les autres consoles ne sont pas prises en charge.";
+"import.console.title" = "Pour quelle console est ce jeu ?";
+"import.console.message" = "Retro Pal ne peut pas savoir, d'après le fichier, si « %@ » est un jeu PlayStation ou PSP. Choisissez sa console pour qu'il démarre sur la bonne.";
+"import.error.zipNoROM" = "Aucun fichier de jeu trouvé dans ce ZIP. Retro Pal lit les jeux .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms et .gg, ainsi que les disques PlayStation en .chd, .cue avec son .bin, ou .m3u, et les jeux PSP en .iso, .cso, .chd ou .pbp ; les autres consoles ne sont pas prises en charge.";
 "import.error.zipExtractionFailed" = "Ce ZIP n'a pas pu être ouvert. Décompressez-le dans l'app Fichiers, puis importez directement le fichier de jeu.";
 "import.error.zipUnsupportedCompression" = "Ce ZIP utilise une méthode de compression que Retro Pal ne sait pas lire, comme LZMA ou BZIP2. Le fichier n'est pas abîmé. Décompressez-le dans l'app Fichiers et importez le jeu directement, ou recréez le ZIP en compression standard.";
 "import.error.zipEncrypted" = "Ce ZIP est protégé par un mot de passe. Décompressez-le dans l'app Fichiers, puis importez le fichier du jeu directement.";
@@ -684,12 +711,18 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Ce code contient des caractères inattendus. Les codes triche n'utilisent que 0-9, A-F, des espaces et des tirets.";
+"cheats.invalid.characters.md" = "Ce code contient des caractères inattendus. Ces codes triche n'utilisent que 0-9, A-F, des espaces, des tirets et des deux-points.";
+"cheats.invalid.characters.psp" = "Ce code contient des caractères inattendus. Les codes triche PSP n'utilisent que _L, 0x, les chiffres 0-9, les lettres A-F et des espaces.";
 "cheats.invalid.characters.nes" = "Ce code contient des caractères inattendus. Les codes NES utilisent les lettres Game Genie A P Z L G I T Y E O X U K S V N, ou 0-9 et A-F, avec des espaces et des tirets.";
 "cheats.invalid.pairs" = "Les codes Action Replay DS vont par paires : chaque ligne doit contenir deux blocs de huit caractères, par exemple 94000130 FCFF0000.";
-"cheats.invalid.placeholder" = "Ce code vous laisse choisir une valeur. Remplacez chaque X par un chiffre hexadécimal (0-9 ou A-F), par exemple XXXX par 0063.";
+"cheats.invalid.pairs.psp" = "Les codes CWCheat vont par paires : chaque ligne doit contenir deux nombres après _L, par exemple _L 0x20123456 0x0000270F.";
+"cheats.invalid.placeholder" = "Ce code vous laisse choisir une valeur. Remplacez chaque X ou ? par un chiffre hexadécimal (0-9 ou A-F), par exemple XXXX par 0063.";
 "n64.displayLost.title" = "L'image ne se met plus à jour";
 "n64.displayLost.message" = "Le processeur graphique ne répond plus, l'image du jeu ne peut donc plus s'afficher. Quittez pour enregistrer votre progression, puis rouvrez le jeu pour continuer à jouer.";
 "n64.displayLost.quit" = "Enregistrer et quitter";
+"psp.bootFailed.title" = "Ce jeu n'a pas pu démarrer";
+"psp.bootFailed.message" = "L'émulateur PSP n'a pas pu démarrer ce fichier. Si ce jeu a déjà fonctionné, quittez complètement Retro Pal, rouvrez-le et réessayez. Sinon, il est peut-être endommagé ou incomplet, ou c'est une copie que l'émulateur ne sait pas lire, comme une image chiffrée. Vos sauvegardes et vos autres jeux ne sont pas concernés.";
+"psp.bootFailed.quit" = "Quitter";
 "n64.libdragonUnsupported" = "Ce jeu Nintendo 64 a été créé avec un outil de jeux amateurs récent (libdragon) que Retro Pal ne prend pas encore en charge. Les jeux en cartouche Nintendo 64 ne sont pas concernés.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -736,25 +769,26 @@
 "externalDisplay.idle.hint.ipad" = "Lancez un jeu sur votre iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "La Nintendo 64";
-"whatsnew.s1.b1" = "Les jeux Nintendo 64 tournent dans Retro Pal, et la console est gratuite pour tout le monde.";
-"whatsnew.s1.b2" = "Sauvegardes de jeu, sauvegardes rapides, codes de triche, succès et jaquettes officielles : tout fonctionne dès le premier jour.";
-"whatsnew.s1.b3" = "À l'écran, le stick, A, B, Z et les quatre boutons C tombent sous vos pouces. Avec une manette, le stick droit joue les boutons C.";
-"whatsnew.s1.b4" = "Elle porte sa propre coque autour du jeu, en portrait comme en paysage. {PRO} la repeint à vos couleurs.";
-"whatsnew.s2.title" = "Jusqu'à quatre manettes";
-"whatsnew.s2.b1" = "Connectez jusqu'à quatre manettes et jouez ensemble : deux joueurs sur NES, Super Nintendo et PlayStation, quatre sur Nintendo 64. Gratuit.";
-"whatsnew.s2.b2" = "Dans les Réglages, la section Joueurs fixe leur ordre. Le joueur 1 joue sur les consoles à un seul joueur et pilote les menus ; appuyez sur un bouton d'une manette pour allumer sa ligne.";
-"whatsnew.s2.b3" = "La barre de la bibliothèque affiche la batterie de chaque manette.";
-"whatsnew.s3.title" = "Toute l'app à la manette";
-"whatsnew.s3.b1" = "Parcourez la bibliothèque, la fiche d'un jeu, RetroAchievements et les Réglages avec la croix : A ouvre, B revient en arrière, L et R passent de la Bibliothèque aux Réglages, et un cadre montre où vous êtes.";
-"whatsnew.s3.b2" = "En jeu, le bouton Home de la manette, ou Start et Select maintenus une seconde, ouvre le menu de pause, où vous sauvegardez, chargez et quittez sans toucher l'écran.";
-"whatsnew.s4.title" = "Jaquettes";
-"whatsnew.s4.b1" = "Choisissez la jaquette de tous vos jeux d'un coup avec le bouton palette {PALETTE}, dans Jaquettes : jaquette officielle, image RetroAchievements ou capture. Une jaquette choisie pour un jeu reste la sienne.";
-"whatsnew.s4.b2" = "Un jeu dont la jaquette était devenue son image RetroAchievements peut retrouver sa jaquette officielle, et l'image RetroAchievements est proposée avant même d'avoir ouvert le jeu.";
-"whatsnew.s5.title" = "Et aussi";
-"whatsnew.s5.b1" = "Sur DS, le menu de pause peut refermer la console, pour les rares énigmes qui le demandent. Elle reste fermée jusqu'à ce que vous appuyiez sur un bouton.";
-"whatsnew.s5.b2" = "Les jeux DS tournent plus fluidement, surtout en mode Économie d'énergie, et leur son ne se coupe plus en cours de partie.";
-"whatsnew.s5.b3" = "Les sauvegardes rapides DS prennent environ trois fois moins de place. Celles que vous avez déjà se chargent toujours ; une nouvelle s'ouvrira sur vos autres appareils dès qu'ils auront, eux aussi, cette mise à jour.";
+"whatsnew.s1.title" = "Quatre nouvelles consoles";
+"whatsnew.s1.b1" = "Les jeux Mega Drive, Master System, Game Gear et PSP se jouent désormais dans Retro Pal, et les quatre sont gratuites pour tous.";
+"whatsnew.s1.b2" = "Sauvegardes, états de sauvegarde, succès et jaquettes officielles fonctionnent sur les quatre dès le premier jour, et les codes de triche aussi avec {PRO}.";
+"whatsnew.s1.b3" = "Deux joueurs sur la Mega Drive et la Master System. La Mega Drive a sa manette à six boutons à l'écran.";
+"whatsnew.s1.b4" = "Leurs cartes de capture et de clip montrent la console elle-même, et avec {PRO} vous pouvez créer des skins personnalisés pour les quatre.";
+"whatsnew.s2.title" = "La Nintendo 64";
+"whatsnew.s2.b1" = "Le retour en arrière remonte jusqu'à 30 secondes sur la Nintendo 64 avec {PRO}, contre 5 auparavant.";
+"whatsnew.s2.b2" = "Les jeux Nintendo 64 demandent moins au téléphone : jusqu'à 18 % de travail en moins par image en mode économie d'énergie.";
+"whatsnew.s2.b3" = "Les états de sauvegarde Nintendo 64 sont environ dix fois plus légers qu'avant.";
+"whatsnew.s3.title" = "Classique";
+"whatsnew.s3.b1" = "Classique devient un look à part entière, à l'horizontale aussi : un fond noir uni, dans le bouton palette {PALETTE}.";
+"whatsnew.s4.title" = "Et aussi";
+"whatsnew.s4.b1" = "Ouvrez un jeu ou une sauvegarde directement depuis l'app Fichiers ou AirDrop : Retro Pal le range au bon endroit.";
+"whatsnew.s4.b2" = "Maintenez l'icône de Retro Pal sur l'écran d'accueil pour nous signaler un problème.";
+"whatsnew.s4.b3" = "Quand un état de sauvegarde ne peut pas être écrit, Retro Pal le dit, au lieu d'échouer en silence. Et avant de charger un état de sauvegarde, une copie de la sauvegarde du jeu est gardée dans l'app Fichiers : un état plus ancien ne peut jamais vous faire perdre pour de bon une sauvegarde plus récente.";
+"whatsnew.s4.b4" = "Les boutons de chaque console sont moulés, avec un liseré de lumière et d'ombre.";
+"whatsnew.s4.b5" = "La Master System, la Game Gear et la PSP ont chacune l'habillage de leur console, jusqu'aux boutons.";
+"whatsnew.s4.b6" = "Avec {PRO}, un appui sur Retour en arrière remonte 10 secondes sur chaque console ; maintenez-le pour choisir jusqu'à 30.";
+"whatsnew.s4.b7" = "La feuille Apparence du menu pause se pilote à la manette : habillages, filtres d'écran et tous les boutons.";
+"whatsnew.s4.b8" = "Sur la page d'un jeu, choisissez Jouer en Joueur 2 sur les consoles à deux joueurs ou plus : vous jouez le Joueur 2, aux commandes tactiles ou à la manette, pour vous entraîner contre l'ordinateur depuis l'autre côté.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Aucun succès de cette série n'est chargé.";
@@ -765,3 +799,10 @@
 "library.untitled" = "Jeu sans titre";
 "guide.controller.keyboard" = "Clavier physique : les flèches déplacent, X = A, W = B, S = X, Q = Y, A = L, Z = R, Entrée = Start, Maj = Select. Les touches sont lues par position, ce sont donc celles d'un clavier AZERTY. Les manettes Bluetooth qu'iOS détecte comme un clavier, par exemple la 8BitDo Zero en mode clavier, fonctionnent aussi. Chaque touche peut être réattribuée dans Réglages, Manette, tant que le clavier est connecté. Sur iPhone, les commandes tactiles disparaissent tant qu'un clavier est connecté.";
 "guide.controller.keyboard.ipad" = "Clavier physique : les flèches déplacent, X = A, W = B, S = X, Q = Y, A = L, Z = R, Entrée = Start, Maj = Select. Les touches sont lues par position, ce sont donc celles d'un clavier AZERTY. Les manettes Bluetooth qu'iOS détecte comme un clavier, par exemple la 8BitDo Zero en mode clavier, fonctionnent aussi. Chaque touche peut être réattribuée dans Réglages, Manette, tant que le clavier est connecté.";
+
+/* The Mega Drive's name as sold in this market (Genesis in the Americas) */
+"console.name.md" = "Mega Drive";
+
+/* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
+"feedback.mail.subject" = "Retour sur Retro Pal";
+"feedback.mail.body" = "Dites-nous ce qui ne va pas, et avec quel jeu si cela en concerne un :\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";

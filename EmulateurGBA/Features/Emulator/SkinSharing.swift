@@ -171,13 +171,17 @@ extension PresetSystem {
         case .nes: return "NES"
         case .ps1: return "PlayStation"
         case .n64: return "Nintendo 64"
+        case .md: return "Mega Drive / Genesis"
+        case .sms: return "Master System"
+        case .gg: return "Game Gear"
+        case .psp: return "PSP"
         }
     }
 
-    /// Whether custom skins can be created / rendered / imported for this console. Seven skin
-    /// formats across eight consoles (GB and GBC share one), and since the Nintendo 64's dress
-    /// (2026-09-27) every console has one. Kept as a gate rather than deleted: a console added
-    /// later starts without a dress, and this is where it says it cannot store a skin it could
-    /// not render.
-    var supportsCustomSkins: Bool { true }
+    /// Whether custom skins can be created / rendered / imported for this console: every console
+    /// with a dress (the Master System, the Game Gear and the PSP since 2026-10-11). A custom skin
+    /// needs a palette of the console's own (`SkinPalette`), an editor page and an import format.
+    var supportsCustomSkins: Bool {
+        ConsoleSkinView.hasSkin(for: self)
+    }
 }

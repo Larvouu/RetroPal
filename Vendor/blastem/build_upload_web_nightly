@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+name=$1
+. $HOME/software/emsdk/emsdk_env.sh
+. "$HOME/$name.params"
+cd $HOME/$DIR
+hg revert -a
+hg pull
+hg up
+rev=`hg summary |  sed -E -n 's/^parent: [^:]+:([^ ]+) .*$/\1/p'`
+sed -i -E "s/(define BLASTEM_VERSION \"[^-]+)-pre\"/\1-pre-$rev\"/" version.inc
+make CC=emcc CPU=wasm m68k.c z80.c -j2
+result=$?
+echo "DIR $DIR"
+if [ $result -ne 0 ]; then
+	echo Build falied with return code $result
+	curdate=`date -Iseconds`
+	curl -d'@-' -H 'Content-Type: application/json' "$WEBHOOKURL" <<WEBHOOKEOF
+{
+	"embeds": [
+		{
+			"title": "Build $name failed!",
+			"type": "rich",
+			"description": "Build falied with return code $result",
+			"timestamp": "$curdate",
+			"color": 16711680
+		}
+	]
+}
+WEBHOOKEOF
+	exit $result
+fi
+make CC=emcc CPU=wasm blastem.html -j4
+result=$?
+if [ $result -ne 0 ]; then
+	echo Build falied with return code $result
+	curdate=`date -Iseconds`
+	curl -d'@-' -H 'Content-Type: application/json' "$WEBHOOKURL" <<WEBHOOKEOF
+{
+	"embeds": [
+		{
+			"title": "Build $name failed!",
+			"type": "rich",
+			"description": "Build falied with return code $result",
+			"timestamp": "$curdate",
+			"color": 16711680
+		}
+	]
+}
+WEBHOOKEOF
+	exit $result
+fi
+. $HOME/remote.params
+echo "Uploaing blastem.wasm and blastem.js to $REMOTE_HOST"
+scp -i "$REMOTE_IDENT" "$HOME/$DIR/blastem.wasm" "$HOME/$DIR/blastem.js" $REMOTE_USER@$REMOTE_HOST:/home/$REMOTE_USER/web
+curdate=`date -Iseconds`
+version=`sed -E 's/^[^"]+"([^"]+)"$/\1/' version.inc`
+curl -d'@-' -H 'Content-Type: application/json' "$WEBHOOKURL" <<WEBHOOKEOF
+{
+	"embeds": [
+		{
+			"title": "BlastEm Web (emscripten)",
+			"type": "rich",
+			"url": "https://www.retrodev.com/blastem/web/",
+			"description": "New build of $name succeeded!",
+			"timestamp": "$curdate",
+			"color": 65280,
+			"fields": [
+				{
+					"name": "Version",
+					"value": "$version"
+				}
+			]
+		}
+	]
+}
+WEBHOOKEOF

@@ -452,6 +452,8 @@ static int16_t PCSXClampAxis(float v) {
 
     /// Frames left to hold the analog-toggle combo. See `pressAnalogModeButton`.
     std::atomic<int> _analogComboFrames;
+    /// Whose pad holds it (the touch controls can play player 2).
+    std::atomic<unsigned> _analogComboPort;
 
     /// Performance, for the one question this console still has.
     uint64_t _perfWindowStartNs;
@@ -524,6 +526,7 @@ static int16_t PCSXClampAxis(float v) {
         memset(&_diskControl, 0, sizeof(_diskControl));
         _cheatCount = 0;
         _analogComboFrames = 0;
+        _analogComboPort = 0;
         _perfWindowStartNs = 0;
         _perfFrames = 0;
         _perfRunNs = 0;
@@ -1048,7 +1051,7 @@ static int16_t PCSXClampAxis(float v) {
     // nothing else, because the core compares for equality: a face button held
     // at the same moment would make the mask "combo plus something" and the
     // toggle would silently not happen.
-    if (port == 0 && _analogComboFrames > 0 && device == RETRO_DEVICE_JOYPAD) {
+    if (port == _analogComboPort.load() && _analogComboFrames > 0 && device == RETRO_DEVICE_JOYPAD) {
         const int16_t combo = (int16_t)((1 << RETRO_DEVICE_ID_JOYPAD_L3)
                                         | (1 << RETRO_DEVICE_ID_JOYPAD_R3));
         if (buttonID == RETRO_DEVICE_ID_JOYPAD_MASK) return combo;
@@ -1114,10 +1117,15 @@ static int16_t PCSXClampAxis(float v) {
 /// someone on touch controls, who has no stick to move and so never triggers
 /// the automatic switch.
 - (void)pressAnalogModeButton {
-    if (!_romLoaded) return;
-    if (!_analogPadActive[0].exchange(true)) _padTypeDirty = true;
+    [self pressAnalogModeButtonForPlayer:0];
+}
+
+- (void)pressAnalogModeButtonForPlayer:(NSInteger)player {
+    if (!_romLoaded || player < 0 || player >= (NSInteger)kPS1Ports) return;
+    if (!_analogPadActive[player].exchange(true)) _padTypeDirty = true;
+    _analogComboPort = (unsigned)player;
     _analogComboFrames = 3;
-    PS1Diag("ANALOG pressed");
+    PS1Diag("ANALOG pressed (player %ld)", (long)(player + 1));
 }
 
 /// The emulated pad becomes a DualShock the first time a stick moves, and stays
@@ -1412,13 +1420,15 @@ static int16_t PCSXClampAxis(float v) {
 - (BOOL)rewindFrames:(NSInteger)count {
     if (!_romLoaded || _rwStored <= 0 || _rwNewest < 0) return NO;
 
-    // The caller counts frames; we hold one snapshot every five seconds. Round
-    // UP to the snapshot at or before the requested point, so a rewind never
-    // lands the player somewhere they had already got past.
-    const NSInteger framesPerSnapshot =
-        (NSInteger)(self.framesPerSecond * kRewindSecondsPerSnapshot);
-    if (framesPerSnapshot <= 0) return NO;
-    NSInteger steps = (count + framesPerSnapshot - 1) / framesPerSnapshot;
+    // The caller counts sixtieths of a second (EmulatorViewController asks
+    // `seconds * 60` whatever the disc's rate), and we hold one snapshot every
+    // five seconds of play. Read in the disc's own frames, a PAL game's 5 s was
+    // 300 / 250 = 2 snapshots, ten seconds back (found 2026-10-08 auditing the
+    // Mega Drive's rewind, which had copied this line). Round UP to the
+    // snapshot at or before the requested point, so a rewind never lands the
+    // player somewhere they had already got past.
+    const NSInteger perSnapshot = kRewindSecondsPerSnapshot * 60;
+    NSInteger steps = (count + perSnapshot - 1) / perSnapshot;
     if (steps < 1) steps = 1;
     if (steps > _rwStored - 1) steps = _rwStored - 1;
     if (steps < 1) return NO;

@@ -47,6 +47,14 @@ final class CrossDPadView: UIView {
     /// The Nintendo 64's four triangles, one inside each arm pointing outward,
     /// in the palette's darker pad grey. Hidden on every other console.
     private let n64Arrows = CAShapeLayer()
+    /// THE PSP'S ARROWS (2026-10-10, his notes and the PSP-1000's photographs):
+    /// the PlayStation's four separate keys, glossy, each carrying an OUTLINED
+    /// triangle pointing out, in the palette's print grey; on Retro Pal the keys
+    /// are clear glass over the shell. The gloss is a light on each key's upper
+    /// half and a bright line along its lower edge, the PSP-1000's highlight.
+    private let pspTriangles = CAShapeLayer()
+    private let pspGloss = CAShapeLayer()
+    private let pspGlints = CAShapeLayer()
 
     // Per-direction highlight layers
     private let highlightUp = CAShapeLayer()
@@ -56,6 +64,79 @@ final class CrossDPadView: UIView {
 
     // One short centered ridge line per arm (the light-faced dresses, plus the SNES).
     private let armLines = CAShapeLayer()
+
+    /// THE MEGA DRIVE'S PAD IS A DISC, not a cross-shaped key (asked 2026-10-08:
+    /// "draw the D-pad the way it is in real life"). On the six-button pad the
+    /// D-pad is a matte round disc that rocks on a pivot under its middle,
+    /// with a raised cross moulded on top (arms as thick as the cross every
+    /// dressed console here has, reaching almost to its rim, rounded where
+    /// they meet the disc), a
+    /// concave dimple at the centre, a small engraved triangle in each of the
+    /// four quarters between the arms, and the disc sitting in a round gap
+    /// inside a glossy bowl in the shell (the bowl and the gap are the
+    /// dress's, `MegaDriveSkin.drawCrossWell`). Read off close photographs of
+    /// the six-button pad (MK-1653).
+    ///
+    /// It moves as ONE piece: pressing a direction rocks the whole disc, that
+    /// edge sinking into the gap and going into shadow while the opposite edge
+    /// rises into the light. So every layer of it lives in one container that
+    /// takes the tilt, and nothing lights up on its own the way the other
+    /// consoles' arms do. Mega Drive only; every other console's cross is
+    /// untouched.
+    private let mdRocker = CALayer()
+    private let mdDisc = CAShapeLayer()
+    /// The disc is dished between the arms, low toward the rim.
+    private let mdDish = CAGradientLayer()
+    private let mdCrossShadow = CAShapeLayer()
+    private let mdCross = CAShapeLayer()
+    private let mdRelief = ReliefLayer()
+    /// The centre's dimple, sunk: its shading is a hollow's, dark at the top
+    /// left where its wall hides the light, lit at the bottom right.
+    private let mdNub = CAShapeLayer()
+    private let mdNubShade = CAGradientLayer()
+    private let mdMarks = CAShapeLayer()
+    /// The light on the rocking disc: dark on the side pressed down, a little
+    /// lighter on the side coming up.
+    private let mdTiltShade = CAGradientLayer()
+    /// THE GAME GEAR'S PAD IS A FACETED DISC (asked 2026-10-10, read off close
+    /// photographs of the 1990 handheld): a round disc in a round hole, its top
+    /// moulded in eight glossy faces. The four arms are each a "home plate",
+    /// flat at the rim and coming to a point at the centre, so the four meet in
+    /// a crease shaped like an X; the four corner faces between them sit a
+    /// step lower and each carries one short engraved tick near the rim, on its
+    /// diagonal. No dimple, no arrows. Like the Mega Drive's it rocks whole,
+    /// so every layer lives in one container that takes the tilt. The hole and
+    /// the bowl round it are the dress's (`GameGearSkin`).
+    private let ggRocker = CALayer()
+    /// The disc itself, which is what shows as the four lower corner faces.
+    private let ggDisc = CAShapeLayer()
+    private let ggArms = CAShapeLayer()
+    /// The light edge every arm catches along its sides and its rim end.
+    private let ggArmEdges = CAShapeLayer()
+    /// The X where the four points meet.
+    private let ggCrease = CAShapeLayer()
+    private let ggTicks = CAShapeLayer()
+    /// The gloss over the whole moulding, lit from the top.
+    private let ggGloss = CAGradientLayer()
+    private let ggTiltShade = CAGradientLayer()
+
+    /// THE MASTER SYSTEM'S PAD IS A RUBBER SQUARE (asked 2026-10-10, read off
+    /// photographs of the 3020 pad): a rounded square key, its top nearly
+    /// flat with a soft edge, four short raised bars on its axes, four small
+    /// raised arrowheads on its diagonals, and a concave cup in its middle
+    /// (the socket of the screw-in stick). The grey plate it sits on, the
+    /// channel round it and everything printed there are the dress's
+    /// (`MasterSystemSkin`). It rocks whole, like the Mega Drive's.
+    private let smsRocker = CALayer()
+    private let smsKey = CAShapeLayer()
+    private let smsKeyShade = CAGradientLayer()
+    private let smsReliefs = CAShapeLayer()
+    /// The light along each relief's upper edge.
+    private let smsReliefCatch = CAShapeLayer()
+    private let smsCup = CAShapeLayer()
+    private let smsCupShade = CAGradientLayer()
+    private let smsTiltShade = CAGradientLayer()
+
     /// The bombé, and its second offset layer. Built by `Bombe` rather than by
     /// hand here: the helper exists so the four button classes cannot disagree
     /// about the light, and a cross rebuilding the same gradient one file away
@@ -182,6 +263,14 @@ final class CrossDPadView: UIView {
 
         n64Arrows.isHidden = true
         layer.addSublayer(n64Arrows)
+        pspTriangles.fillColor = UIColor.clear.cgColor
+        pspTriangles.lineJoin = .round
+        pspGlints.fillColor = UIColor.clear.cgColor
+        pspGlints.lineCap = .round
+        for piece in [pspGloss, pspGlints, pspTriangles] as [CALayer] {
+            piece.isHidden = true
+            layer.addSublayer(piece)
+        }
 
         // Direction highlights (shown when pressed)
         for hl in [highlightUp, highlightDown, highlightLeft, highlightRight] {
@@ -200,6 +289,80 @@ final class CrossDPadView: UIView {
         layer.insertSublayer(dome, above: baseLayer)
         layer.insertSublayer(core, above: dome)
         layer.insertSublayer(relief, above: core)
+
+        mdRocker.isHidden = true
+        mdDish.type = .radial
+        mdDish.colors = [UIColor.clear.cgColor, UIColor.clear.cgColor,
+                         UIColor.black.withAlphaComponent(0.30).cgColor]
+        mdDish.locations = [0, 0.5, 1]
+        mdDish.startPoint = CGPoint(x: 0.5, y: 0.5)
+        mdDish.endPoint = CGPoint(x: 1, y: 1)
+        mdNubShade.colors = [UIColor.black.withAlphaComponent(0.40).cgColor,
+                             UIColor.clear.cgColor,
+                             UIColor.white.withAlphaComponent(0.16).cgColor]
+        mdNubShade.locations = [0, 0.5, 1]
+        mdNubShade.startPoint = CGPoint(x: 0.15, y: 0.15)
+        mdNubShade.endPoint = CGPoint(x: 0.85, y: 0.85)
+        mdMarks.lineJoin = .round
+        mdTiltShade.colors = [UIColor.black.withAlphaComponent(0.32).cgColor,
+                              UIColor.clear.cgColor,
+                              UIColor.white.withAlphaComponent(0.10).cgColor]
+        mdTiltShade.locations = [0, 0.5, 1]
+        mdTiltShade.opacity = 0
+        mdRelief.isHidden = false
+        for sub in [mdDisc, mdDish, mdCrossShadow, mdCross, mdRelief, mdNub, mdNubShade,
+                    mdMarks, mdTiltShade] as [CALayer] {
+            mdRocker.addSublayer(sub)
+        }
+        layer.addSublayer(mdRocker)
+
+        ggRocker.isHidden = true
+        ggArms.lineJoin = .round
+        ggArmEdges.fillColor = UIColor.clear.cgColor
+        ggArmEdges.lineJoin = .round
+        ggCrease.fillColor = UIColor.clear.cgColor
+        ggCrease.lineCap = .round
+        ggTicks.fillColor = UIColor.clear.cgColor
+        ggTicks.lineCap = .round
+        ggGloss.colors = [UIColor.white.withAlphaComponent(0.16).cgColor,
+                          UIColor.clear.cgColor,
+                          UIColor.black.withAlphaComponent(0.18).cgColor]
+        ggGloss.locations = [0, 0.5, 1]
+        ggGloss.startPoint = CGPoint(x: 0.5, y: 0)
+        ggGloss.endPoint = CGPoint(x: 0.5, y: 1)
+        ggTiltShade.colors = mdTiltShade.colors
+        ggTiltShade.locations = mdTiltShade.locations
+        ggTiltShade.opacity = 0
+        for sub in [ggDisc, ggArms, ggArmEdges, ggCrease, ggTicks, ggGloss, ggTiltShade] as [CALayer] {
+            ggRocker.addSublayer(sub)
+        }
+        layer.addSublayer(ggRocker)
+
+        smsRocker.isHidden = true
+        smsKeyShade.colors = [UIColor.white.withAlphaComponent(0.10).cgColor,
+                              UIColor.clear.cgColor,
+                              UIColor.black.withAlphaComponent(0.22).cgColor]
+        smsKeyShade.locations = [0, 0.5, 1]
+        smsKeyShade.startPoint = CGPoint(x: 0, y: 0)
+        smsKeyShade.endPoint = CGPoint(x: 1, y: 1)
+        smsReliefs.lineJoin = .round
+        smsReliefCatch.fillColor = UIColor.clear.cgColor
+        smsReliefCatch.lineCap = .round
+        // A hollow: dark where its upper wall hides the light, lit below.
+        smsCupShade.colors = [UIColor.black.withAlphaComponent(0.45).cgColor,
+                              UIColor.clear.cgColor,
+                              UIColor.white.withAlphaComponent(0.14).cgColor]
+        smsCupShade.locations = [0, 0.55, 1]
+        smsCupShade.startPoint = CGPoint(x: 0.5, y: 0)
+        smsCupShade.endPoint = CGPoint(x: 0.5, y: 1)
+        smsTiltShade.colors = mdTiltShade.colors
+        smsTiltShade.locations = mdTiltShade.locations
+        smsTiltShade.opacity = 0
+        for sub in [smsKey, smsKeyShade, smsReliefs, smsReliefCatch, smsCup, smsCupShade,
+                    smsTiltShade] as [CALayer] {
+            smsRocker.addSublayer(sub)
+        }
+        layer.addSublayer(smsRocker)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -221,12 +384,77 @@ final class CrossDPadView: UIView {
         let isPS1 = dressed && dressKind == .ps1
         centerDot.isHidden = isPS1
         bevelLayer.isHidden = isPS1
-        dome.isHidden = !isPS1   // the bombé is this console's, not every console's
-        core.isHidden = !isPS1
+        // The PlayStation's keys wear the rim relief now, each its own
+        // (asked 2026-10-09), in place of the bombé they wore until then.
+        dome.isHidden = true
+        core.isHidden = true
         // The Nintendo 64 wears its rim relief instead (asked 2026-09-27).
-        relief.isHidden = !(dressed && dressKind == .n64)
+        relief.isHidden = !(dressed && (dressKind.wearsRelief || isPS1))
         n64Arrows.isHidden = !(dressed && dressKind == .n64)
         n64Arrows.fillColor = dressVariant.n64.dpadMarks.cgColor
+        let isPSP = isPS1 && dressVariant.isPSP
+        for piece in [pspGloss, pspGlints, pspTriangles] as [CALayer] { piece.isHidden = !isPSP }
+        // The bright line on each arrow belongs to the glass look only (asked
+        // 2026-10-10); Nostalgia's keys keep their sheen and their triangle.
+        pspGlints.isHidden = !(isPSP && dressVariant.isPSPGlass)
+        if isPSP {
+            pspTriangles.strokeColor = (dressVariant.ps1Palette?.print ?? .white).cgColor
+            let glass = dressVariant.isPSPGlass
+            // The sheen on each key's outer half, the side the light falls on.
+            pspGloss.fillColor = UIColor.white.withAlphaComponent(glass ? 0.35 : 0.10).cgColor
+            pspGlints.strokeColor = UIColor.white.withAlphaComponent(glass ? 0.95 : 0.75).cgColor
+            if glass {
+                // Glass: the shell shows through, so the key itself is a faint
+                // tint of it, its edge a darker line where the glass turns.
+                let shell = dressVariant.ps1Palette?.body ?? .white
+                baseLayer.fillColor = shell.rpMixed(with: .black, 0.06).withAlphaComponent(0.55).cgColor
+                baseLayer.strokeColor = shell.rpMixed(with: .black, 0.38).cgColor
+            }
+        }
+        // The Mega Drive's disc replaces the whole cross (see `mdRocker`).
+        let isMD = dressed && dressKind == .md
+        mdRocker.isHidden = !isMD
+        // The Game Gear's faceted disc replaces it the same way (see `ggRocker`).
+        let isGG = dressed && dressKind == .gg
+        ggRocker.isHidden = !isGG
+        let isSMS = dressed && dressKind == .sms
+        smsRocker.isHidden = !isSMS
+        for piece in [shadowLayer, baseLayer, bevelLayer, centerDot, relief,
+                      highlightUp, highlightDown, highlightLeft, highlightRight] as [CALayer] {
+            piece.opacity = (isMD || isGG || isSMS) ? 0 : 1
+        }
+        if isSMS {
+            let rubber = rp ?? dressKind.darkPadFill
+            smsKey.fillColor = rubber.cgColor
+            smsReliefs.fillColor = rubber.rpMixed(with: .white, 0.10).cgColor
+            smsReliefCatch.strokeColor = UIColor.white.withAlphaComponent(0.22).cgColor
+            smsCup.fillColor = rubber.rpMixed(with: .black, 0.30).cgColor
+        }
+        if isGG {
+            // One plastic: the arms in it, the corner faces a step lower and
+            // so in shadow, the crease and the ticks cut into it.
+            let plastic = rp ?? dressKind.darkPadFill
+            ggArms.fillColor = plastic.rpMixed(with: .white, 0.08).cgColor
+            ggDisc.fillColor = plastic.rpMixed(with: .black, 0.45).cgColor
+            ggArmEdges.strokeColor = UIColor.white.withAlphaComponent(0.30).cgColor
+            ggCrease.strokeColor = UIColor.black.withAlphaComponent(0.65).cgColor
+            ggTicks.strokeColor = UIColor.white.withAlphaComponent(0.32).cgColor
+        }
+        if isMD {
+            // One plastic, disc and cross, as on the pad; the cross's top a
+            // shade lighter because it stands up into the light.
+            let plastic = rp ?? dressKind.darkPadFill
+            mdDisc.fillColor = plastic.cgColor
+            mdCross.fillColor = plastic.rpMixed(with: .white, 0.07).cgColor
+            mdCrossShadow.fillColor = UIColor.black.withAlphaComponent(0.45).cgColor
+            mdNub.fillColor = plastic.rpMixed(with: .black, 0.06).cgColor
+            // Engraved: a darker cut, with the light catching its lower edge.
+            mdMarks.fillColor = plastic.rpMixed(with: .black, 0.55).cgColor
+            mdMarks.shadowColor = UIColor.white.cgColor
+            mdMarks.shadowOpacity = 0.14
+            mdMarks.shadowRadius = 0
+            mdMarks.shadowOffset = CGSize(width: 0, height: 0.75)
+        }
         if dressed && dressKind.usesLightFaces {
             // GBA/NDS: a light cross, so the relief lines invert to dark. NDS draws its arm lines
             // in the #777777 ink; GBA keeps a translucent-black engraving.
@@ -287,6 +515,18 @@ final class CrossDPadView: UIView {
         // infinite, and every point built from it went to CoreGraphics as an
         // invalid number (the "NaN" warnings logged when any game opened).
         guard bounds.width > 4, bounds.height > 4 else { return }
+        if dressed && dressKind == .md {
+            rebuildMDPaths()
+            return
+        }
+        if dressed && dressKind == .gg {
+            rebuildGGPaths()
+            return
+        }
+        if dressed && dressKind == .sms {
+            rebuildSMSPaths()
+            return
+        }
         // GBA: inset the cross by a UNIFORM amount g on every edge AND narrow the arms by the
         // same g, so the gap to the full-size under-cross is constant all around (an even stroke,
         // with the arms still reaching near the tips). Other modes use the full bounds.
@@ -298,7 +538,7 @@ final class CrossDPadView: UIView {
         let halfArm = bounds.width * armRatio / 2 - g
         // Rounded corners on arm tips. The Nintendo 64's cross is rounder, its
         // tips a soft curve rather than a clipped corner (asked 2026-09-27).
-        let cornerR: CGFloat = (dressed && dressKind == .n64) ? Self.n64Corner(halfArm: halfArm) : 6
+        let cornerR: CGFloat = (dressed && dressKind.wearsRelief) ? Self.n64Corner(halfArm: halfArm) : 6
 
         // FOUR SEPARATE KEYS on the PlayStation, one continuous cross everywhere
         // else. This is the difference a hand notices first between this pad and
@@ -336,8 +576,16 @@ final class CrossDPadView: UIView {
             }
             Bombe.fit(core, over: bounds, clippedTo: cores.cgPath)
         }
-        if dressed && dressKind == .n64 {
+        if dressed && dressKind.wearsRelief {
             relief.fit(over: bounds, clippedTo: crossPath.cgPath)
+        } else if isPS1 {
+            // One rim per key: the path is the four keys apart, so the rim
+            // follows each one's outline, and it is sized for one key (its
+            // width), not for the cross the four make together.
+            relief.fit(over: bounds, clippedTo: crossPath.cgPath, across: keyHalf * 2)
+        }
+        if isPS1 {
+            layoutPSPArrows(keysPath: crossPath, bounds: r, keyHalf: keyHalf, cornerRadius: cornerR)
         }
 
         // Bevel: slightly inset cross
@@ -414,6 +662,297 @@ final class CrossDPadView: UIView {
             roundedRect: CGRect(x: cx + halfArm, y: cy - halfArm, width: r.maxX - (cx + halfArm), height: halfArm * 2),
             cornerRadius: cornerR
         ).cgPath
+    }
+
+    /// The Mega Drive's disc, cross, nub and marks, all in the rocker's own
+    /// coordinates, which are the view's.
+    private func rebuildMDPaths() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        // Bounds and position, not frame: the rocker may be tilted when this
+        // runs, and a tilted layer's frame is not something to set.
+        mdRocker.bounds = bounds
+        mdRocker.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        let radius = Self.mdDiscRadius(in: bounds)
+        let disc = UIBezierPath(arcCenter: c, radius: radius, startAngle: 0,
+                                endAngle: .pi * 2, clockwise: true)
+        mdDisc.path = disc.cgPath
+        let cross = Self.mdCrossPath(in: bounds)
+        mdCross.path = cross.cgPath
+        let shadow = cross.copy() as! UIBezierPath
+        let drop = max(1, radius * 0.03)
+        shadow.apply(CGAffineTransform(translationX: drop * 0.5, y: drop))
+        mdCrossShadow.path = shadow.cgPath
+        mdRelief.fit(over: bounds, clippedTo: cross.cgPath)
+
+        for gradient in [mdDish, mdTiltShade] {
+            gradient.frame = bounds
+            let mask = CAShapeLayer()
+            mask.path = disc.cgPath
+            gradient.mask = mask
+        }
+
+        let nubRadius = radius * Self.mdNubRatio
+        let nubRect = CGRect(x: c.x - nubRadius, y: c.y - nubRadius,
+                             width: nubRadius * 2, height: nubRadius * 2)
+        mdNub.path = UIBezierPath(ovalIn: nubRect).cgPath
+        mdNubShade.frame = nubRect
+        let nubMask = CAShapeLayer()
+        nubMask.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: nubRect.size)).cgPath
+        mdNubShade.mask = nubMask
+
+        // The marks: a small triangle in each quarter between the arms, near
+        // the rim, pointing round the disc.
+        let at = radius * Self.mdMarkDistance
+        let side = radius * Self.mdMarkSide
+        let height = side * CGFloat(3).squareRoot() / 2
+        let marks = UIBezierPath()
+        for quarter in 0..<4 {
+            let one = UIBezierPath()
+            // Drawn at the top, on the circle, pointing clockwise (+x), then
+            // turned to its quarter's diagonal.
+            one.move(to: CGPoint(x: height * 2 / 3, y: -at))
+            one.addLine(to: CGPoint(x: -height / 3, y: -at - side / 2))
+            one.addLine(to: CGPoint(x: -height / 3, y: -at + side / 2))
+            one.close()
+            one.apply(CGAffineTransform(rotationAngle: -.pi / 4 + CGFloat(quarter) * .pi / 2))
+            one.apply(CGAffineTransform(translationX: c.x, y: c.y))
+            marks.append(one)
+        }
+        mdMarks.path = marks.cgPath
+        // The catch is the mark's own shape moved down: given as a path so the
+        // rocking disc never makes Core Animation work it out off screen.
+        mdMarks.shadowPath = marks.cgPath
+    }
+
+    /// The Game Gear's disc, its eight faces, crease and ticks, in the
+    /// rocker's own coordinates, which are the view's.
+    private func rebuildGGPaths() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        ggRocker.bounds = bounds
+        ggRocker.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        let radius = Self.mdDiscRadius(in: bounds)
+        let disc = UIBezierPath(arcCenter: c, radius: radius, startAngle: 0,
+                                endAngle: .pi * 2, clockwise: true)
+        ggDisc.path = disc.cgPath
+        // The arms run past the rim and the disc cuts them, so their outer
+        // ends follow its curve.
+        let arms = Self.ggArmsPath(in: bounds).cgPath.intersection(disc.cgPath)
+        ggArms.path = arms
+        ggArmEdges.path = arms
+        ggArmEdges.lineWidth = max(1, radius * 0.022)
+
+        let half = radius * Self.ggArmHalf
+        let crease = UIBezierPath()
+        crease.move(to: CGPoint(x: c.x - half, y: c.y - half)); crease.addLine(to: CGPoint(x: c.x + half, y: c.y + half))
+        crease.move(to: CGPoint(x: c.x + half, y: c.y - half)); crease.addLine(to: CGPoint(x: c.x - half, y: c.y + half))
+        ggCrease.path = crease.cgPath
+        ggCrease.lineWidth = max(1, radius * 0.025)
+
+        // One tick per corner face, on its diagonal, near the rim.
+        let ticks = UIBezierPath()
+        for quarter in 0..<4 {
+            let angle = CGFloat.pi / 4 + CGFloat(quarter) * .pi / 2
+            let dx = cos(angle), dy = sin(angle)
+            ticks.move(to: CGPoint(x: c.x + dx * radius * 0.74, y: c.y + dy * radius * 0.74))
+            ticks.addLine(to: CGPoint(x: c.x + dx * radius * 0.88, y: c.y + dy * radius * 0.88))
+        }
+        ggTicks.path = ticks.cgPath
+        ggTicks.lineWidth = max(1, radius * 0.03)
+
+        for gradient in [ggGloss, ggTiltShade] {
+            gradient.frame = bounds
+            let mask = CAShapeLayer()
+            mask.path = disc.cgPath
+            gradient.mask = mask
+        }
+    }
+
+    /// The PSP's marks over the PlayStation's four keys: an outlined triangle
+    /// on each, pointing out, its base about 0.4 of the key's width, sitting
+    /// on the key a little toward its outer edge; the gloss clipped to the
+    /// keys; a short bright line inside each key's outer edge.
+    private func layoutPSPArrows(keysPath: UIBezierPath, bounds r: CGRect, keyHalf a: CGFloat,
+                                 cornerRadius: CGFloat) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let edge = r.height / 2
+        let inner = a * Self.ps1CentreGap + a
+        let outer = inner + Self.ps1KeyReach * (edge - inner)
+        let centreAlong = (inner + outer) / 2 + (outer - inner) * 0.08
+        let base = a * 0.78, height = base * 0.866
+        let triangles = UIBezierPath(), glints = UIBezierPath()
+        for rotation in Self.ps1KeyRotations {
+            let one = UIBezierPath()
+            one.move(to: CGPoint(x: 0, y: -(centreAlong + height / 2)))
+            one.addLine(to: CGPoint(x: base / 2, y: -(centreAlong - height / 2)))
+            one.addLine(to: CGPoint(x: -base / 2, y: -(centreAlong - height / 2)))
+            one.close()
+            let place = CGAffineTransform(rotationAngle: rotation)
+                .concatenating(CGAffineTransform(translationX: r.midX, y: r.midY))
+            one.apply(place)
+            triangles.append(one)
+        }
+        // The highlight: one short bright line just inside each key's outer
+        // edge, drawn in the key's own frame so it follows that edge and stays
+        // on the key, and clipped to the keys besides.
+        let glintAt = outer - max(1.5, a * 0.18)
+        for rotation in Self.ps1KeyRotations {
+            let one = UIBezierPath()
+            one.move(to: CGPoint(x: -a * 0.55, y: -glintAt))
+            one.addLine(to: CGPoint(x: a * 0.55, y: -glintAt))
+            one.apply(CGAffineTransform(rotationAngle: rotation)
+                .concatenating(CGAffineTransform(translationX: r.midX, y: r.midY)))
+            glints.append(one)
+        }
+        pspTriangles.path = triangles.cgPath
+        pspTriangles.lineWidth = max(0.9, a * 0.07)
+        pspGlints.path = glints.cgPath
+        pspGlints.lineWidth = max(0.75, a * 0.05)
+        // The sheen: each key's outer half, cut from the key itself so it
+        // cannot leave it. No masks: these layers tilt with the keys the way
+        // the cross's own layers do (zero-size, at the view's origin), and a
+        // mask on a zero-size layer would hide everything.
+        let sheen = UIBezierPath()
+        for rotation in Self.ps1KeyRotations {
+            let half = UIBezierPath(rect: CGRect(x: -a * 2, y: -outer - a, width: a * 4,
+                                                 height: (outer - inner) / 2 + a))
+            half.apply(CGAffineTransform(rotationAngle: rotation)
+                .concatenating(CGAffineTransform(translationX: r.midX, y: r.midY)))
+            sheen.append(half)
+        }
+        pspGloss.path = keysPath.cgPath.intersection(sheen.cgPath)
+    }
+
+    /// The Master System's key and its reliefs, in the rocker's coordinates.
+    private func rebuildSMSPaths() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        smsRocker.bounds = bounds
+        smsRocker.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        let key = Self.smsKeyRect(in: bounds)
+        let keyPath = UIBezierPath(roundedRect: key, cornerRadius: key.width * 0.22)
+        smsKey.path = keyPath.cgPath
+        let c = CGPoint(x: key.midX, y: key.midY), s = key.width
+        // Four bars on the axes, four arrowheads on the diagonals, pointing out.
+        let reliefs = UIBezierPath(), catches = UIBezierPath()
+        let barLength = s * 0.13, barHalf = s * 0.022, barAt = s * 0.30
+        let arrowAt = s * 0.31, arrowSide = s * 0.055
+        for quarter in 0..<4 {
+            let turn = CGAffineTransform(rotationAngle: CGFloat(quarter) * .pi / 2)
+                .concatenating(CGAffineTransform(translationX: c.x, y: c.y))
+            let bar = UIBezierPath(roundedRect: CGRect(x: -barHalf, y: -barAt - barLength / 2,
+                                                       width: barHalf * 2, height: barLength),
+                                   cornerRadius: barHalf)
+            bar.apply(turn); reliefs.append(bar)
+            let lit = UIBezierPath()
+            lit.move(to: CGPoint(x: -barHalf * 0.5, y: -barAt - barLength / 2 + barHalf))
+            lit.addLine(to: CGPoint(x: -barHalf * 0.5, y: -barAt + barLength / 2 - barHalf))
+            lit.apply(turn); catches.append(lit)
+            let arrow = UIBezierPath()
+            arrow.move(to: CGPoint(x: 0, y: -arrowAt - arrowSide))
+            arrow.addLine(to: CGPoint(x: arrowSide * 0.8, y: -arrowAt + arrowSide * 0.5))
+            arrow.addLine(to: CGPoint(x: -arrowSide * 0.8, y: -arrowAt + arrowSide * 0.5))
+            arrow.close()
+            arrow.apply(CGAffineTransform(rotationAngle: CGFloat(quarter) * .pi / 2 + .pi / 4)
+                .concatenating(CGAffineTransform(translationX: c.x, y: c.y)))
+            reliefs.append(arrow)
+        }
+        smsReliefs.path = reliefs.cgPath
+        smsReliefCatch.path = catches.cgPath
+        smsReliefCatch.lineWidth = max(0.75, s * 0.008)
+        let cupR = s * 0.17
+        let cup = UIBezierPath(ovalIn: CGRect(x: c.x - cupR, y: c.y - cupR, width: cupR * 2, height: cupR * 2))
+        smsCup.path = cup.cgPath
+        smsCupShade.frame = CGRect(x: c.x - cupR, y: c.y - cupR, width: cupR * 2, height: cupR * 2)
+        let cupMask = CAShapeLayer()
+        cupMask.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: smsCupShade.frame.size)).cgPath
+        smsCupShade.mask = cupMask
+        for gradient in [smsKeyShade, smsTiltShade] {
+            gradient.frame = bounds
+            let mask = CAShapeLayer()
+            mask.path = keyPath.cgPath
+            gradient.mask = mask
+        }
+    }
+
+    /// The Master System's key inside the control: 82% of it, centred, so the
+    /// dress's plate shows round it as on the pad. The dress reads it to carve
+    /// the channel the key sits in.
+    static func smsKeyRect(in rect: CGRect) -> CGRect {
+        let side = min(rect.width, rect.height) * 0.82
+        return CGRect(x: rect.midX - side / 2, y: rect.midY - side / 2, width: side, height: side)
+    }
+
+    /// Half an arm's width, as a fraction of the disc's radius: each arm is
+    /// about 0.31 of the disc's DIAMETER wide on the hardware.
+    static let ggArmHalf: CGFloat = 0.31
+
+    /// The four arms, each a "home plate": flat at the rim, its two sides
+    /// parallel, then two edges meeting in a point at the centre, so where the
+    /// four meet they draw an X. Run past the rim; the disc cuts them.
+    static func ggArmsPath(in rect: CGRect) -> UIBezierPath {
+        let radius = mdDiscRadius(in: rect)
+        let a = radius * ggArmHalf
+        let reach = radius * 1.05
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let path = UIBezierPath()
+        for quarter in 0..<4 {
+            let arm = UIBezierPath()
+            arm.move(to: CGPoint(x: -a, y: -reach))
+            arm.addLine(to: CGPoint(x: a, y: -reach))
+            arm.addLine(to: CGPoint(x: a, y: -a))
+            arm.addLine(to: .zero)
+            arm.addLine(to: CGPoint(x: -a, y: -a))
+            arm.close()
+            arm.apply(CGAffineTransform(rotationAngle: CGFloat(quarter) * .pi / 2))
+            arm.apply(CGAffineTransform(translationX: c.x, y: c.y))
+            path.append(arm)
+        }
+        return path
+    }
+
+    /// The Mega Drive's disc: the whole control, less a hair so the gap the
+    /// dress draws round it shows at rest.
+    static func mdDiscRadius(in rect: CGRect) -> CGFloat {
+        min(rect.width, rect.height) / 2 - max(1, rect.width * 0.01)
+    }
+    /// The cross on the disc, as fractions of the disc's radius, read off
+    /// close photographs of the six-button pad: reaching 0.90 of the way to
+    /// the rim, their ends softly rounded and the four inside corners rounded
+    /// wider, where the arm runs down into the disc; the dimple about a sixth
+    /// of the disc; the marks small, near the rim on the quarters' diagonals.
+    /// The arms keep the thickness the cross had before it sat on a disc
+    /// (`armRatioShared` of the control's width, asked 2026-10-08: the
+    /// photographs' fifth of the disc read too thin on the glass).
+    static let mdArmReach: CGFloat = 0.90
+    static let mdNubRatio: CGFloat = 0.17
+    static let mdMarkDistance: CGFloat = 0.70
+    static let mdMarkSide: CGFloat = 0.11
+
+    static func mdCrossPath(in rect: CGRect) -> UIBezierPath {
+        let radius = mdDiscRadius(in: rect)
+        let reach = radius * mdArmReach
+        let a = min(rect.width, rect.height) * armRatioShared / 2
+        let cx = rect.midX, cy = rect.midY
+        // Clockwise from the top arm's left end corner.
+        let points: [CGPoint] = [
+            CGPoint(x: cx - a, y: cy - reach), CGPoint(x: cx + a, y: cy - reach),
+            CGPoint(x: cx + a, y: cy - a),
+            CGPoint(x: cx + reach, y: cy - a), CGPoint(x: cx + reach, y: cy + a),
+            CGPoint(x: cx + a, y: cy + a),
+            CGPoint(x: cx + a, y: cy + reach), CGPoint(x: cx - a, y: cy + reach),
+            CGPoint(x: cx - a, y: cy + a),
+            CGPoint(x: cx - reach, y: cy + a), CGPoint(x: cx - reach, y: cy - a),
+            CGPoint(x: cx - a, y: cy - a),
+        ]
+        let tip = a * 0.35, inside = a * 0.55
+        let radii: [CGFloat] = [tip, tip, inside, tip, tip, inside,
+                                tip, tip, inside, tip, tip, inside]
+        return roundedPolygon(points, radii: radii)
     }
 
     /// The Nintendo 64's arm-tip radius, for an arm of half-width `halfArm`.
@@ -705,12 +1244,43 @@ final class CrossDPadView: UIView {
         // Press feedback: a true perspective 3D tilt when dressed (the pressed arm rocks down
         // into the case), or the original flat nudge when undressed (byte-identical).
         let tilt = dressed ? tilt3D(for: pressedButtons) : flatNudge(for: pressedButtons)
+        // The Mega Drive's disc rocks whole, about its own middle (its
+        // container's anchor), and the light shifts across it.
+        mdRocker.transform = rocker(for: pressedButtons)
+        ggRocker.transform = mdRocker.transform
+        smsRocker.transform = mdRocker.transform
+        var vx: CGFloat = 0, vy: CGFloat = 0
+        if pressedButtons & GBAInput.right.rawValue != 0 { vx += 1 }
+        if pressedButtons & GBAInput.left.rawValue != 0  { vx -= 1 }
+        if pressedButtons & GBAInput.down.rawValue != 0  { vy += 1 }
+        if pressedButtons & GBAInput.up.rawValue != 0    { vy -= 1 }
+        let length = (vx * vx + vy * vy).squareRoot()
+        if length > 0 {
+            vx /= length; vy /= length
+            mdTiltShade.startPoint = CGPoint(x: 0.5 + 0.5 * vx, y: 0.5 + 0.5 * vy)
+            mdTiltShade.endPoint = CGPoint(x: 0.5 - 0.5 * vx, y: 0.5 - 0.5 * vy)
+            mdTiltShade.opacity = 1
+            ggTiltShade.startPoint = mdTiltShade.startPoint
+            ggTiltShade.endPoint = mdTiltShade.endPoint
+            ggTiltShade.opacity = 1
+            smsTiltShade.startPoint = mdTiltShade.startPoint
+            smsTiltShade.endPoint = mdTiltShade.endPoint
+            smsTiltShade.opacity = 1
+        } else {
+            mdTiltShade.opacity = 0
+            ggTiltShade.opacity = 0
+            smsTiltShade.opacity = 0
+        }
         baseLayer.transform = tilt
         bevelLayer.transform = tilt
         centerDot.transform = tilt
         armLines.transform = tilt
         for hl in [highlightUp, highlightDown, highlightLeft, highlightRight] {
             hl.transform = tilt
+        }
+        // The PSP's marks ride on its keys.
+        for piece in [pspTriangles, pspGlints, pspGloss] as [CALayer] {
+            piece.transform = tilt
         }
         CATransaction.commit()
     }
@@ -729,6 +1299,20 @@ final class CrossDPadView: UIView {
     /// recedes into the case), rotated about the view center. Dressed only. If the rocker
     /// tilts the wrong way on device, negate `maxTilt`.
     private func tilt3D(for buttons: UInt32) -> CATransform3D {
+        let rp = rocker(for: buttons)
+        guard !CATransform3DIsIdentity(rp) else { return rp }
+        let cx = bounds.midX, cy = bounds.midY
+        // Rotate about the view center: T(-c) * Rp * T(c).
+        var t = CATransform3DConcat(CATransform3DMakeTranslation(-cx, -cy, 0), rp)
+        t = CATransform3DConcat(t, CATransform3DMakeTranslation(cx, cy, 0))
+        return t
+    }
+
+    /// The rocker's rotation alone, about whatever point the layer it is given
+    /// to turns about: `tilt3D` moves it to the view's centre for the layers
+    /// placed at the view's origin; the Mega Drive's container already turns
+    /// about its own middle.
+    private func rocker(for buttons: UInt32) -> CATransform3D {
         // 0.14: a single-axis press tilts the same amount a clean diagonal already did
         // (diagonal normalizes 0.20 to 0.20/√2 ≈ 0.14 per axis), so the dark under-cross no
         // longer reveals broadly on a single up/left press.
@@ -743,15 +1327,11 @@ final class CrossDPadView: UIView {
         // instead of compounding to ~1.4-2x toward the corner.
         let mag = (ax * ax + ay * ay).squareRoot()
         if mag > maxTilt { ax *= maxTilt / mag; ay *= maxTilt / mag }
-        let cx = bounds.midX, cy = bounds.midY
         var rp = CATransform3DIdentity
         rp.m34 = -1.0 / 500.0
         rp = CATransform3DRotate(rp, ax, 1, 0, 0)
         rp = CATransform3DRotate(rp, ay, 0, 1, 0)
-        // Rotate about the view center: T(-c) * Rp * T(c).
-        var t = CATransform3DConcat(CATransform3DMakeTranslation(-cx, -cy, 0), rp)
-        t = CATransform3DConcat(t, CATransform3DMakeTranslation(cx, cy, 0))
-        return t
+        return rp
     }
 
     // MARK: - Public API

@@ -84,7 +84,7 @@ struct SettingsView: View {
     #endif
     #if DEBUG
     @AppStorage("debugForceEmptyState") private var debugForceEmptyState: Bool = false
-    /// Store screenshots: a fake library of fifteen fictional games with
+    /// Store screenshots: a fake library of fictional games with
     /// bundled covers stands in for the real one, both ways up, and nothing
     /// plays (2026-09-10, see `LibraryPresentation`). The language beside it
     /// sets the app's own language override and relaunches, so the shelf,
@@ -975,9 +975,6 @@ struct SettingsView: View {
                        : "Fake keyboard: OFF (tap to attach)") {
                     controllers.debugSetKeyboardAttached(!controllers.isKeyboardAttached)
                 }
-                NavigationLink(destination: LayoutPreviewGallery()) {
-                    Text("Layout preview (SE / Pro Max)")
-                }
                 NavigationLink(destination: SkinPreviewGallery()) {
                     Text("Skin preview (per console / orientation)")
                 }
@@ -1039,6 +1036,17 @@ struct SettingsView: View {
                 debugProSheetButton("Custom skins (create/edit/import)", context: .customSkins)
                 debugProSheetButton("Video filters (Appearance ▸ Screen)", context: .videoFilters)
                 debugProSheetButton("External display / AirPlay (Settings)", context: .externalDisplay)
+            }
+                .listRowBackground(landscapeRowBackground)
+
+            // Every console in game at the three iPhone sizes, both
+            // orientations, in a look picked on the page (2026-10-11).
+            Section("Debug iPhone (SE / 14 Pro / Pro Max, both orientations)") {
+                ForEach(PreviewSystem.galleryOrder, id: \.self) { system in
+                    NavigationLink(destination: PhonePreviewGallery(system: system)) {
+                        Text(verbatim: "In game: \(system.consoleName)")
+                    }
+                }
             }
                 .listRowBackground(landscapeRowBackground)
 

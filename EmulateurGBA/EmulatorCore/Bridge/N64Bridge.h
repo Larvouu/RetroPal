@@ -75,6 +75,26 @@ FOUNDATION_EXPORT NSNotificationName const N64BridgeDisplayLostNotification;
 /// Per player, 0-based, like `setKeys:player:`.
 - (void)setCStickX:(float)x y:(float)y player:(NSInteger)player;
 
+// MARK: - Save-state files
+//
+// What a state slot holds on disk (see the Save states section of
+// N64Bridge.mm). Class methods so the format can be tested without a running
+// core: N64StateFileTests.
+
+/// The bytes to write for `state`, a state as the core produced it: packed
+/// with LZFSE behind a header of ours, or `state` itself, unchanged, when
+/// packing does not make it smaller.
++ (NSData *)stateFileDataFromState:(NSData *)state NS_SWIFT_NAME(stateFileData(fromState:));
+
+/// The state a slot file holds, or nil when it holds none: either a state as
+/// the core writes it (every slot written before 1.3.4) or one packed by
+/// `stateFileDataFromState:`. `length` is the core's fixed state size; nothing
+/// of another length, and nothing that does not unpack to a state of the core's
+/// own format, is ever returned. Signed, so Swift sees an `Int` (an `NSUInteger` came in
+/// as `UInt` and broke the tests' build, 2026-10-07); zero or less is refused.
++ (nullable NSData *)stateFromStateFileData:(NSData *)file expectedLength:(NSInteger)length
+    NS_SWIFT_NAME(state(fromStateFile:expectedLength:));
+
 @end
 
 NS_ASSUME_NONNULL_END

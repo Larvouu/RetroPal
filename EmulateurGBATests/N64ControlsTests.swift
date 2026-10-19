@@ -214,12 +214,14 @@ struct N64ControlsTests {
         }
     }
 
-    /// The upright page as described on 2026-09-27: L, MENU and R on the GBA's
-    /// row; below it one block, full width, down to the bottom of the page, in
-    /// four quarters (stick top left, A B Z top right, cross bottom left, C
-    /// buttons bottom right) with START at its centre; A, B and Z an
-    /// equilateral triangle; and the four C triangles' outer points on one
-    /// circle, the one the dress draws.
+    /// The upright page as described on 2026-09-27 and moved on 2026-10-09: L
+    /// and R on the GBA's row, CLIP and MENU between them, the row's gaps equal;
+    /// below it one block, full width, down to the bottom of the page, in four
+    /// quarters (stick top left, a little low; A B Z top right; cross bottom
+    /// left; C buttons bottom right); START at the bottom between the columns,
+    /// its centre on the bottom of C DOWN; A, B and Z an equilateral triangle;
+    /// and the four C triangles' outer points on one circle, the one the dress
+    /// draws.
     @Test func theUprightPageIsTheOneDescribed() {
         let pages: [(String, CGSize, UIEdgeInsets)] = [
             ("SE", CGSize(width: 375, height: 667), UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)),
@@ -245,16 +247,37 @@ struct N64ControlsTests {
             }
             func near(_ a: CGPoint, _ b: CGPoint) -> Bool { hypot(a.x - b.x, a.y - b.y) < 0.01 }
 
-            for e in [ControlElement.btnL, .btnR, .btnMenu] {
+            for e in [ControlElement.btnL, .btnR] {
                 #expect(near(centre(n64, e), centre(gba, e)), "\(label): \(e.rawValue) is off the GBA's row")
             }
+            // L · CLIP · MENU · R: one row, the CLIP-MENU pair centred, CLIP first.
+            let clip = centre(n64, .btnClip), menu = centre(n64, .btnMenu)
+            let clipW = EmulatorLayoutGeometry.buttonSize(.btnClip, system: .n64, isLandscape: false,
+                                                          deviceScale: k).width
+            let menuW = EmulatorLayoutGeometry.buttonSize(.btnMenu, system: .n64, isLandscape: false,
+                                                          deviceScale: k).width
+            #expect(abs(clip.y - centre(n64, .btnL).y) < 0.01 && abs(menu.y - clip.y) < 0.01,
+                    "\(label): CLIP and MENU are not on L and R's row")
+            #expect(centre(n64, .btnL).x < clip.x && clip.x < menu.x && menu.x < centre(n64, .btnR).x,
+                    "\(label): the row is not L CLIP MENU R")
+            #expect(abs(((clip.x - clipW / 2) + (menu.x + menuW / 2)) / 2 - w / 2) < 0.01,
+                    "\(label): the CLIP-MENU pair is not centred")
+            // The row's three gaps equal (asked 2026-10-09).
+            let lW = EmulatorLayoutGeometry.buttonSize(.btnL, system: .n64, isLandscape: false,
+                                                       deviceScale: k).width
+            let rowGaps = [(clip.x - clipW / 2) - (centre(n64, .btnL).x + lW / 2),
+                           (menu.x - menuW / 2) - (clip.x + clipW / 2),
+                           (centre(n64, .btnR).x - lW / 2) - (menu.x + menuW / 2)]
+            #expect(rowGaps.allSatisfy { $0 > 0 } && abs(rowGaps[0] - rowGaps[1]) < 0.01
+                    && abs(rowGaps[1] - rowGaps[2]) < 0.01, "\(label): the top row's gaps differ (\(rowGaps))")
             let lHeight = EmulatorLayoutGeometry.buttonSize(.btnL, system: .n64, isLandscape: false,
                                                             deviceScale: k).height
             let top = centre(n64, .btnL).y + lHeight / 2
             let upper = top + (h - top) / 4, lower = top + (h - top) * 3 / 4
-            #expect(near(centre(n64, .stickLeft), CGPoint(x: w / 4, y: upper)), "\(label): stick")
+            #expect(near(centre(n64, .stickLeft),
+                         CGPoint(x: w / 4, y: upper + ControlLayoutDefaults.n64PortraitStickDrop * k)),
+                    "\(label): stick")
             #expect(near(centre(n64, .dpad), CGPoint(x: w / 4, y: lower)), "\(label): cross")
-            #expect(near(centre(n64, .btnStart), CGPoint(x: w / 2, y: (top + h) / 2)), "\(label): START")
 
             let a = centre(n64, .btnA), b = centre(n64, .btnB), z = centre(n64, .btnL2)
             let side = ControlLayoutDefaults.n64FaceTriangleSide * k
@@ -277,14 +300,29 @@ struct N64ControlsTests {
                 #expect(abs(hypot(tip.x - hub.x, tip.y - hub.y) - radius) < 0.01,
                         "\(label): \(e.rawValue)'s point is off the C circle")
             }
+
+            // START at the bottom, between the columns, its centre on the bottom
+            // of C DOWN, unless that would hang it off the glass (the SE).
+            let start = centre(n64, .btnStart)
+            let startH = EmulatorLayoutGeometry.buttonSize(.btnStart, system: .n64, isLandscape: false,
+                                                           deviceScale: k).height
+            let cDownBottom = centre(n64, .btnCDown).y + c / 2
+            let held = h - startH / 2 - ControlLayoutDefaults.n64StartEdge * k
+            #expect(abs(start.x - w / 2) < 0.01, "\(label): START is not centred")
+            #expect(abs(start.y - min(cDownBottom, held)) < 0.01, "\(label): START is off C DOWN's bottom")
+            #expect(start.y + startH / 2 <= h + 0.01, "\(label): START leaves the glass")
+            if cDownBottom <= held {
+                #expect(abs(start.y - cDownBottom) < 0.01, "\(label): START moved though it had room")
+            }
         }
     }
 
     /// The page on its side follows the same rule (asked 2026-09-27): the stick
     /// above the cross in the left gutter, A B Z above the C circle in the
-    /// right one, each pair on one vertical line; MENU and START one pair
-    /// centred under the picture; and CLIP, both ways, under R and halfway
-    /// between the bottom of A and the top of C UP.
+    /// right one, each pair on one vertical line. Since 2026-10-09 CLIP ·
+    /// START · MENU are one row centred under the picture, and the right
+    /// gutter's two groups stack with equal gaps from R down to the home
+    /// indicator. Upright, CLIP has left R's column for the top row.
     @Test func thePageOnItsSideIsTheSameRule() {
         let pages: [(String, CGSize, UIEdgeInsets, Bool)] = [
             ("SE on its side", CGSize(width: 667, height: 375), .zero, true),
@@ -322,18 +360,28 @@ struct N64ControlsTests {
             let hub = CGPoint(x: c(.btnCUp).x, y: (c(.btnCUp).y + c(.btnCDown).y) / 2)
             #expect(abs((c(.btnCRight).x - c(.btnCLeft).x) / 2 - (c(.btnCDown).y - c(.btnCUp).y) / 2) < 0.01
                     && abs(c(.btnCLeft).y - hub.y) < 0.01, "\(label): the C buttons are not a square")
-            #expect(abs(c(.btnClip).x - c(.btnR).x) < 0.01, "\(label): CLIP is not under R")
-            let gapMid = ((c(.btnA).y + half(.btnA)) + (c(.btnCUp).y - half(.btnCUp))) / 2
-            #expect(abs(c(.btnClip).y - gapMid) < 0.01, "\(label): CLIP is not halfway between A and C UP")
             if isLandscape {
-                #expect(abs(c(.btnMenu).y - c(.btnStart).y) < 0.01, "\(label): MENU and START are not one row")
-                let row = (c(.btnMenu).x - EmulatorLayoutGeometry.buttonSize(.btnMenu, system: .n64,
-                              isLandscape: true, deviceScale: k).width / 2
-                           + c(.btnStart).x + EmulatorLayoutGeometry.buttonSize(.btnStart, system: .n64,
-                              isLandscape: true, deviceScale: k).width / 2) / 2
-                #expect(abs(row - screen.midX) < 0.5, "\(label): MENU and START are not centred under the picture")
+                #expect(abs(c(.btnMenu).y - c(.btnStart).y) < 0.01 && abs(c(.btnClip).y - c(.btnStart).y) < 0.01,
+                        "\(label): CLIP, START and MENU are not one row")
+                #expect(c(.btnClip).x < c(.btnStart).x && c(.btnStart).x < c(.btnMenu).x,
+                        "\(label): the row is not CLIP START MENU")
+                #expect(abs(c(.btnStart).x - screen.midX) < 0.5, "\(label): the row is not centred under the picture")
                 #expect(c(.stickLeft).x < screen.minX && c(.btnA).x > screen.maxX,
                         "\(label): a column is not in its gutter")
+                // The two groups, at the size they are drawn, with equal gaps
+                // from R's bottom to the home indicator's reserve.
+                let grow = ControlLayoutDefaults.n64LandscapeFaceScale
+                let faceHalf = half(.btnA) * grow, cHalf = half(.btnCUp) * grow
+                let facesTop = c(.btnB).y - faceHalf, facesBottom = c(.btnA).y + faceHalf
+                let cTop = c(.btnCUp).y - cHalf, cBottom = c(.btnCDown).y + cHalf
+                let rBottom = c(.btnR).y + half(.btnR)
+                let floor = h - EmulatorLayoutGeometry.snesLandscapeIndicatorReserve
+                let gaps = [facesTop - rBottom, cTop - facesBottom, floor - cBottom]
+                #expect(gaps.allSatisfy { $0 > 0 }, "\(label): the right gutter's groups touch (\(gaps))")
+                #expect(abs(gaps[0] - gaps[1]) < 0.01 && abs(gaps[1] - gaps[2]) < 0.01,
+                        "\(label): the right gutter's gaps are not equal (\(gaps))")
+            } else {
+                #expect(abs(c(.btnClip).y - c(.btnMenu).y) < 0.01, "\(label): CLIP is not beside MENU")
             }
         }
     }
@@ -375,6 +423,89 @@ struct N64ControlsTests {
                 #expect(c(e).y > device.height * 2 / 3, "\(label): \(e.rawValue) is out of the thumb's reach")
             }
         }
+    }
+
+    /// On an iPhone on its side the right gutter's groups are drawn larger and
+    /// the stick smaller (asked 2026-10-09), and nowhere else: the tablet and
+    /// upright pages, every preset, and every other console keep the table sizes.
+    @Test func onlyThePhoneOnItsSideRescalesTheN64() {
+        for e in [ControlElement.btnA, .btnB, .btnL2, .btnCUp, .btnCDown, .btnCLeft, .btnCRight] {
+            #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: true, family: .phone, system: .n64)
+                    == ControlLayoutDefaults.n64LandscapeFaceScale)
+            #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: false, family: .phone, system: .n64) == 1)
+            #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: true, family: .tablet, system: .n64) == 1)
+            #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: true, family: .phone, system: .ps1) == 1)
+        }
+        #expect(ControlLayoutDefaults.n64PhoneScale(.stickLeft, isLandscape: true, family: .phone, system: .n64)
+                == ControlLayoutDefaults.n64LandscapeStickScale)
+        for e in [ControlElement.btnL, .btnR, .btnMenu, .btnClip, .btnStart, .dpad] {
+            #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: true, family: .phone, system: .n64) == 1,
+                    "\(e.rawValue) is rescaled")
+        }
+        #expect(ControlLayoutDefaults.n64LandscapeFaceScale > 1)
+        #expect(ControlLayoutDefaults.n64LandscapeStickScale < 1)
+    }
+
+    /// On an iPhone on its side the stick's surround shrinks with the stick
+    /// and the gate inside it does not (asked 2026-10-09): the gate keeps the
+    /// size it had when the surround was full, and still fits inside it.
+    @Test func onItsSideTheSurroundShrinksAndTheGateDoesNot() {
+        let table: CGFloat = 80
+        let drawn = table * ControlLayoutDefaults.n64LandscapeStickScale
+        let surround = ControlLayoutDefaults.n64StickSurroundRadius(
+            drawnStickWidth: drawn, isLandscape: true, family: .phone)
+        let gate = ControlLayoutDefaults.n64StickGateRadius(
+            drawnStickWidth: drawn, isLandscape: true, family: .phone)
+        #expect(abs(surround - table * ControlLayoutDefaults.n64LandscapeSurroundScale) < 0.001)
+        #expect(abs(gate - table * 0.78) < 0.001, "the gate changed size")
+        #expect(gate < surround, "the gate is wider than its surround")
+        // Upright and on a tablet nothing changes.
+        #expect(ControlLayoutDefaults.n64StickSurroundRadius(drawnStickWidth: table, isLandscape: false,
+                                                            family: .phone) == table)
+        #expect(ControlLayoutDefaults.n64StickSurroundRadius(drawnStickWidth: table, isLandscape: true,
+                                                            family: .tablet) == table)
+    }
+
+    /// On its side the stick's surround stays clear of the picture, with room
+    /// for the frame the dress draws round it (asked 2026-10-09: they collided).
+    @Test func onItsSideTheStickSurroundClearsThePicture() {
+        let pages: [(String, CGSize, UIEdgeInsets)] = [
+            ("SE", CGSize(width: 667, height: 375), .zero),
+            ("13 mini", CGSize(width: 812, height: 375), UIEdgeInsets(top: 0, left: 50, bottom: 21, right: 50)),
+            ("14 Pro", CGSize(width: 852, height: 393), UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
+            ("Pro Max", CGSize(width: 956, height: 440), UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
+        ]
+        for (label, device, insets) in pages {
+            let k = EmulatorLayoutGeometry.deviceScale(for: device)
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: device, safeInsets: insets, hasTouchScreen: false, isLandscape: true,
+                gameAspect: PresetLayoutResolver.displayAspect(.n64), system: .n64,
+                controllerConnected: false, deviceScale: k)
+            let layout = ControlLayoutDefaults.defaultLayout(
+                system: .n64, isLandscape: true, containerSize: device, scale: k,
+                safeLeftInset: insets.left, safeRightInset: insets.right)
+            guard let stick = layout.buttons[ControlElement.stickLeft.rawValue] else {
+                Issue.record("\(label): no stick"); continue
+            }
+            let drawn = EmulatorLayoutGeometry.buttonSize(.stickLeft, system: .n64, isLandscape: true,
+                                                          deviceScale: k).width
+                * ControlLayoutDefaults.n64LandscapeStickScale
+            let surround = ControlLayoutDefaults.n64StickSurroundRadius(
+                drawnStickWidth: drawn, isLandscape: true, family: .phone)
+            let right = stick.centerX * device.width + surround
+            #expect(right < screen.minX - 2 * k, "\(label): the stick's surround reaches the picture (\(right) vs \(screen.minX))")
+        }
+    }
+
+    /// The N64's hold-to-lock covers Z too (asked 2026-10-09), and the pause
+    /// menu names it: the caption reads the letters off the same view.
+    @MainActor
+    @Test func holdToLockCoversZ() {
+        let view = N64TouchControlsView()
+        #expect(view.lockableMask & GBAInput.l2.rawValue != 0, "Z does not lock")
+        #expect(view.lockableMask & GBAInput.a.rawValue != 0 && view.lockableMask & GBAInput.b.rawValue != 0)
+        #expect(view.lockableMask & GBAInput.cUp.rawValue == 0, "a C button locks")
+        #expect(view.lockableLetters == ["A", "B", "Z"])
     }
 
     // MARK: - Presets

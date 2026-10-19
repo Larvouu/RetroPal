@@ -229,7 +229,7 @@ struct SkinPickerView: View {
     }
 
     private var okButton: some View {
-        Button { dismiss() } label: {
+        FocusableButton { dismiss() } label: {
             Text(verbatim: "OK")
                 .font(.headline)
                 .foregroundStyle(.white)
@@ -247,7 +247,7 @@ struct SkinPickerView: View {
     private var createButton: some View {
         let isPro = pro.isPro
         let blocked = isPro && (lockedToInvisible || customSkins.count >= CustomSkinStore.maxPerConsole)
-        return Button {
+        return FocusableButton {
             if isPro { editor = .create } else { showProSheet = true }
         } label: {
             createLabel(isPro: isPro)
@@ -274,7 +274,7 @@ struct SkinPickerView: View {
     /// "Import skin" — opens the explainer alert, then the Files picker. Classic neutral fill
     /// (same as the Close button), not the gold Pro treatment.
     private var importButton: some View {
-        Button { showImportInfo = true } label: {
+        FocusableButton { showImportInfo = true } label: {
             Text(NSLocalizedString("skin.import", comment: "Import a custom skin from a file"))
                 .font(.headline)
                 .foregroundStyle(.white)
@@ -287,7 +287,7 @@ struct SkinPickerView: View {
     }
 
     private var closeButton: some View {
-        Button { dismiss() } label: {
+        FocusableButton(shape: .rounded(10)) { dismiss() } label: {
             HStack(spacing: 6) {
                 Image(systemName: "xmark")
                 Text(NSLocalizedString("screenshot.dismiss", comment: ""))
@@ -342,16 +342,25 @@ struct SkinPickerView: View {
         .frame(width: width)
         .contentShape(Rectangle())
         .allowsHitTesting(!disabled)
-        .onTapGesture {
-            guard !disabled else { return }
-            selected = sel
-            onSelect(sel)                                // apply now; OK / Close only dismiss
-        }
+        .onTapGesture { pick(sel, disabled: disabled) }
+        // A controller picks a card as a tap does (asked 2026-10-11); the
+        // highlight starts on the skin being worn. Long-press menus (Share,
+        // Edit, Delete) stay touch.
+        .controllerFocusable(shape: .rounded(14), isDefault: isSelected,
+                             action: { pick(sel, disabled: disabled) })
+        // A card a custom layout locks is skipped by the highlight, as it is by the finger.
+        .disabled(disabled)
         .modifier(CustomCardMenu(item: item,
                                  isPro: pro.isPro,
                                  onEdit: { editor = .edit($0) },
                                  onEditLocked: { showProSheet = true },
                                  onDelete: { delete($0) }))
+    }
+
+    private func pick(_ sel: SkinSelection, disabled: Bool) {
+        guard !disabled else { return }
+        selected = sel
+        onSelect(sel)                                    // apply now; OK / Close only dismiss
     }
 
     // MARK: - Library mutations

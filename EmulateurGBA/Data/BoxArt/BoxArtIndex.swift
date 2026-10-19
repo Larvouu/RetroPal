@@ -32,6 +32,11 @@ final class BoxArtIndex {
         let names: [String]
         let crc: [String: Int]
         let serial: [String: Int]
+        /// Position in `names` -> the file name thumbnails.libretro.com really
+        /// holds for that game, present only for the names that differ from it
+        /// (the PSP since 2026-10-10: its thumbnails are not named after
+        /// Redump). Absent for every other console.
+        let alias: [String: String]?
     }
     private struct IndexFile: Decodable {
         let systems: [String: SystemTable]
@@ -39,6 +44,8 @@ final class BoxArtIndex {
 
     private let loadQueue = DispatchQueue(label: "boxart.index.load")
     private var tables: [String: SystemTable]?
+    /// `SystemTable.alias` keyed by name, built once at load.
+    private var aliasesByName: [String: [String: String]] = [:]
 
     /// Minimum Dice score for a fuzzy match. Below this, showing the save
     /// screenshot beats showing a wrong cover. Always paired with the
@@ -65,10 +72,34 @@ final class BoxArtIndex {
 
     // MARK: - Lookups (callable from any queue; loading is serialized)
 
+    /// Whether this console's table holds any CRC at all. The disc consoles'
+    /// (PlayStation, PSP) hold none, and the caller then skips reading the
+    /// file to checksum it: a PSP image is up to 1.8 GB (audit 2026-10-11).
+    func hasCRCs(for system: ROMSystemType) -> Bool {
+        !(table(for: system)?.crc.isEmpty ?? true)
+    }
+
     func exactName(crc32: UInt32, system: ROMSystemType) -> String? {
         let key = String(format: "%08X", crc32)
         guard let table = table(for: system), let idx = table.crc[key] else { return nil }
         return table.names[idx]
+    }
+
+    /// The name to ask thumbnails.libretro.com for when it differs from the
+    /// index's own (`Tools/build_boxart_index.py` builds the table from the
+    /// server's listing, and only for names that are the same game there under
+    /// another file name). Nil when the index name is the server's name, or the
+    /// server has no file for that game.
+    func serverAlias(forStem stem: String, system: ROMSystemType) -> String? {
+        guard table(for: system) != nil else { return nil }
+        return loadQueue.sync { aliasesByName[system.rawValue]?[stem] }
+    }
+
+    /// The whole alias table of one console, index name -> server name (empty
+    /// for a console without one). For the tests that check every entry.
+    func serverAliases(system: ROMSystemType) -> [String: String] {
+        guard table(for: system) != nil else { return [:] }
+        return loadQueue.sync { aliasesByName[system.rawValue] ?? [:] }
     }
 
     /// The consoles whose cartridges carry a four-character code in their
@@ -203,6 +234,15 @@ final class BoxArtIndex {
                     return
                 }
                 tables = decoded.systems
+                for (key, systemTable) in decoded.systems {
+                    guard let alias = systemTable.alias else { continue }
+                    var byName: [String: String] = [:]
+                    for (position, target) in alias {
+                        guard let i = Int(position), systemTable.names.indices.contains(i) else { continue }
+                        byName[systemTable.names[i]] = target
+                    }
+                    aliasesByName[key] = byName
+                }
             }
         }
         return tables?[system.rawValue]

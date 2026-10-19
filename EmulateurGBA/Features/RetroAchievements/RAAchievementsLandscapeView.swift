@@ -190,7 +190,8 @@ struct RAAchievementsLandscapeView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(LibraryLandscapePalette.accentGradient)
                     .blur(radius: 22)
-                    .opacity(0.55)
+                    // No glow under Classic, the ring stays (2026-10-07).
+                    .opacity(themeStore.theme.isClassic ? 0 : 0.55)
             )
             .accessibilityHidden(true)
 

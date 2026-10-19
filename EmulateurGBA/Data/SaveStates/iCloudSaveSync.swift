@@ -189,6 +189,15 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
         let batteryResult = battery.reconcileBatterySaves(
             skipping: BatterySaveImporter.activeSessionBasenames)
 
+        // A version was archived under `_Conflicts` (the other device's, or
+        // this one's). Once per tree per launch (`signalOnce`), not once per
+        // file or per pass, so a whole library diverging is one event.
+        if stateResult.conflicts > 0 {
+            Analytics.signalOnce("icloud_conflict", ["reason": SyncConflictReason.saveState.rawValue])
+        }
+        if batteryResult.conflicts > 0 {
+            Analytics.signalOnce("icloud_conflict", ["reason": SyncConflictReason.batterySave.rawValue])
+        }
         if stateResult.cloudHadFiles || batteryResult.cloudHadFiles, !hasSeeniCloudSaves {
             UserDefaults.standard.set(true, forKey: hasSeeniCloudSavesKey)
             DispatchQueue.main.async { [weak self] in self?.objectWillChange.send() }

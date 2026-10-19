@@ -105,11 +105,28 @@ enum KeyboardInput: String, Codable, CaseIterable {
 
     /// The row label on one console's page. The Nintendo 64 reads the pad
     /// remap's own marks, so its trigger row says Z, as the pad page does,
-    /// rather than the generic L2. The other consoles keep `displayName`.
+    /// rather than the generic L2; the Mega Drive too, so its rows say A to Z
+    /// and MODE as its pad page does, and the Master System and the Game Gear,
+    /// whose rows say 1, 2 and PAUSE or START, and the PSP, whose rows say
+    /// its four symbols as its pad page does (they said A, B, X and Y,
+    /// found 2026-10-10). The other consoles keep `displayName`.
     func displayName(for system: PresetSystem) -> String {
-        guard system == .n64, !isDirection,
-              let input = RemappableInput(rawValue: rawValue) else { return displayName }
-        return input.displayName(for: system)
+        padInput(on: system)?.displayName(for: system) ?? displayName
+    }
+
+    /// The row said out loud: the pad page's spoken name wherever the row
+    /// shows the pad page's mark, because a symbol (the PSP's) reads badly
+    /// aloud; the row's own label everywhere else.
+    func accessibleName(for system: PresetSystem) -> String {
+        padInput(on: system)?.accessibleName(for: system) ?? displayName
+    }
+
+    /// The pad input this row shares its mark with, on the consoles whose
+    /// rows read the pad page's marks; nil elsewhere and for a direction.
+    private func padInput(on system: PresetSystem) -> RemappableInput? {
+        guard system == .n64 || system == .md || system == .sms || system == .gg || system == .psp,
+              !isDirection else { return nil }
+        return RemappableInput(rawValue: rawValue)
     }
 }
 

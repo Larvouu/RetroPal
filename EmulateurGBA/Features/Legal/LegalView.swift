@@ -87,6 +87,22 @@ struct LegalView: View {
                         descriptionKey: "legal.mupen.description"
                     )
                     licenseRow(
+                        titleKey: "legal.blastem",
+                        // From its source files' own headers, the widest range
+                        // they state.
+                        copyright: "Copyright 2013-2016 Michael Pavone",
+                        licenseKey: "legal.blastem.licenseLine",
+                        descriptionKey: "legal.blastem.description"
+                    )
+                    licenseRow(
+                        titleKey: "legal.ppsspp",
+                        // From its source files' own headers (Core/System.cpp
+                        // and every Core file): the project, from 2012.
+                        copyright: "Copyright (C) 2012 PPSSPP Project",
+                        licenseKey: "legal.ppsspp.licenseLine",
+                        descriptionKey: "legal.ppsspp.description"
+                    )
+                    licenseRow(
                         titleKey: "legal.parallelrdp",
                         // Verbatim from its LICENSE.
                         copyright: "Copyright (c) 2020 Themaister",

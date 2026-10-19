@@ -101,4 +101,135 @@ struct ROMImporterTests {
                 "no redundant copy should be left in ROMs/")
         #expect(try gameCount(context) == 1)
     }
+
+    // MARK: - Two different games, one name (fixed 2026-10-07)
+    //
+    // A game's file in ROMs/ is ALSO the key its battery save, save states,
+    // auto-save and settings are filed under (its name without the
+    // extension). A second, different game under a name already taken used
+    // to delete the first game's file and take its place; and a different
+    // game whose name differed only by its extension shared the first one's
+    // saves. Each test uses names of its own and removes what it imported:
+    // ROMs/ is the app's real folder.
+
+    private func entries(_ context: NSManagedObjectContext) throws -> [NSManagedObject] {
+        try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "GameEntity"))
+    }
+
+    /// Every ROM file the given library entries point at, for cleanup.
+    private func removeImportedFiles(_ context: NSManagedObjectContext, _ importer: ROMImporter) {
+        for entry in (try? entries(context)) ?? [] {
+            if let path = entry.value(forKey: "romFilePath") as? String {
+                try? FileManager.default.removeItem(at: importer.romURL(for: path))
+            }
+        }
+    }
+
+    /// A source file named `name` in a directory of its own, so two
+    /// different games can carry the same name side by side.
+    private func source(named name: String, bytes: Data) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("same-name-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent(name)
+        try bytes.write(to: url)
+        return url
+    }
+
+    @Test func aDifferentGameUnderATakenNameGetsAFreeNameAndTheFirstIsUntouched() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let importer = ROMImporter(context: context)
+        defer { removeImportedFiles(context, importer) }
+        let name = "regtest-same-\(UUID().uuidString)"
+        let first = makeValidGBA(title: "FIRSTGAME")
+        let second = makeValidGBA(title: "SECONDGAME")
+        let srcA = try source(named: "\(name).gba", bytes: first)
+        let srcB = try source(named: "\(name).gba", bytes: second)
+        defer { try? FileManager.default.removeItem(at: srcA.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: srcB.deletingLastPathComponent()) }
+
+        _ = try importer.importROM(from: srcA, method: "picker")
+        _ = try importer.importROM(from: srcB, method: "picker")
+
+        // The first game's file still holds the FIRST game.
+        #expect(try Data(contentsOf: importer.romURL(for: "\(name).gba")) == first,
+                "Importing a different game under the same name replaced the first game's file.")
+        // The second has a file of its own.
+        #expect(try Data(contentsOf: importer.romURL(for: "\(name) 2.gba")) == second)
+        // Two entries, two files, two keys, each file the game its entry says.
+        let library = try entries(context)
+        let paths = library.compactMap { $0.value(forKey: "romFilePath") as? String }
+        #expect(Set(paths) == ["\(name).gba", "\(name) 2.gba"])
+        for entry in library {
+            let path = entry.value(forKey: "romFilePath") as? String ?? ""
+            let onDisk = GBAROMParser.parse(fileURL: importer.romURL(for: path))?.sha256
+            #expect(onDisk == entry.value(forKey: "romHash") as? String,
+                    "\(path) does not hold the game its library entry was imported as.")
+        }
+        #expect(Set(paths.map { BatterySaveImporter.romBasename(forStoredFilename: $0) }).count == 2,
+                "The two games share a save key.")
+    }
+
+    @Test func aDifferentGameWhoseNameDiffersOnlyByItsExtensionGetsItsOwnKey() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let importer = ROMImporter(context: context)
+        defer { removeImportedFiles(context, importer) }
+        let name = "regtest-key-\(UUID().uuidString)"
+        let srcA = try source(named: "\(name).gba", bytes: makeValidGBA(title: "KEYGBA"))
+        let srcB = try source(named: "\(name).nes", bytes: ImportFixtures.nesROM(seed: 7))
+        defer { try? FileManager.default.removeItem(at: srcA.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: srcB.deletingLastPathComponent()) }
+
+        _ = try importer.importROM(from: srcA, method: "picker")
+        _ = try importer.importROM(from: srcB, method: "picker")
+
+        let paths = Set(try entries(context).compactMap { $0.value(forKey: "romFilePath") as? String })
+        #expect(paths == ["\(name).gba", "\(name) 2.nes"],
+                "A NES game named like a GBA game would have shared its battery save and save states.")
+    }
+
+    @Test func aZippedDifferentGameUnderATakenNameGetsAFreeName() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let importer = ROMImporter(context: context)
+        defer { removeImportedFiles(context, importer) }
+        let name = "regtest-zip-\(UUID().uuidString)"
+        let first = ImportFixtures.nesROM(seed: 31)
+        let second = ImportFixtures.nesROM(seed: 32)
+        let src = try source(named: "\(name).nes", bytes: first)
+        let zip = try source(named: "\(name).zip",
+                             bytes: ArchiveBuilder.build([.init(name: "\(name).nes", content: second)]))
+        defer { try? FileManager.default.removeItem(at: src.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: zip.deletingLastPathComponent()) }
+
+        _ = try importer.importROM(from: src, method: "picker")
+        _ = try importer.importROM(from: zip, method: "picker")
+
+        #expect(try Data(contentsOf: importer.romURL(for: "\(name).nes")) == first,
+                "A single-game zip replaced the file of a different game with the same name.")
+        #expect(try Data(contentsOf: importer.romURL(for: "\(name) 2.nes")) == second)
+    }
+
+    /// The rule itself, on a folder of its own: a key is taken by a cartridge
+    /// of any extension or by a disc game's folder, whatever the case.
+    @Test func aKeyIsTakenByACartridgeOfAnyExtensionOrADiscFolder() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("keys-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("Tomb Raider (USA)"),
+                                                withIntermediateDirectories: true)
+        try Data([1]).write(to: dir.appendingPathComponent("Tetris.gb"))
+        try Data([1]).write(to: dir.appendingPathComponent("Tetris 2.gbc"))
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        #expect(ROMImporter.isKeyTaken("Tetris", in: dir))
+        #expect(ROMImporter.isKeyTaken("tetris", in: dir))
+        #expect(ROMImporter.isKeyTaken("Tomb Raider (USA)", in: dir))
+        #expect(!ROMImporter.isKeyTaken("Tetris 3", in: dir))
+        // A free name is kept as it is.
+        #expect(ROMImporter.uniqueDestination(for: dir.appendingPathComponent("Zelda.gb")).lastPathComponent == "Zelda.gb")
+        // "Tetris" and "Tetris 2" are both taken, by two different extensions.
+        #expect(ROMImporter.uniqueDestination(for: dir.appendingPathComponent("Tetris.nes")).lastPathComponent == "Tetris 3.nes")
+        // A cartridge named like a disc game's folder.
+        #expect(ROMImporter.uniqueDestination(for: dir.appendingPathComponent("Tomb Raider (USA).gba")).lastPathComponent
+                == "Tomb Raider (USA) 2.gba")
+    }
 }

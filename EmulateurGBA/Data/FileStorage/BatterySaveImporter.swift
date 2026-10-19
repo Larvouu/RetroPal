@@ -10,11 +10,10 @@
 //
 //  System routing
 //  --------------
-//  The file's extension declares the system family the export came from:
-//    .sav → GBA / GB / GBC  (Manic exports GBA games as .sav)
-//    .srm → NDS              (Manic exports DS games as .srm; RetroArch uses
-//                             .srm for everything but we only register the
-//                             extension as an NDS hint)
+//  The SIZE says which consoles a save can belong to (see
+//  `BatterySaveImporter.saveSizes`); the extension does not, since every
+//  emulator writes `.sav` or `.srm` for every console (2026-10-07). Only `.mcd`
+//  narrows it, to the PlayStation.
 //
 //  Once classified, the file is written to Documents/BatterySaves under the
 //  target game's ROM basename + ".sav" — the SAME on-disk convention used
@@ -27,94 +26,39 @@
 //  - A file matching a known ROM header (Nintendo logo at 0x04 / 0xC0 /
 //    0x104) is rejected. Covers the "user mistakenly shared a .gba ROM
 //    under a .sav extension" edge case.
-//  - A file whose size is not a known raw save-RAM size for the declared
-//    system is rejected. Covers most "this is actually a save state, not
+//  - A file whose size is not a known raw save-RAM size for any console
+//    is rejected. Covers most "this is actually a save state, not
 //    a battery save" cases — save states are typically tens of KB to a
 //    few MB and rarely land on a known battery-save size.
-//  - A 128 KB GBA file that does NOT carry a Gen 3 section signature at
-//    any of the 28 expected footer offsets is rejected. Catches "random
-//    128 KB file that happens to be the right size."
+//  - A 128 KB file is a GBA save only when it carries a Gen 3 section
+//    signature at one of the 28 expected footer offsets (the other consoles
+//    of that size stay candidates). Catches "random 128 KB file that happens
+//    to be the right size" for the GBA.
 //
 
 import Foundation
 
-/// Battery-save source system, declared by the file extension. Determines
-/// which library games are valid import targets and which save sizes are
-/// accepted.
-enum BatterySaveSystem {
-    /// .sav file — accepts GBA, GB, GBC and NES targets.
-    case savFamily
-    /// .srm file — accepts NDS, SNES, PlayStation and Nintendo 64 targets.
-    case srmFamily
-    /// .mcd file — a PlayStation memory card, and nothing else uses the name.
-    case mcdFamily
+/// What a battery save's file extension says about it, which since
+/// 2026-10-07 is very little. Every emulator names its saves `.sav` or `.srm`
+/// for whatever console it runs (RetroArch writes `.srm` for all of them, Delta
+/// and melonDS `.sav` for the DS), and Retro Pal itself stores every console's
+/// save as `<rom>.sav`. The old rule, `.sav` for GBA / GB / GBC / NES and `.srm`
+/// for DS / SNES / PS1 / N64, turned real saves away: a DS save from Delta, or
+/// any save a player opened from Retro Pal's own BatterySaves folder in Files.
+/// So the consoles a save can belong to come from its SIZE
+/// (`BatterySaveImporter.consoles(acceptingSaveOf:)`), and only `.mcd`, a name
+/// nothing but a PlayStation memory card uses, narrows them.
+enum BatterySaveSystem: Equatable {
+    /// `.sav` or `.srm`: any console's save RAM.
+    case cartridge
+    /// `.mcd`: a PlayStation memory card, and nothing else uses the name.
+    case memoryCard
 
     static func from(fileExtension ext: String) -> BatterySaveSystem? {
         switch ext.lowercased() {
-        case "sav": return .savFamily
-        case "srm": return .srmFamily
-        case "mcd": return .mcdFamily
-        default:    return nil
-        }
-    }
-
-    /// `GameEntity.systemType` raw values that accept a save from this family.
-    /// Matches the strings written by `ROMImporter.createGameEntry` via
-    /// `ROMSystemType.rawValue`.
-    ///
-    /// The two new consoles join the families their own emulators use: MesenCE
-    /// writes `.srm` for a SNES cart and `.sav` for a NES one, which is also
-    /// what every other emulator exports, so a save arriving from elsewhere
-    /// carries the extension this expects.
-    var compatibleSystemTypes: Set<String> {
-        switch self {
-        case .savFamily: return ["gba", "gb", "gbc", "nes"]
-        // The PlayStation joins the .srm family as well as owning .mcd, and
-        // that is not a guess: in the frontend-managed card mode we ask for,
-        // libretro frontends write the card out as `.srm`. So the two names a
-        // player is likely to already have both land on the right game, which
-        // matters more than tidiness on a console whose save model is new here.
-        // The Nintendo 64 joins it because its core keeps every kind of
-        // cartridge and Controller Pak save in one block, which libretro
-        // frontends write out as `.srm`; see `knownSaveSizes`.
-        case .srmFamily: return ["nds", "snes", "ps1", "n64"]
-        case .mcdFamily: return ["ps1"]
-        }
-    }
-
-    /// All raw save-RAM sizes a file of this family can legitimately have.
-    /// Unknown sizes are rejected as `invalidFormat` to filter out save
-    /// states (which are typically tens of KB to a few MB and rarely land
-    /// exactly on a known battery-save size).
-    var knownSaveSizes: Set<Int> {
-        switch self {
-        case .savFamily:
-            // GBA: 512 B EEPROM4K, 8 KB EEPROM64K, 32 KB SRAM, 64 KB Flash512,
-            //      128 KB Flash1M (Gen 3 Pokémon).
-            // GB / GBC: 2 KB, 8 KB, 32 KB, 128 KB (some MBC5 carts).
-            // NES: 8 KB is the whole story for battery carts (Zelda, Final
-            //      Fantasy, Dragon Warrior); a few boards wire 2 KB or 32 KB.
-            return [512, 2048, 8192, 32768, 65536, 131072]
-        case .srmFamily:
-            // NDS: 512 B EEPROM, 8 KB, 64 KB, 256 KB, 512 KB (HG/SS, B/W),
-            //      1 MB (Dragon Quest IX), 8 MB (the largest commercial saves).
-            // SNES: 2 KB, 8 KB, 32 KB (the common one: Chrono Trigger, A Link
-            //      to the Past), 64 KB, 128 KB (SA-1 and the big RPGs). Without
-            //      these three additions every ordinary SNES save would have been
-            //      rejected as "not a battery save" on import, which is why the
-            //      size set is a property of the FAMILY and not of one console.
-            // N64: 296,960 bytes, one size for every cartridge, because the
-            //      core's block holds all of the console's save memories side
-            //      by side (2 KB EEPROM, four 32 KB Controller Paks, 32 KB SRAM,
-            //      128 KB FlashRAM) whichever the game uses. The loader refuses
-            //      any other size, so a standalone .eep/.sra/.fla is not taken.
-            return [512, 2048, 8192, 32768, 65536, 131072, 262144, 296960, 524288, 1048576, 8388608]
-        case .mcdFamily:
-            // A PlayStation memory card is exactly one size, 128 KB: fifteen
-            // blocks of 8 KB plus the directory. Anything else under this name
-            // is one of the wrapped formats (.gme, .vgs, .vmp) that carry a
-            // header, and those are a different file even when renamed.
-            return [131072]
+        case "sav", "srm": return .cartridge
+        case "mcd":        return .memoryCard
+        default:           return nil
         }
     }
 }
@@ -148,11 +92,80 @@ enum BatterySaveImportError: LocalizedError, Equatable {
 enum BatterySaveImporter {
 
     /// Outcome of classification. `.savable` means the file passed all
-    /// rejection gates. `prepare(url:)` returns the savable bytes; the
-    /// data-level `classify` is exposed for unit tests.
+    /// rejection gates, and names the consoles (`GameEntity.systemType` raw
+    /// values) whose games it can be imported into. `prepare(url:)` returns
+    /// the savable bytes; the data-level `classify` is exposed for unit tests.
     enum Classification: Equatable {
-        case savable(system: BatterySaveSystem, byteCount: Int)
+        case savable(consoles: Set<String>, byteCount: Int)
         case unsupported(reason: BatterySaveImportError)
+    }
+
+    /// Every raw battery-save size each console's saves come in, as other
+    /// emulators and our own cores write them.
+    static let saveSizes: [String: Set<Int>] = [
+        // EEPROM 4K / 64K, SRAM 32 KB, Flash 64 KB and 128 KB (Gen 3 Pokémon).
+        "gba": [512, 8192, 32768, 65536, 131072],
+        // MBC2's 512 bytes, then 2, 8, 32 KB and the 128 KB of some MBC5 carts.
+        "gb":  [512, 2048, 8192, 32768, 131072],
+        "gbc": [512, 2048, 8192, 32768, 131072],
+        // 8 KB is nearly every battery cart (Zelda, Final Fantasy, Dragon
+        // Warrior); a few boards wire 2 KB or 32 KB.
+        "nes": [2048, 8192, 32768],
+        // 2 to 32 KB (Chrono Trigger, A Link to the Past), 64 and 128 KB for
+        // SA-1 and the big RPGs.
+        "snes": [2048, 8192, 32768, 65536, 131072],
+        // EEPROM 512 B / 8 KB / 64 KB, Flash 256 KB, 512 KB (HG/SS, B/W) and
+        // 1 MB (Dragon Quest IX), 8 MB for the largest.
+        "nds": [512, 8192, 65536, 262144, 524288, 1048576, 8388608],
+        // One size for every cartridge: the core's block holds all of the
+        // console's save memories side by side (2 KB EEPROM, four 32 KB
+        // Controller Paks, 32 KB SRAM, 128 KB FlashRAM) whichever the game
+        // uses. The loader refuses any other size, so a standalone
+        // .eep/.sra/.fla is not taken.
+        "n64": [296960],
+        // A memory card: fifteen blocks of 8 KB plus the directory. The
+        // wrapped formats (.gme, .vgs, .vmp) carry a header and are other sizes.
+        "ps1": [131072],
+        // Sized per cartridge by BlastEm's database and header (`romdb.c`):
+        // the save chip's mask plus one, halved when the chip sits on one byte
+        // lane, so every power of two from a 128-byte EEPROM to 64 KB of SRAM.
+        "md": [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536],
+        // The cartridge's RAM, which MesenCE reads up to 32 KB of and writes at
+        // 8, 16 or 32 KB, the size its game has used (`SmsMemoryManager`);
+        // other emulators write the full 32 KB or the 8 KB nearly every game
+        // uses. A smaller file loads into the start of the RAM, which is where
+        // the game keeps it, and the core never writes it back smaller.
+        "sms": [8192, 16384, 32768],
+        "gg": [8192, 16384, 32768],
+    ]
+
+    /// Bytes a clock cartridge's save carries AFTER its save RAM: the clock's
+    /// state, appended by mGBA (ours) and the emulators that share its format.
+    /// A GBA clock cart (Pokémon Ruby, Sapphire, Emerald) adds 16 bytes
+    /// (`GBASavedataRTCBuffer`); a Game Boy MBC3 clock cart (Pokémon Gold,
+    /// Silver, Crystal) 48, or 44 in the older VBA layout. Before 2026-10-07
+    /// these sizes were refused, so a save mGBA itself had written did not
+    /// import back.
+    static let clockSuffixes: [String: Set<Int>] = [
+        "gba": [16],
+        "gb":  [44, 48],
+        "gbc": [44, 48],
+    ]
+
+    /// The consoles a save of `data`'s size can belong to (its size, or its
+    /// size less a clock suffix, is one of theirs), before any extension
+    /// narrows them.
+    static func consoles(acceptingSaveOf data: Data) -> Set<String> {
+        var consoles: Set<String> = []
+        for (console, sizes) in saveSizes {
+            let suffixes = [0] + (clockSuffixes[console] ?? [])
+            guard let ramSize = suffixes.lazy.map({ data.count - $0 }).first(where: { sizes.contains($0) })
+            else { continue }
+            // 128 KB in a GBA save is a Gen 3 Pokémon save and nothing else.
+            if console == "gba", ramSize == 131072, !hasGen3SectionSignature(data: data) { continue }
+            consoles.insert(console)
+        }
+        return consoles
     }
 
     // MARK: - Classification
@@ -161,16 +174,12 @@ enum BatterySaveImporter {
         if looksLikeROM(data: data) {
             return .unsupported(reason: .invalidFormat)
         }
-        guard system.knownSaveSizes.contains(data.count) else {
+        var consoles = Self.consoles(acceptingSaveOf: data)
+        if system == .memoryCard { consoles.formIntersection(["ps1"]) }
+        guard !consoles.isEmpty else {
             return .unsupported(reason: .invalidFormat)
         }
-        // 128 KB in this family is a Gen 3 Pokémon save and nothing else: no GB,
-        // GBC or NES cart wires that much battery RAM.
-        if system == .savFamily, data.count == 131072,
-           !hasGen3SectionSignature(data: data) {
-            return .unsupported(reason: .invalidFormat)
-        }
-        return .savable(system: system, byteCount: data.count)
+        return .savable(consoles: consoles, byteCount: data.count)
     }
 
     // MARK: - ROM-header sniff
@@ -249,6 +258,30 @@ enum BatterySaveImporter {
     /// a `.sav` path on disk regardless of the source file's extension.
     static func savePath(forRomBasename romName: String) -> URL {
         batterySavesRoot.appendingPathComponent("\(romName).sav")
+    }
+
+    /// Where a PSP game keeps its saves: a memory stick, a FOLDER the game
+    /// writes itself (`PSP/SAVEDATA/<game id>/…`), one per game under the same
+    /// key as every other save of that game (`romBasename`).
+    ///
+    /// NOT under `batterySavesRoot`, on purpose: that directory holds one flat
+    /// `<rom>.sav` per game, and the iCloud battery mirror and the save importer
+    /// read it as exactly that. A folder there would be one more thing every
+    /// reader of it has to know to skip. So a PSP save is LOCAL to the device
+    /// for now: syncing a folder is not the `.sav` mirror's job. The bridge
+    /// creates the folder.
+    ///
+    /// ONE stick for every UMD of a game: "X (Disc 1)" and "X (Disc 2)" are two
+    /// library entries (the PSP core cannot swap a UMD in a running game), yet a
+    /// game on its second disc reads the save its first disc wrote, as from the
+    /// one stick in a real PSP (audit 2026-10-12; before, disc 2 started on an
+    /// empty stick). Sharing harms nothing: inside a stick each save is filed by
+    /// the game's own ID.
+    static func pspMemoryStickFolder(forRomBasename romName: String) -> URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let stick = DiscImportGrouper.discToken(inStem: romName)?.base ?? romName
+        return docs.appendingPathComponent("MemoryStick", isDirectory: true)
+            .appendingPathComponent(stick, isDirectory: true)
     }
 
     // MARK: - Live-session guard (for the iCloud battery mirror)
@@ -337,7 +370,8 @@ enum BatterySaveImporter {
         do {
             try data.write(to: dest, options: .atomic)
         } catch {
-            Analytics.signal("save_failure", ["kind": "battery_write"])
+            Analytics.signal("save_failure", ["kind": "battery_write",
+                                              "reason": ErrorTelemetry.writeReason(for: error).rawValue])
             throw BatterySaveImportError.writeFailed
         }
         // Mirror the imported save up to iCloud promptly (no session holds it:
@@ -369,6 +403,37 @@ enum BatterySaveImporter {
         try? FileManager.default.copyItem(at: currentSave, to: backupURL)
     }
 
+    /// Copy a game's in-game save to `backupsDir` before a SAVE STATE is
+    /// loaded, keeping the newest `stateLoadBackupsKept` per game.
+    ///
+    /// Why (decided 2026-10-12): a state carries the cartridge's save memory on
+    /// several cores (melonDS rewrites the `.sav` from it; MesenCE, so the NES,
+    /// Super Nintendo, Master System and Game Gear, puts it back and flushes it
+    /// later), so loading an OLDER state, an old slot or an old auto-save,
+    /// silently replaces a newer in-game save. The state is the player's
+    /// choice; losing the save with it is not, and this copy is the way back
+    /// (Files ▸ Retro Pal ▸ BatterySaves ▸ Backups). Best-effort: a failed
+    /// copy never blocks the load.
+    static func backUpBeforeStateLoad(romBasename: String) {
+        let save = savePath(forRomBasename: romBasename)
+        guard FileManager.default.fileExists(atPath: save.path) else { return }
+        let dir = backupsDir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let prefix = "\(romBasename)-before-state-"
+        let stamp = backupTimestampFormatter.string(from: Date())
+        try? FileManager.default.copyItem(at: save, to: dir.appendingPathComponent("\(prefix)\(stamp).sav"))
+        // The newest few only: a player who loads states often must not fill
+        // the folder. The stamp sorts by date as text.
+        let names = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+            .filter { $0.hasPrefix(prefix) && $0.hasSuffix(".sav") }
+            .sorted()
+        for name in names.dropLast(stateLoadBackupsKept) {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent(name))
+        }
+    }
+
+    static let stateLoadBackupsKept = 5
+
     private static let backupTimestampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyyMMdd-HHmmss"
@@ -389,8 +454,8 @@ enum BatterySaveImporter {
             return .failure(.fileAccessDenied)
         }
         switch classify(data: data, system: system) {
-        case .savable:
-            return .success(Pending(data: data, system: system))
+        case .savable(let consoles, _):
+            return .success(Pending(data: data, consoles: consoles))
         case .unsupported(let reason):
             return .failure(reason)
         }
@@ -401,6 +466,7 @@ enum BatterySaveImporter {
     /// safely dismiss before the write happens.
     struct Pending {
         let data: Data
-        let system: BatterySaveSystem
+        /// The `GameEntity.systemType` values whose games this save fits.
+        let consoles: Set<String>
     }
 }

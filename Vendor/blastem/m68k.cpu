@@ -1,0 +1,3602 @@
+info
+	prefix m68k_
+	opcode_size 16
+	body m68k_run_op
+	header m68k.h
+	interrupt m68k_interrupt
+	include m68k_util.c
+	sync_cycle m68k_sync_cycle
+	pc_reg pc
+	pc_offset 2
+	
+declare
+	typedef m68k_context *(sync_fun)(m68k_context * context, uint32_t address);
+	typedef m68k_context *(*int_ack_fun)(m68k_context * context);
+	typedef m68k_context *(*m68k_reset_handler)(m68k_context *context);
+	void init_m68k_opts(m68k_options *opts, memmap_chunk * memmap, uint32_t num_chunks, uint32_t clock_divider, sync_fun *sync_components, int_ack_fun int_ack);
+	m68k_context *init_68k_context(m68k_options * opts, m68k_reset_handler *reset_handler);
+	void m68k_reset(m68k_context *context);
+	void m68k_print_regs(m68k_context *context);
+	void m68k_serialize(m68k_context *context, uint32_t pc, serialize_buffer *buf);
+	void m68k_deserialize(deserialize_buffer *buf, void *vcontext);
+	void start_68k_context(m68k_context *context, uint32_t pc);
+	void insert_breakpoint(m68k_context *context, uint32_t address, debug_handler handler);
+	void remove_breakpoint(m68k_context *context, uint32_t address);
+	uint16_t m68k_instruction_fetch(uint32_t address, void *vcontext);
+	define NUM_MEM_AREAS 10
+	define M68K_OPT_BROKEN_READ_MODIFY 1
+	define INT_PENDING_SR_CHANGE 254
+	define INT_PENDING_NONE 255
+	define M68K_STATUS_TRACE 0x80
+	define m68k_invalidate_code_range(context, start, end)
+	define m68k_options_free free
+	define m68k_handle_code_write(address, context)
+	define resume_68k(context) m68k_execute(context, context->target_cycle)
+	define m68k_add_watchpoint(context, address, size)
+	define m68k_remove_watchpoint(context, address, size)
+
+regs
+	dregs 32 d0 d1 d2 d3 d4 d5 d6 d7
+	aregs 32 a0 a1 a2 a3 a4 a5 a6 a7
+	pc 32
+	other_sp 32
+	scratch1 32
+	scratch2 32
+	int_cycle 32
+	target_cycle 32
+	wp_hit_address 32
+	prefetch 16
+	wp_hit_value 16
+	wp_old_value 16
+	int_priority 8
+	int_num 8
+	int_pending 8
+	int_pending_num 8
+	int_ack 8
+	status 8
+	ccr 8
+	xflag 8
+	nflag 8
+	zflag 8
+	vflag 8
+	cflag 8
+	wp_hit 8
+	trace_pending 8
+	should_return 8
+	stopped 8
+	system ptrvoid
+	reset_handler ptrvoid
+	int_ack_handler ptrvoid
+	sync_components ptrsync_fun
+	mem_pointers ptr16 12
+	read16 interp_read_16 256
+	read8 interp_read_8 256
+	write16 interp_write_16 256
+	write8 interp_write_8 256
+	read16_data ptrvoid 256
+	read8_data ptrvoid 256
+	write16_data ptrvoid 256
+	write8_data ptrvoid 256
+	
+flags
+	register ccr
+	X 4 carry xflag
+	N 3 sign nflag
+	Z 2 zero zflag
+	V 1 overflow vflag
+	C 0 carry cflag
+
+m68k_prefetch
+	if dynarec
+	
+	ccall m68k_read16_noinc context pc
+	mov result prefetch
+	
+	end
+	
+	if interp
+	
+	mov pc scratch1
+	ocall read_16
+	mov scratch1 prefetch
+	
+	end
+	
+	add 2 pc pc
+	
+check_user_mode_swap_ssp_usp
+	local tmp 8
+	and 0x20 status tmp
+	if tmp
+	else
+		xchg other_sp a7
+	end
+	
+m68k_get_sr
+	lsl status 8 scratch1
+	or ccr scratch1 scratch1
+	
+m68k_write32_lowfirst
+	arg value 32
+	add 2 scratch2 scratch2
+	mov value scratch1
+	ocall write_16
+	
+	sub 2 scratch2 scratch2
+	lsr value 16 scratch1
+	ocall write_16
+
+m68k_write32
+	arg value 32
+	local tmp 32
+	mov value tmp
+	lsr value 16 scratch1
+	ocall write_16
+	
+	add 2 scratch2 scratch2
+	mov tmp scratch1
+	ocall write_16
+	
+m68k_read32
+	local tmp 32
+	add 2 scratch1 tmp
+	ocall read_16
+	xchg scratch1 tmp
+	ocall read_16
+	lsl tmp 16 tmp
+	or tmp scratch1 scratch1
+
+m68k_trap
+	arg vector 32
+	check_user_mode_swap_ssp_usp
+	#save PC
+	a7 -= 4
+	scratch2 = a7
+	m68k_write32_lowfirst pc
+	#save SR
+	a7 -= 2
+	scratch2 = a7
+	m68k_get_sr
+	ocall write_16
+	#set supervisor bit
+	status |= 0x20
+	#clear trace bit
+	status &= 0x7F
+	trace_pending = 0
+	scratch1 = vector << 2
+	m68k_read32
+	pc = scratch1
+	cycles 10
+	m68k_prefetch
+	
+	
+	
+m68k_interrupt
+	if cycles >=U int_cycle
+	
+		#INT_PENDING_NONE
+		if 255 = int_pending
+			int_pending = int_priority
+			int_pending_num = int_num
+		else
+			#INT_PENDING_SR_CHANGE
+			if 254 = int_pending
+				int_pending = int_priority
+				int_pending_num = int_num
+			
+			end
+			
+			check_user_mode_swap_ssp_usp
+			
+			cycles 6
+			#save status reg
+			a7 -= 6
+			m68k_get_sr
+			scratch2 = a7
+			ocall write_16
+			
+			#update status register
+			status &= 0x78
+			status |= int_pending
+			status |= 0x20
+			
+			#Interrupt ack cycle
+			int_ack = int_pending
+			cycles 4
+			if int_ack_handler
+				pcall int_ack_handler int_ack_fun context
+			end
+			if int_pending_num
+			else
+				int_pending_num = int_pending + 24
+			end
+			
+			#save pc
+			scratch2 = a7 + 2
+			if stopped
+				scratch1 = pc
+				stopped = 0
+			else
+				scratch1 = pc - 2
+			end
+			m68k_write32_lowfirst scratch1
+			
+			scratch1 = int_pending_num << 2
+			int_pending = 255 #INT_PENDING_NONE
+			int_pending_num = 0
+			m68k_read32
+			mov scratch1 pc
+			m68k_prefetch
+			update_sync
+		end
+	end
+	
+m68k_run_op
+	dispatch prefetch
+
+m68k_mem_src
+	arg address 32
+	arg size 16
+	arg isdst 8
+	mov address scratch1
+	if isdst
+	mov address scratch2
+	meta ismem 1
+	end
+	switch size
+	
+	case 0
+	ocall read_8
+	
+	case 1
+	ocall read_16
+	
+	case 2
+	m68k_read32
+	
+	end
+	meta op scratch1
+
+m68k_write_size
+	arg size 16
+	arg lowfirst 8
+	switch size
+	case 0
+	ocall write_8
+	
+	case 1
+	ocall write_16
+	
+	case 2
+	if lowfirst
+	m68k_write32_lowfirst scratch1
+	else
+	m68k_write32 scratch1
+	end
+	end
+	
+m68k_index_word
+	m68k_prefetch
+	local disp 32
+	and prefetch 255 disp
+	sext 16 disp disp
+	sext 32 disp disp
+	local index 16
+	lsr prefetch 12 index
+	local isareg 16
+	and index 8 isareg
+	and index 7 index
+	local islong 16
+	and prefetch 2048 islong
+	
+	switch isareg
+	case 0
+		switch islong
+		case 0
+		sext 32 dregs.index scratch1
+		case 2048
+		mov dregs.index scratch1
+		end
+	case 8
+		switch islong
+		case 0
+		sext 32 aregs.index scratch1
+		case 2048
+		mov aregs.index scratch1
+		end
+	end
+	add disp scratch1 scratch1
+
+m68k_fetch_op_ea
+	arg mode 16
+	arg reg 16
+	arg Z 16
+	arg isdst 8
+	switch mode
+	
+	case 0
+	#data reg direct
+	meta op dregs.reg
+	if isdst
+	meta ismem 0
+	end
+	
+	case 1
+	#address reg direct
+	meta op aregs.reg
+	if isdst
+	meta ismem 0
+	end
+	
+	case 2
+	#address reg indirect
+	m68k_mem_src aregs.reg Z isdst
+	
+	case 3
+	#postincrement
+	m68k_mem_src aregs.reg Z isdst
+	switch reg
+	case 7
+		if Z
+			addsize Z aregs.reg aregs.reg
+		else
+			addsize 1 aregs.reg aregs.reg
+		end
+	default
+		addsize Z aregs.reg aregs.reg
+	end
+	
+	case 4
+	#predecrement
+	switch reg
+	case 7
+		if Z
+			decsize Z aregs.reg aregs.reg
+		else
+			decsize 1 aregs.reg aregs.reg
+		end
+	default
+		decsize Z aregs.reg aregs.reg
+	end
+	cycles 2
+	m68k_mem_src aregs.reg Z isdst
+	
+	case 5
+	#displacement
+	m68k_prefetch
+	sext 32 prefetch scratch1
+	add scratch1 aregs.reg scratch1
+	m68k_mem_src scratch1 Z isdst
+	
+	case 6
+	#indexed
+	m68k_index_word
+	cycles 2
+	add aregs.reg scratch1 scratch1
+	
+	m68k_mem_src scratch1 Z isdst
+	case 7
+	#pc-relative and absolute modes
+	
+	switch reg
+	case 0
+	#absolute short
+	m68k_prefetch
+	sext 32 prefetch scratch1
+	m68k_mem_src scratch1 Z isdst
+	
+	case 1
+	#absolute long
+	local address 32
+	m68k_prefetch
+	lsl prefetch 16 address
+	m68k_prefetch
+	or prefetch address scratch1
+	m68k_mem_src scratch1 Z isdst
+	
+	case 2
+	#pc displaceent
+	m68k_prefetch
+	sext 32 prefetch scratch1
+	add scratch1 pc scratch1
+	sub 2 scratch1 scratch1
+	m68k_mem_src scratch1 Z isdst
+	
+	case 3
+	#pc indexed
+	m68k_index_word
+	cycles 2
+	add pc scratch1 scratch1
+	sub 2 scratch1 scratch1
+	m68k_mem_src scratch1 Z isdst
+	
+	case 4
+	#immediate
+	switch Z
+	case 2
+		local tmp32 32
+		m68k_prefetch
+		lsl prefetch 16 tmp32
+		m68k_prefetch
+		or prefetch tmp32 scratch1
+		
+	default
+		m68k_prefetch
+		mov prefetch scratch1
+	end
+	meta op scratch1
+	
+	end
+	
+	end
+
+m68k_fetch_src_ea
+	arg mode 16
+	arg reg 16
+	arg Z 16
+	m68k_fetch_op_ea mode reg Z 0
+	meta src op
+	switch mode
+	case 0
+		meta src_is_mem 0
+	case 1
+		meta src_is_mem 0
+	default
+		meta src_is_mem 1
+	end
+
+m68k_fetch_dst_ea
+	arg mode 16
+	arg reg 16
+	arg Z 16
+	m68k_fetch_op_ea mode reg Z 1
+	meta dst op
+	
+m68k_save_dst
+	arg Z 16
+	if ismem
+	m68k_write_size Z 0
+	end
+
+1101DDD0ZZMMMRRR add_ea_dn
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_src_ea M R Z
+	if Z = 2
+		switch M
+		case 0
+			#dreg src
+			cycles 4
+		case 1
+			#areg src
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	end
+	
+	add src dregs.D dregs.D Z
+	update_flags XNZVC
+	m68k_prefetch
+	
+1101DDD1ZZMMMRRR add_dn_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+	
+	add dregs.D dst dst Z
+	update_flags XNZVC
+	m68k_save_dst Z
+	m68k_prefetch
+
+1101AAAZ11MMMRRR adda
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local size 16
+	local ext_src 32
+	#TODO: ensure "penalty" cycles are in the right place
+	if Z
+		size = 2
+		switch M
+		case 0
+			#dreg src
+			cycles 4
+		case 1
+			#areg src
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	else
+		size = 1
+		cycles 4
+	end
+	m68k_fetch_src_ea M R size
+	switch size
+	case 1
+	sext 32 src ext_src
+	meta src ext_src
+	end
+	
+	add src aregs.A aregs.A
+	m68k_prefetch
+
+00000110ZZMMMRRR addi
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		lsl prefetch 16 immed
+		m68k_prefetch
+		or prefetch immed immed
+		if M = 0
+			cycles 4
+		end
+	default
+		mov prefetch immed
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	add immed dst dst Z
+	update_flags XNZVC
+	m68k_save_dst Z
+	m68k_prefetch
+	
+0101III0ZZMMMRRR addq
+	invalid Z 3
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local src 32
+	switch I
+	case 0
+	mov 8 src
+	default
+	mov I src
+	end
+	
+	m68k_fetch_dst_ea M R Z
+	switch M
+	case 0
+		if Z = 2
+			cycles 4
+		end
+		add src dst dst Z
+		update_flags XNZVC
+	case 1
+		cycles 4
+		add src dst dst 2
+	default
+		add src dst dst Z
+		update_flags XNZVC
+	end
+	m68k_save_dst Z
+	m68k_prefetch
+
+1101DDD1ZZ000SSS addx_dy_dx
+	invalid Z 3
+	adc dregs.S dregs.D dregs.D Z
+	update_flags XNVC
+	switch Z
+	case 0
+		local tmp8 8
+		mov dregs.D tmp8
+		if tmp8
+			update_flags Z0
+		end
+	case 1
+		local tmp16 16
+		mov dregs.D tmp16
+		if tmp16
+			update_flags Z0
+		end
+	case 2
+		cycles 4
+		if dregs.D
+			update_flags Z0
+		end
+	end
+	m68k_prefetch
+
+1101DDD1ZZ001SSS addx_ay_ax
+	invalid Z 3
+	if Z
+		decsize Z aregs.S aregs.S
+	else
+		switch S
+		case 7
+			sub 2 aregs.S aregs.S
+		default
+			decsize Z aregs.S aregs.S
+		end
+	end
+	#predec penalty on src only
+	cycles 2
+	mov aregs.S scratch1
+	switch Z
+	case 0
+	ocall read_8
+	case 1
+	ocall read_16
+	case 2
+	m68k_read32
+	end
+	mov scratch1 scratch2
+	if Z
+		decsize Z aregs.D aregs.D
+	else
+		switch D
+		case 7
+			sub 2 aregs.D aregs.D
+		default
+			decsize Z aregs.D aregs.D
+		end
+	end
+	mov aregs.D scratch1
+	switch Z
+	case 0
+	ocall read_8
+	case 1
+	ocall read_16
+	case 2
+	m68k_read32
+	end
+	adc scratch2 scratch1 scratch1 Z
+	update_flags XNVC
+	switch Z
+	case 0
+	local tmp8 8
+	mov dregs.D tmp8
+	if tmp8
+		update_flags Z0
+	end
+	case 1
+	local tmp16 16
+	mov dregs.D tmp16
+	if tmp16
+		update_flags Z0
+	end
+	case 2
+	if dregs.D
+		update_flags Z0
+	end
+	end
+	mov aregs.D scratch2
+	m68k_write_size Z 0
+	m68k_prefetch
+
+1100DDD0ZZMMMRRR and_ea_dn
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_src_ea M R Z
+	if Z = 2
+		switch M
+		case 0
+			#dreg src
+			cycles 4
+		case 1
+			#areg src
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	end
+	
+	and src dregs.D dregs.D Z
+	update_flags NZV0C0
+	m68k_prefetch
+
+1100XXX100000YYY abcd_dy_dx
+	local lowx_corf 8
+	local lowy_cmp 8
+	local res 8
+	lowx_corf = dregs.X & 0xF
+	lowy_cmp = dregs.Y & 0xF
+	adc lowx_corf lowy_cmp lowy_cmp
+	if lowy_cmp >=U 0xA
+		lowx_corf = 6
+		lowy_cmp = 0x9A
+	else
+		lowx_corf = 0
+		lowy_cmp = 0xA0
+	end
+	adc dregs.Y dregs.X res 0
+	update_flags XC
+	if cflag
+		lowx_corf |= 0x60
+		res += lowx_corf
+		update_flags NV
+	else
+		if res >=U lowy_cmp
+			lowx_corf |= 0x60
+		end
+		res += lowx_corf
+		update_flags XCNV
+	end
+	if res
+		update_flags Z0
+	end
+	dregs.X:0 = res
+	cycles 2
+	m68k_prefetch
+
+1100XXX100001YYY abcd_ay_ax
+	local lowx_corf 8
+	local lowy_cmp 8
+	local res 8
+	if Y = 7
+		aregs.Y -= 2
+	else
+		aregs.Y -= 1
+	end
+	#predec penalty on src only
+	cycles 2
+	scratch1 = aregs.Y
+	ocall read_8
+	scratch2 = scratch1
+	if X = 7
+		aregs.X -= 2
+	else
+		aregs.X -= 1
+	end
+	scratch1 = aregs.X
+	ocall read_8
+	lowx_corf = scratch1 & 0xF
+	lowy_cmp = scratch2 & 0xF
+	adc lowx_corf lowy_cmp lowy_cmp
+	if lowy_cmp >=U 0xA
+		lowx_corf = 6
+		lowy_cmp = 0x9A
+	else
+		lowx_corf = 0
+		lowy_cmp = 0xA0
+	end
+	adc scratch2 scratch1 res 0
+	update_flags XC
+	update_flags XC
+	if cflag
+		lowx_corf |= 0x60
+		res += lowx_corf
+		update_flags NV
+	else
+		if res >=U lowy_cmp
+			lowx_corf |= 0x60
+		end
+		res += lowx_corf
+		update_flags XCNV
+	end
+	if res
+		update_flags Z0
+	end
+	scratch1 = res
+	scratch2 = aregs.X
+	ocall write_8
+	m68k_prefetch
+
+1100XXX101000YYY exg_dn_dn
+	scratch1 = dregs.X
+	dregs.X = dregs.Y
+	dregs.Y = scratch1
+	cycles 2
+	m68k_prefetch
+
+1100XXX101001YYY exg_an_an
+	scratch1 = aregs.X
+	aregs.X = aregs.Y
+	aregs.Y = scratch1
+	cycles 2
+	m68k_prefetch
+
+1100XXX110001YYY exg_dn_an
+	scratch1 = dregs.X
+	dregs.X = aregs.Y
+	aregs.Y = scratch1
+	cycles 2
+	m68k_prefetch
+
+1100DDD011MMMRRR mulu
+	local a 16
+	local b 16
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_src_ea M R 1
+	#2-cycles per bit x 16, 2 for cleanup
+	cycles 34
+	#popcnt
+	a = src & 0b1010101010101010
+	a >>= 1
+	b = src & 0b0101010101010101
+	b += a
+	a = b & 0b1100110011001100
+	a >>= 2
+	b &= 0b0011001100110011
+	b += a
+	a = b & 0b1111000011110000
+	a >>= 4
+	b &= 0b0000111100001111
+	b += a
+	a = b & 0b1111111100000000
+	a >>= 8
+	b &= 0b0000000011111111
+	b += a
+	#2 cycles per set bit
+	b += b
+	cycles b
+	dregs.D = src * dregs.D
+	update_flags NZV0C0
+	m68k_prefetch
+
+1100DDD111MMMRRR muls
+	local a 16
+	local b 16
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_src_ea M R 1
+	#2-cycles per bit x 16, 2 for cleanup
+	cycles 34
+	#muls timing is essentially the same as muls, but it's based on the number of 0/1
+	#transitions rather than the number of 1 bits. xoring the value with itself shifted
+	#by one effectively sets one bit for every transition
+	b = src << 1
+	b ^= src
+	#popcnt
+	a = b & 0b1010101010101010
+	a >>= 1
+	b &= 0b0101010101010101
+	b += a
+	a = b & 0b1100110011001100
+	a >>= 2
+	b &= 0b0011001100110011
+	b += a
+	a = b & 0b1111000011110000
+	a >>= 4
+	b &= 0b0000111100001111
+	b += a
+	a = b & 0b1111111100000000
+	a >>= 8
+	b &= 0b0000000011111111
+	b += a
+	#2 cycles per set bit
+	b += b
+	cycles b
+	dregs.D = src *S dregs.D
+	update_flags NZV0C0
+	m68k_prefetch
+	
+1100DDD1ZZMMMRRR and_dn_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+	
+	and dregs.D dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+	
+00000010ZZMMMRRR andi
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		lsl prefetch 16 immed
+		m68k_prefetch
+		or prefetch immed immed
+		if M = 0
+			cycles 4
+		end
+	default
+		mov prefetch immed
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	and immed dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+
+0000001000111100 andi_to_ccr
+	#fetch immediate operand
+	m68k_prefetch
+	ccr &= prefetch
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+
+0000001001111100 andi_to_sr
+	#TODO: privilege violation exception if in user mode
+	#fetch immediate operand
+	m68k_prefetch
+	ccr &= prefetch
+	scratch1 = prefetch >> 8
+	status &= scratch1
+	check_user_mode_swap_ssp_usp
+	update_sync
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+	
+1011DDD1ZZMMMRRR eor_dn_ea
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+
+	if Z = 2
+		if M = 0
+			cycles 4
+		end
+	end
+
+	xor dregs.D dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+
+00001010ZZMMMRRR eori
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		lsl prefetch 16 immed
+		m68k_prefetch
+		or prefetch immed immed
+		if M = 0
+			cycles 4
+		end
+	default
+		mov prefetch immed
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	xor immed dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+	
+0000101000111100 eori_to_ccr
+	#fetch immediate operand
+	m68k_prefetch
+	ccr ^= prefetch
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+
+0000101001111100 eori_to_sr
+	#TODO: privilege violation exception if in user mode
+	#fetch immediate operand
+	m68k_prefetch
+	ccr ^= prefetch
+	scratch1 = prefetch >> 8
+	status ^= scratch1
+	check_user_mode_swap_ssp_usp
+	update_sync
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+	
+1000DDD0ZZMMMRRR or_ea_dn
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_src_ea M R Z
+
+	if Z = 2
+		switch M
+		case 0
+			#dreg
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	end
+
+	or src dregs.D dregs.D Z
+	update_flags NZV0C0
+	m68k_prefetch
+	
+1000DDD1ZZMMMRRR or_dn_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+	
+	or dregs.D dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+	
+00000000ZZMMMRRR ori
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		lsl prefetch 16 immed
+		m68k_prefetch
+		or prefetch immed immed
+		if M = 0
+			cycles 4
+		end
+	default
+		mov prefetch immed
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	or immed dst dst Z
+	update_flags NZV0C0
+	m68k_save_dst Z
+	m68k_prefetch
+
+0000000000111100 ori_to_ccr
+	#fetch immediate operand
+	m68k_prefetch
+	or prefetch ccr ccr
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+
+0000000001111100 ori_to_sr
+	#TODO: privilege violation exception if in user mode
+	#fetch immediate operand
+	m68k_prefetch
+	ccr |= prefetch
+	scratch1 = prefetch >> 8
+	status |= scratch1
+	update_sync
+	cycles 12 #TODO: where do these occur relative to fetches
+	m68k_prefetch
+
+1000YYY100000XXX sbcd_dx_dy
+	local lowx_corf 8
+	local lowy 8
+	local res 8
+	lowx_corf = dregs.X & 0xF
+	lowy = dregs.Y & 0xF
+	sbc lowx_corf lowy lowy
+	if lowy >=U 0x10
+		lowx_corf = 6
+	else
+		lowx_corf = 0
+	end
+	sbc dregs.X dregs.Y res 0
+	update_flags XC
+	if cflag
+		lowx_corf |= 0x60
+		res -= lowx_corf
+		update_flags NV
+	else
+		res -= lowx_corf
+		update_flags XCNV
+	end
+	if res
+		update_flags Z0
+	end
+	dregs.Y:0 = res
+	cycles 2
+	m68k_prefetch
+
+1000YYY100001XXX sbcd_ax_ay
+	local lowx_corf 8
+	local lowy 8
+	if X = 7
+		aregs.X -= 2
+	else
+		aregs.X -= 1
+	end
+	#predec penalty on src only
+	cycles 2
+	scratch1 = aregs.X
+	ocall read_8
+	scratch2 = scratch1
+	if Y = 7
+		aregs.Y -= 2
+	else
+		aregs.Y -= 1
+	end
+	scratch1 = aregs.Y
+	ocall read_8
+	lowy = scratch1 & 0xF
+	lowx_corf = scratch2 & 0xF
+	sbc lowx_corf lowy lowy
+	if lowy >=U 0x10
+		lowx_corf = 6
+	else
+		lowx_corf = 0
+	end
+	sbc scratch2 scratch1 scratch1 0
+	update_flags XC
+	if cflag
+		lowx_corf |= 0x60
+		scratch1:0 -= lowx_corf
+		update_flags NV
+	else
+		scratch1:0 -= lowx_corf
+		update_flags XCNV
+	end
+	scratch1 &= 0xFF
+	if scratch1
+		update_flags Z0
+	end
+	scratch2 = aregs.Y
+	ocall write_8
+	m68k_prefetch
+
+1000DDD011MMMRRR divu
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	m68k_fetch_src_ea M R 1
+	
+	if src = 0
+		cycles 4
+		update_flags N0Z0V0
+		m68k_trap 5
+	else
+		ccall divu context D src
+		m68k_prefetch
+	end
+	
+
+1000DDD111MMMRRR divs
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local tmp 32
+	m68k_fetch_src_ea M R 1
+	
+	if src = 0
+		cycles 4
+		update_flags N0Z0V0
+		m68k_trap 5
+	else
+		ccall divs context D src
+		m68k_prefetch
+	end
+	
+1001DDD0ZZMMMRRR sub_ea_dn
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_src_ea M R Z
+	if Z = 2
+		switch M
+		case 0
+			#dreg src
+			cycles 4
+		case 1
+			#areg src
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	end
+	
+	sub src dregs.D dregs.D Z
+	update_flags XNZVC
+	m68k_prefetch
+	
+1001DDD1ZZMMMRRR sub_dn_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+	
+	sub dregs.D dst dst Z
+	update_flags XNZVC
+	m68k_save_dst Z
+	m68k_prefetch
+
+1001AAAZ11MMMRRR suba
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local size 16
+	local ext_src 32
+	if Z
+		size = 2
+		switch M
+		case 0
+			#dreg src
+			cycles 4
+		case 1
+			#areg src
+			cycles 4
+		case 7
+			if R = 4
+				#immediate
+				cycles 4
+			else
+				cycles 2
+			end
+		default
+			cycles 2
+		end
+	else
+		size = 1
+		cycles 4
+	end
+	m68k_fetch_src_ea M R size
+	switch size
+	case 1
+	sext 32 src ext_src
+	meta src ext_src
+	end
+	
+	sub src aregs.A aregs.A
+	m68k_prefetch
+
+00000100ZZMMMRRR subi
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		lsl prefetch 16 immed
+		m68k_prefetch
+		or prefetch immed immed
+		if M = 0
+			cycles 4
+		end
+	default
+		mov prefetch immed
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	sub immed dst dst Z
+	update_flags XNZVC
+	m68k_save_dst Z
+	m68k_prefetch
+	
+0101III1ZZMMMRRR subq
+	invalid Z 3
+	invalid M 1 Z 0
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local src 32
+	switch I
+	case 0
+	mov 8 src
+	default
+	mov I src
+	end
+	
+	m68k_fetch_dst_ea M R Z
+	switch M
+	case 0
+		if Z = 2
+			cycles 4
+		end
+		sub src dst dst Z
+		update_flags XNZVC
+	case 1
+		cycles 4
+		sub src dst dst 2
+	default
+		sub src dst dst Z
+		update_flags XNZVC
+	end
+	m68k_save_dst Z
+	m68k_prefetch
+
+1001DDD1ZZ000SSS subx_dy_dx
+	invalid Z 3
+	sbc dregs.S dregs.D dregs.D Z
+	update_flags XNVC
+	switch Z
+	case 0
+		local tmp8 8
+		mov dregs.D tmp8
+		if tmp8
+			update_flags Z0
+		end
+	case 1
+		local tmp16 16
+		mov dregs.D tmp16
+		if tmp16
+			update_flags Z0
+		end
+	case 2
+		cycles 4
+		if dregs.D
+			update_flags Z0
+		end
+	end
+	m68k_prefetch
+
+1001DDD1ZZ001SSS subx_ay_ax
+	invalid Z 3
+	if Z
+		decsize Z aregs.S aregs.S
+	else
+		switch S
+		case 7
+			sub 2 aregs.S aregs.S
+		default
+			decsize Z aregs.S aregs.S
+		end
+	end
+	#predec penalty on src only
+	cycles 2
+	mov aregs.S scratch1
+	switch Z
+	case 0
+	ocall read_8
+	case 1
+	ocall read_16
+	case 2
+	m68k_read32
+	end
+	mov scratch1 scratch2
+	if Z
+		decsize Z aregs.D aregs.D
+	else
+		switch D
+		case 7
+			sub 2 aregs.D aregs.D
+		default
+			decsize Z aregs.D aregs.D
+		end
+	end
+	mov aregs.D scratch1
+	switch Z
+	case 0
+	ocall read_8
+	case 1
+	ocall read_16
+	case 2
+	m68k_read32
+	end
+	sbc scratch2 scratch1 scratch1 Z
+	update_flags XNVC
+	switch Z
+	case 0
+	local tmp8 8
+	mov dregs.D tmp8
+	if tmp8
+		update_flags Z0
+	end
+	case 1
+	local tmp16 16
+	mov dregs.D tmp16
+	if tmp16
+		update_flags Z0
+	end
+	case 2
+	if dregs.D
+		update_flags Z0
+	end
+	end
+	mov aregs.D scratch2
+	m68k_write_size Z 0
+	m68k_prefetch
+
+1110CCC0ZZ001RRR lsri
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	lsr dregs.R shift dregs.R Z
+	update_flags XNZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110CCC0ZZ101RRR lsr_dn
+	invalid Z 3
+	local shift 8
+	and dregs.C 63 shift
+	switch Z
+	case 2
+		if shift >=U 32
+			if shift = 32
+				lsr dregs.R 31 dregs.R Z
+				lsr dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 1
+		if shift >=U 16
+			if shift = 16
+				lsr dregs.R 15 dregs.R Z
+				lsr dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 0
+		if shift >=U 8
+			if shift = 8
+				lsr dregs.R 7 dregs.R Z
+				lsr dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	end
+	add shift shift shift
+	switch Z
+	case 2
+		add 4 shift shift
+	default
+		add 2 shift shift
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110001011MMMRRR lsr_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	lsr dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1110CCC0ZZ000RRR asri
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	asr dregs.R shift dregs.R Z
+	update_flags XNZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110CCC0ZZ100RRR asr_dn
+	invalid Z 3
+	local shift 32
+	and dregs.C 63 shift
+	switch Z
+	case 2
+		if shift >=U 32
+			asr dregs.R 31 dregs.R Z
+			asr dregs.R 1 dregs.R Z
+			update_flags NZV0
+			cflag = nflag
+			xflag = nflag
+		else
+			asr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 1
+		if shift >=U 16
+			asr dregs.R 15 dregs.R Z
+			asr dregs.R 1 dregs.R Z
+			update_flags NZV0
+			cflag = nflag
+			xflag = nflag
+		else
+			asr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 0
+		if shift >=U 8
+			asr dregs.R 7 dregs.R Z
+			asr dregs.R 1 dregs.R Z
+			update_flags NZV0
+			cflag = nflag
+			xflag = nflag
+		else
+			asr dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	end
+	shift += shift
+	switch Z
+	case 2
+		shift += 4
+	default
+		shift += 2
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+
+1110000011MMMRRR asr_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	asr dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+	
+1110CCC1ZZ001RRR lsli
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	lsl dregs.R shift dregs.R Z
+	update_flags XNZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110CCC1ZZ101RRR lsl_dn
+	invalid Z 3
+	local shift 8
+	and dregs.C 63 shift
+	switch Z
+	case 2
+		if shift >=U 32
+			if shift = 32
+				lsl dregs.R 31 dregs.R Z
+				lsl dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsl dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 1
+		if shift >=U 16
+			if shift = 16
+				lsl dregs.R 15 dregs.R Z
+				lsl dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsl dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	case 0
+		if shift >=U 8
+			if shift = 8
+				lsl dregs.R 7 dregs.R Z
+				lsl dregs.R 1 dregs.R Z
+				update_flags XN0Z1V0C
+			else
+				dregs.R:Z = 0
+				update_flags X0N0Z1V0C0
+			end
+		else
+			lsl dregs.R shift dregs.R Z
+			update_flags NZV0C
+			if shift
+				xflag = cflag
+			end
+		end
+	end
+	add shift shift shift
+	switch Z
+	case 2
+		add 4 shift shift
+	default
+		add 2 shift shift
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110001111MMMRRR lsl_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	lsl dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1110CCC1ZZ000RRR asli
+	invalid Z 3
+	local vtmp 8
+	local shift 8
+	vtmp = 0
+	switch C
+	case 0
+		shift = 8
+	default
+		shift = C
+	end
+	shift -= 1
+	loop shift
+		lsl dregs.R 1 dregs.R Z
+		update_flags V
+		vtmp |= vflag
+	end
+	shift += 1
+	lsl dregs.R 1 dregs.R Z
+	update_flags XNZVC
+	vflag |= vtmp
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+	
+1110CCC1ZZ100RRR asl_dn
+	invalid Z 3
+	local shift 8
+	local vtmp 8
+	and dregs.C 63 shift
+	vtmp = 0
+	if shift
+		shift -= 1
+		loop shift
+			lsl dregs.R 1 dregs.R Z
+			update_flags V
+			vtmp |= vflag
+		end
+		shift += 1
+		lsl dregs.R 1 dregs.R Z
+		update_flags XNZVC
+		vflag |= vtmp
+	else
+		cmp 0 dregs.R Z
+		update_flags NZV0C
+	end
+	shift += shift
+	switch Z
+	case 2
+		shift += 4
+	default
+		shift += 2
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the shift?
+	m68k_prefetch
+
+1110000111MMMRRR asl_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	lsl dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+00ZZRRRMMMEEESSS move
+	invalid Z 0
+	invalid M 1
+	invalid M 7 #not actually invalid, but will be handled separately due to DSL limitations
+	invalid E 7 S 5
+	invalid E 7 S 6
+	invalid E 7 S 7
+	local size 8
+	local memsrc 32
+	#move uses a different size format than most instructions
+	switch Z
+		case 1
+			mov 0 size
+		case 2
+			mov 2 size
+		case 3
+			mov 1 size
+	end
+	m68k_fetch_src_ea E S size
+	
+	if src_is_mem
+		#avoid clobbering src if we need scratch1
+		mov src memsrc
+		meta src memsrc
+	end
+	
+	cmp 0 src size
+	update_flags NZV0C0
+	
+	switch M
+		case 0
+		mov src dregs.R size
+		
+		case 2
+		mov aregs.R scratch2
+		mov src scratch1
+		m68k_write_size size 0
+		
+		case 3
+		mov aregs.R scratch2
+		mov src scratch1
+		switch R
+			case 7
+				if size
+					addsize size aregs.R aregs.R
+				else
+					addsize 1 aregs.R aregs.R
+				end
+			default
+				addsize size aregs.R aregs.R
+		end
+		m68k_write_size size 0
+		
+		case 4
+		mov src scratch1
+		switch R
+			case 7
+				if size
+					decsize size aregs.R aregs.R
+				else
+					decsize 1 aregs.R aregs.R
+				end
+			default
+				decsize size aregs.R aregs.R
+		end
+		mov aregs.R scratch2
+		m68k_write_size size 1
+		
+		case 5
+		m68k_prefetch
+		sext 32 prefetch scratch2
+		add aregs.R scratch2 scratch2
+		mov src scratch1
+		m68k_write_size size 0
+		
+		case 6
+		m68k_index_word
+		cycles 2
+		add aregs.R scratch1 scratch2
+		mov src scratch1
+		m68k_write_size size 0
+	end
+	m68k_prefetch
+
+
+00ZZ00M111EEESSS move_abs
+	invalid E 7 S 5
+	invalid E 7 S 6
+	invalid E 7 S 7
+	invalid Z 0
+	local size 8
+	local memsrc 32
+	#move uses a different size format than most instructions
+	switch Z
+	case 1
+		mov 0 size
+	case 2
+		mov 2 size
+	case 3
+		mov 1 size
+	end
+	m68k_fetch_src_ea E S size
+	
+	if src_is_mem
+		#avoid clobbering src if we need scratch1
+		mov src memsrc
+		meta src memsrc
+	end
+	
+	cmp 0 src size
+	update_flags NZV0C0
+	
+	switch M
+	case 0
+	m68k_prefetch
+	sext 32 prefetch scratch2
+	
+	case 1
+	m68k_prefetch
+	lsl prefetch 16 scratch2
+	m68k_prefetch
+	or prefetch scratch2 scratch2
+	end
+	mov src scratch1
+	m68k_write_size size 0
+	m68k_prefetch
+	
+00ZZRRR001EEESSS movea
+	local size 8
+	invalid Z 0
+	invalid Z 1
+	invalid E 7 S 5
+	invalid E 7 S 6
+	invalid E 7 S 7
+	switch Z
+	case 2
+		mov 2 size
+	case 3
+		mov 1 size
+	end
+	m68k_fetch_src_ea E S size
+	switch Z
+	case 2
+		mov src aregs.R
+	case 3
+		sext 32 src aregs.R
+	end
+	m68k_prefetch
+	
+0100010011MMMRRR move_to_ccr
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	m68k_fetch_src_ea M R 1
+	mov src ccr
+	cycles 8
+	m68k_prefetch
+
+0100011011MMMRRR move_to_sr
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#TODO: privilege violation exception if in user mode
+	m68k_fetch_src_ea M R 1
+	ccr = src
+	status = src >> 8
+	check_user_mode_swap_ssp_usp
+	update_sync
+	cycles 8
+	m68k_prefetch
+
+0100000011MMMRRR move_from_sr
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	m68k_fetch_dst_ea M R 1
+	lsl status 8 scratch1
+	or ccr scratch1 scratch1
+	mov scratch1 dst
+	if M
+		cycles 4
+	else
+		cycles 2
+	end
+	m68k_save_dst 1
+	m68k_prefetch
+
+01000000ZZMMMRRR negx
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	m68k_fetch_dst_ea M R Z
+	sbc dst 0 dst Z
+	update_flags XNVC
+	switch Z
+	case 0
+		local tmp8 8
+		tmp8 = dst
+		if tmp8
+			update_flags Z0
+		end
+	case 1
+		local tmp16 16
+		tmp16 = dst
+		if tmp16
+			update_flags Z0
+		end
+	case 2
+		local tmp32 32
+		if M = 0
+			cycles 2
+		end
+		tmp32 = dst
+		if dst
+			update_flags Z0
+		end
+	end
+	m68k_save_dst Z
+	m68k_prefetch
+
+01000010ZZMMMRRR clr
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_dst_ea M R Z
+	if Z = 2
+		if M = 0
+			#register clears have 2 cycle penalty for longword size
+			cycles 2
+		end
+	end
+	dst:Z = 0
+	update_flags N0Z1V0C0
+	m68k_save_dst Z
+	m68k_prefetch
+
+0100100000MMMRRR nbcd
+	local lowx_corf 8
+	local lowy_cmp 8
+	local res 8
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	m68k_fetch_dst_ea M R 0
+	lowx_corf = dst & 0xF
+	lowy_cmp = 0
+	sbc lowx_corf lowy_cmp lowy_cmp
+	if lowy_cmp >=U 0xA
+		lowx_corf = 6
+		lowy_cmp = 0xA6
+	else
+		lowx_corf = 0
+		lowy_cmp = 0xA0
+	end
+	res = 0
+	sbc dst res res
+	update_flags XC
+	if cflag
+		lowx_corf |= 0x60
+		res -= lowx_corf
+		update_flags NV
+	else
+		if res >=U lowy_cmp
+			lowx_corf |= 0x60
+		end
+		res -= lowx_corf
+		update_flags XCNV
+	end
+	if res
+		update_flags Z0
+	end
+	dst:0 = res
+	if M = 0
+		cycles 2
+	end
+	m68k_save_dst 0
+	m68k_prefetch
+
+00001100ZZMMMRRR cmpi
+	local immed 32
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	#fetch immediate operand
+	m68k_prefetch
+	switch Z
+	case 2
+		immed = prefetch << 16
+		m68k_prefetch
+		immed |= prefetch
+		if M = 0
+			cycles 2
+		end
+	default
+		immed = prefetch
+	end
+	#fetch dst EA
+	m68k_fetch_dst_ea M R Z
+	
+	cmp immed dst Z
+	update_flags NZVC
+	m68k_prefetch
+
+1011DDD1ZZ001SSS cmpm
+	invalid Z 3
+	scratch1 = aregs.S 
+	switch Z
+	case 0
+		ocall read_8
+	case 1
+		ocall read_16
+	case 2
+		m68k_read32
+	end
+	scratch2 = scratch1
+	if Z
+		addsize Z aregs.S aregs.S
+	else
+		if S = 7
+			aregs.S += 2
+		else
+			aregs.S += 1
+		end
+	end
+	scratch1 = aregs.D
+	switch Z
+	case 0
+		ocall read_8
+	case 1
+		ocall read_16
+	case 2
+		m68k_read32
+	end
+	if Z
+		addsize Z aregs.D aregs.D
+	else
+		if D = 7
+			aregs.D += 2
+		else
+			aregs.D += 1
+		end
+	end
+	cmp scratch2 scratch1 Z
+	update_flags NZVC
+	m68k_prefetch
+
+1011DDD0ZZMMMRRR cmp
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 3
+	m68k_fetch_src_ea M R Z
+	
+	if Z = 2
+		cycles 2
+	end
+	
+	cmp src dregs.D Z
+	update_flags NZVC
+	m68k_prefetch
+
+1011DDDZ11MMMRRR cmpa
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local size 16
+	local ext_src 32
+	if Z
+		size = 2
+	else
+		size = 1
+	end
+	m68k_fetch_src_ea M R size
+	cycles 2
+	if size = 1
+		sext 32 src ext_src
+		meta src ext_src
+	end
+	cmp src aregs.D
+	update_flags NZVC
+	m68k_prefetch
+
+0000100000MMMRRR btsti
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	m68k_prefetch
+	if M
+		tmp = scratch1 & 7
+		meta size 0
+	else
+		cycles 2
+		tmp = scratch1 & 31
+		meta size 2
+	end
+	tmp = 1 << tmp
+	m68k_fetch_src_ea M R size
+	tmp &= src
+	update_flags Z
+	m68k_prefetch
+
+0000100001MMMRRR bchgi
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	m68k_prefetch
+	if M
+		tmp = scratch1 & 7
+		meta size 0
+	else
+		tmp = scratch1 & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 4
+		else
+			cycles 2
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	dst ^= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000100010MMMRRR bclri
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	m68k_prefetch
+	if M
+		tmp = scratch1 & 7
+		meta size 0
+	else
+		tmp = scratch1 & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 6
+		else
+			cycles 4
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	tmp = ~tmp
+	dst &= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000100011MMMRRR bseti
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	m68k_prefetch
+	if M
+		tmp = scratch1 & 7
+		meta size 0
+	else
+		tmp = scratch1 & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 4
+		else
+			cycles 2
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	dst |= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000SSS100MMMRRR btst_dn
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	if M
+		tmp = dregs.S & 7
+		meta size 0
+	else
+		tmp = dregs.S & 31
+		meta size 2
+		cycles 2
+	end
+	tmp = 1 << tmp
+	m68k_fetch_src_ea M R size
+	tmp &= src
+	update_flags Z
+	m68k_prefetch
+
+0000SSS101MMMRRR bchg_dn
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	if M
+		tmp = dregs.S & 7
+		meta size 0
+	else
+		tmp = dregs.S & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 4
+		else
+			cycles 2
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	dst ^= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000SSS110MMMRRR bclr_dn
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	if M
+		tmp = dregs.S & 7
+		meta size 0
+	else
+		tmp = dregs.S & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 6
+		else
+			cycles 4
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	tmp = ~tmp
+	dst &= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000SSS111MMMRRR bset_dn
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+
+	local tmp 32
+	local tmp2 32
+	if M
+		tmp = dregs.S & 7
+		meta size 0
+	else
+		tmp = dregs.S & 31
+		meta size 2
+		if tmp >=U 16
+			cycles 4
+		else
+			cycles 2
+		end
+	end
+	tmp = 1 << tmp
+	m68k_fetch_dst_ea M R size
+	tmp2 = tmp & dst
+	update_flags Z
+	dst |= tmp
+	m68k_save_dst size
+	m68k_prefetch
+
+0000DDD10Z001AAA movep_ay_dx
+	local address 32
+	m68k_prefetch
+	sext 32 scratch1 scratch1
+	scratch1 += aregs.A
+	address = scratch1 + 2
+	ocall read_8
+	dregs.D:1 = scratch1 << 8
+	scratch1 = address
+	ocall read_8
+	dregs.D:0 = scratch1
+	if Z
+		address += 2
+		scratch1 = address
+		dregs.D <<= 16
+		ocall read_8
+		dregs.D:1 = scratch1 << 8
+		scratch1 = address + 2
+		ocall read_8
+		dregs.D:0 = scratch1
+	end
+	m68k_prefetch
+
+0000DDD11Z001AAA movep_dx_ay
+	m68k_prefetch
+	sext 32 scratch1 scratch1
+	scratch2 = scratch1 + aregs.A
+	if Z
+		scratch1 = dregs.D >> 24
+		ocall write_8
+		scratch2 += 2
+		scratch1 = dregs.D >> 16
+		ocall write_8
+		scratch2 += 2
+	end
+	scratch1 = dregs.D >> 8
+	ocall write_8
+	scratch2 += 2
+	scratch1 = dregs.D
+	ocall write_8
+	m68k_prefetch
+
+01000100ZZMMMRRR neg
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R Z
+	dst:Z = -dst
+	update_flags XNZVC
+	if Z = 2
+		if M = 0
+			cycles 2
+		end
+	end
+	m68k_save_dst Z
+	m68k_prefetch
+
+01000110ZZMMMRRR not
+	invalid Z 3
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R Z
+	dst:Z = ~dst
+	update_flags NZV0C0
+	if Z = 2
+		if M = 0
+			cycles 2
+		end
+	end
+	m68k_save_dst Z
+	m68k_prefetch
+
+01001000ZZ000RRR ext
+	invalid Z 0
+	invalid Z 1
+	if Z = 3
+		meta bits 32
+	else
+		meta bits 16
+	end
+	sext bits dregs.R dregs.R
+	update_flags NZV0C0
+	m68k_prefetch
+
+0100101011MMMRRR tas
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 0
+	cmp 0 dst 0
+	update_flags NZV0C0
+	dst |= 0x80
+	if M
+		cycles 2
+		ocall rmw_writeback
+	end
+	m68k_prefetch
+
+010011100100VVVV trap
+	local vector 32
+	scratch1 = pc
+	vector = V + 32
+	m68k_trap vector
+
+0100111001010RRR link
+	a7 -= 4
+	scratch2 = a7
+	#TODO: confirm order of fetch and write
+	m68k_write32 aregs.R
+	m68k_prefetch
+	aregs.R = a7
+	sext 32 scratch1 scratch1
+	a7 += scratch1
+	m68k_prefetch
+
+0100111001011RRR unlk
+	a7 = aregs.R
+	scratch1 = a7
+	m68k_read32
+	a7 += 4
+	aregs.R = scratch1
+	m68k_prefetch
+
+0100100001000RRR swap
+	ror dregs.R 16 dregs.R
+	update_flags NZV0C0
+	m68k_prefetch
+	
+m68k_calc_ea
+	arg mode 16
+	arg reg 16
+	arg index_penalty 32
+	
+	switch mode
+	case 2
+		#address reg indirect
+		meta ea aregs.reg
+	case 3
+		#postincrement
+		meta ea aregs.reg
+	case 4
+		#predecrement
+		#note: this case is only used when m68k_calc_ea
+		#is called from movem_reg_to_mem which does its own decrementing
+		meta ea aregs.reg
+	case 5
+		#displacement
+		m68k_prefetch
+		sext 32 prefetch scratch1
+		scratch1 += aregs.reg
+		meta ea scratch1
+	case 6
+		#index
+		m68k_index_word
+		cycles index_penalty
+		scratch1 += aregs.reg
+		meta ea scratch1
+	case 7
+		switch reg
+		case 0
+			#absolute short
+			m68k_prefetch
+			sext 32 prefetch scratch1
+		case 1
+			#absoltue long
+			m68k_prefetch
+			scratch2 = prefetch << 16
+			m68k_prefetch
+			scratch1 = scratch2 | prefetch
+		case 2
+			#pc displacement
+			m68k_prefetch
+			sext 32 prefetch scratch1
+			scratch1 += pc
+			scratch1 -= 2
+		case 3
+			#pc indexed
+			m68k_index_word
+			cycles index_penalty
+			scratch1 += pc
+			scratch1 -= 2
+		end
+		meta ea scratch1
+	end
+
+0100100001MMMRRR pea
+	invalid M 0
+	invalid M 1
+	invalid M 3
+	invalid M 4
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_calc_ea M R 4
+	scratch2 = a7 - 4
+	m68k_write32_lowfirst ea
+	a7 -= 4
+	
+	m68k_prefetch
+
+0100DDDZZ0MMMRRR chk
+	invalid M 1
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	invalid Z 0
+	invalid Z 1
+	local tmp 8
+	local src_alt 32
+	switch Z
+	case 2
+		meta size 2
+	case 3
+		meta size 1
+	end
+	m68k_fetch_src_ea M R size
+	if src_is_mem
+		src_alt = src
+		meta src src_alt
+	end
+	m68k_prefetch
+	cmp dregs.D src size
+	update_flags NZVC
+	tmp = vflag
+	tmp |= nflag
+	cmp 0 dregs.D size
+	update_flags NZV0C0
+	if tmp
+		# D > src (signed)
+		pc -= 2
+		m68k_trap 6
+	else
+		cycles 2
+		if nflag
+			# D < 0
+			pc -= 2
+			m68k_trap 6
+		else
+			cycles 2
+		end
+	end
+
+0100DDD111MMMRRR lea
+	invalid M 0
+	invalid M 1
+	invalid M 3
+	invalid M 4
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_calc_ea M R 4
+	aregs.D = ea
+	
+	m68k_prefetch
+
+01001010ZZMMMRRR tst
+	invalid Z 3
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R Z
+	
+	cmp 0 dst Z
+	update_flags NZV0C0
+	m68k_prefetch
+
+0100111001110000 reset
+	if reset_handler
+	pcall reset_handler m68k_reset_handler context
+	end
+	cycles 128
+	m68k_prefetch
+
+0100111001110001 nop
+	m68k_prefetch
+
+0100111001110010 stop
+	if stopped
+	else
+		mov pc scratch1
+		ocall read_16
+		pc += 2
+		ccr = scratch1
+		status = scratch1 >> 8
+		check_user_mode_swap_ssp_usp
+		update_sync
+		stopped = 1
+	end
+	loop
+		cycles 4
+		if cycles >=U int_cycle
+			break
+		end
+		if cycles >=U target_cycle
+			break
+		end
+	end
+
+0100111001110011 rte
+	#TODO: privilege violation exception if in user mode
+	#Read saved SR
+	scratch1 = a7
+	ocall read_16
+	a7 += 2
+	ccr = scratch1
+	status = scratch1 >> 8
+	#Read saved PC
+	scratch1 = a7
+	m68k_read32
+	a7 += 4
+	pc = scratch1
+	
+	check_user_mode_swap_ssp_usp
+	cycles 4
+	update_sync
+	m68k_prefetch
+
+0100111001110101 m68k_rts
+	scratch1 = a7
+	m68k_read32
+	a7 += 4
+	pc = scratch1
+	
+	cycles 4
+	m68k_prefetch
+
+0100111001110110 trapv
+	if vflag
+		m68k_trap 7
+	else
+		m68k_prefetch
+	end
+
+0100111001110111 rtr
+	#Read saved CCR
+	scratch1 = a7
+	ocall read_16
+	a7 += 2
+	ccr = scratch1
+	#Read saved PC
+	scratch1 = a7
+	m68k_read32
+	a7 += 4
+	pc = scratch1
+	
+	cycles 4
+	m68k_prefetch
+
+0100111010MMMRRR jsr
+	invalid M 0
+	invalid M 1
+	invalid M 3
+	invalid M 4
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local tmp 32
+	
+	m68k_calc_ea M R 2
+	tmp = ea
+	
+	a7 -= 4
+	scratch2 = a7
+	m68k_write32 pc
+	
+	pc = tmp
+	
+	cycles 4
+	m68k_prefetch
+
+0100111011MMMRRR jmp
+	invalid M 0
+	invalid M 1
+	invalid M 3
+	invalid M 4
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_calc_ea M R 2
+	pc = ea
+	
+	cycles 4
+	m68k_prefetch
+
+m68k_movem_reg_to_mem
+	arg reglist 16
+	arg mask 16
+	arg reg 32
+	arg size 16
+	
+	scratch1 = reglist & mask
+	if scratch1
+		scratch2 = addr
+		scratch1 = reg
+		m68k_write_size size 1
+		addsize size addr addr
+	end
+
+m68k_movem_reg_to_mem_dec
+	arg reglist 16
+	arg mask 16
+	arg reg 32
+	arg size 16
+	
+	scratch1 = reglist & mask
+	if scratch1
+		decsize size addr addr
+		scratch2 = addr
+		scratch1 = reg
+		m68k_write_size size 1
+	end
+	
+
+010010001ZMMMRRR movem_reg_to_mem
+	invalid M 0
+	invalid M 1
+	invalid M 3
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local reglist 16
+	local address 32
+	local sz 16
+	sz = Z + 1
+	
+	m68k_prefetch
+	reglist = scratch1
+	
+	m68k_calc_ea M R 2
+	address = ea
+	meta addr address
+	if M = 4
+		m68k_movem_reg_to_mem_dec reglist 1 a7 sz
+		m68k_movem_reg_to_mem_dec reglist 2 a6 sz
+		m68k_movem_reg_to_mem_dec reglist 4 a5 sz
+		m68k_movem_reg_to_mem_dec reglist 8 a4 sz
+		m68k_movem_reg_to_mem_dec reglist 16 a3 sz
+		m68k_movem_reg_to_mem_dec reglist 32 a2 sz
+		m68k_movem_reg_to_mem_dec reglist 64 a1 sz
+		m68k_movem_reg_to_mem_dec reglist 128 a0 sz
+		m68k_movem_reg_to_mem_dec reglist 256 d7 sz
+		m68k_movem_reg_to_mem_dec reglist 512 d6 sz
+		m68k_movem_reg_to_mem_dec reglist 1024 d5 sz
+		m68k_movem_reg_to_mem_dec reglist 2048 d4 sz
+		m68k_movem_reg_to_mem_dec reglist 4096 d3 sz
+		m68k_movem_reg_to_mem_dec reglist 8192 d2 sz
+		m68k_movem_reg_to_mem_dec reglist 16384 d1 sz
+		m68k_movem_reg_to_mem_dec reglist 32768 d0 sz
+		ea = address
+	else
+		m68k_movem_reg_to_mem reglist 1 d0 sz
+		m68k_movem_reg_to_mem reglist 2 d1 sz
+		m68k_movem_reg_to_mem reglist 4 d2 sz
+		m68k_movem_reg_to_mem reglist 8 d3 sz
+		m68k_movem_reg_to_mem reglist 16 d4 sz
+		m68k_movem_reg_to_mem reglist 32 d5 sz
+		m68k_movem_reg_to_mem reglist 64 d6 sz
+		m68k_movem_reg_to_mem reglist 128 d7 sz
+		m68k_movem_reg_to_mem reglist 256 a0 sz
+		m68k_movem_reg_to_mem reglist 512 a1 sz
+		m68k_movem_reg_to_mem reglist 1024 a2 sz
+		m68k_movem_reg_to_mem reglist 2048 a3 sz
+		m68k_movem_reg_to_mem reglist 4096 a4 sz
+		m68k_movem_reg_to_mem reglist 8192 a5 sz
+		m68k_movem_reg_to_mem reglist 16384 a6 sz
+		m68k_movem_reg_to_mem reglist 32768 a7 sz
+	end
+	m68k_prefetch
+
+m68k_movem_mem_to_dreg
+	arg reglist 16
+	arg mask 16
+	arg reg 32
+	arg size 16
+	
+	scratch1 = reglist & mask
+	if scratch1
+		scratch1 = addr
+		if sz = 1
+			ocall read_16
+			sext 32 scratch1 dregs.reg
+		else
+			m68k_read32
+			dregs.reg = scratch1
+		end
+		addsize size addr addr
+	end
+
+m68k_movem_mem_to_areg
+	arg reglist 16
+	arg mask 16
+	arg reg 32
+	arg size 16
+	
+	scratch1 = reglist & mask
+	if scratch1
+		scratch1 = addr
+		if sz = 1
+			ocall read_16
+			sext 32 scratch1 aregs.reg
+		else
+			m68k_read32
+			aregs.reg = scratch1
+		end
+		addsize size addr addr
+	end
+	
+010011001ZMMMRRR movem_mem_to_reg
+	invalid M 0
+	invalid M 1
+	invalid M 4
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	local reglist 16
+	local address 32
+	local sz 16
+	sz = Z + 1
+	
+	m68k_prefetch
+	reglist = scratch1
+	
+	m68k_calc_ea M R 2
+	address = ea
+	meta addr address
+	
+	m68k_movem_mem_to_dreg reglist 1 0 sz
+	m68k_movem_mem_to_dreg reglist 2 1 sz
+	m68k_movem_mem_to_dreg reglist 4 2 sz
+	m68k_movem_mem_to_dreg reglist 8 3 sz
+	m68k_movem_mem_to_dreg reglist 16 4 sz
+	m68k_movem_mem_to_dreg reglist 32 5 sz
+	m68k_movem_mem_to_dreg reglist 64 6 sz
+	m68k_movem_mem_to_dreg reglist 128 7 sz
+	m68k_movem_mem_to_areg reglist 256 0 sz
+	m68k_movem_mem_to_areg reglist 512 1 sz
+	m68k_movem_mem_to_areg reglist 1024 2 sz
+	m68k_movem_mem_to_areg reglist 2048 3 sz
+	m68k_movem_mem_to_areg reglist 4096 4 sz
+	m68k_movem_mem_to_areg reglist 8192 5 sz
+	m68k_movem_mem_to_areg reglist 16384 6 sz
+	m68k_movem_mem_to_areg reglist 32768 7 sz
+	#dummy read
+	scratch1 = address
+	ocall read_16
+	if M = 3
+		ea = address
+	end
+	
+	m68k_prefetch
+
+0100111001100RRR move_to_usp
+	#TODO: trap if not in supervisor mode
+	other_sp = aregs.R
+	m68k_prefetch
+
+0100111001101RRR move_from_usp
+	#TODO: trap if not in supervisor mode
+	aregs.R = other_sp
+	m68k_prefetch
+
+0111RRR0IIIIIIII moveq
+	nospecialize I
+	local tmp 32
+	sext 16 I tmp
+	sext 32 tmp dregs.R
+	cmp 0 dregs.R
+	update_flags NZV0C0
+	m68k_prefetch
+
+0110000100000000 bsr_w
+	#mid-instruction timing isn't quite right
+	#becuase I'm only emulating a 1-word prefetch buffer instead of 2
+	local offset 32
+	m68k_prefetch
+	sext 32 prefetch offset
+	
+	a7 -= 4
+	scratch2 = a7
+	m68k_write32 pc
+	
+	pc += offset
+	pc -= 2
+	
+	cycles 2
+	m68k_prefetch
+	
+	
+01100001DDDDDDDD bsr
+	nospecialize D
+	#mid-instruction timing isn't quite right
+	#becuase I'm only emulating a 1-word prefetch buffer instead of 2
+	local offset 32
+	sext 16 D offset
+	sext 32 offset offset
+	
+	a7 -= 4
+	scratch2 = a7
+	m68k_write32 pc
+	
+	pc += offset
+	
+	cycles 6
+	m68k_prefetch
+
+m68k_check_cond
+	arg cond 16
+	local invert 8
+	switch cond
+	case 0
+		#true
+		meta istrue 1
+	case 1
+		#false
+		meta istrue 0
+	case 2
+		#high
+		meta istrue invert
+		invert = zflag | cflag
+		invert = !invert
+	case 3
+		#low or same
+		meta istrue invert
+		invert = zflag | cflag
+	case 4
+		#carry clear
+		meta istrue invert
+		invert = !cflag
+	case 5
+		#carry set
+		meta istrue cflag
+	case 6
+		#not equal
+		meta istrue invert
+		invert = !zflag
+	case 7
+		#equal
+		meta istrue zflag
+	case 8
+		#overflow clear
+		meta istrue invert
+		invert = !vflag
+	case 9
+		#overflow set
+		meta istrue vflag
+	case 10
+		#plus
+		meta istrue invert
+		invert = !nflag
+	case 11
+		#minus
+		meta istrue nflag 
+	case 12
+		#greater or equal
+		meta istrue invert
+		invert = nflag - vflag
+		invert = !invert
+	case 13
+		#less
+		meta istrue invert
+		invert = nflag - vflag
+	case 14
+		#greater
+		meta istrue invert
+		invert = vflag ^ nflag
+		invert |= zflag
+		invert = !invert
+	case 15
+		#less or equal
+		meta istrue invert
+		invert = vflag ^ nflag
+		invert |= zflag
+	end
+
+0101CCCC11MMMDDD scc
+	invalid M 1
+	invalid M 7 D 2
+	invalid M 7 D 3
+	invalid M 7 D 4
+	invalid M 7 D 5
+	invalid M 7 D 6
+	invalid M 7 D 7
+	m68k_fetch_dst_ea M D 0
+	m68k_check_cond C
+	if istrue
+		if M = 0
+			cycles 2
+		end
+		dst:0 = 0xFF
+	else
+		dst:0 = 0
+	end
+	m68k_save_dst 0
+	m68k_prefetch
+
+0110CCCC00000000 bcc_w
+	#mid-instruction timing isn't quite right
+	#becuase I'm only emulating a 1-word prefetch buffer instead of 2
+	local offset 32
+	m68k_prefetch
+	m68k_check_cond C
+	if istrue
+	
+		sext 32 prefetch offset
+		pc += offset
+		pc -= 2
+		cycles 2
+	else
+		cycles 4
+	end
+	m68k_prefetch
+
+0110CCCCDDDDDDDD bcc
+	nospecialize D
+	#mid-instruction timing isn't quite right
+	#becuase I'm only emulating a 1-word prefetch buffer instead of 2
+	local offset 32
+	m68k_check_cond C
+	if istrue
+		sext 16 D offset
+		sext 32 offset offset
+		
+		pc += offset
+		
+		cycles 6
+	else
+		cycles 4
+	end
+	m68k_prefetch
+
+0101CCCC11001RRR dbcc
+	local offset 32
+	local tmp 16
+	m68k_prefetch
+	m68k_check_cond C
+	if istrue
+		cycles 4
+	else
+		dregs.R:1 -= 1
+		tmp = dregs.R
+		if tmp = 65535
+			cycles 6
+		else
+			sext 32 prefetch offset
+			pc += offset
+			pc -= 2
+			cycles 2
+		end
+	end
+	m68k_prefetch
+
+1110CCC0ZZ011RRR rori
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	ror dregs.R shift dregs.R Z
+	update_flags NZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110CCC0ZZ111RRR ror_dn
+	invalid Z 3
+	local shift 8
+	shift = dregs.C & 63
+	ror dregs.R shift dregs.R Z
+	update_flags NZV0C
+	shift += shift
+	switch Z
+	case 2
+		shift += 4
+	default
+		shift += 2
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110011011MMMRRR ror_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	ror dst 1 dst 1
+	update_flags NZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1110CCC1ZZ011RRR roli
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	rol dregs.R shift dregs.R Z
+	update_flags NZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110CCC1ZZ111RRR rol_dn
+	invalid Z 3
+	local shift 8
+	shift = dregs.C & 63
+	rol dregs.R shift dregs.R Z
+	update_flags NZV0C
+	shift += shift
+	switch Z
+	case 2
+		shift += 4
+	default
+		shift += 2
+	end
+	cycles shift
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110011111MMMRRR rol_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	rol dst 1 dst 1
+	update_flags NZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1110CCC0ZZ010RRR roxri
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	rrc dregs.R shift dregs.R Z
+	update_flags XNZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110CCC0ZZ110RRR roxr_dn
+	invalid Z 3
+	local shift 8
+	local cycle_shift 8
+	cycle_shift = dregs.C & 63
+	switch Z
+	case 2
+		meta max_shift 31
+	case 1
+		meta max_shift 15
+	case 0
+		meta max_shift 7
+	end
+	shift = cycle_shift
+	if shift
+		loop
+			if max_shift >=U shift
+				rrc dregs.R shift dregs.R Z
+				update_flags XNZV0C
+				break
+			else
+				rrc dregs.R max_shift dregs.R Z
+				update_flags X
+				shift -= max_shift
+			end
+		end
+	else
+		cflag = xflag
+		cmp 0 dregs.R Z
+		update_flags NZV0
+	end
+	cycle_shift += cycle_shift
+	switch Z
+	case 2
+		cycle_shift += 4
+	default
+		cycle_shift += 2
+	end
+	cycles cycle_shift
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110010011MMMRRR roxr_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	rrc dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1110CCC1ZZ010RRR roxli
+	invalid Z 3
+	switch C
+	case 0
+		meta shift 8
+	default
+		meta shift C
+	end
+	rlc dregs.R shift dregs.R Z
+	update_flags XNZV0C
+	local cyc 32
+	cyc = shift + shift
+	switch Z
+	case 2
+		cyc += 4
+	default
+		cyc += 2
+	end
+	cycles cyc
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110CCC1ZZ110RRR roxl_dn
+	invalid Z 3
+	local shift 8
+	local cycle_shift 8
+	cycle_shift = dregs.C & 63
+	switch Z
+	case 2
+		meta max_shift 31
+	case 1
+		meta max_shift 15
+	case 0
+		meta max_shift 7
+	end
+	shift = cycle_shift
+	if shift
+		loop
+			if max_shift >=U shift
+				rlc dregs.R shift dregs.R Z
+				update_flags XNZV0C
+				break
+			else
+				rlc dregs.R max_shift dregs.R Z
+				update_flags X
+				shift -= max_shift
+			end
+		end
+	else
+		cflag = xflag
+		cmp 0 dregs.R Z
+		update_flags NZV0
+	end
+	cycle_shift += cycle_shift
+	switch Z
+	case 2
+		cycle_shift += 4
+	default
+		cycle_shift += 2
+	end
+	cycles cycle_shift
+	#TODO: should this happen before or after the majority of the rotate?
+	m68k_prefetch
+
+1110010111MMMRRR roxl_ea
+	invalid M 0
+	invalid M 1
+	invalid M 7 R 2
+	invalid M 7 R 3
+	invalid M 7 R 4
+	invalid M 7 R 5
+	invalid M 7 R 6
+	invalid M 7 R 7
+	
+	m68k_fetch_dst_ea M R 1
+	rlc dst 1 dst 1
+	update_flags XNZV0C
+	m68k_save_dst 1
+	m68k_prefetch
+
+1010XXXXXXXXXXXX line_a
+	nospecialize X
+	#TODO cycle counts
+	pc -= 2
+	m68k_trap 10
+
+1111XXXXXXXXXXXX line_f
+	nospecialize X
+	#TODO cycle counts
+	pc -= 2
+	m68k_trap 11
+
+XXXXXXXXXXXXXXXX illegal
+	nospecialize X
+	#TODO cycle counts
+	pc -= 2
+	m68k_trap 4

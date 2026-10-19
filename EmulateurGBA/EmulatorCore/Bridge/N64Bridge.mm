@@ -76,7 +76,20 @@
 #include <string>
 #include <vector>
 
+#include <compression.h>
 #import <os/log.h>
+#include <os/proc.h>
+#if DEBUG
+#include <mach/mach.h>
+#endif
+
+// Ours, from Vendor/n64-ios/patches/0008 (exported as n64_retro_* through
+// n64_symbols.h like the rest of the API). See the Rewind section.
+extern "C" {
+RETRO_API bool retro_serialize_in_frame(void *data, size_t size);
+RETRO_API int retro_serialize_in_frame_result(void);
+RETRO_API void retro_serialize_in_frame_cancel(void);
+}
 
 const NSInteger N64MaxBufferWidth  = 640;
 const NSInteger N64MaxBufferHeight = 576;
@@ -98,18 +111,36 @@ static const size_t kAudioRingFrames = 16384;
 /// is a pad nobody presses, as in RetroArch.
 static const unsigned kN64Ports = 4;
 
-/// Rewind spacing and ceiling.
-///
-/// `retro_serialize_size()` is FIXED at 16,793,412 bytes, read in the core's
-/// source (the RDRAM dominates it: 8 MB with the Expansion Pak, which is on).
-/// Whole snapshots at five-second spacing therefore cost 16 MB per five
-/// seconds. The ceiling below admits two, the present and five seconds back,
-/// which is the "coarsest core's five seconds" floor the rewind depths are
-/// built on. Reaching the Pro maximum of thirty seconds on this console needs
-/// deltas between snapshots, as MelonDSBridge already does for the DS's 19 MB
-/// states; whole snapshots would cost 118 MB.
+/// Rewind. The design and the measurements behind these numbers are in the
+/// Rewind section at the end of the file.
 static const NSInteger kRewindSecondsPerSnapshot = 5;
-static const size_t kRewindByteCeiling = 34u * 1024u * 1024u;
+static const size_t kRewindBlock = 4096;
+/// Ceiling on the packed history. Measured deltas pack to well under 1 MB, so
+/// this is a guard against a game nobody measured, not a working figure: past
+/// it the OLDEST steps go, and the depth shrinks rather than the memory grow.
+static const size_t kRewindHistoryByteCeiling = 48u * 1024u * 1024u;
+/// What the app must still have free (os_proc_available_memory) for the rewind
+/// to hold memory at all. Below it the history is dropped, and the two state
+/// buffers are never allocated: a shorter rewind, never a jetsam.
+static const size_t kRewindMemoryReserve = 128u * 1024u * 1024u;
+/// A snapshot adds about 2.3 ms to the frame it lands in (host measurement,
+/// patch 0008). It is asked for after a frame that left at least this much of
+/// the budget unused...
+static const double kRewindSnapshotHeadroomMs = 4.0;
+/// ...or after this many frames of waiting for one, whatever the cost: a
+/// snapshot one second late is worth more than none.
+static const NSInteger kRewindDueDeadlineFrames = 60;
+
+/// One rewind step: the OLD contents of every block that changed between two
+/// snapshots, so that applying it to the newer state gives back the older one.
+typedef struct {
+    uint32_t *blocks;       // block indices, `count` of them, ascending
+    uint8_t *packed;        // their old contents, LZ4 or as they were
+    size_t packedLength;
+    size_t rawLength;       // the old contents' length once unpacked
+    uint32_t count;
+    bool compressed;
+} N64RewindStep;
 
 /// Diagnostics for bringing this console up, DEBUG only (see PCSXBridge).
 #if DEBUG
@@ -339,10 +370,105 @@ static int16_t N64ClampAxis(float v) {
 /// true). The app never offers one, since states are stored per game, so the
 /// cost of reproducing the core's own hash of the byte-swapped cartridge is
 /// not paid for a case that cannot be reached.
-static BOOL N64StateLooksValid(NSData *data) {
+static BOOL N64StateLooksValid(NSData *data, NSUInteger length) {
     static const char kMagic[8] = { 'M', '6', '4', '+', 'S', 'A', 'V', 'E' };
-    return data.length == retro_serialize_size()
+    return data.length == length && length >= sizeof(kMagic)
         && memcmp(data.bytes, kMagic, sizeof(kMagic)) == 0;
+}
+
+/// A state slot's file, from 1.3.4 on: this header, then the state packed with
+/// LZFSE (Apple's Compression library, already linked for the rewind's LZ4).
+///
+/// WHY. A state is a fixed 16,793,412 bytes whatever the game uses, and the
+/// five manual slots sync to iCloud: up to 84 MB of a player's iCloud per game,
+/// uploaded each time a slot is written. Most of a state is two 4 MB address
+/// tables that are nearly empty and the unused part of RDRAM; packed, a state
+/// is a fraction of that (homebrew measured 26x to 209x; a commercial game
+/// fills more of RDRAM, so less). Saving costs the packing, on the save queue.
+///
+/// What is in the file never depends on how it is read back: the packed bytes
+/// unpack to exactly the state the core wrote. A slot written before 1.3.4 is
+/// the bare state, starting "M64+SAVE", and loads as it always did. A 1.3.3
+/// app given a packed slot (iCloud, another device not yet updated) refuses
+/// it at its size check, cleanly, as the DS's 1.3.2 does with 13.1 states.
+///
+/// THE HEADER: the magic, the state's length, and a digest of the state. LZFSE
+/// carries no checksum, and one damaged byte in a packed file unpacks into a
+/// full-size state that differs from the saved one from there on, which the
+/// core would take as it is (checked on the reference LZFSE, 2026-10-07). The
+/// digest is compared after unpacking, so a damaged slot is refused, never
+/// loaded.
+static const char kN64PackedStateMagic[8] = { 'R', 'P', 'N', '6', '4', 'Z', '1', 0 };
+static const size_t kN64PackedStateHeader = sizeof(kN64PackedStateMagic) + 2 * sizeof(uint64_t);
+
+/// 64 bits over the state, a word at a time. Every step is a bijection of the
+/// running value for a given word, so a state that differs from the saved one
+/// in any single word always gives another digest. Not a security measure:
+/// it tells a damaged file from a good one.
+static uint64_t N64StateDigest(const uint8_t *bytes, size_t length) {
+    uint64_t h = 0xcbf29ce484222325ULL;
+    size_t i = 0;
+    for (; i + sizeof(uint64_t) <= length; i += sizeof(uint64_t)) {
+        uint64_t word;
+        memcpy(&word, bytes + i, sizeof(word));
+        h = (h ^ word) * 0x100000001b3ULL;
+        h ^= h >> 29;
+    }
+    for (; i < length; i++) h = (h ^ bytes[i]) * 0x100000001b3ULL;
+    return h;
+}
+
+static NSData *N64PackState(NSData *state) {
+    const size_t rawLength = state.length;
+    if (rawLength == 0) return state;
+    // Room for the header plus a payload strictly smaller than the state: if
+    // LZFSE cannot fit in that, packing does not pay and the state is written
+    // as it is.
+    NSMutableData *file = [NSMutableData dataWithLength:rawLength];
+    if (!file || rawLength <= kN64PackedStateHeader) return state;
+    uint8_t *out = (uint8_t *)file.mutableBytes;
+    const size_t packed = compression_encode_buffer(out + kN64PackedStateHeader,
+                                                    rawLength - kN64PackedStateHeader,
+                                                    (const uint8_t *)state.bytes, rawLength,
+                                                    NULL, COMPRESSION_LZFSE);
+    if (packed == 0) return state;
+    memcpy(out, kN64PackedStateMagic, sizeof(kN64PackedStateMagic));
+    // Little-endian on every Apple CPU, the only ones this file is read on.
+    const uint64_t length = (uint64_t)rawLength;
+    const uint64_t digest = N64StateDigest((const uint8_t *)state.bytes, rawLength);
+    memcpy(out + sizeof(kN64PackedStateMagic), &length, sizeof(length));
+    memcpy(out + sizeof(kN64PackedStateMagic) + sizeof(length), &digest, sizeof(digest));
+    file.length = kN64PackedStateHeader + packed;
+    return file;
+}
+
+static NSData *_Nullable N64UnpackState(NSData *file, NSUInteger length) {
+    if (!file) return nil;
+    // A slot written before 1.3.4: the bare state.
+    if (N64StateLooksValid(file, length)) return file;
+
+    if (file.length <= kN64PackedStateHeader
+        || memcmp(file.bytes, kN64PackedStateMagic, sizeof(kN64PackedStateMagic)) != 0) {
+        return nil;
+    }
+    uint64_t declared = 0, digest = 0;
+    memcpy(&declared, (const uint8_t *)file.bytes + sizeof(kN64PackedStateMagic), sizeof(declared));
+    memcpy(&digest, (const uint8_t *)file.bytes + sizeof(kN64PackedStateMagic) + sizeof(declared), sizeof(digest));
+    if (declared != (uint64_t)length) return nil;
+
+    // One byte of room past the state, so a payload that unpacks to MORE than
+    // a state (a damaged file) is told apart from one that fills it exactly:
+    // compression_decode_buffer stops at the buffer's end without a word.
+    NSMutableData *state = [NSMutableData dataWithLength:length + 1];
+    if (!state) return nil;
+    const size_t unpacked = compression_decode_buffer((uint8_t *)state.mutableBytes, length + 1,
+                                                      (const uint8_t *)file.bytes + kN64PackedStateHeader,
+                                                      file.length - kN64PackedStateHeader,
+                                                      NULL, COMPRESSION_LZFSE);
+    if (unpacked != length) return nil;
+    state.length = length;
+    if (N64StateDigest((const uint8_t *)state.bytes, length) != digest) return nil;
+    return N64StateLooksValid(state, length) ? state : nil;
 }
 
 NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLostNotification";
@@ -396,8 +522,8 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
     uint64_t _perfReadbackNs;   // waiting for this frame's picture and copying it (readFrame)
     uint64_t _perfWorstNs;
     uint64_t _perfOverBudget;
-    /// True only inside runFrame's retro_run: the hidden frames that save
-    /// states and rewind snapshots run also read back, and are not timed frames.
+    /// True only inside runFrame's retro_run: the hidden frame a save state
+    /// runs also reads back, and is not a timed frame.
     BOOL _perfInRun;
 
     /// libretro identifies a cheat by the index the frontend gives it.
@@ -417,13 +543,27 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
     /// state at worst); this one would crash.
     std::mutex _coreLock;
 
-    /// Rewind: whole states in a ring, newest last. See kRewindSecondsPerSnapshot.
-    std::vector<std::vector<uint8_t>> _rwStates;
-    NSInteger _rwCapacity;
+    /// Rewind. See the Rewind section for the design.
+    uint8_t *_rwCurrent;            // the newest snapshot, whole: what the steps apply to
+    uint8_t *_rwScratch;            // where the core writes the next one
+    size_t _rwStateSize;            // retro_serialize_size(), fixed on this core
+    BOOL _rwHasAnchor;              // _rwCurrent holds a snapshot of this timeline
+    std::vector<N64RewindStep> _rwSteps;   // ring of _rwDepth, newest at _rwNewest
+    NSInteger _rwDepth;
     NSInteger _rwStored;
     NSInteger _rwNewest;
+    size_t _rwHistoryBytes;         // packed bytes the ring holds
     NSInteger _rwFrameCounter;
-    BOOL _rwSnapshotDue;
+    BOOL _rwDue;                    // a snapshot is to be asked for
+    NSInteger _rwDueFrames;         // frames it has waited for a frame with room
+    BOOL _rwRequested;              // the core holds our request (patch 0008)
+    BOOL _rwRefused;                // no memory for it: rewind off for this game
+    std::atomic<bool> _rwDiffInFlight;
+    dispatch_queue_t _rwDiffQueue;
+    /// The last frame's cost and a slow average of it, in every build: the
+    /// snapshot scheduler reads the first, the DEBUG log the second.
+    double _rwLastFrameMs;
+    double _rwFrameMsAverage;
 }
 
 - (instancetype)init {
@@ -457,9 +597,14 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
         _perfWindowStartNs = 0;
         _perfFrames = 0;
         _perfRunNs = 0;
-        _rwCapacity = _rwStored = _rwFrameCounter = 0;
+        _rwCurrent = _rwScratch = NULL;
+        _rwStateSize = 0;
+        _rwHasAnchor = _rwDue = _rwRequested = _rwRefused = NO;
+        _rwDepth = _rwStored = _rwFrameCounter = _rwDueFrames = 0;
         _rwNewest = -1;
-        _rwSnapshotDue = NO;
+        _rwHistoryBytes = 0;
+        _rwDiffInFlight = false;
+        _rwLastFrameMs = _rwFrameMsAverage = 0;
 
         _frameBuffer.assign((size_t)(N64MaxBufferWidth * N64MaxBufferHeight), 0);
         _systemDirectory = [self makeSystemDirectory];
@@ -904,8 +1049,8 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
     // The GPU wait (see N64VulkanFrontend::beginFrame) is timed with the
     // frame: it is the previous frame's GPU work, a real part of what a frame
     // costs.
-#if DEBUG
     const uint64_t before = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+#if DEBUG
     _vulkan.beginFrame();
     _perfDrainNs += clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) - before;
     _perfInRun = YES;
@@ -916,7 +1061,12 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
 #else
     _vulkan.beginFrame();
     retro_run();
+    const uint64_t after = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
 #endif
+    _rwLastFrameMs = (double)(after - before) / 1e6;
+    _rwFrameMsAverage = _rwFrameMsAverage > 0
+        ? _rwFrameMsAverage * 0.95 + _rwLastFrameMs * 0.05
+        : _rwLastFrameMs;
 }
 
 #if DEBUG
@@ -1123,6 +1273,8 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
     NSMutableData *data = [NSMutableData dataWithLength:size];
     {
         std::lock_guard<std::mutex> lock(_coreLock);
+        // This save replaces any rewind snapshot the core is still holding.
+        [self dropPendingSnapshot];
         // False before the first frame has run: the core has no machine to
         // save. Note what it costs: the state is written at the end of the
         // current interrupt and the core then finishes that frame, so the
@@ -1131,22 +1283,43 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
         _vulkan.beginFrame();
         if (!retro_serialize(data.mutableBytes, size)) return NO;
     }
-    return [data writeToFile:path atomically:YES];
+    // Packed outside the lock: the core is free to run the next frame.
+#if DEBUG
+    const uint64_t packStart = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+#endif
+    NSData *file = N64PackState(data);
+#if DEBUG
+    N64Diag("state %{public}s: %zu bytes packed to %lu (%.1fx) in %.1f ms",
+            path.lastPathComponent.UTF8String, size, (unsigned long)file.length,
+            (double)size / (double)MAX((NSUInteger)1, file.length),
+            (double)(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) - packStart) / 1e6);
+#endif
+    return [file writeToFile:path atomically:YES];
+}
+
++ (NSData *)stateFileDataFromState:(NSData *)state {
+    return N64PackState(state);
+}
+
++ (nullable NSData *)stateFromStateFileData:(NSData *)file expectedLength:(NSInteger)length {
+    if (length <= 0) return nil;
+    return N64UnpackState(file, (NSUInteger)length);
 }
 
 - (BOOL)loadStateFromPath:(NSString *)path {
     if (!_romLoaded) return NO;
-    // A loaded state is another timeline; invalidated in the bridge, as on
-    // every core (the lesson the DS shipped as a bug).
-    [self invalidateRewind];
-
-    NSData *data = [NSData dataWithContentsOfFile:path];
-    if (!N64StateLooksValid(data)) {
-        os_log_error(N64Log(), "state %{public}s refused: %lu bytes, not a Mupen64Plus state of %zu",
-                     path.lastPathComponent.UTF8String, (unsigned long)data.length, retro_serialize_size());
+    NSData *file = [NSData dataWithContentsOfFile:path];
+    NSData *data = N64UnpackState(file, retro_serialize_size());
+    if (!data) {
+        os_log_error(N64Log(), "state %{public}s refused: a %lu-byte file holding no Mupen64Plus state of %zu bytes",
+                     path.lastPathComponent.UTF8String, (unsigned long)file.length, retro_serialize_size());
         return NO;
     }
     std::lock_guard<std::mutex> lock(_coreLock);
+    // A loaded state is another timeline; invalidated in the bridge, as on
+    // every core (the lesson the DS shipped as a bug). Under the lock, since
+    // it also takes back a snapshot request from the core.
+    [self invalidateRewind];
     _vulkan.beginFrame();
     return retro_unserialize(data.bytes, data.length) ? YES : NO;
 }
@@ -1210,93 +1383,409 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
 - (unsigned int)consumePendingAudioRate { return 0; }
 
 #pragma mark - Rewind
+//
+// A state on this core is a FIXED 16,793,412 bytes: the 8 MB of RDRAM (the
+// Expansion Pak is on), two 4 MB address-translation tables, and small change.
+// Whole snapshots every five seconds cost 16 MB each, so 1.3.3 held two of
+// them and the rewind reached five seconds, Pro or not. Seven would have been
+// 118 MB.
+//
+// So the ring holds STEPS, as on the DS (MelonDSBridge): one whole snapshot,
+// the newest, and for each five seconds before it the old contents of the
+// 4 KB blocks that changed. Applying the steps newest first turns the newest
+// state back into an older one. Measured on the host harness (homebrew games,
+// a snapshot every five seconds): 0.02 to 1.7 MB of blocks change, the address
+// tables almost never, and the changed blocks pack 10 to 40 times with LZ4.
+// Thirty seconds therefore cost the two state buffers (32 MB, what 1.3.3
+// already spent on five seconds) plus a few hundred KB.
+//
+// THE SNAPSHOT IS TAKEN INSIDE A FRAME (patch 0008). retro_serialize() runs
+// the emulation to the end of the frame it is called in, so 1.3.3 paid one
+// whole hidden frame every five seconds, for every N64 player. The request is
+// now handed to the core after a frame, and the next retro_run() writes the
+// state at exactly the point retro_serialize() would have, then goes on with
+// the frame it was running anyway. Same bytes (checked on the host: 48 of 48
+// replays from such a snapshot matched the original run exactly), a fraction
+// of the cost: about 2.3 ms on the frame it lands in, against a whole frame.
+// The core may postpone it while the RSP is mid-task; it then lands a frame
+// later, and `_rwRequested` keeps the buffer the core's until it has.
+//
+// WHEN. A snapshot falls due every five seconds of emulated time and is asked
+// for after a frame that left kRewindSnapshotHeadroomMs of its budget unused,
+// or after kRewindDueDeadlineFrames of waiting regardless. Never skipped: a
+// throttled phone gets one slower frame every five seconds, not a rewind that
+// quietly does not exist.
+//
+// THE DIFF AND THE PACKING RUN OFF THE EMULATION THREAD, on `_rwDiffQueue`.
+// While one runs it owns both buffers and the ring: nothing asks the core for
+// a snapshot, and everything else that touches them waits for it first.
+//
+// MEMORY, whatever the phone. The two buffers are allocated on the first
+// snapshot, and not at all if the app has less than kRewindMemoryReserve to
+// spare beyond them. The packed history has a ceiling, past which the oldest
+// steps go. And if free memory falls under the reserve during play, the
+// history is dropped: the rewind gets shorter, the game is never killed for it.
+//
+// LZ4 is Apple's Compression library, which the app already links through
+// ZIPExtractor's `import Compression`.
 
 - (void)initRewind:(NSInteger)seconds {
     [self teardownRewind];
     if (seconds <= 0 || !_coreInitialised) return;
+    _rwStateSize = retro_serialize_size();
+    if (!_rwStateSize) return;
+    _rwDepth = MAX((NSInteger)1, seconds / kRewindSecondsPerSnapshot);
+    _rwSteps.assign((size_t)_rwDepth, N64RewindStep{});
+    // The first snapshot is the anchor, taken at once so the rewind works from
+    // the start, as it did in 1.3.3.
+    _rwDue = YES;
+    _rwDueFrames = 0;
+}
 
-    const size_t stateSize = retro_serialize_size();
-    if (!stateSize) return;
+/// Allocates the two state buffers, once per game. Refuses, for the rest of
+/// this game, when the app could not spare them.
+- (BOOL)ensureRewindAllocated {
+    if (_rwCurrent) return YES;
+    if (_rwRefused) return NO;
+    const size_t available = os_proc_available_memory();
+    if (available != 0 && available < 2 * _rwStateSize + kRewindMemoryReserve) {
+        os_log_error(N64Log(), "rewind off for this game: %zu MB free, it needs %zu MB plus a reserve of %zu MB",
+                     available >> 20, (2 * _rwStateSize) >> 20, kRewindMemoryReserve >> 20);
+        _rwRefused = YES;
+        return NO;
+    }
+    _rwCurrent = (uint8_t *)malloc(_rwStateSize);
+    _rwScratch = (uint8_t *)malloc(_rwStateSize);
+    if (!_rwCurrent || !_rwScratch) {
+        free(_rwCurrent); _rwCurrent = NULL;
+        free(_rwScratch); _rwScratch = NULL;
+        os_log_error(N64Log(), "rewind off for this game: the state buffers could not be allocated");
+        _rwRefused = YES;
+        return NO;
+    }
+    _rwDiffQueue = dispatch_queue_create("retropal.n64.rewind", DISPATCH_QUEUE_SERIAL);
+    return YES;
+}
 
-    NSInteger wanted = (seconds / kRewindSecondsPerSnapshot) + 1;
-    NSInteger affordable = (NSInteger)(kRewindByteCeiling / stateSize);
-    _rwCapacity = MIN(wanted, affordable);
-    if (_rwCapacity < 2) { _rwCapacity = 0; return; }
+/// Takes back a snapshot request the core has not used yet, so the buffer is
+/// ours again, and asks for a new snapshot. Called with `_coreLock` held, before
+/// anything that gives the core another save or load job (they replace ours)
+/// or leaves the timeline the request belongs to.
+- (void)dropPendingSnapshot {
+    if (!_rwRequested) return;
+    retro_serialize_in_frame_cancel();
+    _rwRequested = NO;
+    _rwDue = YES;
+    _rwDueFrames = 0;
+}
 
-    // Allocated lazily, one snapshot at a time.
-    _rwStates.resize((size_t)_rwCapacity);
+static void N64FreeStep(N64RewindStep &step) {
+    free(step.blocks);
+    free(step.packed);
+    step = N64RewindStep{};
+}
+
+/// Frees every step and keeps the anchor. Only with the diff queue idle.
+- (void)dropRewindHistory {
+    for (N64RewindStep &step : _rwSteps) N64FreeStep(step);
     _rwStored = 0;
     _rwNewest = -1;
-    _rwFrameCounter = 0;
-    _rwSnapshotDue = YES;
+    _rwHistoryBytes = 0;
+}
+
+- (void)dropOldestStep {
+    if (_rwStored <= 0) return;
+    const NSInteger oldest = (_rwNewest - _rwStored + 1 + _rwDepth) % _rwDepth;
+    _rwHistoryBytes -= _rwSteps[(size_t)oldest].packedLength;
+    N64FreeStep(_rwSteps[(size_t)oldest]);
+    _rwStored--;
 }
 
 - (void)teardownRewind {
-    _rwStates.clear();
-    _rwCapacity = 0;
-    _rwStored = 0;
-    _rwNewest = -1;
+    [self dropPendingSnapshot];
+    if (_rwDiffQueue) {
+        dispatch_sync(_rwDiffQueue, ^{});   // never free a buffer a diff is reading
+        _rwDiffQueue = nil;
+    }
+    [self dropRewindHistory];
+    _rwSteps.clear();
+    free(_rwCurrent); _rwCurrent = NULL;
+    free(_rwScratch); _rwScratch = NULL;
+    _rwDepth = 0;
+    _rwHasAnchor = NO;
+    _rwDue = NO;
+    _rwDueFrames = 0;
     _rwFrameCounter = 0;
-    _rwSnapshotDue = NO;
+    _rwRefused = NO;
 }
 
+/// A load, a reset or a new game: another timeline. Every step describes the
+/// old one, and so does the anchor. The jump itself is the first place the new
+/// timeline can rewind to, so a snapshot is asked for at once.
 - (void)invalidateRewind {
-    _rwStored = 0;
-    _rwNewest = -1;
+    [self dropPendingSnapshot];
+    if (_rwDiffQueue) dispatch_sync(_rwDiffQueue, ^{});
+    [self dropRewindHistory];
+    _rwHasAnchor = NO;
     _rwFrameCounter = 0;
-    _rwSnapshotDue = YES;
+    if (_rwDepth > 0) {
+        _rwDue = YES;
+        _rwDueFrames = 0;
+    }
 }
 
+/// After every frame, on the emulation thread.
 - (void)rewindAppend {
-    if (_rwCapacity <= 0 || !_romLoaded) return;
-
-    const NSInteger framesPerSnapshot =
-        (NSInteger)(self.framesPerSecond * kRewindSecondsPerSnapshot);
-    if (!_rwSnapshotDue && ++_rwFrameCounter < framesPerSnapshot) return;
-    _rwSnapshotDue = NO;
-    _rwFrameCounter = 0;
-
-    const size_t size = retro_serialize_size();
-    if (!size) return;
-
-    _rwNewest = (_rwNewest + 1) % _rwCapacity;
-    auto &slot = _rwStates[(size_t)_rwNewest];
-    if (slot.size() != size) slot.resize(size);
-    // The same hidden frame as a save state (see saveStateToPath:), once
-    // every five seconds: the price of whole snapshots on this core.
+    if (_rwDepth <= 0 || _rwRefused || !_romLoaded) return;
     std::lock_guard<std::mutex> lock(_coreLock);
-    _vulkan.beginFrame();
-    if (!retro_serialize(slot.data(), size)) {
-        _rwNewest = (_rwNewest - 1 + _rwCapacity) % _rwCapacity;
+
+    // Five seconds of emulated time, PAL or NTSC.
+    const NSInteger interval = (NSInteger)llround(self.framesPerSecond * kRewindSecondsPerSnapshot);
+    if (++_rwFrameCounter >= interval) {
+        _rwFrameCounter = 0;
+        if (!_rwDue && !_rwRequested) {
+            _rwDue = YES;
+            _rwDueFrames = 0;
+        }
+    }
+
+    // The request handed over after an earlier frame: has it landed?
+    if (_rwRequested) {
+        const int result = retro_serialize_in_frame_result();
+        if (result == 0) return;   // postponed by the core; the buffer is still its
+        _rwRequested = NO;
+        if (result < 0) {
+            os_log_error(N64Log(), "rewind snapshot failed in the core; asking again");
+            _rwDue = YES;
+            _rwDueFrames = 0;
+            return;
+        }
+        [self recordLandedSnapshot];
         return;
     }
-    if (_rwStored < _rwCapacity) _rwStored++;
+
+    if (!_rwDue) return;
+    _rwDueFrames++;
+    if (_rwDiffInFlight.load()) return;
+
+    const double budgetMs = 1000.0 / self.framesPerSecond;
+    const BOOL room = _rwLastFrameMs <= budgetMs - kRewindSnapshotHeadroomMs;
+    const BOOL deadline = _rwDueFrames >= kRewindDueDeadlineFrames;
+    if (!room && !deadline) return;
+
+    if (![self ensureRewindAllocated]) return;
+    // False only before the core is running; the next frame asks again.
+    if (!retro_serialize_in_frame(_rwScratch, _rwStateSize)) return;
+    _rwRequested = YES;
+    _rwDue = NO;
 }
 
-- (BOOL)rewindFrames:(NSInteger)count {
-    if (!_romLoaded || _rwStored <= 0 || _rwNewest < 0) return NO;
-
-    const NSInteger framesPerSnapshot =
-        (NSInteger)(self.framesPerSecond * kRewindSecondsPerSnapshot);
-    if (framesPerSnapshot <= 0) return NO;
-    NSInteger steps = (count + framesPerSnapshot - 1) / framesPerSnapshot;
-    if (steps < 1) steps = 1;
-    if (steps > _rwStored - 1) steps = _rwStored - 1;
-    if (steps < 1) return NO;
-
-    const NSInteger index = (_rwNewest - steps + _rwCapacity * 2) % _rwCapacity;
-    auto &slot = _rwStates[(size_t)index];
-    if (slot.empty()) return NO;
-    {
-        std::lock_guard<std::mutex> lock(_coreLock);
-        _vulkan.beginFrame();
-        if (!retro_unserialize(slot.data(), slot.size())) return NO;
+/// `_rwScratch` holds a snapshot the core has just written. Called with
+/// `_coreLock` held, on the emulation thread.
+- (void)recordLandedSnapshot {
+#if DEBUG
+    const double frameMs = _rwLastFrameMs;
+    const double averageMs = _rwFrameMsAverage;
+#endif
+    if (!_rwHasAnchor) {
+        std::swap(_rwCurrent, _rwScratch);
+        _rwHasAnchor = YES;
+#if DEBUG
+        N64Diag("[REWIND] anchor | 2 x %.1f MB of state buffers | landed in a %.1f ms frame (average %.1f)%{public}s",
+                _rwStateSize / 1048576.0, frameMs, averageMs, [self rewindMemoryLine].UTF8String);
+#endif
+        return;
     }
 
-    _rwNewest = index;
-    _rwStored -= steps;
+    _rwDiffInFlight = true;
+    dispatch_async(_rwDiffQueue, ^{
+#if DEBUG
+        const double started = (double)clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1e6;
+#endif
+        const size_t size = self->_rwStateSize;
+        const size_t blocks = (size + kRewindBlock - 1) / kRewindBlock;
+        const uint8_t *older = self->_rwCurrent;
+        const uint8_t *newer = self->_rwScratch;
+
+        // Pass one counts, pass two records, as on the DS.
+        uint32_t changed = 0;
+        size_t rawLength = 0;
+        for (size_t b = 0; b < blocks; b++) {
+            const size_t off = b * kRewindBlock;
+            const size_t len = MIN(kRewindBlock, size - off);
+            if (memcmp(older + off, newer + off, len) != 0) {
+                changed++;
+                rawLength += len;
+            }
+        }
+
+        N64RewindStep step{};
+        BOOL kept = YES;
+        const size_t available = os_proc_available_memory();
+        if (available != 0 && available < kRewindMemoryReserve) {
+            kept = NO;
+            os_log_error(N64Log(), "rewind history dropped: %zu MB free, under the %zu MB reserve",
+                         available >> 20, kRewindMemoryReserve >> 20);
+        } else if (changed) {
+            step.blocks = (uint32_t *)malloc(changed * sizeof(uint32_t));
+            uint8_t *raw = (uint8_t *)malloc(rawLength);
+            if (!step.blocks || !raw) {
+                free(raw);
+                kept = NO;
+            } else {
+                size_t at = 0;
+                for (size_t b = 0; b < blocks; b++) {
+                    const size_t off = b * kRewindBlock;
+                    const size_t len = MIN(kRewindBlock, size - off);
+                    if (memcmp(older + off, newer + off, len) == 0) continue;
+                    step.blocks[step.count++] = (uint32_t)b;
+                    memcpy(raw + at, older + off, len);
+                    at += len;
+                }
+                step.rawLength = rawLength;
+                // Packed when it pays; kept as it is when LZ4 cannot shrink it
+                // or the second buffer cannot be had.
+                uint8_t *packed = (uint8_t *)malloc(rawLength);
+                const size_t packedLength = packed
+                    ? compression_encode_buffer(packed, rawLength, raw, rawLength, NULL, COMPRESSION_LZ4)
+                    : 0;
+                if (packedLength > 0 && packedLength < rawLength) {
+                    free(raw);
+                    uint8_t *shrunk = (uint8_t *)realloc(packed, packedLength);
+                    step.packed = shrunk ? shrunk : packed;
+                    step.packedLength = packedLength;
+                    step.compressed = true;
+                } else {
+                    free(packed);
+                    step.packed = raw;
+                    step.packedLength = rawLength;
+                }
+            }
+        }
+
+        if (!kept) {
+            // The history cannot grow, so it starts again from this snapshot:
+            // a step that is missing would make every older one land wrong.
+            N64FreeStep(step);
+            [self dropRewindHistory];
+        } else {
+            // Room in the ring and under the ceiling, oldest first.
+            if (self->_rwStored == self->_rwDepth) [self dropOldestStep];
+            while (self->_rwStored > 0
+                   && self->_rwHistoryBytes + step.packedLength > kRewindHistoryByteCeiling) {
+                [self dropOldestStep];
+            }
+            const NSInteger slot = (self->_rwNewest + 1) % self->_rwDepth;
+            self->_rwSteps[(size_t)slot] = step;
+            self->_rwNewest = slot;
+            self->_rwStored++;
+            self->_rwHistoryBytes += step.packedLength;
+        }
+        // The new snapshot becomes the anchor; the old anchor's buffer receives
+        // the next one.
+        std::swap(self->_rwCurrent, self->_rwScratch);
+
+#if DEBUG
+        const double diffMs = (double)clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1e6 - started;
+        N64Diag("[REWIND] snapshot | landed in a %.1f ms frame (average %.1f) | %u blocks changed = %.2f MB, "
+                "%.2f MB packed | diff+pack %.1f ms off-thread | %ld of %ld steps, %.2f MB%{public}s",
+                frameMs, averageMs, changed, rawLength / 1048576.0, step.packedLength / 1048576.0, diffMs,
+                (long)self->_rwStored, (long)self->_rwDepth, self->_rwHistoryBytes / 1048576.0,
+                [self rewindMemoryLine].UTF8String);
+#endif
+        self->_rwDiffInFlight = false;
+    });
+}
+
+#if DEBUG
+/// The memory side of the [REWIND] lines: everything the rewind holds, the
+/// app's footprint (the figure jetsam judges), and what is left before it.
+- (NSString *)rewindMemoryLine {
+    const double held = ((_rwCurrent ? _rwStateSize : 0) + (_rwScratch ? _rwStateSize : 0)
+                         + _rwHistoryBytes) / 1048576.0;
+    task_vm_info_data_t info;
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    const double footprint = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) == KERN_SUCCESS
+        ? info.phys_footprint / 1048576.0 : -1;
+    return [NSString stringWithFormat:@" | rewind holds %.1f MB | app %.0f MB, %zu MB left",
+            held, footprint, os_proc_available_memory() >> 20];
+}
+#endif
+
+/// Unpacks one step and writes its old blocks over `_rwCurrent`. NO, with
+/// `_rwCurrent` untouched, if the unpacking buffer cannot be had.
+- (BOOL)applyRewindStep:(const N64RewindStep &)step {
+    const uint8_t *raw = step.packed;
+    uint8_t *unpacked = NULL;
+    if (step.compressed) {
+        unpacked = (uint8_t *)malloc(step.rawLength);
+        if (!unpacked) return NO;
+        if (compression_decode_buffer(unpacked, step.rawLength, step.packed, step.packedLength,
+                                      NULL, COMPRESSION_LZ4) != step.rawLength) {
+            free(unpacked);
+            return NO;
+        }
+        raw = unpacked;
+    }
+    size_t at = 0;
+    for (uint32_t k = 0; k < step.count; k++) {
+        const size_t off = (size_t)step.blocks[k] * kRewindBlock;
+        const size_t len = MIN(kRewindBlock, _rwStateSize - off);
+        memcpy(_rwCurrent + off, raw + at, len);
+        at += len;
+    }
+    free(unpacked);
+    return YES;
+}
+
+/// Rewinds `count` sixtieths of a second (what EmulatorViewController asks,
+/// whatever the cartridge's rate), to the nearest snapshot the ring holds.
+///
+/// With no step stored there is still one place to go, the anchor, as on the
+/// DS: the first five seconds of a session, or after a load, are a rewind to
+/// the last snapshot rather than a button that does nothing.
+- (BOOL)rewindFrames:(NSInteger)count {
+    std::lock_guard<std::mutex> lock(_coreLock);
+    if (!_romLoaded) return NO;
+    // A request not used yet belongs to the moment we are leaving.
+    [self dropPendingSnapshot];
+    if (_rwDiffQueue) dispatch_sync(_rwDiffQueue, ^{});
+    if (!_rwHasAnchor) return NO;
+
+    // To the NEAREST snapshot, so 30 s lands on 30 and not on 25.
+    const NSInteger perSnapshot = kRewindSecondsPerSnapshot * 60;
+    NSInteger steps = (count + perSnapshot / 2) / perSnapshot;
+    steps = MIN(MAX((NSInteger)1, steps), _rwStored);
+
+    NSInteger applied = 0;
+    while (applied < steps) {
+        N64RewindStep &step = _rwSteps[(size_t)_rwNewest];
+        // Out of memory to unpack: stop at the state reached so far, which is
+        // whole, rather than load a half-rewound one.
+        if (![self applyRewindStep:step]) break;
+        _rwHistoryBytes -= step.packedLength;
+        N64FreeStep(step);
+        _rwNewest = (_rwNewest - 1 + _rwDepth) % _rwDepth;
+        _rwStored--;
+        applied++;
+    }
+
+    // Loaded from the spare buffer, so `_rwCurrent` stays the anchor of what
+    // follows: the core reads the state and the next snapshot diffs against it.
+    memcpy(_rwScratch, _rwCurrent, _rwStateSize);
+    _vulkan.beginFrame();
+    const bool ok = retro_unserialize(_rwScratch, _rwStateSize);
+    N64Diag("[REWIND] restored %ld of %ld steps (%ld s), %ld left, ok=%d",
+            (long)applied, (long)steps, (long)(applied * kRewindSecondsPerSnapshot), (long)_rwStored, ok);
+    if (!ok) {
+        // The anchor no longer describes the running console.
+        [self invalidateRewind];
+        return NO;
+    }
+    // The next snapshot comes a full interval after this point, so the steps
+    // stay five seconds apart.
     _rwFrameCounter = 0;
-    _rwSnapshotDue = YES;
+    _rwDue = NO;
     _audio.Clear();
     return YES;
 }
@@ -1354,6 +1843,8 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
 
 - (void)shutdown {
     std::lock_guard<std::mutex> lock(_coreLock);
+    // First, so no snapshot request is left with the core when the game goes.
+    [self teardownRewind];
     if (_romLoaded) {
         [self flushSaveData];
         [self unloadGame];
@@ -1364,7 +1855,6 @@ NSNotificationName const N64BridgeDisplayLostNotification = @"N64BridgeDisplayLo
         retro_deinit();
     }
     _coreInitialised = NO;
-    [self teardownRewind];
     _frameBuffer.clear();
     _audio.Clear();
     if (sN64Bridge == self) sN64Bridge = nil;

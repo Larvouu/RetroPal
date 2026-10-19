@@ -139,6 +139,16 @@ struct VideoFilterPreviewTests {
             ((368, 240), (368, 276)),   // PS1 368 wide
             ((512, 240), (512, 384)),   // PS1 512 wide
             ((640, 480), (640, 480)),   // PS1 interlaced
+            // Mega Drive (1.3.4): BlastEmBridge hands out the SMALLEST 4:3 box
+            // containing the picture, so H40 grows taller and H32 grows wider.
+            ((320, 224), (320, 240)),   // MD H40
+            ((256, 224), (299, 224)),   // MD H32
+            ((320, 448), (597, 448)),   // MD H40 interlaced
+            // Stills that ARE their grid (no grid passed by the app, and none
+            // needed): the PSP, the Master System, the Game Gear.
+            ((480, 272), (480, 272)),   // PSP
+            ((256, 192), (256, 192)),   // Master System
+            ((160, 144), (160, 144)),   // Game Gear
         ]
         for (grid, still) in cases {
             try scanlinesFollowRows(grid: grid, still: still)

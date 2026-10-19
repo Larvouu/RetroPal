@@ -36,6 +36,10 @@ enum ROMSystemType: String {
     case nes = "nes"
     case ps1 = "ps1"
     case n64 = "n64"
+    case md = "md"
+    case sms = "sms"
+    case gg = "gg"
+    case psp = "psp"
 
     /// The PlayStation's formats, and the first ones here that are DISCS.
     ///
@@ -56,6 +60,32 @@ enum ROMSystemType: String {
         "chd", "cue", "bin", "m3u", "pbp", "iso", "img", "mdf", "toc", "cbn"
     ]
 
+    /// The PSP's formats (2026-10-09): `.iso` (a UMD image), `.cso` (one
+    /// compressed), `.pbp` (an EBOOT), and `.chd` (2026-10-12). Three of the
+    /// four are ALSO the PlayStation's (a PlayStation disc dumped as `.iso` or
+    /// made into a `.chd`, a PlayStation game repacked as an EBOOT), so for
+    /// those the extension cannot name the console and `resolve(url:)` reads
+    /// the file. `.cso` is the PSP's alone.
+    /// A PSP game is one disc image, of up to 1.8 GB, and takes the disc import
+    /// path (a folder per game, a bounded identity hash, extraction to disk out
+    /// of a zip), which is built for exactly that: see `importsAsDisc`. `.cso`
+    /// is NOT in `discFileExtensions`, which stays the PlayStation's list (the
+    /// core and RetroAchievements answer "PlayStation" for every name in it).
+    ///
+    /// `.chd` was the PlayStation's alone until 2026-10-12, on the theory that
+    /// PSP sets circulate as `.iso` / `.cso`; a fan-translated Kingdom Hearts
+    /// Birth by Sleep `.chd` then imported as a PlayStation game and could not
+    /// start. PPSSPP reads a `.chd` (`CHDFileBlockDevice`), so the file is read
+    /// like an `.iso`: a UMD made into a `.chd` holds 2048-byte sectors, a
+    /// PlayStation one raw CD sectors (`PSPDiscProbe`).
+    static let pspFileExtensions: Set<String> = ["iso", "cso", "pbp", "chd"]
+
+    /// Every extension the importer takes down the DISC path: the PlayStation's
+    /// and the PSP's. The two gates that route a file (the importer and the
+    /// grouper) ask this; what a disc extension MEANS (which console, which
+    /// achievements) is `discFileExtensions` and `resolve(url:)`.
+    static let importsAsDisc: Set<String> = discFileExtensions.union(pspFileExtensions)
+
     /// Maps a file extension to the system it declares. Returns nil for
     /// anything that isn't a recognized ROM extension.
     ///
@@ -74,6 +104,23 @@ enum ROMSystemType: String {
         // cartridges were dumped in. The core normalises all of them, and the
         // header check below reads each.
         case "z64", "n64", "v64": return .n64
+        // One console, three names for the same cartridge dump: `.md` (the
+        // No-Intro name), `.gen` (the Genesis), and `.smd`, the copier format
+        // that interleaves each 16 KB block and adds a 512-byte header, which
+        // the core recognises and undoes itself. `.bin`, the fourth name in
+        // circulation, is a PlayStation disc here; see `discFileExtensions`.
+        case "md", "gen", "smd":  return .md
+        // Two consoles, one core and one cartridge format, told apart by the
+        // extension alone: MesenCE chooses the Game Gear model from `.gg`
+        // (`SmsConsole::LoadRom`), and so does everything here. `.sg` (the
+        // SG-1000) and `.col` (the ColecoVision), which the same core reads,
+        // are not offered: they are not among the consoles the app carries.
+        case "sms":          return .sms
+        case "gg":           return .gg
+        // The PSP's own compressed image. Its `.iso` and `.pbp` are shared with
+        // the PlayStation and fall to the default below: only the file's bytes
+        // can tell them apart (`resolve(url:)`).
+        case "cso":          return .psp
         default:
             return discFileExtensions.contains(ext.lowercased()) ? .ps1 : nil
         }
@@ -101,12 +148,68 @@ enum ROMSystemType: String {
     /// Everything the file pickers offer. Sidecars are included so they can be
     /// selected ALONGSIDE their disc; the grouper drops any that arrive alone.
     static let allFileExtensions: [String] =
-        ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes", "z64", "n64", "v64"]
-        + discFileExtensions.sorted() + discSidecarExtensions.sorted()
+        ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes", "z64", "n64", "v64", "md", "gen", "smd",
+         "sms", "gg"]
+        + importsAsDisc.sorted() + discSidecarExtensions.sorted()
+
+    /// The extension a cartridge of this console is stored under when it
+    /// arrived misnamed (`GBAROMParser.storedCartridgeName`). Nil for the two
+    /// disc consoles, which are never renamed.
+    var canonicalExtension: String? {
+        switch self {
+        case .gba: return "gba"
+        case .gb:  return "gb"
+        case .gbc: return "gbc"
+        case .nds: return "nds"
+        case .snes: return "sfc"
+        case .nes: return "nes"
+        case .n64: return "z64"
+        case .md:  return "md"
+        case .sms: return "sms"
+        case .gg:  return "gg"
+        case .ps1, .psp: return nil
+        }
+    }
 
     /// Whether this system's games arrive as discs rather than cartridges.
-    /// Import, hashing, saves and the library entry all branch on it.
-    var isDiscBased: Bool { self == .ps1 }
+    /// Import, hashing, saves and the library entry all branch on it. The PSP
+    /// is one: a UMD is a disc, its image is up to 1.8 GB, and the disc path
+    /// is what copies, hashes and stages a file that size safely.
+    var isDiscBased: Bool { self == .ps1 || self == .psp }
+
+    /// The console a file on disk belongs to, reading it when its extension
+    /// is shared: a PSP `.iso` or `.pbp` is a PSP game, the same extensions
+    /// holding a PlayStation disc are the PlayStation's (`PSPDiscProbe`, the
+    /// PSP emulator's own tests). Every other file answers as its extension
+    /// does, without being opened.
+    ///
+    /// ⚠ THIS, not `from(fileExtension:)`, is what any code holding a URL must
+    /// ask. The extension alone files every PSP `.iso` under the PlayStation:
+    /// the wrong core, the wrong pad, the wrong achievements.
+    static func resolve(url: URL) -> ROMSystemType? {
+        let ext = url.pathExtension.lowercased()
+        if (ext == "iso" || ext == "pbp" || ext == "chd"),
+           PSPDiscProbeIsPSPGame(url.path) {
+            return .psp
+        }
+        return from(fileExtension: ext)
+    }
+
+    /// The disc images whose bytes do not say which of the two disc consoles
+    /// they belong to: an `.iso` or a `.chd` whose volume names some other
+    /// system and carries no PSP_GAME folder, or one that cannot be read
+    /// (`PSPDiscProbeUndecided`). The importer asks the player for these
+    /// rather than filing them under the PlayStation unasked, which is what
+    /// the extension alone would do. Reads the bytes only, never the choice
+    /// already recorded for an imported game.
+    static func consoleIsUndecided(url: URL) -> Bool {
+        PSPDiscProbeRead(url.path) == PSPDiscProbeUndecided
+    }
+
+    /// The file, in a disc game's folder, that records the console the player
+    /// chose for an undecided image ("psp" or "ps1"), read back by
+    /// `PSPDiscProbeIsPSPGame`. One name, the C header's.
+    static let consoleChoiceFileName = PSP_DISC_PROBE_CHOICE_FILE
 }
 
 struct ROMInfo {
@@ -129,13 +232,142 @@ enum GBAROMParser {
 
     // MARK: - Parsing
 
-    static func parse(fileURL: URL) -> ROMInfo? {
+    /// `systemHint` overrides the extension's answer, for the one file whose
+    /// extension does not decide its console: a Mega Drive `.bin`
+    /// (`isMegaDriveBin`), read before it is stored as `.md`.
+    static func parse(fileURL: URL, systemHint: ROMSystemType? = nil) -> ROMInfo? {
         guard let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe) else {
             return nil
         }
         return parse(data: data,
                      fileSize: Int64(data.count),
-                     systemHint: ROMSystemType.from(fileExtension: fileURL.pathExtension))
+                     systemHint: systemHint ?? ROMSystemType.resolve(url: fileURL))
+    }
+
+    // MARK: - The Mega Drive `.bin`
+
+    /// The largest file a Mega Drive `.bin` can be. The biggest cartridges
+    /// are 5 MB (Super Street Fighter II) and homebrew reaches 8; 16 leaves
+    /// room and keeps the test from ever reading a PlayStation data track,
+    /// which runs to hundreds of megabytes.
+    static let megaDriveBinMaxBytes = 16 * 1024 * 1024
+
+    /// Whether a `.bin` is a Mega Drive cartridge rather than a PlayStation
+    /// disc's track. `.bin` is both consoles' extension in circulation (the
+    /// GoodGen sets name every cartridge `.bin`), so for this one extension
+    /// the bytes decide: the cartridge header (`isValidMDFile`, which also
+    /// refuses a Mega-CD image) in a file no larger than a cartridge. Every
+    /// other `.bin` stays a disc, exactly as before. Reads 16.5 KB at most.
+    ///
+    /// Opens the file's security scope itself (2026-10-10). The batch picker
+    /// asks this of every picked file while GROUPING, before any import has
+    /// opened a scope (`DiscImportGrouper.group`), and a picked file read
+    /// outside its scope has no size and no bytes: every Mega Drive `.bin`
+    /// picked from the `+` button was answered "not a cartridge" and filed as
+    /// a PlayStation disc. Opening a scope already open is harmless (they nest).
+    static func isMegaDriveBin(url: URL) -> Bool {
+        guard url.pathExtension.lowercased() == "bin" else { return false }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+              size <= megaDriveBinMaxBytes,
+              let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 0x4200) else { return false }
+        return isValidMDFile(data: head)
+    }
+
+    // MARK: - A disc image that boots alone
+
+    /// Whether a disc file that a game boots from DIRECTLY (no `.cue`, `.toc`,
+    /// `.ccd` or `.m3u` pointing at it) carries what its format must carry.
+    ///
+    /// `isValidROMFile` passes every disc extension unread, which is right for
+    /// a descriptor's tracks (an audio track has no filesystem), but a lone
+    /// image is the whole game: before 2026-10-10 any `.bin`, `.iso`, `.img`,
+    /// `.cso` or `.pbp` became a library entry, a PlayStation one unless it
+    /// read as a PSP game, whatever it held (firmware, a truncated download,
+    /// another console's disc), and failed only at boot. Each test below is
+    /// the first thing the core that would run the file reads:
+    ///
+    /// - `.chd`: "MComprHD" (libchdr, both cores).
+    /// - `.cso`: "CISO" (PPSSPP `ConstructBlockDevice`).
+    /// - `.pbp`: "\0PBP", or an ELF misnamed `.pbp` (PPSSPP `Identify_File`).
+    /// - `.bin`, `.iso`, `.img`, `.mdf`: the ISO 9660 volume descriptor,
+    ///   "CD001" at sector 16, in whichever sector layout the dump uses
+    ///   (2048 for an `.iso`, 2352 raw in mode 1 or mode 2, 2336, and 2448 for
+    ///   an Alcohol `.mdf` with subchannel). Every PlayStation and PSP disc
+    ///   boots from that filesystem (`PSPDiscProbe`, PCSX `cdriso.c`).
+    ///
+    /// Anything else (`.cbn`) passes, as before. Reads 40 KB at most.
+    static func isBootableDiscImage(url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 16 * 2448 + 32) else { return false }
+        return isBootableDiscImage(head: head, fileExtension: url.pathExtension)
+    }
+
+    /// The same test on the first bytes of the file (`isBootableDiscImage(url:)`).
+    static func isBootableDiscImage(head: Data, fileExtension ext: String) -> Bool {
+        let bytes = [UInt8](head)
+        func has(_ magic: [UInt8], at offset: Int) -> Bool {
+            offset + magic.count <= bytes.count
+                && Array(bytes[offset..<(offset + magic.count)]) == magic
+        }
+        switch ext.lowercased() {
+        case "chd": return has(Array("MComprHD".utf8), at: 0)
+        // PPSSPP reads CISO versions 0 and 1 only ("CSO version too high!",
+        // BlockDevices.cpp), as our own achievements reader does: a version 2
+        // file would import and then fail at boot.
+        case "cso": return has(Array("CISO".utf8), at: 0) && bytes.count > 20 && bytes[20] <= 1
+        case "pbp": return has([0x00] + Array("PBP".utf8), at: 0) || has([0x7F] + Array("ELF".utf8), at: 0)
+        case "bin", "iso", "img", "mdf":
+            let volume: [UInt8] = [0x01] + Array("CD001".utf8)
+            let layouts: [(sector: Int, userData: Int)] = [
+                (2048, 0), (2352, 16), (2352, 24), (2336, 8), (2448, 16), (2448, 24)
+            ]
+            // A Sega disc (Mega-CD "SEGADISCSYSTEM", Saturn "SEGA SEGASATURN")
+            // is ISO 9660 too, and opens its first sector with its boot header:
+            // not a disc either core here runs (BlastEm's own test,
+            // `detect_system_type`). Sector 0 of a PlayStation or PSP disc is
+            // the system area and never holds it.
+            let sega = Array("SEGA".utf8)
+            if [0, 16].contains(where: { has(sega, at: $0) }) { return false }
+            return layouts.contains { has(volume, at: 16 * $0.sector + $0.userData) }
+        default:
+            return true
+        }
+    }
+
+    /// The name a cartridge is stored under in ROMs/: its own, except a Mega
+    /// Drive `.bin`, which is stored as `.md`. Once it is `.md` every part of
+    /// the app that reads a console from an extension (the core, the save
+    /// paths, RetroAchievements, the share cards) sees a Mega Drive game, and
+    /// none of them has to learn the exception.
+    ///
+    /// And a cartridge whose bytes are plainly ANOTHER console's than its
+    /// extension says (2026-10-12 audit): a Nintendo 64 or DS game named
+    /// `.gba`, a NES game named `.sfc`. The import reads the bytes and files
+    /// the right console (`resolveSystem`), but everything after it, the core
+    /// at launch included, read the console from the extension: the library
+    /// said one console and the wrong core ran. Stored under the console's own
+    /// extension, the two can no longer disagree. Game Boy and Game Boy Color
+    /// keep theirs (one core, one pad: `.gb` with colour bytes is not misnamed
+    /// in any way that matters), as do consoles told apart by the extension
+    /// alone (the Master System and the Game Gear).
+    static func storedCartridgeName(for url: URL) -> String {
+        let base = url.deletingPathExtension().lastPathComponent
+        if isMegaDriveBin(url: url) { return base + ".md" }
+        guard let named = ROMSystemType.from(fileExtension: url.pathExtension),
+              !named.isDiscBased,
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let actual = resolveSystem(data: data, hint: named),
+              actual != named,
+              !([named, actual].allSatisfy { $0 == .gb || $0 == .gbc }),
+              let ext = actual.canonicalExtension else {
+            return url.lastPathComponent
+        }
+        return base + "." + ext
     }
 
     /// Parses ROM metadata. `systemHint` carries the system declared by the
@@ -167,6 +399,12 @@ enum GBAROMParser {
             // NES ROM has, which is also true of GB and GBC.
             title = ""
             gameCode = ""
+        case .sms, .gg:
+            // The Sega header ("TMR SEGA" near the end of the first 32 KB)
+            // holds a checksum, a product number and a region, and no title.
+            // The filename is the name, as on the NES.
+            title = ""
+            gameCode = ""
         case .gb, .gbc:
             // 0x134-0x142 is the title field; 0x143 is the CGB flag and
             // must NOT be read as part of the title (it is >0x7F on
@@ -185,7 +423,16 @@ enum GBAROMParser {
             let header = n64BigEndianHeader(data) ?? Data()
             title = readJISX0201(header, 0x20, 0x34)
             gameCode = readASCII(header, 0x3B, 0x3F)
-        case .ps1:
+        case .md:
+            // The cartridge header names the game twice; the overseas name is
+            // the one in Latin letters. The serial at 0x180 is not a code the
+            // box-art index knows, so it is not carried.
+            title = mdHeader(data).map(mdTitle) ?? ""
+            gameCode = ""
+        // A PSP image carries its name in PARAM.SFO, inside the image's own
+        // filesystem, as a PlayStation disc carries its SYSTEM.CNF: the
+        // importer's filename fallback names it, as it names the PlayStation's.
+        case .ps1, .psp:
             // A disc carries both, and neither is at an offset. The name and
             // the serial (SCUS-94900 and the like) live in a SYSTEM.CNF inside
             // an ISO 9660 filesystem, which for a `.cue` is not even in this
@@ -251,12 +498,20 @@ enum GBAROMParser {
                   let offset = snesHeaderOffset(full) else { return nil }
             title = readJISX0201(full, offset, offset + 21)
         case .nes:      title = ""   // an iNES header carries no title
+        case .sms, .gg: title = ""   // nor does a Sega 8-bit header
         case .n64:      title = n64BigEndianHeader(header).map { readJISX0201($0, 0x20, 0x34) } ?? ""
+        case .md:
+            // An `.smd` holds the header 512 bytes in and interleaved across
+            // its first 16 KB block, past the 0x200 bytes read above.
+            try? handle.seek(toOffset: 0)
+            guard let first = try? handle.read(upToCount: 0x4200),
+                  let cartridgeHeader = mdHeader(first) else { return nil }
+            title = mdTitle(cartridgeHeader)
         // Nor does a disc, at any offset this function could read. Its caller
         // is box-art matching, which asks "does the library title merely echo
         // the header?" — and with no header title there is no echo to find,
         // which is a correct answer rather than a missing one.
-        case .ps1:      title = ""
+        case .ps1, .psp: title = ""
         }
         return title.isEmpty ? nil : title
     }
@@ -272,7 +527,7 @@ enum GBAROMParser {
     /// one. This path runs only when a file has no usable extension; a correctly
     /// named ROM still costs nothing at all.
     static func detectSystemType(url: URL) -> ROMSystemType? {
-        if let hint = ROMSystemType.from(fileExtension: url.pathExtension) {
+        if let hint = ROMSystemType.resolve(url: url) {
             return hint
         }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
@@ -317,6 +572,9 @@ enum GBAROMParser {
             let cgbFlag = data.count > 0x143 ? data[0x143] : 0
             return (cgbFlag == 0x80 || cgbFlag == 0xC0) ? .gbc : .gb
         }
+        // "SEGA" at a fixed offset is a magic of its own, so it runs before
+        // the SNES's checksum search and the GBA's single byte.
+        if isValidMDFile(data: data) { return .md }
         if isValidSNESFile(data: data) { return .snes }
         if isValidGBAFile(data: data) { return .gba }
 
@@ -336,12 +594,14 @@ enum GBAROMParser {
         case .snes:     return isValidSNESFile(data: data)
         case .nes:      return isValidNESFile(data: data)
         case .n64:      return isValidN64File(data: data)
+        case .md:       return isValidMDFile(data: data)
+        case .sms, .gg: return isValidSMSFile(data: data)
         // Unreachable in practice: `resolveSystem` returns a disc hint before
         // it gets here. Answering NO rather than YES anyway, because this
         // function's contract is a byte test and we have none — and it is the
         // safe direction: `resolveSystem` falls through to its sniffers and
         // then returns the hint regardless, so a disc still resolves to .ps1.
-        case .ps1:      return false
+        case .ps1, .psp: return false
         }
     }
 
@@ -373,6 +633,21 @@ enum GBAROMParser {
     static func isValidNESFile(data: Data) -> Bool {
         guard data.count >= 16 else { return false }
         return data[0] == 0x4E && data[1] == 0x45 && data[2] == 0x53 && data[3] == 0x1A
+    }
+
+    /// A Master System or Game Gear cartridge, as far as bytes can say.
+    ///
+    /// There is no magic every cartridge carries. Most have the Sega header,
+    /// "TMR SEGA" at 0x7FF0 (or 0x3FF0, 0x1FF0 on the small ones), but the
+    /// export Master System's BIOS is the only thing that ever checked it:
+    /// Japanese cartridges, many Game Gear games and plenty of homebrew leave
+    /// it out, and the core runs them all. So the extension decides, as it does
+    /// for the PlayStation's discs, and this asks only what the core itself
+    /// requires before it will load a file (`SmsConsole::LoadRom`: at least 256
+    /// bytes). No sniffer is added to `resolveSystem` for the same reason: a
+    /// file with no extension cannot be told to be one of these from its bytes.
+    static func isValidSMSFile(data: Data) -> Bool {
+        data.count >= 0x100
     }
 
     /// The first word of every N64 cartridge, as the console reads it
@@ -445,6 +720,89 @@ enum GBAROMParser {
                 bytes.swapAt(i + 1, i + 2)
             }
         }
+    }
+
+    /// A Mega Drive cartridge: its header's system name begins "SEGA" at 0x100
+    /// ("SEGA MEGA DRIVE", "SEGA GENESIS"), the bytes the later consoles' boot
+    /// ROM checks before it will run a game (one space before it is also
+    /// accepted, by the console and here). Read through `mdHeader`, so an
+    /// `.smd` copier dump is checked on its de-interleaved bytes. A Mega-CD
+    /// disc image carries the same header after "SEGADISCSYSTEM" and is not a
+    /// cartridge, so it is refused.
+    static func isValidMDFile(data: Data) -> Bool {
+        guard let header = mdHeader(data) else { return false }
+        let b = header.startIndex
+        if header.count >= 14,
+           header[b..<(b + 14)].elementsEqual("SEGADISCSYSTEM".utf8) { return false }
+        // A 32X cartridge or a Sega Pico one carries "SEGA" at 0x100 too, and
+        // BlastEm would start it as that machine (`detect_system_type`,
+        // `load_media`), which the app does not offer: the 32X needs BIOS files
+        // it never gets, and nothing says so. Refused at import with BlastEm's
+        // own names (audit 2026-10-12).
+        if isOtherSegaMachine(header: header) { return false }
+        let sega = Array("SEGA".utf8)
+        return header[(b + 0x100)..<(b + 0x104)].elementsEqual(sega)
+            || header[(b + 0x101)..<(b + 0x105)].elementsEqual(sega)
+    }
+
+    /// BlastEm's own names for the 32X and the Pico in the system field at
+    /// 0x100 (`detect_system_type`, `load_media`).
+    private static let otherSegaMachines = ["SEGA 32X", "SEGA PICO", "SEGATOYS PICO", "SEGA TOYS PICO",
+                                            "SAMSUNG PICO", "SEGA IAC", "IMA IKUNOUJYUKU", "IMA IKUNOJYUKU"]
+
+    private static func isOtherSegaMachine(header: Data) -> Bool {
+        let b = header.startIndex
+        guard header.count >= 0x110 else { return false }
+        let systemName = header[(b + 0x100)..<(b + 0x110)]
+        return otherSegaMachines.contains { systemName.starts(with: $0.utf8) }
+    }
+
+    /// Whether a refused file is a 32X or Pico cartridge (telemetry only:
+    /// `ImportFailureReason.otherConsoleCartridge`). Reads 16.5 KB at most.
+    static func isOtherSegaMachineCartridge(url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 0x4200), let header = mdHeader(head) else { return false }
+        return isOtherSegaMachine(header: header)
+    }
+
+    /// The first 0x200 bytes of a Mega Drive cartridge as the console sees
+    /// them (the vectors and the header), or nil if the data is too short.
+    ///
+    /// A plain dump is those bytes already. An `.smd` copier dump is not: a
+    /// 512-byte header (byte 1 = 0x03, bytes 8 and 9 = 0xAA 0xBB, bytes 3 to 7
+    /// zero, which is BlastEm's own `is_smd_format` test) is followed by 16 KB
+    /// blocks that each hold the cartridge's odd bytes in their first half and
+    /// its even bytes in the second. Recognised by its bytes, not its name, as
+    /// the core does.
+    ///
+    /// A SPLIT `.smd` (byte 2 not zero: one cartridge cut across several
+    /// files) answers nil, so it is refused at import: the core does not load
+    /// one, and it says so through a fatal error that would end the app.
+    static func mdHeader(_ data: Data) -> Data? {
+        let b = data.startIndex
+        guard data.count >= 0x200 else { return nil }
+        let isSMD = data[b + 1] == 0x03 && data[b + 8] == 0xAA && data[b + 9] == 0xBB
+            && (3...7).allSatisfy { data[b + $0] == 0 }
+        guard isSMD else { return Data(data.prefix(0x200)) }
+        guard data[b + 2] == 0, data.count >= 512 + 0x4000 else { return nil }
+        let block = b + 512
+        var header = [UInt8](repeating: 0, count: 0x200)
+        for i in 0..<0x100 {
+            header[i * 2]     = data[block + 0x2000 + i]
+            header[i * 2 + 1] = data[block + i]
+        }
+        return Data(header)
+    }
+
+    /// The overseas name at 0x150, else the domestic one at 0x120 (both 48
+    /// bytes). Headers pad words apart with runs of spaces ("SONIC THE
+    /// HEDGEHOG" is stored with fifteen between two of its words), so every
+    /// run becomes one space.
+    private static func mdTitle(_ header: Data) -> String {
+        let overseas = readASCII(header, 0x150, 0x180)
+        let name = overseas.isEmpty ? readJISX0201(header, 0x120, 0x150) : overseas
+        return name.split(whereSeparator: { $0 == " " }).joined(separator: " ")
     }
 
     /// Every position a SNES cartridge header's TITLE field can occupy, in the
@@ -628,15 +986,36 @@ enum GBAROMParser {
     /// the old 0x200-byte read would have rejected every SNES ROM as "not a ROM".
     static func isValidROMFile(url: URL) -> Bool {
         // Checked BEFORE the file is mapped, on purpose: a PlayStation data
-        // track is routinely several hundred megabytes, and there is nothing in
-        // it this function could usefully read anyway.
+        // track is routinely several hundred megabytes (a PSP image up to 1.8
+        // GB), and there is nothing in it this function could usefully read
+        // anyway. A PSP `.iso`/`.pbp` passes here as a disc extension; which
+        // console it is, the importer asks `ROMSystemType.resolve(url:)`.
         if ROMSystemType.from(fileExtension: url.pathExtension)?.isDiscBased == true {
             return true
         }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
+        // The Master System and the Game Gear have no magic to sniff
+        // (`isValidSMSFile`), so for their two extensions the extension
+        // decides, as it does for a disc, and the bytes only have to be the
+        // core's minimum. Without this every `.sms` and `.gg` was refused here,
+        // before anything else read it (found on device, 2026-10-09).
+        if let system = ROMSystemType.from(fileExtension: url.pathExtension),
+           system == .sms || system == .gg {
+            return isValidSMSFile(data: data)
+        }
+        // `.md` is also Markdown's extension, so a `.md` file must BE a Mega
+        // Drive cartridge: the other consoles' sniffs below are for a renamed
+        // ROM, and the GBA's is one byte (0x96 at 0xB2), which UTF-8 Japanese,
+        // Chinese or Korean text carries often (文 = E6 96 87). A note opened
+        // from Files joined the library as a GBA game (audit 2026-10-11).
+        // `.gen` and `.smd` keep the general rule: no other format uses them.
+        if url.pathExtension.lowercased() == "md" {
+            return isValidMDFile(data: data)
+        }
         return isValidNESFile(data: data) || isValidN64File(data: data)
             || isValidNDSFile(data: data)
-            || isValidGBFile(data: data) || isValidSNESFile(data: data)
+            || isValidGBFile(data: data) || isValidMDFile(data: data)
+            || isValidSNESFile(data: data)
             || isValidGBAFile(data: data)
     }
 
@@ -730,6 +1109,10 @@ enum GBAROMParser {
     private static func identityHash(data: Data, fileSize: Int64, system: ROMSystemType) -> String {
         guard system.isDiscBased else { return sha256(data: data) }
         let prefix = data.prefix(discHashPrefixBytes)
+        // "ps1-disc" for the PSP's images too, deliberately: renaming the seed
+        // would re-key every PlayStation game already in a library and let the
+        // same disc in twice. A PSP image and a PlayStation disc never share
+        // four megabytes and a size, so one seed cannot make them collide.
         var seed = Data("ps1-disc:\(fileSize):".utf8)
         seed.append(prefix)
         return sha256(data: seed)

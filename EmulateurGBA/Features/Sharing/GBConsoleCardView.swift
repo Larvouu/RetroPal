@@ -356,6 +356,76 @@ struct GBCardLayout {
         return GBCardLayout(screen: screen, buttons: buttons, deviceScale: k)
     }
 
+    /// The Mega Drive card, built like the Nintendo 64's: the picture in the
+    /// shared place at the shared height, and under it the upright page's two
+    /// groups on one line, the cross on the left and the six-button arc on the
+    /// right (the arc as `ControlLayoutDefaults.md` draws it, at this scale),
+    /// centred in the band. The game's name takes the middle column, and MODE
+    /// and START sit side by side under it, centred in the room between the
+    /// info block and the card's bottom, as the Nintendo 64's START does.
+    static func md(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let k: CGFloat = 0.68
+        func sz(_ e: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(e, system: .md, isLandscape: false, deviceScale: k)
+        }
+        let gw = max(g.width, 0.01), gh = max(g.height, 0.01)
+        let fH: CGFloat = 640, fW = fH * (gw / gh)
+        let screen = CGRect(x: (S - fW) / 2, y: 174, width: fW, height: fH)
+
+        var buttons: [String: ButtonLayout] = [:]
+        func bl(_ x: CGFloat, _ y: CGFloat, _ hidden: Bool = false) -> ButtonLayout {
+            ButtonLayout(centerX: x / S, centerY: y / S, isHidden: hidden)
+        }
+        let rowY = screen.maxY + (S - screen.maxY) / 2
+        buttons[ControlElement.dpad.rawValue] = bl(0.18 * S, rowY)
+
+        let face = sz(.btnA)
+        let step = face.width + EmulatorLayoutGeometry.mdFaceGap * k
+        let rowOffset = (face.height + EmulatorLayoutGeometry.mdFaceGap * k) / 2
+        let rise = EmulatorLayoutGeometry.mdFaceRise * k
+        let arcX = 0.82 * S
+        for (row, elements) in [(CGFloat(1), ControlElement.mdLowerRow), (-1, ControlElement.mdUpperRow)] {
+            for (i, element) in elements.enumerated() {
+                let column = CGFloat(i) - 1
+                buttons[element.rawValue] = bl(arcX + column * step,
+                                               rowY + row * rowOffset - column * rise)
+            }
+        }
+
+        let infoBottom = ScreenshotCardRenderer.infoBlockNominalBottom(screen: screen)
+        let smallY = (infoBottom + S) / 2
+        let half = sz(.btnStart).height / 2 + 12
+        buttons[ControlElement.btnSelect.rawValue] = bl(S / 2 - half, smallY)
+        buttons[ControlElement.btnStart.rawValue] = bl(S / 2 + half, smallY)
+
+        // Menu is force-shown by `applyLayout`, so it is parked off the card;
+        // Clip can simply be hidden. Same on every card here.
+        buttons[ControlElement.btnMenu.rawValue] = bl(S / 2, S * 3)
+        buttons[ControlElement.btnClip.rawValue] = bl(S / 2, S * 3, true)
+        return GBCardLayout(screen: screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// How wide a column the Mega Drive card leaves for the game's name: the
+    /// gap between the cross's bowl and the arc, centred on the card, derived
+    /// from the placed frames as the Nintendo 64's is.
+    static func mdInfoColumnWidth(_ layout: GBCardLayout, side S: CGFloat) -> CGFloat? {
+        let k = layout.deviceScale
+        func rect(_ e: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[e.rawValue] else { return nil }
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: .md, isLandscape: false,
+                                                     deviceScale: k)
+            return CGRect(x: b.centerX * S - s.width / 2, y: b.centerY * S - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        guard let pad = rect(.dpad),
+              let arcLeft = ControlElement.mdFaces.compactMap({ rect($0)?.minX }).min() else { return nil }
+        let inset: CGFloat = 24
+        // Past the cross's bowl (`MegaDriveSkin`), which reaches 14 points
+        // past the disc across.
+        let left = S / 2 - (pad.maxX + 14 * k), right = arcLeft - S / 2
+        return max(0, min(left, right) * 2 - inset * 2)
+    }
+
     /// How wide a column the Nintendo 64 card leaves for the game's name: the
     /// gap between the left column's furthest reach (the stick's surround) and
     /// the right column's (B, or C LEFT). Derived from the placed frames, as
@@ -385,6 +455,167 @@ struct GBCardLayout {
     /// entry per console and nothing falls through to another console's layout by default.
     static func nes(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
         make(side: S, gameNativeSize: g)
+    }
+
+    /// The Master System card: the shared screen, SELECT · START line and band
+    /// from `make`, with the pad's own rules. Its 4:3 picture is as wide as
+    /// the GBA's, so the controls take the GBA card's columns (the cross at
+    /// 18 %, the pair centred at 82 %) rather than the picture's edges, where
+    /// the plates ran to the card's. 1 and 2 level side by side, one plate's
+    /// width and a gap apart (`ControlLayoutDefaults.smsOwnRules`); PAUSE takes
+    /// SELECT · START's middle slot (it is the console's one extra button,
+    /// START's bit). The dress draws the plates, the red bars and the plaque.
+    static func sms(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let base = make(side: S, gameNativeSize: g)
+        let k = base.deviceScale
+        var buttons = base.buttons
+        guard let pad = buttons[ControlElement.dpad.rawValue],
+              let a = buttons[ControlElement.btnA.rawValue],
+              let b = buttons[ControlElement.btnB.rawValue],
+              let select = buttons[ControlElement.btnSelect.rawValue],
+              let start = buttons[ControlElement.btnStart.rawValue] else { return base }
+        let face = EmulatorLayoutGeometry.buttonSize(.btnB, system: .sms, isLandscape: false,
+                                                     deviceScale: k).width
+        let step = (face * ControlLayoutDefaults.smsPlateScale + ControlLayoutDefaults.smsPlateGap * k) / S
+        let midY = (a.centerY + b.centerY) / 2
+        buttons[ControlElement.dpad.rawValue] = ButtonLayout(centerX: 0.18, centerY: pad.centerY)
+        buttons[ControlElement.btnB.rawValue] = ButtonLayout(centerX: 0.82 - step / 2, centerY: midY)
+        buttons[ControlElement.btnA.rawValue] = ButtonLayout(centerX: 0.82 + step / 2, centerY: midY)
+        buttons[ControlElement.btnSelect.rawValue] = nil
+        buttons[ControlElement.btnStart.rawValue] =
+            ButtonLayout(centerX: (select.centerX + start.centerX) / 2, centerY: start.centerY)
+        return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// The Game Gear card: the Game Boy card's, the page it is laid out on in
+    /// the game, with START (its one extra button) in the middle slot SELECT ·
+    /// START share there. Its smaller cross and the tilted 1 · 2 figure are
+    /// the dress's own (`EmulatorLayoutGeometry.ggPadScale`, `GameGearSkin`).
+    static func gg(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let base = make(side: S, gameNativeSize: g)
+        var buttons = base.buttons
+        guard let select = buttons[ControlElement.btnSelect.rawValue],
+              let start = buttons[ControlElement.btnStart.rawValue] else { return base }
+        buttons[ControlElement.btnSelect.rawValue] = nil
+        buttons[ControlElement.btnStart.rawValue] =
+            ButtonLayout(centerX: (select.centerX + start.centerX) / 2, centerY: start.centerY)
+        return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: base.deviceScale)
+    }
+
+    /// The PSP card. The picture is the WIDEST of any card: fitted to the
+    /// card's width at the standard card's size (`standardGameScreenRect`,
+    /// the size the achievement card composes its screen at), so the band
+    /// under it is the shortest. Folded as the handheld is: L and R stand
+    /// above the picture in its outer corners, the plaque between them (the
+    /// dress draws it); under the picture, the cross with the nub BELOW it on
+    /// the left, the diamond on the right centred on that column, the game's
+    /// name between (`pspInfoColumnWidth`), SELECT · START a pair near the
+    /// card's bottom edge, lifted off it (asked 2026-10-11). The picture sits
+    /// `pspPictureDrop` lower than the standard card's, every row following.
+    /// The PlayStation card's scale.
+    static func psp(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
+        let k: CGFloat = 0.68
+        func sz(_ e: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(e, system: .psp, isLandscape: false, deviceScale: k)
+        }
+        let screen = ScreenshotCardRenderer.standardGameScreenRect(side: S, gameNativeSize: g)
+            .offsetBy(dx: 0, dy: pspPictureDrop)
+        var buttons: [String: ButtonLayout] = [:]
+        func bl(_ x: CGFloat, _ y: CGFloat, _ hidden: Bool = false) -> ButtonLayout {
+            ButtonLayout(centerX: x / S, centerY: y / S, isHidden: hidden)
+        }
+
+        // L and R above the picture, held to the picture's outer corners.
+        let bar = sz(.btnL)
+        let topRowY = screen.minY / 2
+        buttons[ControlElement.btnL.rawValue] = bl(screen.minX + bar.width / 2, topRowY)
+        buttons[ControlElement.btnR.rawValue] = bl(screen.maxX - bar.width / 2, topRowY)
+
+        // SELECT · START lifted off the card's bottom edge.
+        let ss = sz(.btnSelect)
+        let ssY = S - pspSelectStartLift - ss.height / 2
+
+        // The left column (the cross over the nub) centred in the band between
+        // the picture's panel and SELECT · START; the diamond on its middle.
+        let pad = sz(.dpad), stick = sz(.stickLeft), face = sz(.btnA).width
+        let step = face * ControlLayoutDefaults.diamondStep
+        let panelBottom = screen.maxY + ControlLayoutDefaults.ps1PortraitSkirt * k
+        let gap: CGFloat = 14
+        let column = pad.height + gap + stick.height
+        let bandTop = panelBottom + gap, bandBottom = ssY - ss.height / 2 - gap
+        let columnTop = bandTop + max(0, (bandBottom - bandTop - column) / 2)
+        let padX = screen.minX + pad.width / 2
+        let padY = columnTop + pad.height / 2
+        buttons[ControlElement.dpad.rawValue] = bl(padX, padY)
+        buttons[ControlElement.stickLeft.rawValue] = bl(padX, padY + pad.height / 2 + gap + stick.height / 2)
+        let rowY = columnTop + column / 2
+        let diaX = screen.maxX - step - face / 2
+        for (element, dx, dy) in [(ControlElement.btnA, step, CGFloat(0)), (.btnY, -step, 0),
+                                  (.btnX, CGFloat(0), -step), (.btnB, 0, step)] {
+            buttons[element.rawValue] = bl(diaX + dx, rowY + dy)
+        }
+
+        let pairGap = ControlLayoutDefaults.pspRowGap * k
+        buttons[ControlElement.btnSelect.rawValue] = bl(S / 2 - pairGap / 2 - ss.width / 2, ssY)
+        buttons[ControlElement.btnStart.rawValue] = bl(S / 2 + pairGap / 2 + sz(.btnStart).width / 2, ssY)
+
+        // Menu is force-shown by `applyLayout`, so it is parked off the card;
+        // Clip can simply be hidden. Same on every card here.
+        buttons[ControlElement.btnMenu.rawValue] = bl(S / 2, S * 3)
+        buttons[ControlElement.btnClip.rawValue] = bl(S / 2, S * 3, true)
+        return GBCardLayout(screen: screen, buttons: buttons, deviceScale: k)
+    }
+
+    /// How much lower the PSP card's picture sits than the standard card's,
+    /// and how far SELECT · START stand off the card's bottom edge (asked
+    /// 2026-10-11: everything a little lower, the pair unglued from the edge).
+    static let pspPictureDrop: CGFloat = 36
+    static let pspSelectStartLift: CGFloat = 28
+
+    /// How wide a column the Master System and Game Gear cards leave for the
+    /// game's name: the gap between the cross and the pair, centred on the
+    /// card, from the placed frames. The Master System's plates reach past
+    /// their buttons (`smsPlateScale`), so they are what bounds it there.
+    static func sega8BitInfoColumnWidth(_ layout: GBCardLayout, system: PresetSystem,
+                                        side S: CGFloat) -> CGFloat? {
+        let k = layout.deviceScale
+        func rect(_ e: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[e.rawValue] else { return nil }
+            var s = EmulatorLayoutGeometry.buttonSize(e, system: system, isLandscape: false,
+                                                     deviceScale: k)
+            if system == .sms, e == .btnA || e == .btnB {
+                s = CGSize(width: s.width * ControlLayoutDefaults.smsPlateScale,
+                           height: s.height * ControlLayoutDefaults.smsPlateScale)
+            }
+            return CGRect(x: b.centerX * S - s.width / 2, y: b.centerY * S - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        guard let pad = rect(.dpad),
+              let pairLeft = [ControlElement.btnA, .btnB].compactMap({ rect($0)?.minX }).min()
+        else { return nil }
+        let inset: CGFloat = 24
+        let left = S / 2 - pad.maxX, right = pairLeft - S / 2
+        return max(0, min(left, right) * 2 - inset * 2)
+    }
+
+    /// How wide a column the PSP card leaves for the game's name: the gap
+    /// between the cross-and-nub column and the diamond, centred on the card,
+    /// derived from the placed frames as the Mega Drive's is.
+    static func pspInfoColumnWidth(_ layout: GBCardLayout, side S: CGFloat) -> CGFloat? {
+        let k = layout.deviceScale
+        func rect(_ e: ControlElement) -> CGRect? {
+            guard let b = layout.buttons[e.rawValue] else { return nil }
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: .psp, isLandscape: false,
+                                                     deviceScale: k)
+            return CGRect(x: b.centerX * S - s.width / 2, y: b.centerY * S - s.height / 2,
+                          width: s.width, height: s.height)
+        }
+        guard let pad = rect(.dpad), let stick = rect(.stickLeft),
+              let diaLeft = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap({ rect($0)?.minX }).min()
+        else { return nil }
+        let inset: CGFloat = 24
+        let left = S / 2 - max(pad.maxX, stick.maxX), right = diaLeft - S / 2
+        return max(0, min(left, right) * 2 - inset * 2)
     }
 
     /// NDS card layout: the shared screen + SELECT/START positions from `make`, plus the NDS set —
@@ -534,7 +765,10 @@ final class GBConsoleCardView: UIView {
         controls.applyLayout(OrientationLayout(buttons: layout.buttons),
                              isLandscape: false, isNDS: isNDS, system: system, deviceScale: k,
                              opacity: 1.0, scale: 1.0, useJoystick: false)
-        controls.setDressed(true, isLandscape: false, system: system, variant: variant)
+        // The PSP's controls wear its own palette, resolved here as the game resolves it
+        // (`EmulatorViewController.dressVariant`); the shell resolves it in `ConsoleSkinView`.
+        controls.setDressed(true, isLandscape: false, system: system,
+                            variant: system == .psp ? ConsoleSkinView.pspVariant(variant) : variant)
         controls.layoutIfNeeded()
         consoleSkin.buttonFrames = controls.visibleButtonFrames(in: consoleSkin)
     }

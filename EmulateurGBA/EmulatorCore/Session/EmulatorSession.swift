@@ -114,12 +114,17 @@ final class EmulatorSession: ObservableObject {
         } else if let n64 = bridge as? N64Bridge {
             n64.setStickX(Float(leftX), y: Float(leftY), player: player)
             n64.setCStickX(Float(rightX), y: Float(rightY), player: player)
+        } else if let psp = bridge as? PSPBridge, player == 0 {
+            // One player, one nub: the left stick's values; the right is
+            // dropped, as the PSP has none.
+            psp.setStickX(Float(leftX), y: Float(leftY))
         }
     }
 
-    /// Press the PlayStation pad's ANALOG switch. A no-op on every other core.
-    func pressAnalogModeButton() {
-        (bridge as? PCSXBridge)?.pressAnalogModeButton()
+    /// Press the PlayStation pad's ANALOG switch, on a player's pad (the touch
+    /// controls can play player 2, `PlayAsPlayerTwo`). A no-op on every other core.
+    func pressAnalogModeButton(player: Int = 0) {
+        (bridge as? PCSXBridge)?.pressAnalogModeButton(forPlayer: player)
     }
 
     // MARK: - Discs (PlayStation only)
@@ -179,15 +184,23 @@ final class EmulatorSession: ObservableObject {
     /// "gba" as they always have, because the signal set is frozen and altering
     /// a dimension's existing values would rewrite history on the dashboards.
     /// Each new console simply adds a value: "snes" and "nes" at 1.2.5, "ps1"
-    /// with the PlayStation, "n64" with the Nintendo 64.
+    /// with the PlayStation, "n64" with the Nintendo 64, "md" with the Mega Drive,
+    /// "sms" and "gg" with the Master System and the Game Gear, "psp" with the
+    /// PSP.
     private var analyticsSystem: String = "gba"
 
     func loadROM(at url: URL) -> Bool {
-        switch url.pathExtension.lowercased() {
+        // The PSP first: its `.iso` and `.pbp` are disc extensions below, and
+        // only the file can say which console it is (`ROMSystemType.resolve`).
+        switch ROMSystemType.resolve(url: url) == .psp ? "psp" : url.pathExtension.lowercased() {
+        case "psp":         analyticsSystem = "psp"
         case "nds":         analyticsSystem = "nds"
         case "sfc", "smc":  analyticsSystem = "snes"
         case "nes":         analyticsSystem = "nes"
         case "z64", "n64", "v64": analyticsSystem = "n64"
+        case "md", "gen", "smd":  analyticsSystem = "md"
+        case "sms":         analyticsSystem = "sms"
+        case "gg":          analyticsSystem = "gg"
         // Every disc extension reports one value. The dimension names the
         // CONSOLE, and which container a player's copy happens to be in is a
         // different question that this signal was never asked.
@@ -201,6 +214,17 @@ final class EmulatorSession: ObservableObject {
         let romName = BatterySaveImporter.romBasename(forROMURL: url)
         let savePath = BatterySaveImporter.savePath(forRomBasename: romName)
         (bridge as? PCSXBridge)?.setSaveDirectory(savePath.deletingLastPathComponent().path)
+        // The PSP's games save into a memory stick, a folder, which the core
+        // reads while it initialises: one per game, under the same key as every
+        // other save of that game (`BatterySaveImporter.pspMemoryStickFolder`).
+        if let psp = bridge as? PSPBridge {
+            psp.setMemoryStickDirectory(
+                BatterySaveImporter.pspMemoryStickFolder(forRomBasename: romName).path)
+        }
+
+        // Telemetry only: whether the game had a battery save before its core
+        // read it. See the check after `setSavePath` below.
+        let hadBatterySave = FileManager.default.fileExists(atPath: savePath.path)
 
         let success = bridge.loadROM(atPath: url.path)
         if success {
@@ -209,6 +233,18 @@ final class EmulatorSession: ObservableObject {
             // so the loader, the per-game save importer, and the path-lock test
             // can never drift apart and orphan a user's save.
             bridge.setSavePath(savePath.path)
+            // A save the cartridge cannot hold is MOVED ASIDE by its core when
+            // the path is set, to `<save>.sav.unread-<time>` beside it (the
+            // Mega Drive's BlastEmBridge `loadSaveRAM`, the Master System /
+            // Game Gear's MesenBridge `seedShadowFromCanonical`). Read from
+            // that effect, so no bridge had to change.
+            if hadBatterySave && ErrorTelemetry.batterySaveWasMovedAside(savePath) {
+                Analytics.signal("save_failure", [
+                    "kind": "battery_load",
+                    "reason": SaveFailureReason.sizeMismatch.rawValue,
+                    "system": analyticsSystem
+                ])
+            }
             // The core now holds this .sav open for the whole session (mGBA
             // retains its VFile; melonDS rewrites it as the game saves) — flag
             // it, plus the slot-2 GBA game's save when one is mounted, so the
@@ -222,6 +258,7 @@ final class EmulatorSession: ObservableObject {
             bridge.runFrame()
             isROMLoaded = true
             saveStateManager = SaveStateManager(romName: romName)
+            loadedRomBasename = romName
             // Create audio engine AFTER reset+first frame so we get the actual
             // sample rate (game may set SOUNDBIAS to 65536 Hz during init)
             audioEngine = EmulatorAudioEngine(bridge: bridge)
@@ -229,21 +266,53 @@ final class EmulatorSession: ObservableObject {
             // Frame count is gated by Pro status at rewind time, not buffer size.
             bridge.initRewind(35)
             // Start a RetroAchievements session (hashes the ROM, loads the set).
-            // No-op unless RA is enabled and the user is logged in.
-            RetroAchievements.shared.startSession(self, romPath: url.path)
+            // No-op unless RA is enabled and the user is logged in. A core
+            // whose memory does not exist yet (the PSP, booting) is started
+            // from `runFrame` once it does (`isMemoryReadable`).
+            if bridge.isMemoryReadable?() ?? true {
+                RetroAchievements.shared.startSession(self, romPath: url.path)
+            } else {
+                pendingAchievementsPath = url.path
+            }
         }
         return success
     }
 
     // MARK: - Frame Execution
 
-    /// Number of frames appended to the rewind buffer since last reset.
-    /// Capped at the buffer capacity (35 * 60 = 2100).
-    private(set) var rewindFramesAvailable: Int = 0
-    private static let rewindBufferCapacity = 35 * 60
+    /// The game whose RetroAchievements session waits for its console's memory
+    /// to exist (`EmulatorBridge.isMemoryReadable`): set at load on the PSP,
+    /// started and cleared by the first frame after which the memory reads.
+    private var pendingAchievementsPath: String?
+
+    /// Play the rewind ring holds since the last reset, in SIXTIETHS of a
+    /// second: the unit `rewind(frames:)` is asked in (`seconds * 60`) and every
+    /// bridge's `rewindFrames:` reads. Credited per emulated frame at the core's
+    /// own rate, so a 50 Hz game's second counts sixty here, not fifty (it
+    /// counted fifty until 2026-10-12: a PAL rewind fell short for the first
+    /// ~42 s of a sitting and after every state load). Capped at 35 s.
+    private(set) var rewindFramesAvailable: Double = 0
+    private static let rewindBufferCapacity: Double = 35 * 60
+
+    /// Sixtieths of a second one emulated frame lasts at `fps`; one frame when
+    /// the core gives no rate.
+    static func rewindCredit(perFrameAt fps: Double) -> Double {
+        fps > 1 ? 60.0 / fps : 1
+    }
 
     /// Set to true to skip audio drain (used at high speeds to save CPU)
     var skipAudio = false
+
+    /// Ends the game the way Quit does (its auto-save, then `shutdown`, on the
+    /// game screen's own save queue), for a game REPLACED rather than quit: a
+    /// file or a widget opened mid-game (`LibraryView.handleOpenedURL`). The
+    /// game screen installs it; nil when no screen is running this session.
+    /// Main thread.
+    var endForReplacement: (() -> Void)?
+
+    /// The loaded game's key (`BatterySaveImporter.romBasename`), for the
+    /// in-game save's backup before a state load.
+    private var loadedRomBasename: String?
 
     /// Called once per emulated frame, after the frame is produced, on the
     /// emulation thread. RetroAchievements installs this to drive
@@ -280,22 +349,34 @@ final class EmulatorSession: ObservableObject {
         }
 
         bridge.rewindAppend()
-        rewindFramesAvailable = min(rewindFramesAvailable + 1, Self.rewindBufferCapacity)
+        rewindFramesAvailable = min(rewindFramesAvailable + Self.rewindCredit(perFrameAt: bridge.framesPerSecond),
+                                    Self.rewindBufferCapacity)
         if !skipAudio {
             audioEngine?.drainSamples()
         }
 
         // Feed the RetroAchievements runtime the frame it watches for unlocks.
         onFrameAdvance?()
+
+        // The achievements of a game whose memory was not there at load (the
+        // PSP's boot): started on the main thread, where every other start
+        // happens, once the core says its memory reads.
+        if let path = pendingAchievementsPath, bridge.isMemoryReadable?() ?? true {
+            pendingAchievementsPath = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isROMLoaded else { return }
+                RetroAchievements.shared.startSession(self, romPath: path)
+            }
+        }
     }
 
     func rewind(frames: Int = 60) -> Bool {
         // Never request more frames than actually buffered
-        let safeFrames = min(frames, max(0, rewindFramesAvailable - 60))
+        let safeFrames = min(frames, max(0, Int(rewindFramesAvailable) - 60))
         guard safeFrames > 0 else { return false }
         let result = bridge.rewindFrames(safeFrames)
         if result {
-            rewindFramesAvailable = max(0, rewindFramesAvailable - safeFrames)
+            rewindFramesAvailable = max(0, rewindFramesAvailable - Double(safeFrames))
             Analytics.signalOnce("rewind_used")
         }
         return result
@@ -346,8 +427,9 @@ final class EmulatorSession: ObservableObject {
     }
 
     /// `screenshotPixelGrid` for a still just taken, or nil when it is the
-    /// still's own size: nil on every console but the PlayStation and the
-    /// Nintendo 64, so a share card that splits a DS still into its two screens
+    /// still's own size: nil on every console but the PlayStation, the
+    /// Nintendo 64 and the Mega Drive (whose stills are rescaled to 4:3 by
+    /// their bridges), so a share card that splits a DS still into its two screens
     /// never applies the whole stack's grid to a half.
     func filterPixelGrid(for image: CGImage) -> CGSize? {
         let grid = screenshotPixelGrid
@@ -463,8 +545,9 @@ final class EmulatorSession: ObservableObject {
         guard let manager = saveStateManager else { return false }
         var success = false
         let stateURL = manager.stateFileURL(slot: slot)
+        var coordinationGranted = true
         if coordinated {
-            CoordinatedFileIO.write(at: stateURL) { coordURL in
+            coordinationGranted = CoordinatedFileIO.write(at: stateURL) { coordURL in
                 success = bridge.saveState(toPath: coordURL.path)
             }
         } else {
@@ -497,7 +580,10 @@ final class EmulatorSession: ObservableObject {
         if !success {
             Analytics.signal("save_failure", [
                 "kind": slot == SaveStateManager.autoSaveSlotIndex ? "auto_save" : "state_write",
-                "system": analyticsSystem
+                "system": analyticsSystem,
+                "reason": ErrorTelemetry.stateFailureReason(
+                    coordinated: coordinationGranted, fileExists: true, isWrite: true,
+                    availableBytes: ErrorTelemetry.availableBytes(near: stateURL)).rawValue
             ])
         }
         return success
@@ -505,8 +591,16 @@ final class EmulatorSession: ObservableObject {
 
     func loadState(slot: Int) -> Bool {
         guard let manager = saveStateManager else { return false }
+        // The in-game save as it is NOW, copied aside first: a state can carry
+        // an older one back (`BatterySaveImporter.backUpBeforeStateLoad`). The
+        // live buffer is flushed so the copy is current. Not the PSP, whose
+        // saves are a memory-stick folder the states do not carry.
+        if !(bridge is PSPBridge), let key = loadedRomBasename {
+            bridge.flushSaveData()
+            BatterySaveImporter.backUpBeforeStateLoad(romBasename: key)
+        }
         var success = false
-        CoordinatedFileIO.read(at: manager.stateFileURL(slot: slot)) { coordURL in
+        let coordinationGranted = CoordinatedFileIO.read(at: manager.stateFileURL(slot: slot)) { coordURL in
             success = bridge.loadState(fromPath: coordURL.path)
         }
         if success {
@@ -531,9 +625,14 @@ final class EmulatorSession: ObservableObject {
             Self.logAutoSave(verb: "load", url: manager.stateFileURL(slot: slot), success: success)
         }
         if !success {
+            let stateURL = manager.stateFileURL(slot: slot)
             Analytics.signal("save_failure", [
                 "kind": "state_load",
-                "system": analyticsSystem
+                "system": analyticsSystem,
+                "reason": ErrorTelemetry.stateFailureReason(
+                    coordinated: coordinationGranted,
+                    fileExists: FileManager.default.fileExists(atPath: stateURL.path),
+                    isWrite: false, availableBytes: nil).rawValue
             ])
         }
         return success

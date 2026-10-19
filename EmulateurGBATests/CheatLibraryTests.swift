@@ -225,4 +225,18 @@ struct CheatLibraryTests {
         #expect(cheats.count == 1)
         #expect(cheats[0].description.isEmpty)
     }
+
+    /// The Mega Drive's index holds the Pro Action Replay files only: the app
+    /// applies those, and the untagged files are Game Genie, which it cannot.
+    @Test("The Mega Drive browser offers Action Replay files only")
+    func megaDriveIndexIsActionReplayOnly() {
+        let stems = CheatIndex.shared.candidates(forTitle: "Sonic The Hedgehog (USA, Europe)", system: "md")
+        #expect(stems.contains("Sonic The Hedgehog (World) (Action Replay)"))
+        #expect(stems.allSatisfy { $0.contains("(Action Replay)") })
+    }
+
+    /// libretro joins a Mega Drive code's writes with '+'; each becomes a line.
+    @Test func megaDriveCodesAreOnePerLine() {
+        #expect(CheatLibrary.formatCode("FFFFD0:0100+FFFE20:00C8") == "FFFFD0:0100\nFFFE20:00C8")
+    }
 }

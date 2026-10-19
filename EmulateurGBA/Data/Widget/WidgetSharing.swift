@@ -77,6 +77,14 @@ enum WidgetSharing {
             case "nes": return "NES"
             case "ps1": return "PlayStation"
             case "n64": return "Nintendo 64"
+            // Localized, unlike the others, because the name it was sold under
+            // differs by market (Genesis in the Americas). This file is compiled
+            // into the widget too, so the key lives in both string tables.
+            case "md": return NSLocalizedString("console.name.md", comment: "The Mega Drive's name as sold in this market")
+            // One word everywhere, like the Nintendo 64 (see SystemColor.name).
+            case "sms": return "Master System"
+            case "gg": return "Game Gear"
+            case "psp": return "PSP"
             default: return "Game Boy Advance"
             }
         }

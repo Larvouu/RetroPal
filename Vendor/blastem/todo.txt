@@ -1,0 +1,45 @@
+0.5.0 TODO List
+----------------
+Fix DIVU/DIVS timing
+Implement SSG-EG Mode
+Implement CSM Mode
+Provide an option to save SRAM/save states relative to ROM
+SMS region handling
+Update README
+	- New controller mapping stuff
+	- Overscan
+	- Full screen toggle
+	- Aspect ratio control
+	- Soft Reset
+Update Changelog
+SMS Pause NMI
+
+0.5.0 Nice to Haves
+-------------------
+Basic GG support
+Horizontal border emulation
+Integrate Jaguar emulation into main executable
+Realtec mapper support
+64-bit Windows Build
+
+Future Releases (no particular order)
+---------------
+MegaWIFI
+32X
+Sega CD
+Full SMS/GG VDP emulation
+Improve internal CPU debugger
+Allow "debug windows" so VDP debug output can be viewed simultaneously with normal output
+YM2413 emulation
+Laser Active
+Finish Jaguar emulation
+Multitap
+Light Guns
+XE-1 AP
+Cheat Codes
+Controller Mapping UI
+SVP emulation
+Rewind
+Netplay
+Rewrite CPUs with dynarec DSL
+ARM support

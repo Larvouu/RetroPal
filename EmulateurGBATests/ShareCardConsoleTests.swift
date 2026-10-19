@@ -74,4 +74,82 @@ struct ShareCardConsoleTests {
                     Comment(rawValue: "\(system.rawValue): a console card with an empty screen rect"))
         }
     }
+
+    /// The three cards drawn 2026-10-11 (Master System, Game Gear, PSP): every
+    /// control the card shows inside the card and off the picture, none on
+    /// another (drawn shapes, as the Nintendo 64's card test measures them),
+    /// and, on the PSP, a column left for the game's name.
+    @Test(arguments: [PresetSystem.sms, .gg, .psp])
+    func theNewCardsHoldTheirControlsClearOfThePictureAndEachOther(system: PresetSystem) {
+        let side: CGFloat = 1080
+        let aspect = PresetLayoutResolver.displayAspect(system)
+        let gameSize = CGSize(width: aspect, height: 1)
+        let layout: GBCardLayout
+        switch system {
+        case .sms: layout = GBCardLayout.sms(side: side, gameNativeSize: gameSize)
+        case .gg: layout = GBCardLayout.gg(side: side, gameNativeSize: gameSize)
+        default: layout = GBCardLayout.psp(side: side, gameNativeSize: gameSize)
+        }
+        // The PSP's picture is the SIZE the achievement card composes its
+        // screen at, so the two agree pixel for pixel (it sits lower).
+        if system == .psp {
+            #expect(layout.screen.size == ScreenshotCardRenderer.standardGameScreenRect(
+                side: side, gameNativeSize: gameSize).size)
+        }
+        let k = layout.deviceScale
+        var rects: [ControlElement: CGRect] = [:]
+        for e in ControlElement.elements(for: system) where e != .btnMenu && e != .btnClip {
+            // The two controls a photograph of the PSP shows elsewhere: none.
+            guard let b = layout.buttons[e.rawValue], !b.isHidden else {
+                Issue.record(Comment(rawValue: "\(system.rawValue): \(e.rawValue) is not on the card"))
+                continue
+            }
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: system, isLandscape: false, deviceScale: k)
+            rects[e] = CGRect(x: b.centerX * side - s.width / 2, y: b.centerY * side - s.height / 2,
+                              width: s.width, height: s.height)
+        }
+        let card = CGRect(x: 0, y: 0, width: side, height: side)
+        for (e, r) in rects {
+            #expect(card.contains(r), Comment(rawValue: "\(system.rawValue): \(e.rawValue) leaves the card"))
+            let covered = r.intersection(layout.screen)
+            #expect(covered.isNull || covered.width < 0.5 || covered.height < 0.5,
+                    Comment(rawValue: "\(system.rawValue): \(e.rawValue) is on the picture"))
+        }
+        let elements = Array(rects.keys)
+        for i in elements.indices {
+            for j in elements.indices where j > i {
+                let depth = ButtonShape.penetration(ButtonShape.of(elements[i], rects[elements[i]]!, system: system),
+                                                    ButtonShape.of(elements[j], rects[elements[j]]!, system: system))
+                #expect(depth < 0.5, Comment(rawValue: "\(system.rawValue): \(elements[i].rawValue) "
+                                                       + "overlaps \(elements[j].rawValue)"))
+            }
+        }
+        if system == .psp {
+            #expect((GBCardLayout.pspInfoColumnWidth(layout, side: side) ?? 0) > 300)
+        }
+    }
+
+    /// The Master System's plates (130 % of a button) stay inside the card:
+    /// on the NES card's picture-edge columns they reached its edge.
+    @Test func theMasterSystemPlatesStayOnTheCard() {
+        let side: CGFloat = 1080
+        let layout = GBCardLayout.sms(side: side, gameNativeSize: CGSize(width: 256.0 / 192.0, height: 1))
+        let face = EmulatorLayoutGeometry.buttonSize(.btnA, system: .sms, isLandscape: false,
+                                                     deviceScale: layout.deviceScale).width
+        let plate = face * ControlLayoutDefaults.smsPlateScale
+        guard let a = layout.buttons[ControlElement.btnA.rawValue] else {
+            Issue.record("2 is not on the card"); return
+        }
+        #expect(a.centerX * side + plate / 2 < side - 24)
+    }
+
+    /// A share card asks the library which console a game is before it reads
+    /// the extension: a PSP game and a PlayStation disc share `.iso`.
+    @Test func aShareCardAsksTheLibraryForAGamesConsole() {
+        // Not in the library: the extension answers.
+        #expect(PresetSystem.forRomFilename("no-such-game-\(UUID().uuidString).sms") == .sms)
+        #expect(PresetSystem.forRomFilename("no-such-game-\(UUID().uuidString).gg") == .gg)
+        #expect(PresetSystem.forRomFilename("no-such-game-\(UUID().uuidString).cso") == .psp)
+        #expect(PresetSystem.forRomFilename("no-such-game-\(UUID().uuidString).iso") == .ps1)
+    }
 }

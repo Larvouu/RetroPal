@@ -9,11 +9,21 @@
 #error "MoltenVK is missing. Run Vendor/moltenvk-ios/build.sh (it needs the Vendor/MoltenVK submodule: git submodule update --init Vendor/MoltenVK)"
 #endif
 
+// The Metal surface (Requirements::surface) lives in vulkan_metal.h, which
+// vulkan.h only includes when this is defined before it, as MoltenVK's own
+// mvk_vulkan.h does. Defined here, in the one file that makes the surface,
+// and before the header that first includes vulkan.h.
+#if defined(__APPLE__) && !defined(VK_USE_PLATFORM_METAL_EXT)
+#define VK_USE_PLATFORM_METAL_EXT 1
+#endif
 #include "N64VulkanFrontend.h"
 
 #include <cstring>
 #include <dispatch/dispatch.h>
 #include <os/log.h>
+#if defined(__APPLE__)
+#import <QuartzCore/CAMetalLayer.h>
+#endif
 
 static os_log_t N64VulkanLog(void) {
     static os_log_t log;
@@ -41,6 +51,10 @@ static bool HasExtension(const std::vector<VkExtensionProperties> &list, const c
 }
 
 bool N64VulkanFrontend::createInstance() {
+    return createInstance(Requirements());
+}
+
+bool N64VulkanFrontend::createInstance(Requirements requirements) {
     destroy();
 
     // The core's own application info (get_application_info) only arrives with
@@ -69,6 +83,21 @@ bool N64VulkanFrontend::createInstance() {
         extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
         flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     }
+    // Only for a core that asks for a surface (see Requirements::surface):
+    // the surface extension and the platform's way of making one.
+    if (requirements.surface) {
+#if defined(__APPLE__)
+        const char *platformSurface = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
+#else
+        const char *platformSurface = VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME;
+#endif
+        if (!HasExtension(available, VK_KHR_SURFACE_EXTENSION_NAME) || !HasExtension(available, platformSurface)) {
+            os_log_error(N64VulkanLog(), "this Vulkan offers no %{public}s surface, which the core requires", platformSurface);
+            return false;
+        }
+        extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+        extensions.push_back(platformSurface);
+    }
 
     VkInstanceCreateInfo instanceInfo = {};
     instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -96,8 +125,39 @@ bool N64VulkanFrontend::createInstance() {
     vkEnumeratePhysicalDevices(_instance, &gpuCount, gpus.data());
     _gpu = gpus[0];
 
-    if (!gpuSupportsParallelRDP(_gpu)) {
+    if (requirements.parallelRDPStorage && !gpuSupportsParallelRDP(_gpu)) {
         destroy();
+        return false;
+    }
+    if (requirements.surface && !createSurface()) {
+        destroy();
+        return false;
+    }
+    return true;
+}
+
+bool N64VulkanFrontend::createSurface() {
+    VkResult result = VK_ERROR_INITIALIZATION_FAILED;
+#if defined(__APPLE__)
+    // A layer that is never added to a view: the core only needs a surface to
+    // exist (it never presents to it), and MoltenVK makes one on any
+    // CAMetalLayer. Retained here, released in `destroy`.
+    CAMetalLayer *layer = [CAMetalLayer layer];
+    _surfaceLayer = (__bridge_retained void *)layer;
+    VkMetalSurfaceCreateInfoEXT info = {};
+    info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+    info.pLayer = layer;
+    auto create = (PFN_vkCreateMetalSurfaceEXT)vkGetInstanceProcAddr(_instance, "vkCreateMetalSurfaceEXT");
+    if (create) result = create(_instance, &info, nullptr, &_surface);
+#else
+    VkHeadlessSurfaceCreateInfoEXT info = {};
+    info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
+    auto create = (PFN_vkCreateHeadlessSurfaceEXT)vkGetInstanceProcAddr(_instance, "vkCreateHeadlessSurfaceEXT");
+    if (create) result = create(_instance, &info, nullptr, &_surface);
+#endif
+    if (result != VK_SUCCESS || _surface == VK_NULL_HANDLE) {
+        os_log_error(N64VulkanLog(), "could not create the surface the core requires (%d)", (int)result);
+        _surface = VK_NULL_HANDLE;
         return false;
     }
     return true;
@@ -155,7 +215,7 @@ bool N64VulkanFrontend::createDevice(const retro_hw_render_context_negotiation_i
     // copies *required_features before adding its own).
     const VkPhysicalDeviceFeatures noRequiredFeatures = {};
     retro_vulkan_context context = {};
-    const bool created = negotiation->create_device(&context, _instance, _gpu, VK_NULL_HANDLE,
+    const bool created = negotiation->create_device(&context, _instance, _gpu, _surface,
                                                     vkGetInstanceProcAddr,
                                                     nullptr, 0, nullptr, 0, &noRequiredFeatures);
     if (!created || context.device == VK_NULL_HANDLE) {
@@ -305,6 +365,12 @@ void N64VulkanFrontend::destroy() {
         if (_coreDestroyDevice) _coreDestroyDevice();
         vkDestroyDevice(_device, nullptr);
     }
+    if (_surface != VK_NULL_HANDLE) vkDestroySurfaceKHR(_instance, _surface, nullptr);
+#if defined(__APPLE__)
+    if (_surfaceLayer) CFRelease(_surfaceLayer);
+#endif
+    _surfaceLayer = nullptr;
+    _surface = VK_NULL_HANDLE;
     if (_instance != VK_NULL_HANDLE) vkDestroyInstance(_instance, nullptr);
 
     _readbackMapped = nullptr;
@@ -447,8 +513,25 @@ bool N64VulkanFrontend::readFrame(unsigned width, unsigned height, uint32_t *dst
 
     const uint8_t *src = (const uint8_t *)_readbackMapped;
     const size_t rowBytes = (size_t)width * 4;
+    // The frame always leaves here as R, G, B, A, the order the bridges
+    // declare. parallel-RDP renders R8G8B8A8 and is copied as it is. PPSSPP
+    // presents into a swapchain whose format the SURFACE chose, and MoltenVK's
+    // Metal surface offers B8G8R8A8 first (VulkanContext.cpp prefers it): copied
+    // as it is, red and blue swapped (the PSP's first device run, 2026-10-09:
+    // skin and every pale surface drawn blue). The image's own format decides.
+    const VkFormat format = _image.create_info.format;
+    const bool bgra = format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB;
     for (unsigned y = 0; y < height; y++) {
-        memcpy(dst + (size_t)y * dstStridePixels, src + (size_t)y * rowBytes, rowBytes);
+        uint32_t *row = dst + (size_t)y * dstStridePixels;
+        memcpy(row, src + (size_t)y * rowBytes, rowBytes);
+        if (bgra) {
+            // B G R A bytes, read as a little-endian word 0xAARRGGBB, become
+            // R G B A, 0xAABBGGRR: swap the two low colour bytes.
+            for (unsigned x = 0; x < width; x++) {
+                const uint32_t p = row[x];
+                row[x] = (p & 0xFF00FF00u) | ((p & 0x00FF0000u) >> 16) | ((p & 0x000000FFu) << 16);
+            }
+        }
     }
     return true;
 }

@@ -67,6 +67,15 @@ struct AppearanceView: View {
                     ],
                     selection: $tab,
                     selectedColor: tabPurple)
+                // A controller reaches the two tabs too (asked 2026-10-11): A
+                // switches, left / right choose.
+                .controllerFocusable(shape: .rounded(9), onMove: { direction in
+                    switch direction {
+                    case .left where tab == 1: tab = 0; return true
+                    case .right where tab == 0: tab = 1; return true
+                    default: return false
+                    }
+                }, action: { tab = tab == 0 ? 1 : 0 })
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 4)
@@ -320,7 +329,7 @@ private struct ScreenAppearanceTab: View {
 
     private func filterChip(_ filter: VideoFilter) -> some View {
         let previewed = filter.rawValue == previewedFilterID
-        return Button {
+        return FocusableButton(shape: .capsule) {
             previewedFilterID = filter.rawValue
             // "None" stays free (it IS the current state); the effects apply
             // only for Pro — free users keep browsing the showcase.
@@ -370,7 +379,7 @@ private struct ScreenAppearanceTab: View {
 
     private func paletteCard(_ palette: GBPalette) -> some View {
         let selected = palette.id == selectedID
-        return Button {
+        return FocusableButton(shape: .rounded(8)) {
             selectedID = palette.id
             onSelect(palette)
         } label: {
@@ -422,7 +431,7 @@ private struct ScreenAppearanceTab: View {
     }
 
     private var okButton: some View {
-        Button { dismiss() } label: {
+        FocusableButton(isDefault: true) { dismiss() } label: {
             Text(verbatim: "OK")
                 .font(.headline)
                 .foregroundStyle(.white)
@@ -438,7 +447,7 @@ private struct ScreenAppearanceTab: View {
     /// shown to free users previewing a filter. Scales its label down before
     /// ever clipping, whatever the locale.
     private var applyFilterButton: some View {
-        Button { showProSheet = true } label: {
+        FocusableButton { showProSheet = true } label: {
             Text(NSLocalizedString("filter.apply", comment: "Pro invitation while previewing a filter"))
                 .font(.headline)
                 .foregroundStyle(.white)

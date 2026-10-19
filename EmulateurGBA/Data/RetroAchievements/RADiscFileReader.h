@@ -2,7 +2,8 @@
 //  RADiscFileReader.h
 //  EmulateurGBA
 //
-//  Reading a PlayStation disc image, `.chd` included, as one flat byte stream.
+//  Reading a disc image as one flat byte stream: a PlayStation `.chd`, a PSP
+//  `.chd` or `.cso` (decompressed), anything else as the file it is.
 //
 //  DELIBERATELY KNOWS NOTHING ABOUT RETROACHIEVEMENTS. Its five entry points
 //  have the shapes rcheevos' file reader wants, and that is the only trace of
@@ -33,10 +34,18 @@
 extern "C" {
 #endif
 
-/// Opens a disc image. A `.chd` is decompressed on demand and presented as the
-/// raw 2352-byte sectors of its first track; anything else is opened as an
-/// ordinary file. NULL if it cannot be read.
+/// Opens a disc image. A PlayStation `.chd` (a raw CD track) is decompressed
+/// on demand and presented as the raw 2352-byte sectors of its first track; a
+/// `.chd` holding 2048-byte sectors (a DVD image, how a PSP UMD becomes one, or
+/// a CD made from a plain `.iso`) and a `.cso` (the PSP's compressed ISO) as
+/// the ISO they hold; anything else is opened as an ordinary file. NULL if it
+/// cannot be read.
 void *RADiscOpen(const char *path);
+
+/// Whether the opened image is a `.chd` read as a flat 2048-byte ISO (see
+/// `RADiscOpen`). A raw CD `.chd` (every PlayStation one) answers 0, and so
+/// does any other file.
+int RADiscIsFlatImage(void *handle);
 
 /// Standard `fseek` parameters, against that flat view.
 void RADiscSeek(void *handle, int64_t offset, int origin);

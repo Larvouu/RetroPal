@@ -29,6 +29,21 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// Drives the on-screen button set, the default layout, and the active preset
     /// bucket. Resolved once from the ROM extension at init.
     private let presetSystem: PresetSystem
+    /// "Play as Player 2" for this game (`PlayAsPlayerTwo`), read once: it is
+    /// chosen on the game's page, which a game on screen never shows.
+    private lazy var playsAsPlayerTwo = PlayAsPlayerTwo.isOn(romBasename: romName)
+    /// The console port a player of the app's order plays: ports 1 and 2
+    /// swapped while this game is played as Player 2.
+    private func port(for player: Int) -> Int {
+        PlayAsPlayerTwo.port(forPlayer: player, system: presetSystem, isOn: playsAsPlayerTwo)
+    }
+    /// The port the touch controls play: the person's, so player 1's.
+    private var touchPlayer: Int { port(for: 0) }
+    /// The console this ROM belongs to, read once from the file
+    /// (`ROMSystemType.resolve`): the extension alone cannot tell a PSP `.iso`
+    /// from a PlayStation one. Every question below that needs the console asks
+    /// this, so the controls, the cheats and the analytics cannot disagree.
+    private let romSystem: ROMSystemType?
     private var metalView: EmulatorMetalView!
     /// Cosmetic console "dress" drawn behind the screen + controls (GB/GBC for now).
     private let consoleSkin = ConsoleSkinView()
@@ -117,7 +132,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // family below, rather than from a separate chain of flags. It used to
         // ask two questions ("is it the DS?", "is it the SNES?") and a third
         // console would have needed a third; this asks one.
-        let romSystem = ROMSystemType.from(fileExtension: romURL.pathExtension)
+        let romSystem = ROMSystemType.resolve(url: romURL)
+        self.romSystem = romSystem
         let family: PresetSystem = session.hasTouchScreen ? .nds : Self.layoutFamily(romSystem)
         // NDS stays authoritative via the running core (`hasTouchScreen`);
         // every other console comes from the file type, falling back to the GBA
@@ -155,19 +171,23 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // base class, the same way the DS's microphone is reached: no other
         // console has anything this control corresponds to.
         (controls as? PS1TouchControlsView)?.onModePressed = { [weak self] in
-            self?.session.pressAnalogModeButton()
+            guard let self else { return }
+            self.session.pressAnalogModeButton(player: self.touchPlayer)
         }
         // The on-screen sticks. They report y positive DOWN already, which is
         // what the session passes on, so unlike a physical pad there is nothing
         // to flip: GameController is the one source that measures the other way.
         (controls as? PS1TouchControlsView)?.onSticksChanged = { [weak self] left, right in
-            self?.session.setAnalogSticks(leftX: left.x, leftY: left.y,
-                                          rightX: right.x, rightY: right.y)
+            guard let self else { return }
+            self.session.setAnalogSticks(leftX: left.x, leftY: left.y,
+                                         rightX: right.x, rightY: right.y, player: self.touchPlayer)
         }
         // The Nintendo 64's control stick, its only one: the C buttons are
         // buttons and travel in the mask, so the right stick stays centred.
         (controls as? N64TouchControlsView)?.onStickChanged = { [weak self] value in
-            self?.session.setAnalogSticks(leftX: value.x, leftY: value.y, rightX: 0, rightY: 0)
+            guard let self else { return }
+            self.session.setAnalogSticks(leftX: value.x, leftY: value.y, rightX: 0, rightY: 0,
+                                         player: self.touchPlayer)
         }
         // In-game clip control: same flow as the pause menu's Clip button, one tap.
         // Guard re-entry. the touch handler can fire repeatedly while a finger rests
@@ -213,6 +233,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         ControllerNavigator.shared.registerUIKitRoot(overlay, preferred: overlay.controllerDefaultButton)
 
         setupController()
+        // A game REPLACED rather than quit (a file or widget opened mid-game)
+        // ends through Quit's own save path. AirDrop accepted with the game in
+        // front never backgrounds the app, so no auto-save had run, and
+        // nothing else would end the session (audit 2026-10-12).
+        session.endForReplacement = { [weak self] in self?.endForReplacement() }
 
         // Status label
         view.addSubview(statusLabel)
@@ -345,12 +370,27 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // The Nintendo 64's picture can no longer be updated (N64Bridge.h).
         nc.addObserver(self, selector: #selector(n64DisplayLost),
                        name: Notification.Name("N64BridgeDisplayLostNotification"), object: nil)
+        // The PSP draws through the same Vulkan frontend and reports the same
+        // loss the same way (PSPBridge.h); the alert names neither console.
+        nc.addObserver(self, selector: #selector(n64DisplayLost),
+                       name: Notification.Name("PSPBridgeDisplayLostNotification"), object: nil)
+        // The PSP's boot runs INSIDE its first frames, after the load said yes,
+        // and a game it cannot start fails there (PSPBridge.h).
+        nc.addObserver(self, selector: #selector(pspBootFailed),
+                       name: Notification.Name("PSPBridgeBootFailedNotification"), object: nil)
     }
 
-    /// Set once the Nintendo 64 bridge reports that its picture can no longer
-    /// be updated. From then the game stays paused: nothing resumes it, and
-    /// the only way on is the save-and-quit the player is offered.
-    private var displayLost = false
+    /// Set once the core can no longer run this game: the Nintendo 64's or the
+    /// PSP's picture can no longer be updated, or the PSP could not start the
+    /// game at all. From then the game stays paused: nothing resumes it, and
+    /// the only way on is the quit the player is offered.
+    private var coreHalted = false
+    /// The session's ending (auto-save + shutdown) has been queued, by Quit or
+    /// by a replacement (`endForReplacement`): it runs once.
+    private var didEndSession = false
+
+    /// This game's token in `SessionLiveness` (the unexpected-exit marker).
+    private var livenessGeneration = 0
 
     /// The GPU stopped delivering frames (2026-09-27). Until then this was
     /// only in the log, and the player saw a frozen picture with the game and
@@ -361,8 +401,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// completes whenever the game itself was still running, and it runs off
     /// the main thread, where it cannot freeze the app if it does not.
     @objc private func n64DisplayLost() {
-        guard !displayLost else { return }
-        displayLost = true
+        guard !coreHalted else { return }
+        coreHalted = true
+        Analytics.signalOnce("game_error", ["system": romSystem?.rawValue ?? "unknown",
+                                            "reason": GameErrorReason.displayLost.rawValue])
         if session.isRunning {
             accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
             lastResumeTime = Date()
@@ -376,6 +418,35 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             message: NSLocalizedString("n64.displayLost.message", comment: ""),
             actions: [
                 .init(title: NSLocalizedString("n64.displayLost.quit", comment: "")) { [weak self] in
+                    self?.overlayDidTapQuit()
+                },
+            ])
+    }
+
+    /// The PSP could not start the game (PSPBridgeBootFailedNotification). Its
+    /// boot is asynchronous: the load answered yes, and the failure arrives in
+    /// the first frames, where it used to leave a black picture with nothing
+    /// saying why. The core is stopped for good (calling it again crashes it),
+    /// so the game is paused and the one way on is out. The quit's auto-save
+    /// writes nothing here: the bridge refuses a state once the core has
+    /// stopped, so a good earlier save of this game is never replaced by an
+    /// empty one.
+    @objc private func pspBootFailed() {
+        guard !coreHalted else { return }
+        coreHalted = true
+        Analytics.signal("rom_load_fail", ["system": romSystem?.rawValue ?? "unknown",
+                                           "reason": LoadFailureReason.bootFailed.rawValue])
+        if session.isRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            lastResumeTime = Date()
+            session.pause()
+        }
+        metalView.stopRendering()
+        ControllerAlert.present(
+            title: NSLocalizedString("psp.bootFailed.title", comment: ""),
+            message: NSLocalizedString("psp.bootFailed.message", comment: ""),
+            actions: [
+                .init(title: NSLocalizedString("psp.bootFailed.quit", comment: "")) { [weak self] in
                     self?.overlayDidTapQuit()
                 },
             ])
@@ -491,7 +562,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     ///     stuck. The pause-menu (option 2) case stays correctly paused via
     ///     `overlay.isHidden`.
     private func resumeGameplayIfForeground(viaDismiss: Bool = false) {
-        guard !displayLost,
+        guard !coreHalted,
               UIApplication.shared.applicationState == .active,
               viaDismiss || presentedViewController == nil,
               viaDismiss || shareModel?.card == nil,
@@ -701,8 +772,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         overlay.isHidden = true
         ControllerNavigator.shared.gameOwnsInput = true
         updateControlsVisibility()
-        // A lost Nintendo 64 picture keeps the game paused (`n64DisplayLost`).
-        guard !displayLost else { return }
+        // A halted core keeps the game paused (`n64DisplayLost`, `pspBootFailed`).
+        guard !coreHalted else { return }
         session.resume()
         metalView.startRendering()
         lastResumeTime = Date()
@@ -790,8 +861,25 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // the IO queue is race-free, and the serial queue keeps it ordered.
         let session = self.session
         saveIOQueue.async { [weak self] in
+            SessionLiveness.shared.begin(.savingState)
             let success = session.saveState(slot: slot)
-            guard success, let manager = session.saveStateManager else { return }
+            SessionLiveness.shared.end(.savingState)
+            // A failed write used to end here in silence: the menu stayed as
+            // it was, the slot kept its old picture and date, and a player
+            // overwriting a slot saw a button that did nothing (a Taiwanese
+            // review of 2026-10-09, on the DS, whose core asks 32 MB for every
+            // state). The slot's previous state is intact (the write is
+            // atomic), and the message says so.
+            guard success else {
+                DispatchQueue.main.async {
+                    ControllerAlert.present(
+                        title: String(format: NSLocalizedString("overlay.save.failed.title", comment: ""), "\(slot)"),
+                        message: NSLocalizedString("overlay.save.failed.message", comment: ""),
+                        actions: [.init(title: NSLocalizedString("common.ok", comment: ""))])
+                }
+                return
+            }
+            guard let manager = session.saveStateManager else { return }
             let slots = manager.allManualSlotsWithLockState()
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -837,7 +925,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // on the IO queue is race-free; resume on the main thread once it lands.
         let session = self.session
         saveIOQueue.async { [weak self] in
+            SessionLiveness.shared.begin(.loadingState)
             let success = session.loadState(slot: slot)
+            SessionLiveness.shared.end(.loadingState)
             DispatchQueue.main.async {
                 if success {
                     Analytics.signalOnce("save_state", ["action": "load"])
@@ -857,6 +947,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// asking for something it never received, with nothing to explain it.
     func overlayDidSelectDisc(index: Int) {
         guard session.changeToDisc(at: index) else {
+            Analytics.signalOnce("game_error", ["system": romSystem?.rawValue ?? "unknown",
+                                                "reason": GameErrorReason.discChangeRefused.rawValue])
             ControllerAlert.present(
                 title: NSLocalizedString("overlay.disc.failed.title", comment: ""),
                 message: NSLocalizedString("overlay.disc.failed.message", comment: ""),
@@ -866,10 +958,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         hideOverlay()
     }
 
-    /// The tap: rewind as far as this tier allows, which is what the button has
-    /// always done and what its title says. Unchanged.
+    /// The tap: rewind as far as the button's title says (`RewindDepths.tapCap`:
+    /// five seconds free, ten Pro); the long press reaches the tier's ceiling.
     func overlayDidTapRewind() {
-        performRewind(seconds: RewindDepths.tapSeconds(maxSeconds: rewindMaxSeconds,
+        performRewind(seconds: RewindDepths.tapSeconds(isPro: UserDefaults.standard.bool(forKey: "isPro"),
                                                        playedSeconds: rewindPlayedSeconds))
     }
 
@@ -881,11 +973,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                                                           playedSeconds: rewindPlayedSeconds))
     }
 
-    /// How deep this tier can go. The free five seconds and the Pro thirty are
-    /// the split the rewind ring was built around; the ring itself holds 35 on
-    /// every console, so this is a product line and not a memory limit.
+    /// How deep this tier can go (`RewindDepths.ceiling`).
     private var rewindMaxSeconds: Int {
-        UserDefaults.standard.bool(forKey: "isPro") ? 30 : 5
+        RewindDepths.ceiling(isPro: UserDefaults.standard.bool(forKey: "isPro"))
     }
 
     /// How long this sitting has actually run. While the overlay is up,
@@ -1199,7 +1289,6 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let hasBackup = session.saveStateManager?.hasPreCheatBackup ?? false
         // Read from the header, not the filename: it survives renaming, and it
         // is the only region-independent identity this game has.
-        let romSystem = ROMSystemType.from(fileExtension: romURL.pathExtension)
         let cheatView = CheatManagerView(
             romName: romName,
             isNDS: session.hasTouchScreen,
@@ -1316,6 +1405,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// The dress palette variant for the effective selection: Retro Pal recolour, a user custom
     /// palette, or Nostalgia. A custom skin whose palette was since deleted falls back to Nostalgia.
     private var dressVariant: DressVariant {
+        // The PSP wears the PlayStation's dress in its own Piano Black, resolved
+        // once here for the shell and the controls alike.
+        if presetSystem == .psp, case .builtin(let look) = effectiveSelection, look != .invisible {
+            return ConsoleSkinView.pspVariant(look == .retroPal ? .retroPal : .nostalgia)
+        }
         switch effectiveSelection {
         case .builtin(.retroPal): return .retroPal
         case .builtin:            return .nostalgia
@@ -1351,6 +1445,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// The console glyph asset for the Skin button (distinguishes GB vs GBC, which share
     /// the `.gbc` preset system); matches the `console-<system>` art used in library stats.
     private var skinIconAssetName: String {
+        // Asked before the extensions: a PSP `.iso` is a disc extension.
+        if romSystem == .psp { return "console-psp" }
         switch romURL.pathExtension.lowercased() {
         case "gb":  return "console-gb"
         case "gbc": return "console-gbc"
@@ -1358,6 +1454,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case "sfc", "smc": return "console-snes"
         case "nes": return "console-nes"
         case "z64", "n64", "v64": return "console-n64"
+        case "md", "gen", "smd": return "console-md"
+        case "sms": return "console-sms"
+        case "gg":  return "console-gg"
         // Every disc extension is one console. The note that used to sit here
         // said this console had no art and shipped undressed; it was dressed on
         // 2026-08-25 and `ConsoleSkinView.hasSkin` answers yes for all six, so
@@ -1379,6 +1478,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case .nes:      return .nes
         case .ps1:      return .ps1
         case .n64:      return .n64
+        case .md:       return .md
+        case .sms:      return .sms
+        case .gg:       return .gg
+        case .psp:      return .psp
         case .gba, nil: return .gba
         }
     }
@@ -1508,8 +1611,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Same derivation persistPlayTime uses for the per-game key, or the
         // 30-minute per-game bar would read a different game's total.
         let reviewGameName = romName
-        // Never after a sitting whose picture was lost.
-        let directReviewTrigger = displayLost ? nil : PromptTracker.shared
+        // Never after a sitting whose core halted.
+        let directReviewTrigger = coreHalted ? nil : PromptTracker.shared
             .directReviewRequestTrigger(romName: reviewGameName,
                                         currentSessionSeconds: liveSessionSeconds,
                                         sittingSmoothness: metalView.sittingSmoothness)
@@ -1519,12 +1622,13 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // play, per console (play depth vs conversion / churn).
         if sessionTotalPlaySeconds > 0 {
             Analytics.signal("play_session", [
-                "system": ROMSystemType.from(fileExtension: romURL.pathExtension)?.rawValue ?? "unknown",
+                "system": romSystem?.rawValue ?? "unknown",
                 "minutes": Self.playMinutesBucket(sessionTotalPlaySeconds)
             ])
             sessionTotalPlaySeconds = 0
         }
         metalView.stopRendering()
+        SessionLiveness.shared.begin(.quittingGame)
         // Leave immediately so Quit always feels instant. The auto-save +
         // teardown run on the serial IO queue; capturing `session` strongly keeps
         // the emulator state alive for that save even after this VC is gone.
@@ -1535,6 +1639,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // already paused (pause menu open), so the off-main read is race-free;
         // shutdown() is idempotent and the serial queue runs the save before it.
         let session = self.session
+        let liveness = livenessGeneration
         onQuit?()
         // Fire the direct review request once the library is back on screen,
         // so the system dialog never lands over gameplay. `requestReview` is
@@ -1553,9 +1658,30 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             }
         }
         clipRecorder.stop()
+        didEndSession = true
         saveIOQueue.async {
             _ = session.autoSave(coordinated: false)
             session.shutdown()
+            SessionLiveness.shared.gameEnded(generation: liveness)
+        }
+    }
+
+    /// Quit's ending without Quit's exit (the library is already replacing the
+    /// screen): play time banked, auto-save and shutdown on the save queue, in
+    /// order behind any manual save in flight. Once only: Quit's own path, or a
+    /// second replacement, finds the flag set.
+    private func endForReplacement() {
+        guard !didEndSession else { return }
+        didEndSession = true
+        persistPlayTime()
+        metalView.stopRendering()
+        clipRecorder.stop()
+        let session = self.session
+        let liveness = livenessGeneration
+        saveIOQueue.async {
+            if session.isROMLoaded { _ = session.autoSave(coordinated: false) }
+            session.shutdown()
+            SessionLiveness.shared.gameEnded(generation: liveness)
         }
     }
 
@@ -1590,7 +1716,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     // MARK: - TouchControlsDelegate
 
     func touchControlsDidChange(buttons: UInt32) {
-        session.setKeys(buttonsAfterLid(buttons))
+        // The DS is one player, so the lid gate only ever meets player 1.
+        if touchPlayer == 0 {
+            session.setKeys(buttonsAfterLid(buttons))
+        } else {
+            session.setKeys(buttons, player: touchPlayer)
+        }
     }
 
     /// Any button opens a closed DS lid, and that press is swallowed until
@@ -1642,15 +1773,15 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             guard let self else { return }
             // Player 1 (the DS's only one) can open a closed lid with any button.
             let buttons = player == 0 ? self.buttonsAfterLid(mask) : mask
-            self.session.setKeys(buttons, player: player)
+            self.session.setKeys(buttons, player: self.port(for: player))
         }
         // The consoles whose ports must be told a pad is there (SNES, NES)
         // hear how many players have one, now and on every change.
         manager.onPlayersChanged = { [weak self] count in
             guard let self else { return }
-            self.session.setConnectedPlayers(min(count, self.presetSystem.playerCount))
+            self.session.setConnectedPlayers(self.connectedPlayers(pads: count))
         }
-        session.setConnectedPlayers(min(manager.pads.count, presetSystem.playerCount))
+        session.setConnectedPlayers(connectedPlayers(pads: manager.pads.count))
         // Analog is a PHYSICAL-CONTROLLER path only, by decision: the touch
         // overlay keeps sending the button mask alone, so nothing about playing
         // on glass changes. The session drops these on every core but the
@@ -1659,8 +1790,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // GameController is the only source here that measures +1 as UP, so
             // this is where it is turned the right way up. Everything downstream
             // speaks y-down, like UIKit and like the console.
-            self?.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry,
-                                          player: player)
+            guard let self else { return }
+            self.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry,
+                                         player: self.port(for: player))
         }
         // Player 1's pause-menu request (its Home button while this screen
         // claims it, the spare menu-ish button of a DS4/DualSense/Xbox pad, or
@@ -1712,8 +1844,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         manager.onConnectionChanged = { [weak self] connected in
             guard let self else { return }
             // Drop any stale touch mask (e.g. a long-press-locked button) so
-            // the controller starts from a clean slate.
+            // the controller starts from a clean slate. (A touch player 2's own
+            // mask is released by the touch view as it hides: `releaseAllInputs`.)
             if connected { self.session.setKeys(0) }
+            // The touch player's port is plugged only while the touch controls show.
+            self.session.setConnectedPlayers(self.connectedPlayers(pads: manager.pads.count))
             self.updateControlsVisibility()
             self.updateIdleTimer()
             // Re-lay the game view: hiding the controls frees space the screen
@@ -1721,6 +1856,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             self.layoutGameView()
         }
         updateControlsVisibility()  // a controller may already be connected
+    }
+
+    /// How many ports the consoles that must be told (SNES, NES) have a pad
+    /// in: the controllers (or the touch controls, which are one), and while
+    /// this game is played as Player 2, at least two, since the person's own
+    /// pad is in port 2.
+    private func connectedPlayers(pads: Int) -> Int {
+        let players = ControllerManager.shared.hidesTouchControls ? pads : max(pads, 1)
+        let ports = playsAsPlayerTwo ? max(players, 2) : players
+        return min(ports, presetSystem.playerCount)
     }
 
     /// Speed active before a hold-to-fast-forward began (nil = no hold), and
@@ -2066,13 +2211,15 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             controls.applyResolvedScene(buttons: scene.buttons, useJoystick: scene.useJoystick)
         } else {
             // No preset: the built-in default layout with the global opacity/size.
-            // With a controller on its side, the picture takes the full
-            // height and MENU must leave it (one-picture consoles; the DS keeps
-            // a strip for it). The controls span the whole view here, so the
-            // picture's frame is already in their space.
+            // With a controller the picture grows into the pad's room and MENU
+            // must stay off it (one-picture consoles; the DS keeps a strip for
+            // it): on its side it leaves for the right gutter, upright it drops
+            // under the picture. The picture's frame goes in the controls' own
+            // space, which is the whole view on its side and starts at the
+            // picture's bottom edge upright.
             let controllerScreen: CGRect? =
-                (ControllerManager.shared.hidesTouchControls && isLandscape && !session.hasTouchScreen)
-                ? metalView.frame : nil
+                (ControllerManager.shared.hidesTouchControls && !session.hasTouchScreen)
+                ? view.convert(metalView.frame, to: controls) : nil
             controls.applyDefaultLayout(isLandscape: isLandscape, system: presetSystem,
                                         deviceScale: deviceScale, safeLeftInset: safeLeftInset,
                                         safeRightInset: safeRightInset,
@@ -2154,6 +2301,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     private func loadAndStart() {
         statusLabel.text = NSLocalizedString("emulator.loading", comment: "")
+        livenessGeneration = SessionLiveness.shared.gameWillStart(system: romSystem?.rawValue)
 
         // Pre-flight the ROM file before the core touches it. A previously-good
         // file can go missing or get truncated/corrupted on disk — the cause of
@@ -2179,6 +2327,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         if !exists || onDiskSize == nil || onDiskSize == 0 || sizeMismatch {
             let diag = "exists=\(exists) disc=\(isDisc) size=\(onDiskSize ?? -1) expected=\(expectedROMSize) file=\(romURL.lastPathComponent)"
             Self.romLoadLog.error("ROM preflight failed: \(diag, privacy: .public)")
+            Analytics.signal("rom_load_fail", [
+                "system": romSystem?.rawValue ?? "unknown",
+                "reason": (ErrorTelemetry.preflightReason(exists: exists, onDiskSize: onDiskSize,
+                                                         expectedSize: expectedROMSize) ?? .fileUnreadable).rawValue
+            ])
+            SessionLiveness.shared.gameEnded(generation: livenessGeneration)
             showLoadFailed()
             return
         }
@@ -2192,6 +2346,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // games, deleting this block is the whole change.
         if presetSystem == .n64, Self.bootsThroughLibdragonIPL3(romURL) {
             Self.romLoadLog.error("N64 libdragon IPL3, not started: \(self.romURL.lastPathComponent, privacy: .public)")
+            Analytics.signal("rom_load_fail", ["system": romSystem?.rawValue ?? "unknown",
+                                               "reason": LoadFailureReason.n64Libdragon.rawValue])
+            SessionLiveness.shared.gameEnded(generation: livenessGeneration)
             statusLabel.text = NSLocalizedString("n64.libdragonUnsupported", comment: "")
             return
         }
@@ -2205,7 +2362,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         if success {
             // Load save state if requested
             if let slot = loadSlotOnStart {
+                SessionLiveness.shared.begin(.loadingState)
                 _ = session.loadState(slot: slot)
+                SessionLiveness.shared.begin(.startingGame)
             }
             // Restore per-game speed preference (migrates Int→Double)
             let speedKey = "speed_\(romName)"
@@ -2240,6 +2399,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 forRomBasename: romName)
             session.isAudioMuted = UserDefaults.standard.bool(forKey: "audioMuted")
             metalView.startRendering()
+            SessionLiveness.shared.end(.startingGame)   // the game is running
 
             // One-time "ever played" signal, mirroring import_first: completes
             // the activation funnel (installed -> imported -> actually played)
@@ -2257,7 +2417,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // step failed: detect / open / loadROM).
             let diag = "core rejected: size=\(onDiskSize ?? -1) expected=\(expectedROMSize) file=\(romURL.lastPathComponent)"
             Self.romLoadLog.error("\(diag, privacy: .public)")
-            Analytics.signal("rom_load_fail", ["system": ROMSystemType.from(fileExtension: romURL.pathExtension)?.rawValue ?? "unknown"])
+            Analytics.signal("rom_load_fail", ["system": romSystem?.rawValue ?? "unknown",
+                                               "reason": LoadFailureReason.coreRejected.rawValue])
+            SessionLiveness.shared.gameEnded(generation: livenessGeneration)
             showLoadFailed()
         }
     }

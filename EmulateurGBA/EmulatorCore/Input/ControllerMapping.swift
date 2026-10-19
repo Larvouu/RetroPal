@@ -89,6 +89,44 @@ enum RemappableInput: String, Codable, CaseIterable {
             default: return displayName
             }
         }
+        // The Mega Drive prints its own letters, and its bits are chosen for
+        // where a controller's buttons land (BlastEmBridge.h), so the a bit is
+        // B and the y bit is A.
+        if system == .md {
+            switch self {
+            case .y: return "A"
+            case .a: return "B"
+            case .b: return "C"
+            case .l: return "X"
+            case .x: return "Y"
+            case .r: return "Z"
+            case .select: return "MODE"
+            default: return displayName
+            }
+        }
+        // The Master System and the Game Gear print 1 and 2 on their two buttons
+        // (b and a, left and right, see MesenBridge), and the Master System's
+        // other button is PAUSE, on the console.
+        if system == .sms || system == .gg {
+            switch self {
+            case .b: return "1"
+            case .a: return "2"
+            case .start where system == .sms: return "PAUSE"
+            default: return displayName
+            }
+        }
+        // The PSP prints the PlayStation's four symbols, in the same places
+        // (PSPBridge maps through the same bits), and L and R without a number:
+        // it has one pair.
+        if system == .psp {
+            switch self {
+            case .a: return "◯"
+            case .b: return "✕"
+            case .x: return "△"
+            case .y: return "□"
+            default: return displayName
+            }
+        }
         guard system == .ps1 else { return displayName }
         switch self {
         case .a: return "◯"
@@ -113,7 +151,10 @@ enum RemappableInput: String, Codable, CaseIterable {
             default: return displayName(for: system)
             }
         }
-        guard system == .ps1 else { return displayName }
+        // Letters read well aloud; the Mega Drive's only need to be its own,
+        // and so do the Master System's and the Game Gear's numbers.
+        if system == .md || system == .sms || system == .gg { return displayName(for: system) }
+        guard system == .ps1 || system == .psp else { return displayName }
         switch self {
         case .a: return "Circle"
         case .b: return "Cross"
@@ -142,6 +183,15 @@ enum RemappableInput: String, Codable, CaseIterable {
         // four C buttons. No SELECT, no X or Y.
         case .n64: return [.a, .b, .l, .r, .l2, .start,
                            .cUp, .cDown, .cLeft, .cRight]
+        // The six-button pad: A B C, X Y Z, MODE and START, in the pad's own
+        // order (A is the y bit, see BlastEmBridge.h).
+        case .md: return [.y, .a, .b, .l, .x, .r, .select, .start]
+        // 1, 2 and the console's own button (PAUSE, or the Game Gear's START),
+        // in the pad's order. No SELECT on either.
+        case .sms, .gg: return [.b, .a, .start]
+        // The PlayStation's four symbols, one shoulder pair, SELECT and START.
+        // Its nub reaches the core as analog, never as a button.
+        case .psp: return [.a, .b, .x, .y, .l, .r, .select, .start]
         }
     }
 }
@@ -313,6 +363,11 @@ struct ControllerMapping: Codable, Equatable {
             default: break
             }
         }
+        // Only what the console has: the Master System and the Game Gear
+        // have no SELECT, and a reset target that binds one holds a button
+        // their remap screen never shows (2026-10-09).
+        let has = Set(RemappableInput.available(on: system))
+        a = a.filter { has.contains($0.key) }
         return ControllerMapping(assignments: a)
     }
 }

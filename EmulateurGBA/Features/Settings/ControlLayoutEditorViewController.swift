@@ -187,6 +187,9 @@ final class ControlLayoutEditorViewController: UIViewController, UIGestureRecogn
             // The Nintendo 64's Z is a round face, the third corner of A-B-Z.
             case .btnL2 where system == .n64:
                 btn = ActionButton(label: element.displayName(for: system))
+            // The Mega Drive's X and Z are round faces in its upper row.
+            case .btnL where system == .md, .btnR where system == .md:
+                btn = ActionButton(label: element.displayName(for: system))
             case .btnL, .btnR, .btnL2, .btnR2:
                 btn = ShoulderButton(label: element.displayName(for: system))
             case .btnStart, .btnSelect, .btnMic, .btnMode, .btnL3, .btnR3:

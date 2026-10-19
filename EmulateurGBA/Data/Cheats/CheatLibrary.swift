@@ -253,9 +253,21 @@ final class CheatLibrary: ObservableObject {
 
         return codes.keys.sorted().compactMap { index in
             let code = formatCode(codes[index] ?? "")
-            guard !code.isEmpty else { return nil }
+            guard !code.isEmpty, !isNullCWCheat(code) else { return nil }
             return Cheat(description: descriptions[index] ?? "", code: code)
         }
+    }
+
+    /// A PSP entry whose every line is `_L 0x00000000 0x00000000`: a section
+    /// header or a note in libretro's CWCheat files (3,717 of 81,109 entries,
+    /// 2026-10), NOT a harmless no-op. CWCheat type 0 is an 8-bit write, so
+    /// applied it writes 0 to the first byte of the game's memory. Dropped like
+    /// the description-only headers above. A null line INSIDE a code with
+    /// other lines is left alone: there it is usually the data word of a
+    /// multi-write or a copy (types 4 and 8), part of the code.
+    nonisolated static func isNullCWCheat(_ code: String) -> Bool {
+        let lines = code.split(separator: "\n").map { $0.uppercased().replacingOccurrences(of: " ", with: "") }
+        return !lines.isEmpty && lines.allSatisfy { $0 == "_L0X000000000X00000000" }
     }
 
     /// libretro joins a code's words with '+'. Re-lay them the way the cheat
@@ -267,7 +279,19 @@ final class CheatLibrary: ObservableObject {
     /// console has one (counted in libretro-database, 2026-09-27). Left in, it
     /// reached the field, which the validator rightly refuses as a character no
     /// code contains, so every such code tapped from the browser failed.
+    ///
+    /// The PSP's CWCheat files join a code's lines with SPACES, each line
+    /// starting "_L" ("_L 0xE0030980 0x000C055C _L 0x200C055C 0x00C31821", 158
+    /// of MHFU's 228 codes), so a code holding "_L" is split before each "_L"
+    /// and kept in that form, the one PSPBridge and the validator read.
     nonisolated static func formatCode(_ raw: String) -> String {
+        if raw.uppercased().contains("_L") {
+            return raw.uppercased().components(separatedBy: "_L")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .map { "_L " + $0.replacingOccurrences(of: "0X", with: "0x") }
+                .joined(separator: "\n")
+        }
         let tokens = raw.split(whereSeparator: { $0 == "+" || $0 == ";" })
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }

@@ -44,7 +44,8 @@ struct MultiControllerTests {
     func everyMultiPlayerConsole_hasABridgeThatFeedsPlayers() {
         let bridgeClass: [PresetSystem: AnyClass] = [
             .snes: MesenBridge.self, .nes: MesenBridge.self,
-            .ps1: PCSXBridge.self, .n64: N64Bridge.self,
+            .ps1: PCSXBridge.self, .n64: N64Bridge.self, .md: BlastEmBridge.self,
+            .sms: MesenBridge.self,
         ]
         let selector = #selector(EmulatorBridge.setKeys(_:player:))
         for system in PresetSystem.allCases where system.playerCount > 1 {
@@ -280,5 +281,40 @@ struct MultiControllerTests {
         more.up = true
         #expect(ControllerManager.hasFreshPress(more, since: held))
         #expect(!ControllerManager.hasFreshPress(ControllerInputSource(), since: held))
+    }
+
+    // MARK: - Play as Player 2
+
+    /// Ports 1 and 2 swap while a game is played as Player 2, on a console
+    /// with a second port only; every other port, and every one-player
+    /// console, is unchanged. The same rule for the touch controls (player 1
+    /// of the app's order) and for each controller.
+    @Test(arguments: PresetSystem.allCases)
+    func playingAsPlayerTwoSwapsTheFirstTwoPortsOnly(_ system: PresetSystem) {
+        for player in 0..<system.playerCount {
+            #expect(PlayAsPlayerTwo.port(forPlayer: player, system: system, isOn: false) == player,
+                    "off, a player left their own port")
+        }
+        let me = PlayAsPlayerTwo.port(forPlayer: 0, system: system, isOn: true)
+        #expect(me == (system.playerCount > 1 ? 1 : 0), "the person is not on port 2 where there is one")
+        if system.playerCount > 1 {
+            #expect(PlayAsPlayerTwo.port(forPlayer: 1, system: system, isOn: true) == 0,
+                    "the second controller is not on port 1")
+        }
+        for player in 2..<max(2, system.playerCount) {
+            #expect(PlayAsPlayerTwo.port(forPlayer: player, system: system, isOn: true) == player,
+                    "a third or fourth player moved")
+        }
+    }
+
+    /// The game's page offers the row exactly where the console has a port 2.
+    @Test func theRowIsOfferedOnTwoPlayerConsolesOnly() {
+        #expect(PlayAsPlayerTwo.isOffered(systemType: "snes"))
+        #expect(PlayAsPlayerTwo.isOffered(systemType: "n64"))
+        #expect(PlayAsPlayerTwo.isOffered(systemType: "md"))
+        #expect(!PlayAsPlayerTwo.isOffered(systemType: "gba"))
+        #expect(!PlayAsPlayerTwo.isOffered(systemType: "gg"))
+        #expect(!PlayAsPlayerTwo.isOffered(systemType: "psp"))
+        #expect(!PlayAsPlayerTwo.isOffered(systemType: nil))
     }
 }

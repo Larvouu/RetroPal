@@ -65,9 +65,18 @@ struct RewindDepthsTests {
         #expect(RewindDepths.chosenSeconds(30, maxSeconds: free, playedSeconds: 600) == 5)
     }
 
-    /// THE TAP IS UNCHANGED: as far back as the tier allows, which is what the
-    /// button's title says. It is deliberately not one of the steps.
+    /// The tap goes as far as the button says: five seconds free, ten Pro
+    /// (2026-10-11); the long press still reaches the Pro thirty.
     @Test func theTapGoesAsFarAsTheTierAllows() {
+        #expect(RewindDepths.tapCap(isPro: true) == 10 && RewindDepths.tapCap(isPro: false) == 5)
+        // The call the screen makes.
+        #expect(RewindDepths.tapSeconds(isPro: true, playedSeconds: 120) == 10)
+        #expect(RewindDepths.tapSeconds(isPro: false, playedSeconds: 120) == 5)
+        #expect(RewindDepths.tapSeconds(isPro: true, playedSeconds: 8) == 7)
+        #expect(RewindDepths.ceiling(isPro: true) == 30 && RewindDepths.ceiling(isPro: false) == 5)
+        #expect(RewindDepths.tapSeconds(maxSeconds: RewindDepths.tapCap(isPro: true), playedSeconds: 120) == 10)
+        #expect(RewindDepths.tapSeconds(maxSeconds: RewindDepths.tapCap(isPro: false), playedSeconds: 120) == 5)
+        #expect(RewindDepths.available(maxSeconds: RewindDepths.ceiling(isPro: true), playedSeconds: 120).last == 30)
         #expect(RewindDepths.tapSeconds(maxSeconds: pro, playedSeconds: 120) == 30)
         #expect(RewindDepths.tapSeconds(maxSeconds: free, playedSeconds: 120) == 5)
         // Early in a sitting it is everything played, minus the frame the
@@ -86,5 +95,17 @@ struct RewindDepthsTests {
             #expect(seconds % 5 == 0, "\(seconds)s is not a whole number of snapshots")
         }
         #expect(RewindDepths.steps.max() == 30, "the deepest step must match the Pro ceiling")
+    }
+
+    /// A 50 Hz second credits the rewind a whole second, as a 60 Hz one does:
+    /// the ring is asked in sixtieths of a second, whatever the console's rate.
+    @Test func aPALSecondCreditsAWholeSecond() {
+        var pal = 0.0
+        for _ in 0..<50 { pal += EmulatorSession.rewindCredit(perFrameAt: 50) }
+        #expect(abs(pal - 60) < 0.001, "fifty PAL frames did not credit one second of rewind")
+        var ntsc = 0.0
+        for _ in 0..<60 { ntsc += EmulatorSession.rewindCredit(perFrameAt: 60) }
+        #expect(abs(ntsc - 60) < 0.001, "sixty NTSC frames did not credit one second of rewind")
+        #expect(EmulatorSession.rewindCredit(perFrameAt: 0) == 1, "an unknown rate did not fall back to one frame")
     }
 }

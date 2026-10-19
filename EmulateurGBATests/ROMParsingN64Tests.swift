@@ -157,10 +157,13 @@ struct ROMParsingN64Tests {
 
     // MARK: - Its battery save lands where the core writes it
 
+    /// The core's one block, whichever name it arrives under (RetroArch's
+    /// `.srm`, or the `.sav` Retro Pal stores it as), is an N64 save and only
+    /// that: no other console has a save of this size.
     @Test func theCoresSaveBlockImportsAsAnSRM() {
-        #expect(BatterySaveSystem.srmFamily.compatibleSystemTypes.contains("n64"))
-        #expect(BatterySaveSystem.srmFamily.knownSaveSizes.contains(296_960))
-        #expect(!BatterySaveSystem.savFamily.compatibleSystemTypes.contains("n64"))
+        #expect(BatterySaveImporter.saveSizes["n64"] == [296_960])
+        #expect(BatterySaveImporter.classify(data: Data(count: 296_960), system: .cartridge)
+                == .savable(consoles: ["n64"], byteCount: 296_960))
     }
 
     // MARK: - libdragon's IPL3 (games the core cannot run yet)

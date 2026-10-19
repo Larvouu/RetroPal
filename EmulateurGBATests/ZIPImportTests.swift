@@ -448,6 +448,48 @@ struct ZIPExtractorTests {
         #expect(games.discs.isEmpty)
     }
 
+    /// A README.md is Markdown, not a Mega Drive game: `.md` is both formats'
+    /// extension, and inside an archive only the bytes can tell them apart.
+    @Test("A README.md beside a game is not offered as a second game")
+    func markdownReadmeIsNotAGame() throws {
+        let dir = try ImportFixtures.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let zip = try write(ArchiveBuilder.build([
+            .init(name: "Game.gba", content: ImportFixtures.gbaROM()),
+            .init(name: "README.md", content: Data(String(repeating: "# Notes\n", count: 128).utf8)),
+        ]), in: dir)
+        #expect(try ZIPExtractor.romEntryNames(in: zip) == ["Game.gba"])
+        #expect(try ZIPExtractor.gameEntries(in: zip).cartridges == ["Game.gba"])
+    }
+
+    @Test("A README.md does not hide a PlayStation disc in the same archive")
+    func markdownReadmeDoesNotHideADisc() throws {
+        let dir = try ImportFixtures.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let zip = try write(ArchiveBuilder.build([
+            .init(name: "Track 01.bin", content: ImportFixtures.patterned(2352 * 4)),
+            .init(name: "Game.cue", content: Data("FILE \"Track 01.bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n".utf8)),
+            .init(name: "README.md", content: Data("# Game\n".utf8)),
+        ]), in: dir)
+        let games = try ZIPExtractor.gameEntries(in: zip)
+        #expect(games.cartridges.isEmpty, "The README was read as a cartridge and hid the disc.")
+        #expect(games.discs.first?.boot == "Game.cue")
+    }
+
+    @Test("A real Mega Drive .md in an archive is still a game, its README is not")
+    func megaDriveMdInAnArchive() throws {
+        let dir = try ImportFixtures.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var rom = [UInt8](ImportFixtures.patterned(0x8000, seed: 9))
+        for (i, b) in Array("SEGA MEGA DRIVE ".utf8).enumerated() { rom[0x100 + i] = b }
+        let zip = try write(ArchiveBuilder.build([
+            .init(name: "Sonic.md", content: Data(rom)),
+            .init(name: "README.md", content: Data("# Sonic\n".utf8)),
+        ]), in: dir)
+        #expect(try ZIPExtractor.romEntryNames(in: zip) == ["Sonic.md"])
+        #expect(try ZIPExtractor.gameEntries(in: zip).cartridges == ["Sonic.md"])
+    }
+
     @Test("An archive with a trailing comment is still found")
     func archiveWithAComment() throws {
         let dir = try ImportFixtures.makeDirectory()

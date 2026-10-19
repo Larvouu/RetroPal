@@ -143,6 +143,10 @@ final class BoxArtManager {
         .nes: "Nintendo - Nintendo Entertainment System",
         .ps1: "Sony - PlayStation",
         .n64: "Nintendo - Nintendo 64",
+        .md: "Sega - Mega Drive - Genesis",
+        .sms: "Sega - Master System - Mark III",
+        .gg: "Sega - Game Gear",
+        .psp: "Sony - PlayStation Portable",
     ]
     /// Bound on HTTP tries per game: exact + serial + a couple of fuzzy
     /// runners-up. Beyond that, a wrong cover is likelier than a right one.
@@ -561,7 +565,7 @@ final class BoxArtManager {
 
         var attempts = 0
         for candidate in candidates {
-            for stem in Self.stemVariants(candidate.stem) {
+            for stem in Self.fetchStems(candidate.stem, system: system, index: BoxArtIndex.shared) {
                 guard attempts < Self.maxHTTPAttempts else { break }
                 attempts += 1
                 switch fetch(stem: stem, systemDirectory: systemDirectory) {
@@ -603,7 +607,10 @@ final class BoxArtManager {
         let headerEcho = GBAROMParser.headerTitle(url: romURL, system: system)
             .map { ROMImporter.cleanGameTitle($0) == game.title } ?? false
         return Self.assembleCandidates(
-            crcStem: Self.crc32(of: romURL, system: system).flatMap {
+            // Read the whole file only when the console has CRCs to match:
+            // the disc consoles have none, and a PSP image is up to 1.8 GB.
+            crcStem: (BoxArtIndex.shared.hasCRCs(for: system)
+                      ? Self.crc32(of: romURL, system: system) : nil).flatMap {
                 BoxArtIndex.shared.exactName(crc32: $0, system: system)
             },
             serialStem: GBAROMParser.gameCode(url: romURL, system: system).flatMap {
@@ -653,6 +660,17 @@ final class BoxArtManager {
         let stripped = stem.replacingOccurrences(of: "\\s*\\(Rev[^)]*\\)", with: "",
                                                  options: .regularExpression)
         return stripped == stem ? [stem] : [stem, stripped]
+    }
+
+    /// The file names to try for one candidate. When the index name has an
+    /// alias (the PSP's table), the alias ALONE: it exists only because the
+    /// server's listing lacked the index name, so asking for that name too
+    /// would spend one of `maxHTTPAttempts` on a known 404 and could starve the
+    /// next candidate. Otherwise the index name and its revision-less variant.
+    static func fetchStems(_ stem: String, system: ROMSystemType,
+                           index: BoxArtIndex) -> [String] {
+        if let alias = index.serverAlias(forStem: stem, system: system) { return [alias] }
+        return stemVariants(stem)
     }
 
     static func thumbnailURL(stem: String, systemDirectory: String) -> URL {

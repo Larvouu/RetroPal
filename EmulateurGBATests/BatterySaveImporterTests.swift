@@ -5,7 +5,8 @@
 //  Covers the six paths called out by the /plan-eng-review 2026-05-15 test
 //  plan for Manic / Delta / OpenEmu / RetroArch save-import:
 //    1. .sav 128 KB classifies as a GBA save (Gen 3 signature path).
-//    2. .srm 512 KB classifies as an NDS save.
+//    2. 512 KB classifies as an NDS save, as .sav or .srm (since 2026-10-07
+//       the size, not the extension, names the console).
 //    3. A .sav that actually carries the GBA Nintendo-logo bytes is
 //       rejected as `invalidFormat` so a misshared ROM doesn't silently
 //       corrupt the BatterySaves directory.
@@ -95,45 +96,106 @@ struct BatterySaveImporterTests {
     @Test
     func test_classify_gbaSave128KB_routesToGBA() {
         let data = Self.makeValidGen3Save()
-        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
-        #expect(result == .savable(system: .savFamily, byteCount: 131072))
+        guard case .savable(let consoles, 131072) = BatterySaveImporter.classify(data: data, system: .cartridge) else {
+            Issue.record("A Gen 3 save was refused."); return
+        }
+        #expect(consoles.contains("gba"))
     }
 
     @Test
     func test_classify_dsSave512KB_routesToNDS() {
-        let data = Self.makeBlankDSSave()
-        let result = BatterySaveImporter.classify(data: data, system: .srmFamily)
-        #expect(result == .savable(system: .srmFamily, byteCount: 524288))
+        // A DS save under BOTH names: RetroArch writes `.srm`, Delta and melonDS
+        // `.sav`, and Retro Pal stores it as `<rom>.sav`. A 512 KB `.sav`
+        // (SoulSilver, opened from Retro Pal's own BatterySaves folder) was
+        // refused until 2026-10-07.
+        #expect(BatterySaveImporter.classify(data: Self.makeBlankDSSave(), system: .cartridge)
+                == .savable(consoles: ["nds"], byteCount: 524288))
+        #expect(BatterySaveSystem.from(fileExtension: "sav") == .cartridge)
+        #expect(BatterySaveSystem.from(fileExtension: "SRM") == .cartridge)
     }
 
     @Test
     func test_reject_gbaRom_byNintendoLogo() {
         let data = Self.makeRomSizedFile()
-        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
+        let result = BatterySaveImporter.classify(data: data, system: .cartridge)
         #expect(result == .unsupported(reason: .invalidFormat))
     }
 
     @Test
     func test_reject_unknownSize_throwsInvalidFormat() {
-        // 100,000 bytes matches no known GBA / GB / GBC battery save size,
-        // so the file is rejected even though its declared extension is .sav.
+        // 100,000 bytes matches no console's battery save size.
         let data = Data(repeating: 0xAB, count: 100_000)
-        let result = BatterySaveImporter.classify(data: data, system: .savFamily)
+        let result = BatterySaveImporter.classify(data: data, system: .cartridge)
         #expect(result == .unsupported(reason: .invalidFormat))
     }
 
     @Test
     func test_gen3SectionSignatures_validatesRealSave() {
-        // Identical sizes (131072 B) — the gate has to discriminate by the
-        // section-footer magic alone.
-        let validSave = Self.makeValidGen3Save()
-        let blankSave = Self.makeBlank128KBSave()
+        // Identical sizes (131072 B): only the section-footer magic makes a
+        // 128 KB file a GBA save. Without it the file is still a size the
+        // Game Boy, the Super Nintendo and a PlayStation memory card use, so
+        // it stays importable for THOSE, never for a GBA game.
+        guard case .savable(let valid, _) = BatterySaveImporter.classify(data: Self.makeValidGen3Save(), system: .cartridge),
+              case .savable(let blank, _) = BatterySaveImporter.classify(data: Self.makeBlank128KBSave(), system: .cartridge) else {
+            Issue.record("A 128 KB save was refused outright."); return
+        }
+        #expect(valid.contains("gba"))
+        #expect(!blank.contains("gba"))
+        #expect(blank == ["gb", "gbc", "snes", "ps1"])
+    }
 
-        let validResult = BatterySaveImporter.classify(data: validSave, system: .savFamily)
-        let blankResult = BatterySaveImporter.classify(data: blankSave, system: .savFamily)
+    /// The clock carts. mGBA, our GBA and Game Boy core, appends the clock's
+    /// state after the save RAM: 16 bytes on a GBA (Pokémon Ruby, Sapphire,
+    /// Emerald), 48 on a Game Boy MBC3 (Pokémon Gold, Silver, Crystal), 44 in
+    /// the older VBA layout. A save mGBA itself wrote was refused on import
+    /// until 2026-10-07.
+    @Test
+    func test_classify_clockCartSaves_areAccepted() {
+        var emerald = Self.makeValidGen3Save()
+        emerald.append(Data(repeating: 0x11, count: 16))
+        guard case .savable(let gba, _) = BatterySaveImporter.classify(data: emerald, system: .cartridge) else {
+            Issue.record("A GBA clock-cart save (128 KB + 16) was refused."); return
+        }
+        #expect(gba == ["gba"])
 
-        #expect(validResult == .savable(system: .savFamily, byteCount: 131072))
-        #expect(blankResult == .unsupported(reason: .invalidFormat))
+        for suffix in [44, 48] {
+            let crystal = Data(repeating: 0x22, count: 32768 + suffix)
+            #expect(BatterySaveImporter.classify(data: crystal, system: .cartridge)
+                    == .savable(consoles: ["gb", "gbc"], byteCount: 32768 + suffix),
+                    "A Game Boy clock-cart save (32 KB + \(suffix)) was refused.")
+        }
+        // A blank 128 KB + 16 is not a Gen 3 save, so it is nothing at all.
+        var blank = Self.makeBlank128KBSave()
+        blank.append(Data(count: 16))
+        #expect(BatterySaveImporter.classify(data: blank, system: .cartridge) == .unsupported(reason: .invalidFormat))
+    }
+
+    /// Every console's own save, as Retro Pal stores it (`<rom>.sav`), imports
+    /// back into a game of that console: what a player gets by opening a file
+    /// from Retro Pal's BatterySaves folder in Files, or moving a save between
+    /// two devices.
+    @Test
+    func test_classify_everyConsolesOwnSave_isAccepted() {
+        let sizes: [(String, Int)] = [("gba", 32768), ("gb", 8192), ("gbc", 32768), ("nes", 8192),
+                                      ("snes", 32768), ("nds", 524288), ("n64", 296_960), ("ps1", 131072)]
+        for (console, size) in sizes {
+            guard case .savable(let consoles, _) = BatterySaveImporter.classify(
+                data: Data(repeating: 0x5A, count: size), system: .cartridge) else {
+                Issue.record("A \(console) save of \(size) bytes was refused."); continue
+            }
+            #expect(consoles.contains(console), "A \(size)-byte save is not offered to \(console) games.")
+        }
+    }
+
+    /// `.mcd` is a PlayStation memory card and nothing else.
+    @Test
+    func test_classify_memoryCard_isPlayStationOnly() {
+        let card = Data(repeating: 0, count: 131072)
+        #expect(BatterySaveSystem.from(fileExtension: "mcd") == .memoryCard)
+        #expect(BatterySaveImporter.classify(data: card, system: .memoryCard)
+                == .savable(consoles: ["ps1"], byteCount: 131072))
+        #expect(BatterySaveImporter.classify(data: Data(count: 8192), system: .memoryCard)
+                == .unsupported(reason: .invalidFormat))
     }
 
     // MARK: - Save-path compatibility contract
@@ -227,44 +289,19 @@ struct BatterySaveImporterTests {
         #expect(writtenAfterOverwrite == secondPayload)
     }
 
-    // MARK: - The 1.2.5 consoles join the existing two families
+    // MARK: - The consoles every size reaches
 
-    /// The families are named after the EXTENSION, not after a console, because
-    /// that is what a file arriving from another emulator actually declares.
-    /// MesenCE writes `.srm` for a SNES cart and `.sav` for a NES one, which is
-    /// also what every other emulator exports, so each console lands in the
-    /// family whose extension its saves really carry.
+    /// An 8 KB save is the commonest cart save there is (Zelda, Final
+    /// Fantasy, Dragon Warrior on the NES, Phantasy Star on the Mega Drive) and
+    /// must classify for every console that writes one, whatever its
+    /// extension, while the Gen 3 signature rule stays confined to the GBA at
+    /// 128 KB.
     @Test
-    func test_saveFamilies_acceptTheRightConsoles() {
-        #expect(BatterySaveSystem.from(fileExtension: "sav") == .savFamily)
-        #expect(BatterySaveSystem.from(fileExtension: "srm") == .srmFamily)
-        #expect(BatterySaveSystem.from(fileExtension: "state") == nil)
-
-        #expect(BatterySaveSystem.savFamily.compatibleSystemTypes.contains("nes"))
-        #expect(BatterySaveSystem.srmFamily.compatibleSystemTypes.contains("snes"))
-        // And the pairing is exclusive: a SNES save must not be offered to a NES
-        // game, which is the mistake a single shared family would allow.
-        #expect(!BatterySaveSystem.savFamily.compatibleSystemTypes.contains("snes"))
-        #expect(!BatterySaveSystem.srmFamily.compatibleSystemTypes.contains("nes"))
-    }
-
-    /// An 8 KB NES battery save is the commonest cart save there is (Zelda,
-    /// Final Fantasy, Dragon Warrior) and must classify, while the Gen 3
-    /// signature rule stays confined to 128 KB.
-    @Test
-    func test_classify_nesSave8KB_isAccepted() {
+    func test_classify_8KBSave_reachesEveryConsoleOfThatSize() {
         let save = Data(repeating: 0x42, count: 8192)
-        #expect(BatterySaveImporter.classify(data: save, system: .savFamily)
-                == .savable(system: .savFamily, byteCount: 8192))
-    }
-
-    /// A 32 KB SNES save (Chrono Trigger, Zelda: A Link to the Past) arriving as
-    /// `.srm` must classify too: the srm family's size set was written for the DS
-    /// alone and would have rejected every SNES save had it not been widened.
-    @Test
-    func test_classify_snesSave32KB_isAccepted() {
-        let save = Data(repeating: 0x17, count: 32768)
-        #expect(BatterySaveImporter.classify(data: save, system: .srmFamily)
-                == .savable(system: .srmFamily, byteCount: 32768))
+        #expect(BatterySaveImporter.classify(data: save, system: .cartridge)
+                == .savable(consoles: ["gba", "gb", "gbc", "nes", "snes", "nds", "md", "sms", "gg"],
+                            byteCount: 8192))
+        #expect(BatterySaveSystem.from(fileExtension: "state") == nil)
     }
 }

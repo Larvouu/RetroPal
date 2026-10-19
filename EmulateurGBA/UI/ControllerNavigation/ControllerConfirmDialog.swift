@@ -73,6 +73,11 @@ final class ControllerConfirmDialog: UIViewController {
             label.numberOfLines = 0
             stack.addArrangedSubview(label)
         }
+        // The message scrolls when it is taller than the room left: on a phone
+        // on its side, the usual way up with a controller in hand, a long
+        // language (the PSP's boot message in German) pushed the only button
+        // below the screen. A message that fits sizes the scroll view to
+        // itself, so it looks as it always did.
         if let message {
             let label = UILabel()
             label.text = message
@@ -81,8 +86,29 @@ final class ControllerConfirmDialog: UIViewController {
             label.textColor = UIColor.white.withAlphaComponent(0.78)
             label.textAlignment = .center
             label.numberOfLines = 0
-            stack.addArrangedSubview(label)
-            stack.setCustomSpacing(18, after: label)
+            label.translatesAutoresizingMaskIntoConstraints = false
+
+            let scroll = UIScrollView()
+            scroll.translatesAutoresizingMaskIntoConstraints = false
+            scroll.showsHorizontalScrollIndicator = false
+            scroll.alwaysBounceVertical = false
+            scroll.indicatorStyle = .white
+            scroll.addSubview(label)
+            // Just under the title's and the buttons' resistance to being
+            // squeezed (750), so when the card is too tall it is this view,
+            // never a button, that gives up the height.
+            let fitsItself = scroll.heightAnchor.constraint(equalTo: label.heightAnchor)
+            fitsItself.priority = UILayoutPriority(749)
+            NSLayoutConstraint.activate([
+                label.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+                label.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+                label.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+                label.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+                label.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+                fitsItself,
+            ])
+            stack.addArrangedSubview(scroll)
+            stack.setCustomSpacing(18, after: scroll)
         }
 
         // The choices first, the cancel last, each on its own full-width row:
@@ -110,11 +136,16 @@ final class ControllerConfirmDialog: UIViewController {
         }
 
         card.addSubview(stack)
+        // Centred while it fits; never past the safe area at either edge, the
+        // message's scroll view giving up the height instead (see above).
+        let centred = card.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        centred.priority = .defaultHigh
         NSLayoutConstraint.activate([
             card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            centred,
             card.widthAnchor.constraint(equalToConstant: 300),
             card.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            card.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),

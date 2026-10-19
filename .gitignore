@@ -61,13 +61,19 @@ Packages/
 EmulateurGBATests/Fixtures/SaveStateCompat/**/*.state
 EmulateurGBATests/Fixtures/SaveStateCompat/**/*.sav
 EmulateurGBATests/Fixtures/SaveStateCompat/*.state
-# Except the two fixtures made from freely redistributable homebrew (their
+# Except the fixtures made from freely redistributable homebrew (their
 # licences sit beside them): a guard that lives on one Mac only disappears with
 # that Mac. Retail games and their states still never enter the repository.
 !EmulateurGBATests/Fixtures/SaveStateCompat/melonds/traffic-escape-ds.nds
 !EmulateurGBATests/Fixtures/SaveStateCompat/melonds/traffic-escape-ds.state
 !EmulateurGBATests/Fixtures/SaveStateCompat/mgba/anguna.gba
 !EmulateurGBATests/Fixtures/SaveStateCompat/mgba/anguna.state
+!EmulateurGBATests/Fixtures/SaveStateCompat/n64/minesweeper64.z64
+!EmulateurGBATests/Fixtures/SaveStateCompat/n64/minesweeper64.state
+!EmulateurGBATests/Fixtures/SaveStateCompat/md/kleleatoms.gen
+!EmulateurGBATests/Fixtures/SaveStateCompat/md/kleleatoms.state
+!EmulateurGBATests/Fixtures/SaveStateCompat/psp/2048psp.pbp
+!EmulateurGBATests/Fixtures/SaveStateCompat/psp/2048psp.state
 
 # The owner's own game files, states and saves, handed over for testing and
 # benchmarking (commercial ROMs among them). Local only, never committed.
@@ -76,6 +82,9 @@ EmulateurGBATests/Fixtures/SaveStateCompat/*.state
 # committed: they are large, host-specific, and the public repo must ship the
 # core SOURCE as a submodule rather than a prebuilt binary).
 Vendor/*-ios/lib/
+# The PSP core's run-time files, copied out of the PPSSPP submodule by
+# Vendor/ppsspp-ios/build.sh (the source of truth stays the submodule).
+Vendor/ppsspp-ios/PPSSPP/
 
 # Personal / non-project files (kept locally, never committed)
 ressources/

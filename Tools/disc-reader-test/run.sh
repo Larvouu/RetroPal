@@ -45,3 +45,32 @@ CC="${CC:-cc}"
     "$LIB" -lz -lm -lpthread -o "$WORK/host"
 
 "$WORK/host" "$WORK/plain.chd" "$WORK/pregap.chd" "$WORK/plain.bin"
+
+# THE PSP's `.cso` (2026-10-10). A PSP disc is hashed by rcheevos itself
+# (PARAM.SFO and the boot executable) through this reader, so the one thing to
+# prove is that a `.cso` reads as the ISO it was made from: hashed both ways,
+# the two must agree, with 2 KB frames and with 8 KB frames shifted by an index
+# alignment, compressed and plain frames both. It needs a real PSP ISO, which
+# never enters the repository, so it runs only when one is named:
+#     Tools/disc-reader-test/run.sh /path/to/game.iso
+if [ $# -ge 1 ]; then
+    R=Vendor/rcheevos
+    "$CC" -O1 -Wall -Wno-unused-function \
+        -I EmulateurGBA/Data/RetroAchievements -I "$R/include" -I "$R/src" \
+        -I Vendor/pcsx_rearmed/deps/libchdr/include \
+        Tools/disc-reader-test/psp_hash.c \
+        EmulateurGBA/Data/RetroAchievements/RADiscFileReader.c \
+        "$R"/src/rhash/*.c "$R/src/rc_compat.c" "$R/src/rc_util.c" \
+        "$LIB" -lz -lm -lpthread -o "$WORK/psp_hash"
+    python3 Tools/disc-reader-test/make_cso.py "$1" "$WORK/game.cso"
+    python3 Tools/disc-reader-test/make_cso.py "$1" "$WORK/game-8k.cso" --frame 8192 --align 2
+    OUT="$("$WORK/psp_hash" "$1" "$WORK/game.cso" "$WORK/game-8k.cso")"
+    echo "$OUT"
+    if [ "$(echo "$OUT" | awk '{print $1}' | sort -u | wc -l)" -eq 1 ] && ! echo "$OUT" | grep -q '(none)'; then
+        echo "PSP .cso: the same hash as the ISO, both layouts"
+    else
+        echo "PSP .cso: HASHES DIFFER"; exit 1
+    fi
+else
+    echo "PSP .cso: SKIPPED (name a PSP ISO to run it)"
+fi

@@ -163,7 +163,7 @@ enum PresetLayoutResolver {
                 default: return 0
                 }
             }
-        case .snes, .ps1, .n64, .gbc, .nes:
+        case .snes, .ps1, .n64, .gbc, .nes, .md, .sms, .gg, .psp:
             // NOTHING, and the two that used to nudge here were wrong to.
             //
             // This function is not a place to improve a layout. It is the MIRROR of the
@@ -526,6 +526,12 @@ enum PresetLayoutResolver {
                     current: center, menuSize: size, screen: metalFrame, container: viewSize,
                     safeRightInset: safeInsets.right, deviceScale: k)
             }
+            // Upright, it drops under the picture when the picture grew over it.
+            if controllerConnected, !isLandscape, !isNDS, element == .btnMenu {
+                center = EmulatorLayoutGeometry.controllerPortraitMenuCenter(
+                    current: center, menuSize: size, pictureBottom: metalFrame.maxY,
+                    containerHeight: viewSize.height, deviceScale: k)
+            }
             buttons[element] = (center, size)
         }
 
@@ -641,6 +647,19 @@ enum PresetLayoutResolver {
         // 4:3 as well: the console drew for a 4:3 television with non-square pixels.
         // Matches `kN64DisplayAspect` in N64Bridge, and if one moves they both move.
         case .n64: return 4.0 / 3.0
+        // 4:3 too, and for the PlayStation's reason rather than the SNES's: the
+        // game switches between 320 and 256 pixels wide mid-session, and both
+        // filled the same television. Matches `kMDDisplayAspect` in
+        // BlastEmBridge, and if one moves they both move.
+        case .md: return 4.0 / 3.0
+        // Both match `MesenBridge.displayAspect`, for the NES's reason above: each
+        // shows its own frame with square pixels. The Master System's 256x192 is
+        // 4:3; the Game Gear's 160x144 is the Game Boy's 10:9, its LCD's real shape.
+        case .sms: return 256.0 / 192.0
+        case .gg: return 160.0 / 144.0
+        // The PSP's 480x272, square pixels, as the screen was. Matches
+        // `kPSPDisplayAspect` in PSPBridge, and if one moves they both move.
+        case .psp: return 480.0 / 272.0
         }
     }
 

@@ -29,7 +29,8 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SWIFT = os.path.join(ROOT, "EmulateurGBA", "Features", "Library", "ConsoleIconRow.swift")
 CONSOLES = {"snes": "console-snes.svg", "nes": "console-nes.svg", "ps1": "console-ps1.svg",
-            "n64": "console-n64.svg"}
+            "n64": "console-n64.svg", "md": "console-md.svg",
+            "sms": "console-sms.svg", "gg": "console-gg.svg", "psp": "console-psp.svg"}
 
 NUM = r"-?[\d.]+"
 
@@ -76,13 +77,19 @@ def swift_shapes(console):
     rects = {tuple(float(v) for v in m)
              for m in re.findall(
                  r"(?:rect|frame)\(\s*({0}),\s*({0}),\s*({0}),\s*({0})".format(NUM), block)}
+    # `roundedBody(x, y, w, h, radius:, …, band: b, …)` (the Game Gear's) is the
+    # SVG's two rects: the rounded body and its lit band, the band's height `b`.
+    for x, y, w, h, b in re.findall(
+            r"roundedBody\(\s*({0}),\s*({0}),\s*({0}),\s*({0}),.*?band:\s*({0})".format(NUM), block):
+        rects.add((float(x), float(y), float(w), float(h)))
+        rects.add((float(x), float(y), float(w), float(b)))
     circles = {tuple(float(v) for v in m)
                for m in re.findall(r"dot\(\s*({0}),\s*({0}),\s*({0})".format(NUM), block)}
+    # Every `poly([...])`, in order, as the SVG's paths are read in order.
     verts = []
-    poly = re.search(r"poly\(\[(.*?)\]", block, re.S)
-    if poly:
-        verts = [(float(a), float(b))
-                 for a, b in re.findall(r"\(\s*({0}),\s*({0})\s*\)".format(NUM), poly.group(1))]
+    for poly in re.findall(r"poly\(\[(.*?)\]", block, re.S):
+        verts += [(float(a), float(b))
+                  for a, b in re.findall(r"\(\s*({0}),\s*({0})\s*\)".format(NUM), poly)]
     return rects, circles, verts
 
 

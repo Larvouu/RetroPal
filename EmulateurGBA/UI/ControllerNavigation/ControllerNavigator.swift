@@ -800,7 +800,11 @@ enum ControllerAlert {
         ControllerManager.shared.hidesTouchControls || ControllerNavigator.shared.isShowing
     }
 
-    static func present(title: String?, message: String?, actions: [Action]) {
+    /// Returns false when there was no screen to present on (no window yet),
+    /// in which case no action will ever run: a caller WAITING for an answer
+    /// must not wait (`DiscConsoleQuestion`). Every existing caller ignores it.
+    @discardableResult
+    static func present(title: String?, message: String?, actions: [Action]) -> Bool {
         let presented: UIViewController
         if controllerInHand {
             presented = ControllerConfirmDialog(
@@ -817,8 +821,9 @@ enum ControllerAlert {
         let windows = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
-        guard var top = (windows.first { $0.isKeyWindow } ?? windows.first)?.rootViewController else { return }
+        guard var top = (windows.first { $0.isKeyWindow } ?? windows.first)?.rootViewController else { return false }
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
         top.present(presented, animated: true)
+        return true
     }
 }

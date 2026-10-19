@@ -52,10 +52,27 @@ public:
     N64VulkanFrontend(const N64VulkanFrontend &) = delete;
     N64VulkanFrontend &operator=(const N64VulkanFrontend &) = delete;
 
+    /// What a core needs from the instance beyond the defaults. The defaults
+    /// are the Nintendo 64's, unchanged since 1.3.3.
+    struct Requirements {
+        /// parallel-RDP's 8- and 16-bit storage-buffer access, checked here
+        /// (see below). The PSP's renderer does not use them.
+        bool parallelRDPStorage = true;
+        /// A presentation surface handed to the core's device negotiation.
+        /// parallel-RDP renders offscreen and is given none; PPSSPP's libretro
+        /// port REQUIRES one (libretro_vulkan.cpp asserts it and queries its
+        /// present support while choosing a queue), although it never presents
+        /// to it: its swapchain is libretro's, whose images come back through
+        /// `set_image` like parallel-RDP's. On iOS the surface sits on a
+        /// CAMetalLayer that is never put on screen; on Linux (the benches)
+        /// it is a headless surface.
+        bool surface = false;
+    };
+
     /// Step 1, called while the core is loading the game (from SET_HW_RENDER):
-    /// creates the instance on MoltenVK and checks that the GPU has what
-    /// parallel-RDP cannot run without, 8- and 16-bit access to storage
-    /// buffers. Returns false, with the reason logged, if not.
+    /// creates the instance on MoltenVK and checks that the GPU has what the
+    /// core cannot run without (for parallel-RDP, 8- and 16-bit access to
+    /// storage buffers). Returns false, with the reason logged, if not.
     ///
     /// The check is here, and not left to the core, because of WHERE the core
     /// would find out. It checks those features when the game starts running,
@@ -63,6 +80,10 @@ public:
     /// returning from it, which crashes. Refusing here instead makes the core
     /// fail the LOAD, which is the path it handles cleanly, and lets the app
     /// say the game cannot run on this device.
+    bool createInstance(Requirements requirements);
+    /// The Nintendo 64's call: the default requirements. (Two declarations
+    /// rather than a default argument: a nested struct's member initialisers
+    /// cannot be used as a default argument inside the class that holds it.)
     bool createInstance();
 
     /// Step 2, called after the load succeeded: asks the core to create the
@@ -122,8 +143,14 @@ private:
     bool gpuSupportsParallelRDP(VkPhysicalDevice gpu) const;
     int32_t findMemoryType(uint32_t typeBits, VkMemoryPropertyFlags required, VkMemoryPropertyFlags preferred) const;
 
+    bool createSurface();
+
     VkInstance _instance = VK_NULL_HANDLE;
     VkPhysicalDevice _gpu = VK_NULL_HANDLE;
+    /// The surface `Requirements::surface` asks for, and on iOS the layer it
+    /// lives on (a CAMetalLayer, retained, never displayed).
+    VkSurfaceKHR _surface = VK_NULL_HANDLE;
+    void *_surfaceLayer = nullptr;
     VkDevice _device = VK_NULL_HANDLE;
     VkQueue _queue = VK_NULL_HANDLE;
     uint32_t _queueFamily = 0;

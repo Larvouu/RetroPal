@@ -51,6 +51,9 @@ struct SaveSyncReconciler {
         /// iCloud held at least one save-state file this pass — used to arm the
         /// "you had iCloud saves" warning so brand-new users are never warned.
         var cloudHadFiles = false
+        /// How many files differed on the two sides this pass, so one version
+        /// was archived under `_Conflicts` (telemetry only).
+        var conflicts = 0
     }
 
     /// Materialize an iCloud file that may be evicted (a `.icloud` placeholder)
@@ -80,6 +83,7 @@ struct SaveSyncReconciler {
             let r = reconcileROM(rom)
             result.localChanged = result.localChanged || r.localChanged
             result.cloudHadFiles = result.cloudHadFiles || r.cloudHadFiles
+            result.conflicts += r.conflicts
         }
         return result
     }
@@ -102,15 +106,18 @@ struct SaveSyncReconciler {
         result.cloudHadFiles = !cloudNames.isEmpty
         for name in savNames(in: localRoot).union(cloudNames) {
             if skipNames.contains(name) { continue }
-            if reconcileBatteryFile(name) { result.localChanged = true }
+            let outcome = reconcileBatteryFile(name)
+            if outcome.localChanged { result.localChanged = true }
+            if outcome.conflict { result.conflicts += 1 }
         }
         return result
     }
 
     /// One `.sav`: the save-state slot logic without the `.png` companion,
     /// archived flat (`_Conflicts/<name>`, the file name IS the ROM, bounded to
-    /// one copy). Returns true if the local ACTIVE copy changed (a pull).
-    private func reconcileBatteryFile(_ name: String) -> Bool {
+    /// one copy). `localChanged`: the local ACTIVE copy changed (a pull);
+    /// `conflict`: the two sides differed and one was archived.
+    private func reconcileBatteryFile(_ name: String) -> (localChanged: Bool, conflict: Bool) {
         let localFile = localRoot.appendingPathComponent(name)
         let cloudFile = cloudRoot.appendingPathComponent(name)
         let localExists = fm.fileExists(atPath: localFile.path)
@@ -118,16 +125,16 @@ struct SaveSyncReconciler {
 
         switch (localExists, cloudExists) {
         case (false, false):
-            return false
+            return (false, false)
         case (true, false):
             copyUp(localFile, cloudFile)
-            return false
+            return (false, false)
         case (false, true):
             copyDown(cloudFile, localFile)
-            return true
+            return (true, false)
         case (true, true):
-            guard materialize(cloudFile) else { return false }   // not downloaded yet; retry next sync
-            if sameContents(localFile, cloudFile) { return false }
+            guard materialize(cloudFile) else { return (false, false) }   // not downloaded yet; retry next sync
+            if sameContents(localFile, cloudFile) { return (false, false) }
             let lm = mtime(localFile) ?? .distantPast
             let cm = mtime(cloudFile) ?? .distantPast
             ensureDir(conflictsRoot())
@@ -136,13 +143,13 @@ struct SaveSyncReconciler {
                 // Cloud newer -> cloud wins. Preserve the local loser, then pull.
                 copyPreservingDate(from: localFile, to: archived)
                 copyDown(cloudFile, localFile)
-                return true
+                return (true, true)
             } else {
                 // Local newer (or tie) -> local wins. Preserve the cloud loser
                 // locally, then push. Local active unchanged.
                 copyPreservingDate(from: cloudFile, to: archived)
                 copyUp(localFile, cloudFile)
-                return false
+                return (false, true)
             }
         }
     }
@@ -175,15 +182,17 @@ struct SaveSyncReconciler {
         result.cloudHadFiles = !cloudStates.isEmpty
 
         for state in localStates.union(cloudStates) {
-            if reconcileSlot(stateName: state, rom: rom, localDir: localDir, cloudDir: cloudDir) {
-                result.localChanged = true
-            }
+            let outcome = reconcileSlot(stateName: state, rom: rom, localDir: localDir, cloudDir: cloudDir)
+            if outcome.localChanged { result.localChanged = true }
+            if outcome.conflict { result.conflicts += 1 }
         }
         return result
     }
 
-    /// Reconcile one slot. Returns true if the local ACTIVE copy changed (a pull).
-    private func reconcileSlot(stateName: String, rom: String, localDir: URL, cloudDir: URL) -> Bool {
+    /// Reconcile one slot. `localChanged`: the local ACTIVE copy changed (a
+    /// pull); `conflict`: the two sides differed and one was archived.
+    private func reconcileSlot(stateName: String, rom: String, localDir: URL, cloudDir: URL)
+        -> (localChanged: Bool, conflict: Bool) {
         let pngName = (stateName as NSString).deletingPathExtension + ".png"
         let localState = localDir.appendingPathComponent(stateName)
         let cloudState = cloudDir.appendingPathComponent(stateName)
@@ -193,17 +202,17 @@ struct SaveSyncReconciler {
 
         switch (localExists, cloudExists) {
         case (false, false):
-            return false
+            return (false, false)
         case (true, false):
             // Local only -> push up. Local active unchanged.
             ensureDir(cloudDir)
             push(state: stateName, png: pngName, localDir: localDir, cloudDir: cloudDir)
-            return false
+            return (false, false)
         case (false, true):
             // Cloud only -> pull down. Local changed.
             ensureDir(localDir)
             pull(state: stateName, png: pngName, localDir: localDir, cloudDir: cloudDir)
-            return true
+            return (true, false)
         case (true, true):
             return reconcileDivergence(stateName: stateName, pngName: pngName, rom: rom,
                                        localState: localState, cloudState: cloudState,
@@ -215,9 +224,9 @@ struct SaveSyncReconciler {
     /// the loser is archived locally first (never destroyed).
     private func reconcileDivergence(stateName: String, pngName: String, rom: String,
                                      localState: URL, cloudState: URL,
-                                     localDir: URL, cloudDir: URL) -> Bool {
-        guard materialize(cloudState) else { return false }   // not downloaded yet; retry next sync
-        if sameContents(localState, cloudState) { return false }
+                                     localDir: URL, cloudDir: URL) -> (localChanged: Bool, conflict: Bool) {
+        guard materialize(cloudState) else { return (false, false) }   // not downloaded yet; retry next sync
+        if sameContents(localState, cloudState) { return (false, false) }
 
         let lm = mtime(localState) ?? .distantPast
         let cm = mtime(cloudState) ?? .distantPast
@@ -226,13 +235,13 @@ struct SaveSyncReconciler {
             // Cloud newer -> cloud wins. Preserve the local loser, then pull.
             archive(stateName: stateName, pngName: pngName, rom: rom, fromDir: localDir, materializeFirst: false)
             pull(state: stateName, png: pngName, localDir: localDir, cloudDir: cloudDir)
-            return true
+            return (true, true)
         } else {
             // Local newer (or equal mtime, different content) -> local wins.
             // Preserve the cloud loser locally, then push. Local active unchanged.
             archive(stateName: stateName, pngName: pngName, rom: rom, fromDir: cloudDir, materializeFirst: true)
             push(state: stateName, png: pngName, localDir: localDir, cloudDir: cloudDir)
-            return false
+            return (false, true)
         }
     }
 

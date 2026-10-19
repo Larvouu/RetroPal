@@ -367,6 +367,9 @@ struct ScreenshotCardRenderer {
     static func hasConsoleCard(_ system: PresetSystem) -> Bool {
         switch system {
         case .gbc, .gba, .nds, .snes, .nes, .ps1, .n64: return true
+        case .md: return true
+        // Their cards since 2026-10-11, once their dresses were approved.
+        case .sms, .gg, .psp: return true
         }
     }
 
@@ -400,6 +403,20 @@ struct ScreenshotCardRenderer {
         case .n64:
             return (n64ConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
                     GBCardLayout.n64(side: side, gameNativeSize: gameSize))
+        case .md:
+            return (mdConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.md(side: side, gameNativeSize: gameSize))
+        case .sms:
+            return (sega8BitConsoleCard(system: .sms, gameFrame: gameFrame, gameAspect: gameAspect,
+                                        info: info, variant: variant),
+                    GBCardLayout.sms(side: side, gameNativeSize: gameSize))
+        case .gg:
+            return (sega8BitConsoleCard(system: .gg, gameFrame: gameFrame, gameAspect: gameAspect,
+                                        info: info, variant: variant),
+                    GBCardLayout.gg(side: side, gameNativeSize: gameSize))
+        case .psp:
+            return (pspConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
+                    GBCardLayout.psp(side: side, gameNativeSize: gameSize))
         }
     }
 
@@ -838,6 +855,42 @@ struct ScreenshotCardRenderer {
         let layout = GBCardLayout.n64(side: 1080, gameNativeSize: CGSize(width: gameAspect, height: 1))
         return columnConsoleCard(system: .n64, layout: layout,
                                  columnWidth: GBCardLayout.n64InfoColumnWidth(layout, side: 1080),
+                                 gameFrame: gameFrame, info: info, variant: variant)
+    }
+
+    // MARK: - Mega Drive console card
+
+    /// The Mega Drive console card, over `GBCardLayout.md`, through the same
+    /// composite as the Nintendo 64's.
+    static func mdConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                              variant: DressVariant = .nostalgia) -> UIImage? {
+        let layout = GBCardLayout.md(side: 1080, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        return columnConsoleCard(system: .md, layout: layout,
+                                 columnWidth: GBCardLayout.mdInfoColumnWidth(layout, side: 1080),
+                                 gameFrame: gameFrame, info: info, variant: variant)
+    }
+
+    /// The Master System and Game Gear console cards, through the shared
+    /// composite, the name held to the column between the cross and the pair
+    /// so a long one never prints over either.
+    static func sega8BitConsoleCard(system: PresetSystem, gameFrame: CGImage?, gameAspect: CGFloat,
+                                    info: GameInfo, variant: DressVariant = .nostalgia) -> UIImage? {
+        let gameSize = CGSize(width: gameAspect, height: 1)
+        let layout = system == .gg ? GBCardLayout.gg(side: 1080, gameNativeSize: gameSize)
+                                   : GBCardLayout.sms(side: 1080, gameNativeSize: gameSize)
+        return columnConsoleCard(system: system, layout: layout,
+                                 columnWidth: GBCardLayout.sega8BitInfoColumnWidth(layout, system: system,
+                                                                                   side: 1080),
+                                 gameFrame: gameFrame, info: info, variant: variant)
+    }
+
+    /// The PSP console card, over `GBCardLayout.psp`, the name in the column
+    /// between the nub and the diamond.
+    static func pspConsoleCard(gameFrame: CGImage?, gameAspect: CGFloat, info: GameInfo,
+                               variant: DressVariant = .nostalgia) -> UIImage? {
+        let layout = GBCardLayout.psp(side: 1080, gameNativeSize: CGSize(width: gameAspect, height: 1))
+        return columnConsoleCard(system: .psp, layout: layout,
+                                 columnWidth: GBCardLayout.pspInfoColumnWidth(layout, side: 1080),
                                  gameFrame: gameFrame, info: info, variant: variant)
     }
 

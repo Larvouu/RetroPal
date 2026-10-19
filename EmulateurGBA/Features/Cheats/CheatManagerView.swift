@@ -97,8 +97,15 @@ struct CheatManagerView: View {
     /// every language, so one set of strings serves both.
     private var formatKey: String {
         switch systemKey {
-        case "nds", "snes", "nes", "ps1": return systemKey
+        case "nds", "snes", "nes", "ps1", "md": return systemKey
         case "n64": return "ps1"
+        // One family for two consoles: MesenCE reads the same two formats on
+        // the Master System and the Game Gear (Game Genie and Pro Action
+        // Replay, `MesenBridge.addCheatCode`), so one hint, one example and
+        // one refusal serve both.
+        case "sms", "gg": return "sega8"
+        // CWCheat, the PSP's own format (PSPBridge's cheats).
+        case "psp": return "psp"
         default: return "gba"
         }
     }
@@ -117,6 +124,16 @@ struct CheatManagerView: View {
         // newline before handing the code to PCSX, so this is the shape it
         // reduces to whatever separators the player pasted.
         case "ps1":  return prefix + "800C1B24 0063"
+        // A Pro Action Replay code: a work RAM address, a colon, the value
+        // (BlastEmBridge's cheats). This one is Sonic 1's rings, 99 (checked
+        // on the core with Tools/md-bench --poke).
+        case "md":   return prefix + "FFFE20:0063"
+        // A Pro Action Replay code, the address then the value, with the colon
+        // the code books print (the bridge drops it before Mesen reads it).
+        case "sega8": return prefix + "00C0:0F05"
+        // A CWCheat line as PSP code lists print it: "_L", a 32-bit write
+        // (type 2) at an offset into the game's memory, the value.
+        case "psp":  return prefix + "_L 0x20123456 0x0000270F"
         default:     return prefix + "82003884 0001"
         }
     }
@@ -165,7 +182,8 @@ struct CheatManagerView: View {
                             .focused($focusedField, equals: .code)
                             .onChange(of: codeInput) { newValue in
                                 let tidied = CheatCodeFormatter.formatted(
-                                    newValue, previous: lastCodeInput, isNDS: isNDS)
+                                    newValue, previous: lastCodeInput, isNDS: isNDS,
+                                    system: systemKey)
                                 lastCodeInput = tidied
                                 if tidied != newValue { codeInput = tidied }
                                 // Typing is how you fix a mistake, so clear the
@@ -534,10 +552,19 @@ struct CheatManagerView: View {
             // Genie is the common format there and half its letters are not hex.
             // `CheatCodeFormatter` already accepts them; this is the message
             // catching up with the validator.
+            // The Mega Drive's sentence names the colon its codes carry.
+            // The Master System's and the Game Gear's Pro Action Replay codes
+            // carry the same colon, so they read the Mega Drive's sentence.
             return NSLocalizedString(formatKey == "nes" ? "cheats.invalid.characters.nes"
-                                                        : "cheats.invalid.characters", comment: "")
+                                     : formatKey == "md" || formatKey == "sega8"
+                                        ? "cheats.invalid.characters.md"
+                                     : formatKey == "psp" ? "cheats.invalid.characters.psp"
+                                     : "cheats.invalid.characters", comment: "")
         case .unpairedLine:
-            return NSLocalizedString("cheats.invalid.pairs", comment: "")
+            // The DS's sentence names Action Replay DS; the PSP's names its own
+            // CWCheat lines.
+            return NSLocalizedString(formatKey == "psp" ? "cheats.invalid.pairs.psp" : "cheats.invalid.pairs",
+                                     comment: "")
         case .placeholderValue:
             return NSLocalizedString("cheats.invalid.placeholder", comment: "")
         case nil:

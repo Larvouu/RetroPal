@@ -361,11 +361,16 @@ final class ControllerManager: ObservableObject {
         // The Nintendo 64 reads its D-pad alone. Its stick reaches the core as
         // analog (`onSticksChanged`), and folded into the D-pad as well, every
         // push of it would also press a D-pad the game reads for something else.
+        // So does the PSP, for the same reason: its nub is always analog, and
+        // its games read the nub and the cross as two controls. ONLY this half
+        // of the N64's rule: its buttons are the PlayStation's, below, not the
+        // N64's (`n64` picks that console's whole face map further down).
         let n64 = (system == .n64)
-        if n64 ? s.padUp : s.up          { mask |= GBAInput.up.rawValue }
-        if n64 ? s.padDown : s.down      { mask |= GBAInput.down.rawValue }
-        if n64 ? s.padLeft : s.left      { mask |= GBAInput.left.rawValue }
-        if n64 ? s.padRight : s.right    { mask |= GBAInput.right.rawValue }
+        let padAlone = stickIsAnalogOnly(on: system)
+        if padAlone ? s.padUp : s.up          { mask |= GBAInput.up.rawValue }
+        if padAlone ? s.padDown : s.down      { mask |= GBAInput.down.rawValue }
+        if padAlone ? s.padLeft : s.left      { mask |= GBAInput.left.rawValue }
+        if padAlone ? s.padRight : s.right    { mask |= GBAInput.right.rawValue }
 
         if let mapping {
             for (input, physical) in mapping.assignments where s.isPressed(physical) {
@@ -432,6 +437,14 @@ final class ControllerManager: ObservableObject {
 
         if s.options || s.leftStickClick { mask |= GBAInput.select.rawValue }
         return mask
+    }
+
+    /// Whether a pad's left stick reaches this console as its analog stick
+    /// ONLY, never also as the cross: the Nintendo 64 and the PSP, whose games
+    /// read the two as different controls. One answer for `buttonMask` and for
+    /// the remap screen's footer, which says what the stick does.
+    static func stickIsAnalogOnly(on system: PresetSystem?) -> Bool {
+        system == .n64 || system == .psp
     }
 
     // MARK: - GCController glue (notification-driven — beta-validated)

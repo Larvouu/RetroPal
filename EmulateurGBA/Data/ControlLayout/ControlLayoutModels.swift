@@ -79,6 +79,38 @@ enum ControlElement: String, Codable, CaseIterable {
         [.dpad, .btnA, .btnB, .btnL, .btnR, .btnL2, .btnStart, .btnMenu, .btnClip,
          .stickLeft, .btnCUp, .btnCDown, .btnCLeft, .btnCRight]
 
+    /// Elements present on the Mega Drive: the cross, the six face buttons,
+    /// START and MODE, and the app's MENU and CLIP.
+    ///
+    /// No element is new. The six faces are the six buttons the app already
+    /// places, chosen by the bit each one sends (see BlastEmBridge.h): A is
+    /// `btnY`, B `btnA`, C `btnB`; X is `btnL`, Y `btnX`, Z `btnR`. On this console L and R are drawn and sized as round faces in the
+    /// upper row rather than as shoulder bars, as the Nintendo 64 draws Z
+    /// (`btnL2`) round. MODE is `btnSelect`, the pad's small button in that
+    /// place. Saved presets and the editor therefore need nothing new.
+    static let mdElements: [ControlElement] =
+        [.dpad, .btnA, .btnB, .btnX, .btnY, .btnL, .btnR, .btnStart, .btnSelect, .btnMenu, .btnClip]
+
+    /// The six faces in the Mega Drive's own order: the lower row A B C, then
+    /// the upper row X Y Z, each left to right.
+    static let mdLowerRow: [ControlElement] = [.btnY, .btnA, .btnB]
+    static let mdUpperRow: [ControlElement] = [.btnL, .btnX, .btnR]
+    static let mdFaces: [ControlElement] = mdLowerRow + mdUpperRow
+
+    /// Elements present on the Master System and the Game Gear: the cross, the
+    /// pad's 1 and 2, the console's PAUSE or START, MENU and CLIP. See
+    /// `elements(for:)`.
+    static let sega8BitElements: [ControlElement] = gbcElements.filter { $0 != .btnSelect }
+
+    /// Elements present on the PSP: the PlayStation's pad without what the PSP
+    /// lacks. It keeps the cross, the four symbol faces, L and R, SELECT, START,
+    /// MENU, CLIP and ONE analog nub (the left stick's element); it has no
+    /// second shoulder pair, no right stick, no stick clicks and no ANALOG
+    /// switch (its nub is always analog). See `elements(for:)`.
+    static let pspElements: [ControlElement] = ps1Elements.filter {
+        ![.btnL2, .btnR2, .stickRight, .btnL3, .btnR3, .btnMode].contains($0)
+    }
+
     /// The C buttons, in one list because the layout, the sizes and the
     /// control view all have to agree about which four they are.
     static let n64CButtons: [ControlElement] = [.btnCUp, .btnCDown, .btnCLeft, .btnCRight]
@@ -94,8 +126,16 @@ enum ControlElement: String, Codable, CaseIterable {
         // The NES pad is the Game Boy's exactly: D-pad, two buttons, Start and
         // Select. It shares the set rather than declaring an identical one.
         case .nes: return gbcElements
+        // The Master System and the Game Gear have the same pad: a cross, 1 and
+        // 2 (B and A here), and one more button, PAUSE on the Master System's
+        // console and START on the Game Gear (START here). No SELECT on either,
+        // so the set is the Game Boy's without it; the NES page they share
+        // (`layoutPage`) places SELECT for nothing on these two.
+        case .sms, .gg: return sega8BitElements
         case .ps1: return ps1Elements
+        case .psp: return pspElements
         case .n64: return n64Elements
+        case .md: return mdElements
         }
     }
 
@@ -144,12 +184,61 @@ enum ControlElement: String, Codable, CaseIterable {
     /// settled decision (2026-08-24): it is the word Sony silkscreens, and the
     /// What's New string was corrected to it while this one was missed.
     func displayName(for system: PresetSystem) -> String {
+        // The Mega Drive prints its own letters on the six faces (see
+        // `mdElements` for which element is which) and MODE where SELECT sits.
+        if system == .md {
+            switch self {
+            case .btnY: return "A"
+            case .btnA: return "B"
+            case .btnB: return "C"
+            case .btnL: return "X"
+            case .btnX: return "Y"
+            case .btnR: return "Z"
+            case .btnSelect: return "Mode"
+            default: return displayName
+            }
+        }
+        // The Master System and the Game Gear print 1 and 2 on their two buttons
+        // (B and A here, left and right, see MesenBridge), and the Master
+        // System's extra button is PAUSE, on the console rather than the pad.
+        if system == .sms || system == .gg {
+            switch self {
+            case .btnB: return "1"
+            case .btnA: return "2"
+            case .btnStart where system == .sms: return "Pause"
+            default: return displayName
+            }
+        }
         // The Nintendo 64 prints Z on the trigger that is `btnL2` here, and the
         // stick is its only one, so "Left Stick" would name a pair it lacks.
         if system == .n64 {
             switch self {
             case .btnL2: return "Z"
             case .stickLeft: return "Control Stick"
+            default: return displayName
+            }
+        }
+        // The four faces print the symbols on both PlayStation pads, the PSP's
+        // and the PlayStation's, in the places PCSXBridge and PSPBridge map
+        // them to (a the right face, b the bottom, x the top, y the left). The
+        // editor showed A, B, X and Y on both (found 2026-10-10). The same
+        // glyphs as the remap screen's (`RemappableInput.displayName(for:)`);
+        // spelled here rather than read from there because this file builds
+        // without the input layer, and a test holds the two equal.
+        if system == .ps1 || system == .psp {
+            switch self {
+            case .btnA: return "◯"
+            case .btnB: return "✕"
+            case .btnX: return "△"
+            case .btnY: return "□"
+            default: break
+            }
+        }
+        // The PSP prints L and R on its shoulders (one pair, so no number) and
+        // has one nub, so "Left Stick" would name a pair it lacks.
+        if system == .psp {
+            switch self {
+            case .stickLeft: return "Analog Stick"
             default: return displayName
             }
         }
@@ -457,6 +546,10 @@ enum PresetSystem: String, Codable, Equatable, CaseIterable {
     case nes   // NES
     case ps1   // PlayStation
     case n64   // Nintendo 64
+    case md    // Mega Drive / Genesis
+    case sms   // Master System
+    case gg    // Game Gear
+    case psp   // PSP
 
     /// The page whose geometry this console's layout is built on.
     ///
@@ -467,7 +560,32 @@ enum PresetSystem: String, Codable, Equatable, CaseIterable {
     /// wherever it would otherwise have to answer the Nintendo 64 as a sixth
     /// special case beside the PlayStation, so the two can never drift apart
     /// by one of them being missed. Every other console is its own page.
-    var layoutPage: PresetSystem { self == .n64 ? .ps1 : self }
+    ///
+    /// The Mega Drive's PICTURE is framed as the Super Nintendo's (both 4:3,
+    /// both a single panel with a gutter each side), so it answers as that
+    /// console for the screen frame; its buttons are its own
+    /// (`ControlLayoutDefaults.md`).
+    ///
+    /// The Master System is laid out on the NES's page and the Game Gear on the
+    /// Game Boy's (decided 2026-10-09): the same pad (a cross, two
+    /// buttons, one small one) and, for the Game Gear, the same 10:9 handheld
+    /// screen. Their pictures are their own shapes (`displayAspect`); only the
+    /// page's geometry is shared.
+    ///
+    /// The PSP is laid out on the PlayStation's (2026-10-09): the same symbols
+    /// in the same diamond, the same cross, SELECT and START, one stick of the
+    /// two. Its picture is its own, nearly 16:9 (`displayAspect`): on its side
+    /// it takes the PlayStation's WIDTH, so the gutters and every control in
+    /// them are where they are on that console, and it is only shorter.
+    var layoutPage: PresetSystem {
+        switch self {
+        case .n64, .psp: return .ps1
+        case .md:  return .snes
+        case .sms: return .nes
+        case .gg:  return .gbc
+        default:   return self
+        }
+    }
 }
 
 /// Per-system applicability flags for a preset (one system per preset in the UI,
@@ -481,9 +599,14 @@ struct SystemApplicability: Codable, Equatable {
     var nes: Bool
     var ps1: Bool
     var n64: Bool
+    var md: Bool
+    var sms: Bool
+    var gg: Bool
+    var psp: Bool
 
     init(gba: Bool = false, gbc: Bool = false, nds: Bool = false,
-         snes: Bool = false, nes: Bool = false, ps1: Bool = false, n64: Bool = false) {
+         snes: Bool = false, nes: Bool = false, ps1: Bool = false, n64: Bool = false,
+         md: Bool = false, sms: Bool = false, gg: Bool = false, psp: Bool = false) {
         self.gba = gba
         self.gbc = gbc
         self.nds = nds
@@ -491,6 +614,10 @@ struct SystemApplicability: Codable, Equatable {
         self.nes = nes
         self.ps1 = ps1
         self.n64 = n64
+        self.md = md
+        self.sms = sms
+        self.gg = gg
+        self.psp = psp
     }
 
     init(system: PresetSystem) {
@@ -501,12 +628,20 @@ struct SystemApplicability: Codable, Equatable {
         self.nes = (system == .nes)
         self.ps1 = (system == .ps1)
         self.n64 = (system == .n64)
+        self.md = (system == .md)
+        self.sms = (system == .sms)
+        self.gg = (system == .gg)
+        self.psp = (system == .psp)
     }
 
-    /// Resolution order is N64, PS1, NES, SNES, NDS, then GBC, then GBA (the
-    /// default). A preset saved before a flag existed simply does not carry it,
-    /// so it keeps resolving exactly where it did before.
+    /// Resolution order is PSP, GG, SMS, MD, N64, PS1, NES, SNES, NDS, then
+    /// GBC, then GBA (the default). A preset saved before a flag existed simply
+    /// does not carry it, so it keeps resolving exactly where it did before.
     var system: PresetSystem {
+        if psp { return .psp }
+        if gg { return .gg }
+        if sms { return .sms }
+        if md { return .md }
         if n64 { return .n64 }
         if ps1 { return .ps1 }
         if nes { return .nes }
@@ -516,7 +651,7 @@ struct SystemApplicability: Codable, Equatable {
         return .gba
     }
 
-    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1, n64 }
+    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1, n64, md, sms, gg, psp }
 
     /// Decode each flag independently so a preset stored before `gbc`, `snes` or
     /// `nes` existed still loads instead of failing the whole array decode, which
@@ -530,6 +665,10 @@ struct SystemApplicability: Codable, Equatable {
         nes = try c.decodeIfPresent(Bool.self, forKey: .nes) ?? false
         ps1 = try c.decodeIfPresent(Bool.self, forKey: .ps1) ?? false
         n64 = try c.decodeIfPresent(Bool.self, forKey: .n64) ?? false
+        md = try c.decodeIfPresent(Bool.self, forKey: .md) ?? false
+        sms = try c.decodeIfPresent(Bool.self, forKey: .sms) ?? false
+        gg = try c.decodeIfPresent(Bool.self, forKey: .gg) ?? false
+        psp = try c.decodeIfPresent(Bool.self, forKey: .psp) ?? false
     }
 }
 

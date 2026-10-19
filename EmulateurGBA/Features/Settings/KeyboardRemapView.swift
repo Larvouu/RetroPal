@@ -219,7 +219,7 @@ struct KeyboardRemapView: View {
                 }
             }
         }
-        .accessibilityLabel(Text(verbatim: "\(input.displayName(for: system)): \(names.joined(separator: ", "))"))
+        .accessibilityLabel(Text(verbatim: "\(input.accessibleName(for: system)): \(names.joined(separator: ", "))"))
     }
 
     private func startCapture(for input: KeyboardInput) {

@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "DocIconGG.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "DocIconGG@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "DocIconGG@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

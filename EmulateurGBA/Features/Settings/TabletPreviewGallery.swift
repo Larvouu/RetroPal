@@ -6,7 +6,8 @@
 //  orientations, reviewable on a phone. Reachable from Settings ▸ Debug iPad,
 //  one row per page: the library and its welcome, a game's page, Settings, the
 //  two RetroAchievements pages, the controller remap, a list page, the pause
-//  menu, and the six in-game layouts with their dress.
+//  menu, and the eleven in-game layouts with their dress, in the look picked
+//  in the in-game pages' top bar (three skins, or a controller connected).
 //
 //  Same convention as the other galleries (2026-05-25): the REAL views, so the
 //  preview cannot drift from the app. A SwiftUI page is hosted at the device's
@@ -47,7 +48,7 @@ struct TabletPreviewDevice: Identifiable {
 enum TabletPreviewPage: String, CaseIterable, Identifiable {
     case library, libraryEmpty, gameDetails, settings, raDashboard, raGame
     case controllerRemap, listPage, pauseMenu
-    case gameBoy, gba, nds, snes, nes, ps1, n64
+    case gameBoy, gba, nds, snes, nes, ps1, n64, md, sms, gg, psp
 
     var id: String { rawValue }
 
@@ -69,10 +70,14 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .nes: return "In game: NES"
         case .ps1: return "In game: PlayStation"
         case .n64: return "In game: Nintendo 64"
+        case .md: return "In game: Mega Drive"
+        case .sms: return "In game: Master System"
+        case .gg: return "In game: Game Gear"
+        case .psp: return "In game: PSP"
         }
     }
 
-    /// The in-game family, for the seven console rows.
+    /// The in-game family, for the eleven console rows.
     var previewSystem: PreviewSystem? {
         switch self {
         case .gameBoy: return .gbc
@@ -82,6 +87,10 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .nes: return .nes
         case .ps1: return .ps1
         case .n64: return .n64
+        case .md: return .md
+        case .sms: return .sms
+        case .gg: return .gg
+        case .psp: return .psp
         default: return nil
         }
     }
@@ -104,6 +113,8 @@ struct TabletPreviewGallery: View {
     }
 
     @State private var zoom: Zoom = .fit
+    /// The in-game pages' look, shared with the iPhone gallery (`PreviewLookBar`).
+    @AppStorage(PreviewLook.storageKey) private var look: PreviewLook = .nostalgia
     @Environment(\.dismiss) private var dismiss
     @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \GameEntity.lastPlayedAt, ascending: false)])
     private var games: FetchedResults<GameEntity>
@@ -145,6 +156,12 @@ struct TabletPreviewGallery: View {
             }
             .buttonStyle(.borderedProminent)
             .padding(12)
+        }
+        // The in-game pages only: the other pages have no skin to pick.
+        .safeAreaInset(edge: .top) {
+            if page.previewSystem != nil {
+                PreviewLookBar(look: $look)
+            }
         }
     }
 
@@ -231,10 +248,12 @@ struct TabletPreviewGallery: View {
             }
         case .pauseMenu:
             OverlayMenuPreviewRepresentable(isNDS: false, safeInsets: TabletPreviewDevice.insets)
-        case .gameBoy, .gba, .nds, .snes, .nes, .ps1, .n64:
+        case .gameBoy, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp:
             InGameLayoutPreviewRepresentable(system: page.previewSystem ?? .gba,
                                              isLandscape: landscape,
-                                             safeInsets: TabletPreviewDevice.insets)
+                                             safeInsets: TabletPreviewDevice.insets,
+                                             look: look)
+                .id(look)
         }
     }
 

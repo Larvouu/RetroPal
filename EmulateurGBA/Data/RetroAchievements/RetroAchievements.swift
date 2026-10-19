@@ -209,6 +209,12 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// Game Details display load), so load/unlock events can find their
     /// RAGameIndex record.
     private var currentROMFilename: String?
+    /// The full path of that ROM. Its console is asked with THIS, never with
+    /// the filename key: a PSP `.iso` or `.pbp` is told from a PlayStation one
+    /// by reading the file (PSPDiscProbe), and a library key ("Game/Game.iso",
+    /// relative) opens nothing, so it answered PlayStation (12) and every play
+    /// of a PSP `.iso` re-recorded the game under the wrong console.
+    private var currentROMPath: String?
 
     // MARK: Library index plumbing
     /// romHashes queued for hash-endpoint resolution, processed one at a time.
@@ -549,6 +555,7 @@ final class RetroAchievements: NSObject, ObservableObject {
         activeSessionROMPath = romPath
         let key = Self.libraryKey(forROMPath: romPath)
         currentROMFilename = key
+        currentROMPath = romPath
         activeSessionROMHash = RAGameIndex.shared.romHash(forFilename: key)
         client.setMemoryReader { [weak session] address, buffer, length in
             guard let session else { return 0 }
@@ -592,6 +599,7 @@ final class RetroAchievements: NSObject, ObservableObject {
         }
         endSession()  // also settles any display load already in flight
         currentROMFilename = Self.libraryKey(forROMPath: romURL.path)
+        currentROMPath = romURL.path
         displayLoadCompletion = completion
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, let pending = self.displayLoadCompletion else { return }
@@ -614,6 +622,7 @@ final class RetroAchievements: NSObject, ObservableObject {
         activeSessionROMHash = nil
         liveSessionLoadFailed = false
         currentROMFilename = nil
+        currentROMPath = nil
         client.setMemoryReader(nil)
         client.unloadGame()
         publishOnMain { self.sessionNotice = nil }
@@ -814,8 +823,14 @@ extension RetroAchievements: RAClientDelegate {
         // a title is an answered one; the index needs that to trust an empty
         // list (2026-09-08).
         let gameID = client.currentGameID()
+        // The console is asked with the ROM's full path (`currentROMPath`), so
+        // a PSP `.iso` or `.pbp` is read and answers the PSP. Where the path
+        // answers nothing, the loaded game's own console does. Every other
+        // console keeps the answer it always had.
+        let loadedConsoleID = client.currentGameConsoleID()
         let boxArt = client.currentGameBoxArtURL()
         let filename = currentROMFilename
+        let pathConsoleID = currentROMPath.map { RAClient.consoleId(forROMPath: $0) } ?? 0
         publishOnMain {
             self.currentGame = progress
             // Live-session tracking notices (never silent): a failed load for
@@ -833,7 +848,7 @@ extension RetroAchievements: RAClientDelegate {
                let romHash = RAGameIndex.shared.romHash(forFilename: filename) {
                 RAGameIndex.shared.applyLoadedGame(
                     romHash: romHash,
-                    consoleID: RAClient.consoleId(forROMPath: filename),
+                    consoleID: pathConsoleID != 0 ? pathConsoleID : loadedConsoleID,
                     gameID: gameID,
                     title: gameTitle, boxArtURL: boxArt,
                     unlocked: unlocked, total: total,

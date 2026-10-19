@@ -18,6 +18,11 @@
 		AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */; };
 		AA000015AAAA0015AAAAAAAA /* libn64-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000005AAAA0005AAAAAAAA /* libn64-core.a */; };
 		AA000016AAAA0016AAAAAAAA /* MoltenVK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */; };
+		AA000031AAAA0031AAAAAAAA /* libmd-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000030AAAA0030AAAAAAAA /* libmd-core.a */; };
+		AA000033AAAA0033AAAAAAAA /* libpsp-core.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000032AAAA0032AAAAAAAA /* libpsp-core.a */; };
+		AA000035AAAA0035AAAAAAAA /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000034AAAA0034AAAAAAAA /* OpenGLES.framework */; };
+		AA000037AAAA0037AAAAAAAA /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000036AAAA0036AAAAAAAA /* libz.tbd */; };
+		AA000039AAAA0039AAAAAAAA /* PPSSPP in Resources */ = {isa = PBXBuildFile; fileRef = AA000038AAAA0038AAAAAAAA /* PPSSPP */; };
 		AA000017AAAA0017AAAAAAAA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000007AAAA0007AAAAAAAA /* Metal.framework */; };
 		AA000018AAAA0018AAAAAAAA /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000008AAAA0008AAAAAAAA /* IOSurface.framework */; };
 		AA000019AAAA0019AAAAAAAA /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */; };
@@ -68,6 +73,11 @@
 		AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libpcsx-core.a"; path = "Vendor/pcsx-ios/lib/libpcsx-core.a"; sourceTree = SOURCE_ROOT; };
 		AA000005AAAA0005AAAAAAAA /* libn64-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libn64-core.a"; path = "Vendor/n64-ios/lib/libn64-core.a"; sourceTree = SOURCE_ROOT; };
 		AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MoltenVK.xcframework; path = "Vendor/moltenvk-ios/lib/MoltenVK.xcframework"; sourceTree = SOURCE_ROOT; };
+		AA000030AAAA0030AAAAAAAA /* libmd-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libmd-core.a"; path = "Vendor/blastem-ios/lib/libmd-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000032AAAA0032AAAAAAAA /* libpsp-core.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libpsp-core.a"; path = "Vendor/ppsspp-ios/lib/libpsp-core.a"; sourceTree = SOURCE_ROOT; };
+		AA000034AAAA0034AAAAAAAA /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
+		AA000036AAAA0036AAAAAAAA /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		AA000038AAAA0038AAAAAAAA /* PPSSPP */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PPSSPP; path = "Vendor/ppsspp-ios/PPSSPP"; sourceTree = SOURCE_ROOT; };
 		AA000007AAAA0007AAAAAAAA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		AA000008AAAA0008AAAAAAAA /* IOSurface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOSurface.framework; path = System/Library/Frameworks/IOSurface.framework; sourceTree = SDKROOT; };
 		AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -150,6 +160,10 @@
 				AA000014AAAA0014AAAAAAAA /* libpcsx-core.a in Frameworks */,
 				AA000015AAAA0015AAAAAAAA /* libn64-core.a in Frameworks */,
 				AA000016AAAA0016AAAAAAAA /* MoltenVK.xcframework in Frameworks */,
+				AA000031AAAA0031AAAAAAAA /* libmd-core.a in Frameworks */,
+				AA000033AAAA0033AAAAAAAA /* libpsp-core.a in Frameworks */,
+				AA000035AAAA0035AAAAAAAA /* OpenGLES.framework in Frameworks */,
+				AA000037AAAA0037AAAAAAAA /* libz.tbd in Frameworks */,
 				AA000017AAAA0017AAAAAAAA /* Metal.framework in Frameworks */,
 				AA000018AAAA0018AAAAAAAA /* IOSurface.framework in Frameworks */,
 				AA000019AAAA0019AAAAAAAA /* QuartzCore.framework in Frameworks */,
@@ -193,6 +207,11 @@
 				AA000004AAAA0004AAAAAAAA /* libpcsx-core.a */,
 				AA000005AAAA0005AAAAAAAA /* libn64-core.a */,
 				AA000006AAAA0006AAAAAAAA /* MoltenVK.xcframework */,
+				AA000030AAAA0030AAAAAAAA /* libmd-core.a */,
+				AA000032AAAA0032AAAAAAAA /* libpsp-core.a */,
+				AA000034AAAA0034AAAAAAAA /* OpenGLES.framework */,
+				AA000036AAAA0036AAAAAAAA /* libz.tbd */,
+				AA000038AAAA0038AAAAAAAA /* PPSSPP */,
 				AA000007AAAA0007AAAAAAAA /* Metal.framework */,
 				AA000008AAAA0008AAAAAAAA /* IOSurface.framework */,
 				AA000009AAAA0009AAAAAAAA /* QuartzCore.framework */,
@@ -357,6 +376,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000039AAAA0039AAAAAAAA /* PPSSPP in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,7 +471,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -463,7 +483,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.3;
+				MARKETING_VERSION = 1.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -483,7 +503,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = RetroPalWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RetroPalWidget/Info.plist;
@@ -495,7 +515,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.3;
+				MARKETING_VERSION = 1.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal.RetroPalWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -634,7 +654,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -649,6 +669,8 @@
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
 					"$(SRCROOT)/Vendor/n64-ios",
+					"$(SRCROOT)/Vendor/blastem-ios",
+					"$(SRCROOT)/Vendor/ppsspp-ios",
 					"$(SRCROOT)/Vendor/moltenvk-ios/lib/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
@@ -664,8 +686,10 @@
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
 					"$(SRCROOT)/Vendor/pcsx-ios/lib",
 					"$(SRCROOT)/Vendor/n64-ios/lib",
+					"$(SRCROOT)/Vendor/blastem-ios/lib",
+					"$(SRCROOT)/Vendor/ppsspp-ios/lib",
 				);
-				MARKETING_VERSION = 1.3.3;
+				MARKETING_VERSION = 1.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -682,7 +706,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EmulateurGBA/EmulateurGBA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_ASSET_PATHS = "\"EmulateurGBA/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -698,6 +722,8 @@
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libretro-common/include",
 					"$(SRCROOT)/Vendor/pcsx_rearmed/deps/libchdr/include",
 					"$(SRCROOT)/Vendor/n64-ios",
+					"$(SRCROOT)/Vendor/blastem-ios",
+					"$(SRCROOT)/Vendor/ppsspp-ios",
 					"$(SRCROOT)/Vendor/moltenvk-ios/lib/include",
 				);
 				INFOPLIST_FILE = EmulateurGBA/Info.plist;
@@ -713,8 +739,10 @@
 					"$(SRCROOT)/Vendor/mesen-ios/lib",
 					"$(SRCROOT)/Vendor/pcsx-ios/lib",
 					"$(SRCROOT)/Vendor/n64-ios/lib",
+					"$(SRCROOT)/Vendor/blastem-ios/lib",
+					"$(SRCROOT)/Vendor/ppsspp-ios/lib",
 				);
-				MARKETING_VERSION = 1.3.3;
+				MARKETING_VERSION = 1.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.retropal;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

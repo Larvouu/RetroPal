@@ -125,7 +125,7 @@ private struct ControllerEditorWrapper: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> ControlLayoutEditorViewController {
         Analytics.signalOnce("controls_editor", ["action": "opened", "system": "\(system)"])
-        Analytics.signal("pro_feature_used", ["feature": "custom_controls"])
+        Analytics.signal("pro_feature_used", ["feature": "custom_controls", "system": "\(system)"])
         let carrier = ControlPreset(name: "",
                                     systems: SystemApplicability(system: system),
                                     portrait: layout.portrait,

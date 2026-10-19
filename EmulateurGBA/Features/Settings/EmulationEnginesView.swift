@@ -22,10 +22,15 @@
 import SwiftUI
 
 struct EmulationEnginesView: View {
-    private struct Engine: Identifiable {
+    struct Engine: Identifiable {
         let name: String
         let licence: String
         let consoles: [PixelConsole]
+        /// Consoles whose drawing does not exist yet (the PSP, 2026-10-10),
+        /// as stored system types: shown by their lettered pill and name, the
+        /// stand-in every console surface uses until the art lands. Move one
+        /// into `consoles` with its drawing.
+        var undrawn: [String] = []
         /// How many changes we make to it, stated where there are any: because
         /// the licence asks, and because "used without modification" was
         /// shipped as a falsehood about MesenCE until 2026-08-17. One change
@@ -35,32 +40,56 @@ struct EmulationEnginesView: View {
     }
 
     // Ordered the way the consoles arrived, which is also the order a
-    // long-time user would recognise.
-    private let engines: [Engine] = [
+    // long-time user would recognise. Internal and static so
+    // `EngineAndLegalCoverageTests` can hold it to the consoles, the patch
+    // folders and the Legal page.
+    static let engines: [Engine] = [
         Engine(name: "mGBA", licence: "MPL-2.0",
                consoles: [.gb, .gbc, .gba], patches: 0),
         Engine(name: "melonDS", licence: "GPL-3.0",
-               consoles: [.nds], patches: 0),
+               // Two patches since 1.3.3 (`Vendor/melonds-ios/patches`), which
+               // this row said nothing of until 2026-10-08 while the Legal page did.
+               consoles: [.nds], patches: 2),
+        // Four consoles since 1.3.4: the Master System and the Game Gear ride
+        // the same core and its one patch.
         Engine(name: "MesenCE", licence: "GPL-3.0",
-               consoles: [.snes, .nes], patches: 1),
+               consoles: [.snes, .nes, .sms, .gg], patches: 1),
         Engine(name: "PCSX-ReARMed", licence: "GPL-2.0 or later",
                consoles: [.ps1], patches: 0),
-        // Five patches (`Vendor/n64-ios/patches`), and its picture drawn by
-        // ParaLLEl-RDP through MoltenVK, which the Legal page names.
+        // Ten patches (`Vendor/n64-ios/patches`, 0006 to 0010 added in
+        // 1.3.4), and its picture drawn by ParaLLEl-RDP through MoltenVK,
+        // which the Legal page names.
         Engine(name: "Mupen64Plus-Next", licence: "GPL-2.0 or later",
-               consoles: [.n64], patches: 5),
+               consoles: [.n64], patches: 10),
+        // Two patches (`Vendor/blastem-ios/patches`).
+        Engine(name: "BlastEm", licence: "GPL-3.0 or later",
+               consoles: [.md], patches: 2),
+        // PPSSPP's own libretro port, one patch since 1.3.4
+        // (`Vendor/ppsspp-ios/patches`: the PSP's memory found outside the
+        // 4-6 GB band when it is full). Its picture is drawn through MoltenVK
+        // like the Nintendo 64's.
+        Engine(name: "PPSSPP", licence: "GPL-2.0 or later",
+               consoles: [.psp], patches: 1),
     ]
 
     var body: some View {
         LandscapeListSwitch(title: NSLocalizedString("settings.core", comment: "")) {
             List {
-                ForEach(engines) { engine in
+                ForEach(Self.engines) { engine in
                     Section {
                         ForEach(engine.consoles, id: \.self) { console in
                             HStack(spacing: 12) {
                                 PixelConsoleIcon(console: console)
                                     .frame(width: 36, height: 36)
                                 Text(console.label)
+                                Spacer()
+                            }
+                        }
+                        ForEach(engine.undrawn, id: \.self) { system in
+                            HStack(spacing: 12) {
+                                ConsolePill(systemType: system)
+                                    .frame(width: 36, height: 36)
+                                Text(SystemColor.name(system))
                                 Spacer()
                             }
                         }

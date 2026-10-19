@@ -952,7 +952,8 @@ final class OverlayMenuView: UIView {
     func refreshProState() {
         let isPro = UserDefaults.standard.bool(forKey: "isPro")
         updateSpeedHighlight()
-        let rewindSeconds = isPro ? "30" : "5"
+        // The tap's own depth, which is what a tap does (`RewindDepths.tapCap`).
+        let rewindSeconds = String(RewindDepths.tapCap(isPro: isPro))
         rewindButton.configuration?.title = String(format: NSLocalizedString("overlay.rewind", comment: ""), rewindSeconds)
         // Cheats: subtle gold→purple premium border + faint fill when free,
         // plain fill when Pro. No lock icon — the gentle gold border tempts a
@@ -1105,7 +1106,13 @@ final class OverlayMenuView: UIView {
     // MARK: - Slot Row
 
     private func makeSlotRow(_ slot: SaveSlotInfo, isLocked: Bool) -> UIView {
-        let container = UIView()
+        // A locked slot is a BUTTON, for the reason the disc rows are
+        // (2026-09-28): the controller navigation reaches the pause menu's
+        // buttons only, so a row with a tap gesture was the one Pro invitation
+        // in this menu a pad could never choose, on every console. An open slot
+        // stays a plain view: its Save and Load are buttons of their own, and
+        // the navigation does not look inside a button for more buttons.
+        let container: UIView = isLocked ? UIButton(type: .custom) : UIView()
         container.backgroundColor = UIColor.white.withAlphaComponent(0.08)
         container.layer.cornerRadius = 12
 
@@ -1161,9 +1168,12 @@ final class OverlayMenuView: UIView {
             // make the slot read as disabled and frustrating.
             container.backgroundColor = .clear
             applyPremiumStyle(to: container, active: true)
-            let tap = UITapGestureRecognizer(target: self, action: #selector(lockedSlotTapped))
-            container.addGestureRecognizer(tap)
-            container.isUserInteractionEnabled = true
+            // Its picture and labels take no touches, so the whole row is the
+            // button's, as on a disc row.
+            imageView.isUserInteractionEnabled = false
+            labelStack.isUserInteractionEnabled = false
+            (container as? UIButton)?.addTarget(self, action: #selector(lockedSlotTapped),
+                                                for: .touchUpInside)
         } else {
             let saveBtn = makeSlotButton(
                 title: NSLocalizedString("overlay.save", comment: ""),
@@ -1201,6 +1211,7 @@ final class OverlayMenuView: UIView {
         container.accessibilityLabel = isLocked
             ? "Slot \(slot.slotIndex), \(NSLocalizedString("pro.badge", comment: ""))"
             : "Slot \(slot.slotIndex), \(slot.exists ? "has save data" : "empty")"
+        if isLocked { container.accessibilityTraits = [.button] }
 
         var subviews: [UIView] = [imageView, labelStack]
         if let trailing = trailing { subviews.append(trailing) }

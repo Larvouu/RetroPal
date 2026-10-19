@@ -45,16 +45,56 @@ enum ZIPExtractor {
     /// cartridge archive; only one containing no cartridge at all is read as a
     /// disc.
     static func romEntryNames(in zipURL: URL) throws -> [String] {
+        let data = try loadData(zipURL)
+        let entries = romEntries(in: data)
+        let markdown = markdownNames(entries, in: data)
         var seen = Set<String>()
-        let names = romEntries(in: try loadData(zipURL))
-            .map(\.name)
-            .filter { seen.insert($0).inserted }
-        let cartridges = names.filter { !isDiscPart($0) }
+        let names = entries.map(\.name).filter { !markdown.contains($0) && seen.insert($0).inserted }
+        let megaDriveBins = megaDriveBinNames(entries, in: data)
+        let cartridges = names.filter { !isDiscPart($0) || megaDriveBins.contains($0) }
         return cartridges.isEmpty ? names : cartridges
     }
 
     private static func isDiscPart(_ entryName: String) -> Bool {
         DiscImportGrouper.isDiscFile(entryName)
+    }
+
+    /// The `.bin` entries that are Mega Drive cartridges rather than disc
+    /// tracks: the same test as a loose file (`GBAROMParser.isMegaDriveBin`),
+    /// on the decompressed header. Only an entry no larger than a cartridge
+    /// is decompressed, so an archive's PlayStation data track never is.
+    private static func megaDriveBinNames(_ entries: [ZIPEntry], in data: Data) -> Set<String> {
+        var names = Set<String>()
+        for entry in entries
+        where URL(fileURLWithPath: entry.name).pathExtension.lowercased() == "bin"
+            && entry.uncompressedSize <= GBAROMParser.megaDriveBinMaxBytes {
+            guard let bytes = try? extractEntry(entry, from: data),
+                  GBAROMParser.isValidMDFile(data: bytes) else { continue }
+            names.insert(entry.name)
+        }
+        return names
+    }
+
+    /// The `.md` entries that are Markdown rather than Mega Drive cartridges:
+    /// the README an archive so often carries beside its game. `.md` is both
+    /// formats' extension, so, as for `.bin` above, the bytes decide, with the
+    /// loose file's own test (`GBAROMParser.isValidMDFile`). Left in, a README
+    /// turned a one-game archive into a choice of two, and hid a disc entirely,
+    /// since a "cartridge" wins over disc parts (audit 2026-10-12).
+    private static func markdownNames(_ entries: [ZIPEntry], in data: Data) -> Set<String> {
+        var names = Set<String>()
+        for entry in entries
+        where URL(fileURLWithPath: entry.name).pathExtension.lowercased() == "md" {
+            // Larger than any cartridge: not one, and not worth decompressing.
+            guard entry.uncompressedSize <= GBAROMParser.megaDriveBinMaxBytes else {
+                names.insert(entry.name); continue
+            }
+            guard let bytes = try? extractEntry(entry, from: data),
+                  GBAROMParser.isValidMDFile(data: bytes) else {
+                names.insert(entry.name); continue
+            }
+        }
+        return names
     }
 
     /// The GAMES an archive holds, rather than the files it holds.
@@ -68,12 +108,15 @@ enum ZIPExtractor {
     -> (discs: [DiscNameGroup], cartridges: [String], gaps: [DiscNameGap]) {
         let data = try loadData(zipURL)
         let entries = romEntries(in: data)
+        let markdown = markdownNames(entries, in: data)
         var seen = Set<String>()
-        let names = entries.map(\.name).filter { seen.insert($0).inserted }
+        let names = entries.map(\.name).filter { !markdown.contains($0) && seen.insert($0).inserted }
 
         // Cartridges still win, for the reason above: an archive with a real
-        // cartridge in it is a cartridge archive, whatever else it carries.
-        let cartridgeNames = names.filter { !isDiscPart($0) }
+        // cartridge in it is a cartridge archive, whatever else it carries. A
+        // Mega Drive `.bin` is a cartridge.
+        let megaDriveBins = megaDriveBinNames(entries, in: data)
+        let cartridgeNames = names.filter { !isDiscPart($0) || megaDriveBins.contains($0) }
         if !cartridgeNames.isEmpty { return ([], cartridgeNames, []) }
 
         let byName = Dictionary(entries.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })

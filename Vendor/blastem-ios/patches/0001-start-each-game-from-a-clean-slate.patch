@@ -1,0 +1,52 @@
+Start each loaded game from a clean slate when the core stays loaded
+
+libblastem.c keeps two pieces of per-game state in file statics that nothing
+resets between games:
+
+- `started`, set by the first retro_run so later frames RESUME the system
+  rather than start it. A second retro_load_game in the same process gets a
+  freshly allocated system that was never started, and retro_run resumes it:
+  the 68000 never reads its reset vector. Measured with Tools/md-bench reload
+  (Sonic 1, 900 frames): 0 of 900 frames identical to a first load, the very
+  first one at the wrong width.
+- `fb`, the picture buffer, and `last_fb`, the interlace field it last showed.
+  The first frame of the next game was drawn over the previous game's last
+  picture (1 frame of 900 differed with `started` alone reset).
+
+RetroArch unloads the core's library between games, which resets every static,
+so upstream never meets this. Retro Pal links the core into the app and loads
+game after game into it.
+
+With this patch, Tools/md-bench reload: every frame of a second load identical
+to the first, through retro_unload_game, retro_deinit and retro_init as the
+app does it.
+
+--- a/libblastem.c
++++ b/libblastem.c
+@@ -263,9 +263,14 @@
+ 
+ /* Loads a game. */
+ static system_type stype;
++static void reset_frame_output(void);
+ RETRO_API bool retro_load_game(const struct retro_game_info *game)
+ {
+ 	serialize_size_cache = 0;
++	//a frontend that keeps the core loaded between games must not resume a
++	//system that was never started, nor show the last game's picture
++	started = 0;
++	reset_frame_output();
+ 	stype = SYSTEM_UNKNOWN;
+ 	if (game->data) {
+ 		if (game->path) {
+@@ -392,6 +397,11 @@
+ 
+ static uint32_t fb[LINEBUF_SIZE * 294 * 2];
+ static uint8_t last_fb;
++static void reset_frame_output(void)
++{
++	memset(fb, 0, sizeof(fb));
++	last_fb = 0;
++}
+ uint32_t *render_get_framebuffer(uint8_t which, int *pitch)
+ {
+ 	*pitch = LINEBUF_SIZE * sizeof(uint32_t);

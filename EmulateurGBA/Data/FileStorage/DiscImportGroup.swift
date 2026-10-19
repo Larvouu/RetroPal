@@ -179,7 +179,7 @@ enum DiscImportGrouper {
     /// Whether a name belongs to the disc world at all, part or sidecar.
     static func isDiscFile(_ name: String) -> Bool {
         let e = ext(name)
-        return ROMSystemType.discFileExtensions.contains(e) || sidecarExtensions.contains(e)
+        return ROMSystemType.importsAsDisc.contains(e) || sidecarExtensions.contains(e)
     }
 
     // MARK: The algorithm
@@ -444,11 +444,16 @@ enum DiscImportGrouper {
         var byPath: [String: URL] = [:]
         for url in urls { byPath[url.path] = url }
 
-        let grouping = groupNames(urls.map(\.path)) { path in
+        // A Mega Drive `.bin` is a cartridge, not a disc part, and is set
+        // aside before grouping (`GBAROMParser.isMegaDriveBin`).
+        let megaDriveBins = Set(urls.filter(GBAROMParser.isMegaDriveBin).map(\.path))
+        let grouping = groupNames(urls.map(\.path).filter { !megaDriveBins.contains($0) }) { path in
             byPath[path].flatMap(readText)
         }
 
-        let cartridges = grouping.others.compactMap { byPath[$0] }
+        // In the batch's own order, the Mega Drive `.bin`s among them.
+        let others = Set(grouping.others)
+        let cartridges = urls.filter { megaDriveBins.contains($0.path) || others.contains($0.path) }
         let discs = grouping.discs.map {
             DiscImportGroup(boot: byPath[$0.boot] ?? URL(fileURLWithPath: $0.boot),
                             members: $0.members.compactMap { byPath[$0] },

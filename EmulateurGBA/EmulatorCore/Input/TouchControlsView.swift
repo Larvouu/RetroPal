@@ -380,8 +380,13 @@ class TouchControlsView: UIView {
         switch system {
         case .nds:  return NDSTouchControlsView()
         case .snes: return SNESTouchControlsView()
-        case .ps1:  return PS1TouchControlsView()
+        // The PSP's pad is the PlayStation's without six controls; its layout
+        // carries none of those six, and the control view hides every element
+        // a layout does not carry.
+        case .ps1, .psp: return PS1TouchControlsView(system: system)
         case .n64:  return N64TouchControlsView()
+        case .md:   return MDTouchControlsView()
+        case .sms, .gg: return SegaEightBitTouchControlsView(system: system)
         case .gba, .gbc, .nes: return TouchControlsView()
         }
     }
@@ -396,6 +401,13 @@ class TouchControlsView: UIView {
         case .nes:  return .nes
         case .ps1:  return .ps1
         case .n64:  return .n64
+        case .md:   return .md
+        case .sms:  return .sms
+        case .gg:   return .gg
+        // The PlayStation's dress kind itself: the PSP's pad IS that pad
+        // without six controls, and every shape and mark of the dress is keyed
+        // on `.ps1` (2026-10-10). Its colours come in through the variant.
+        case .psp:  return .ps1
         case .gbc:  return .gbc
         }
     }
@@ -439,7 +451,8 @@ class TouchControlsView: UIView {
                      system: PresetSystem = .gba,
                      deviceScale: CGFloat, opacity: CGFloat, scale: CGFloat, useJoystick: Bool,
                      wideSelectStart: Bool = false, wideShoulders: Bool = false,
-                     ndsBigSelectStart: Bool = false, stickScale: CGFloat = 1) {
+                     ndsBigSelectStart: Bool = false,
+                     drawnScale: (ControlElement) -> CGFloat = { _ in 1 }) {
         // Resolve the directional control type (cross D-pad vs joystick) for this
         // layout first, so the swapped-in view gets positioned in the pass below.
         setUsesJoystick(useJoystick)
@@ -494,12 +507,13 @@ class TouchControlsView: UIView {
                 finalSize.width += extra
                 finalCenter.x += (element == .btnL) ? extra / 2 : -extra / 2
             }
-            // The Nintendo 64's stick on an iPhone on its side: smaller, about
-            // its own centre (asked 2026-09-27). Its drawn surround keeps its
-            // size (`ControlLayoutDefaults.n64StickSurroundRadius`).
-            if element == .stickLeft || element == .stickRight {
-                finalSize = CGSize(width: finalSize.width * stickScale,
-                                   height: finalSize.height * stickScale)
+            // The Nintendo 64 on an iPhone on its side: the stick smaller and
+            // the right gutter's two groups larger, each about its own centre
+            // (`ControlLayoutDefaults.n64PhoneScale`). The layout already
+            // spaced them for those sizes.
+            let drawn = drawnScale(element)
+            if drawn != 1 {
+                finalSize = CGSize(width: finalSize.width * drawn, height: finalSize.height * drawn)
             }
             // NDS default: SELECT/START mirror the GBA component SIZE; CLIP/MIC reflow so every
             // gap in the bottom row stays the same. Portrait grows symmetric about centre;
@@ -602,9 +616,11 @@ class TouchControlsView: UIView {
     /// so the caller must size the view first.
     ///
     /// `controllerScreen`: the picture's frame, in this view's space, while a
-    /// controller is attached on a device on its side (one-picture consoles).
-    /// MENU then leaves the picture for the right gutter
-    /// (`EmulatorLayoutGeometry.controllerLandscapeMenuCenter`).
+    /// controller is attached (one-picture consoles). On its side MENU then
+    /// leaves the picture for the right gutter
+    /// (`EmulatorLayoutGeometry.controllerLandscapeMenuCenter`); upright it
+    /// drops under the picture if the grown picture reached it
+    /// (`controllerPortraitMenuCenter`). Both are no-ops where MENU is clear.
     func applyDefaultLayout(isLandscape: Bool, system: PresetSystem, deviceScale: CGFloat,
                             safeLeftInset: CGFloat = 0, safeRightInset: CGFloat = 0,
                             family: LayoutFamily = .phone, controllerScreen: CGRect? = nil) {
@@ -617,10 +633,14 @@ class TouchControlsView: UIView {
            bounds.width > 0, bounds.height > 0 {
             let size = EmulatorLayoutGeometry.buttonSize(.btnMenu, system: system,
                                                           isLandscape: isLandscape, deviceScale: deviceScale)
-            let centre = EmulatorLayoutGeometry.controllerLandscapeMenuCenter(
-                current: CGPoint(x: menu.centerX * bounds.width, y: menu.centerY * bounds.height),
-                menuSize: size, screen: screen, container: bounds.size,
-                safeRightInset: safeRightInset, deviceScale: deviceScale)
+            let current = CGPoint(x: menu.centerX * bounds.width, y: menu.centerY * bounds.height)
+            let centre = isLandscape
+                ? EmulatorLayoutGeometry.controllerLandscapeMenuCenter(
+                    current: current, menuSize: size, screen: screen, container: bounds.size,
+                    safeRightInset: safeRightInset, deviceScale: deviceScale)
+                : EmulatorLayoutGeometry.controllerPortraitMenuCenter(
+                    current: current, menuSize: size, pictureBottom: screen.maxY,
+                    containerHeight: bounds.height, deviceScale: deviceScale)
             menu.centerX = centre.x / bounds.width
             menu.centerY = centre.y / bounds.height
             layout.buttons[ControlElement.btnMenu.rawValue] = menu
@@ -638,9 +658,8 @@ class TouchControlsView: UIView {
                     deviceScale: deviceScale, opacity: globals.opacity, scale: globals.scale,
                     useJoystick: useJoystick, wideSelectStart: system == .gba,
                     wideShoulders: isNDS && !isLandscape, ndsBigSelectStart: isNDS,
-                    stickScale: ControlLayoutDefaults.n64StickScale(isLandscape: isLandscape,
-                                                                    family: family,
-                                                                    system: system))
+                    drawnScale: { ControlLayoutDefaults.n64PhoneScale($0, isLandscape: isLandscape,
+                                                                      family: family, system: system) })
     }
 
     /// Swap the directional control between the cross D-pad and the joystick to
@@ -1366,7 +1385,33 @@ protocol HighlightableButton: UIView {
 /// #C4BFCF buttons + D-pad). Only consulted while `dressed` is on — the undressed path is
 /// untouched. `gbaButton` shades are derived from #C4BFCF.
 enum DressKind {
-    case gbc, gba, nds, snes, nes, ps1, n64
+    case gbc, gba, nds, snes, nes, ps1, n64, md
+    /// The Master System and the Game Gear (2026-10-09), each in its own dress
+    /// since 2026-10-10 (they wore the NES's and the Mega Drive's tokens until
+    /// then).
+    case sms, gg
+    // The PSP has no kind of its own: it wears the PlayStation's (2026-10-10,
+    // `TouchControlsView.dressKind(for:)`), its colours coming in through the
+    // variant (`ConsoleSkinView.pspVariant`).
+
+    // The Master System's palette (2026-10-10, sampled from the pad's
+    // photographs and agreed that day, his device feedback to come): the black shell, the grey plates the cross
+    // and the two buttons sit on, the red of the keyline and the label bars,
+    // the near-black rubber of the cross and the buttons, the white print.
+    static let smsBody    = UIColor(rpHex: 0x232325)
+    static let smsPlate   = UIColor(rpHex: 0x6E6F73)
+    static let smsRed     = UIColor(rpHex: 0xC4281E)
+    static let smsKey     = UIColor(rpHex: 0x2B2B2D)
+    static let smsPrint   = UIColor(rpHex: 0xF2F2F2)
+
+    // The Game Gear's palette, given verbatim 2026-10-10: the shell, the panel
+    // round the screen, the one plastic of the cross, 1, 2, MENU and CLIP,
+    // START's blue, and the printed words.
+    static let ggBody     = UIColor(rpHex: 0x4D5763)
+    static let ggSurround = UIColor(rpHex: 0x10171A)
+    static let ggButton   = UIColor(rpHex: 0x2A343C)
+    static let ggStart    = UIColor(rpHex: 0x6993D7)
+    static let ggLabel    = UIColor(rpHex: 0xEDF2F4)
 
     static let gbaButton        = UIColor(red: 0.769, green: 0.749, blue: 0.812, alpha: 1) // #C4BFCF
     static let gbaButtonPressed = UIColor(red: 0.640, green: 0.620, blue: 0.680, alpha: 1)
@@ -1455,6 +1500,25 @@ enum DressKind {
     static func n64Incised(_ plate: UIColor) -> UIColor {
         plate.rpMixed(with: .black, 0.32)
     }
+
+    /// The consoles dressed the Nintendo 64's way: every control a moulding
+    /// with its rim relief, standing in a black hole, marks printed or set into
+    /// it. The Mega Drive joined on 2026-10-08 ("same UI as the N64"); what
+    /// stays the Nintendo 64's own (the triangles on its cross and its C
+    /// buttons, its START's red) still asks for `.n64`.
+    var wearsRelief: Bool { self == .n64 || self == .md }
+
+    /// The rim relief on the BUTTONS, every console's (asked 2026-10-09: "the
+    /// relief on the N64 and Mega Drive buttons is really nice, extend it to
+    /// every console"). Its scope is the face buttons, MENU and CLIP
+    /// everywhere, SELECT and START where the pill is the button itself
+    /// (GB/GBC, NES, SNES) and on the PlayStation, and the PlayStation's four
+    /// cross keys one by one. Never L and R. What stays the two consoles'
+    /// own (the whole cross's relief and its rounder corners) still asks
+    /// `wearsRelief`. The PlayStation's bombé gave way to it on these controls,
+    /// as the Nintendo 64's did on 2026-09-27; its ANALOG plate and L3 / R3 keep
+    /// theirs, being neither.
+    var wearsButtonRelief: Bool { true }
 
     /// The "modern recolor" family: a light face with a dark ink accent (GBA, NDS). This used to
     /// be written inline as `dressKind != .gbc` in every button view; it is named here because the
@@ -1587,15 +1651,20 @@ enum DressKind {
     /// the SNES's near-black. (Read only in the dark branch, so the light consoles never see it.)
     var darkPadFill: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey
+        case .gg:  return DressKind.ggButton
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesPad
         case .ps1:  return DressKind.ps1Dark
         case .n64:  return DressKind.n64Trigger
+        case .md:   return DressKind.mdButton
         default: return UIColor(red: 0.16, green: 0.16, blue: 0.17, alpha: 1)
         }
     }
     var darkPadEdge: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpEdge
+        case .gg:  return DressKind.ggButton.rpEdge
         case .snes: return DressKind.snesDark.rpEdge
         // The cross is near-black on a near-black shell, so its edge is the STROKE colour: the
         // outline is what separates the two, and it is a specified colour rather than a derived
@@ -1603,6 +1672,7 @@ enum DressKind {
         case .nes:  return DressKind.nesWell
         case .ps1:  return DressKind.ps1Dark.rpEdge
         case .n64:  return DressKind.n64Trigger.rpEdge
+        case .md:   return DressKind.mdButton.rpEdge
         default: return UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
         }
     }
@@ -1613,6 +1683,8 @@ enum DressKind {
     /// deriving them would have shifted a shipped console by a few percent.
     var smallButtonFill: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey
+        case .gg:  return DressKind.ggButton
         case .gbc:  return DressKind.gbcSmall
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesPad
@@ -1623,29 +1695,43 @@ enum DressKind {
         // what reaches this is the app's two buttons, which take the triggers'
         // neutral grey rather than borrowing a colour the pad gives a control.
         case .n64:  return DressKind.n64Trigger
+        case .md:   return DressKind.mdButton
         case .gba, .nds: return faceFill
         }
     }
     var smallButtonPressed: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpPressed
+        case .gg:  return DressKind.ggButton.rpPressed
         case .gbc:  return DressKind.gbcSmallPressed
         case .snes: return DressKind.snesDark.rpPressed
         case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.18)
         case .ps1:  return DressKind.ps1Face.rpPressed
         case .n64:  return DressKind.n64Trigger.rpPressed
+        case .md:   return DressKind.mdButton.rpPressed
         case .gba, .nds: return facePressed
         }
     }
     var smallButtonEdge: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpEdge
+        case .gg:  return DressKind.ggButton.rpEdge
         case .gbc:  return DressKind.gbcSmallEdge
         case .snes: return DressKind.snesDark.rpEdge
         case .nes:  return DressKind.nesPad.rpMixed(with: .white, 0.10)
         case .ps1:  return DressKind.ps1Face.rpEdge
         case .n64:  return DressKind.n64Trigger.rpEdge
+        case .md:   return DressKind.mdButton.rpEdge
         case .gba, .nds: return faceEdge
         }
     }
+
+    // The Mega Drive's Classic tokens, read from its palette (given
+    // 2026-10-08) so the two cannot disagree: the shell, the plastic every
+    // control shares, and the printed ink.
+    static var mdBody: UIColor   { MDSkinPalette.nostalgia.body }
+    static var mdButton: UIColor { MDSkinPalette.nostalgia.pad }
+    static var mdInk: UIColor    { MDSkinPalette.nostalgia.labels }
 
     // The Game Boy's SELECT/START greys, moved here verbatim from SmallButton so every console
     // answers the same question in the same place.
@@ -1657,6 +1743,8 @@ enum DressKind {
     /// near-black circle: the same colour on both would be an invisible icon.
     var circleGlyph: UIColor {
         switch self {
+        case .sms: return DressKind.smsPrint
+        case .gg:  return DressKind.ggLabel
         case .gbc:  return UIColor.white.withAlphaComponent(0.85)
         case .snes: return DressKind.snesBody
         // The NES's MENU/CLIP sit on its near-black pill colour, so the glyph is the light
@@ -1664,6 +1752,7 @@ enum DressKind {
         case .nes:  return DressKind.nesWell
         case .ps1:  return DressKind.ps1Dark
         case .n64:  return DressKind.n64Incised(DressKind.n64Trigger)
+        case .md:   return DressKind.mdInk
         case .gba, .nds: return faceInk
         }
     }
@@ -1678,6 +1767,8 @@ enum DressKind {
     /// accent; only the tokens differ. Not meaningful for `.gbc` (its views keep maroon/charcoal/grey).
     var faceFill: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpMixed(with: .white, 0.08)
+        case .gg:  return DressKind.ggButton
         case .nds:  return DressKind.ndsButton
         case .snes: return DressKind.snesBody
         // The NES's A and B ARE one colour, so unlike the Super Nintendo it needs no per-button
@@ -1688,31 +1779,40 @@ enum DressKind {
         case .ps1:  return DressKind.ps1Face
         // The triggers. A, B and the C buttons are per button (`dressFace`).
         case .n64:  return DressKind.n64Trigger
+        case .md:   return DressKind.mdButton
         case .gbc, .gba: return DressKind.gbaButton
         }
     }
     var facePressed: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpPressed
+        case .gg:  return DressKind.ggButton.rpPressed
         case .nds:  return DressKind.ndsButtonPressed
         case .snes: return DressKind.snesBody.rpPressed
         case .nes:  return DressKind.nesFace.rpPressed
         case .ps1:  return DressKind.ps1Face.rpPressed
         case .n64:  return DressKind.n64Trigger.rpPressed
+        case .md:   return DressKind.mdButton.rpPressed
         case .gbc, .gba: return DressKind.gbaButtonPressed
         }
     }
     var faceEdge: UIColor {
         switch self {
+        case .sms: return DressKind.smsKey.rpEdge
+        case .gg:  return DressKind.ggButton.rpEdge
         case .nds:  return DressKind.ndsButtonEdge
         case .snes: return DressKind.snesBody.rpEdge
         case .nes:  return DressKind.nesFace.rpEdge
         case .ps1:  return DressKind.ps1Face.rpEdge
         case .n64:  return DressKind.n64Trigger.rpEdge
+        case .md:   return DressKind.mdButton.rpEdge
         case .gbc, .gba: return DressKind.gbaButtonEdge
         }
     }
     var faceInk: UIColor {
         switch self {
+        case .sms: return DressKind.smsPrint
+        case .gg:  return DressKind.ggLabel
         case .nds:  return DressKind.ndsInk
         case .snes: return DressKind.snesDark
         case .nes:  return DressKind.nesWell
@@ -1721,8 +1821,42 @@ enum DressKind {
         // exactly its own background.
         case .ps1:  return DressKind.ps1Dark.rpMixed(with: .black, 0.34)
         case .n64:  return DressKind.n64Incised(DressKind.n64Trigger)
+        case .md:   return DressKind.mdInk
         case .gbc, .gba: return DressKind.gbaSurround
         }
+    }
+}
+
+extension DressKind {
+    /// The two 8-bit Segas' Retro Pal looks, light (asked 2026-10-10: "a light
+    /// mode, I'll let you choose the colours"). The shell goes pale; the
+    /// picture keeps a dark frame so it stays the brightest thing; the controls
+    /// stay a mid-to-dark plastic so they read on the pale shell, and anything
+    /// printed on the shell turns dark. Each console keeps its one accent
+    /// (the Game Gear's blue START, the Master System's red).
+    ///
+    /// Read from each console's palette (`SMSSkinPalette`, `GGSkinPalette`,
+    /// 2026-10-11), the built-in two and a custom skin alike, so the dress, its
+    /// controls and the share cards ask one place.
+    struct SegaLook {
+        let body: UIColor, surround: UIColor, control: UIColor, shellInk: UIColor
+        /// The Master System's plates; unused on the Game Gear.
+        let plate: UIColor
+        /// The console's one accent: the Master System's red, the Game Gear's START.
+        let accent: UIColor
+        /// Printed ON the accent and on the dark controls: the Master System's
+        /// white on red and on PAUSE, the Game Gear's MENU / CLIP glyphs and POWER.
+        let onAccent: UIColor
+    }
+    static func ggLook(_ variant: DressVariant) -> SegaLook {
+        let p = variant.gg
+        return SegaLook(body: p.body, surround: p.surround, control: p.buttons, shellInk: p.ink,
+                        plate: .clear, accent: p.start, onAccent: p.glyphs)
+    }
+    static func smsLook(_ variant: DressVariant) -> SegaLook {
+        let p = variant.sms
+        return SegaLook(body: p.body, surround: p.surround, control: p.keys, shellInk: p.ink,
+                        plate: p.plate, accent: p.accent, onAccent: p.onAccent)
     }
 }
 
@@ -1871,14 +2005,17 @@ final class ReliefLayer: CALayer {
     /// Fit over `bounds`, the rim following `path` (in the same coordinates).
     /// The catches scale with the shape: sized for the PlayStation's surrounds
     /// (about 90 points across), a C button a third of that would be all rim.
-    func fit(over bounds: CGRect, clippedTo path: CGPath) {
+    /// `across` overrides the size they scale with, for a path of several
+    /// pieces (the PlayStation's four cross keys), where the whole path's
+    /// bounds would size each piece's rim for the whole cross.
+    func fit(over bounds: CGRect, clippedTo path: CGPath, across override: CGFloat? = nil) {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         frame = bounds
         guard bounds.width > 0, bounds.height > 0,
               bounds.size != drawnSize || path != drawnPath else { return }
         let shape = UIBezierPath(cgPath: path)
-        let across = min(shape.bounds.width, shape.bounds.height)
+        let across = override ?? min(shape.bounds.width, shape.bounds.height)
         let scale = min(max(across / 90, 0.45), 1.2)
         let format = UIGraphicsImageRendererFormat.default()
         format.opaque = false
@@ -2169,6 +2306,22 @@ final class ActionButton: UIView, HighlightableButton {
     /// The letter's colour when `dressFace` is set (the SNES prints A/B/X/Y in the body lavender).
     var dressFaceLabel: UIColor? { didSet { applyResting() } }
 
+    /// The Mega Drive's tactile dots, moulded under the letter on the
+    /// six-button pad: one on B, two on Y (close photographs, 2026-10-08).
+    /// Zero everywhere else.
+    var mdDots = 0 {
+        didSet { guard mdDots != oldValue else { return }; applyResting(); setNeedsLayout() }
+    }
+    /// The Mega Drive's faces are gently DOMED (asked 2026-10-08, "slightly
+    /// curved"): a soft light toward the top left falling to a shade at the
+    /// rim, under the rim relief every Mega Drive control wears.
+    private let mdCap = CAGradientLayer()
+    /// The PSP's face: a glossy dome with a bright crescent along its lower
+    /// rim, the PSP-1000's highlight; on Retro Pal clear glass over the shell.
+    private let pspCrescent = CAShapeLayer()
+    private let mdDotCatch = CAShapeLayer()
+    private let mdDotLayer = CAShapeLayer()
+
     /// The PlayStation's four marks, DRAWN rather than typed.
     ///
     /// They were the unicode glyphs in a label, and a glyph cannot be sized to
@@ -2284,10 +2437,38 @@ final class ActionButton: UIView, HighlightableButton {
         backgroundColor = dressed ? fillColor : UIColor.white.withAlphaComponent(0.2)
         layer.borderColor = (dressed ? edgeColor : UIColor.white.withAlphaComponent(0.45)).cgColor
         sheen.isHidden = true   // A/B keep ONE flat background behind the letter (no top sheen)
-        dome.isHidden = !(dressed && dressKind == .ps1)
+        // The PlayStation's bombé, unless the rim relief stands in its place,
+        // which it does on every console since 2026-10-09.
+        dome.isHidden = !(dressed && dressKind == .ps1 && !dressKind.wearsButtonRelief)
         core.isHidden = dome.isHidden
-        // The Nintendo 64's relief instead: the rim only (asked 2026-09-27).
-        relief.isHidden = !(dressed && dressKind == .n64)
+        // The Nintendo 64's relief: the rim only (asked 2026-09-27), every
+        // console's since 2026-10-09.
+        relief.isHidden = !(dressed && dressKind.wearsButtonRelief)
+        let isMD = dressed && dressKind == .md
+        // The Game Gear's 1 and 2 are glossy domes; the Mega Drive's cap light
+        // is that dome, so they wear it too.
+        let isPSP = dressed && dressKind == .ps1 && dressVariant.isPSP
+        mdCap.isHidden = !(isMD || isPSP || (dressed && (dressKind == .gg || dressKind == .sms)))
+        pspCrescent.isHidden = !isPSP
+        if isPSP {
+            pspCrescent.strokeColor = UIColor.white
+                .withAlphaComponent(dressVariant.isPSPGlass ? 0.95 : 0.80).cgColor
+            if dressVariant.isPSPGlass {
+                // The shell shows through: the face is a faint tint of it, and
+                // its rim is where the glass turns, a darker line.
+                let shell = dressVariant.ps1Palette?.body ?? .white
+                backgroundColor = shell.rpMixed(with: .black, 0.05).withAlphaComponent(0.50)
+                layer.borderColor = shell.rpMixed(with: .black, 0.40).cgColor
+            }
+        }
+        mdDotLayer.isHidden = !(isMD && mdDots > 0)
+        mdDotCatch.isHidden = mdDotLayer.isHidden
+        if isMD {
+            // A bump of the button's own plastic, lit on top, its shadow below.
+            let plastic = dressFace ?? fillColor
+            mdDotLayer.fillColor = plastic.rpMixed(with: .white, 0.22).cgColor
+            mdDotCatch.fillColor = UIColor.black.withAlphaComponent(0.45).cgColor
+        }
     }
 
     /// The A/B letter. GBA dress = "creusé" (engraved): a darker glyph of the button's own family
@@ -2302,7 +2483,23 @@ final class ActionButton: UIView, HighlightableButton {
         // honours `dressFaceLabel`: its four symbols are inks printed on
         // plastic, not letters cut into it. It gets there by not being in
         // `usesLightFaces`, so there is no test for it here.
-        if dressed && (dressKind.usesLightFaces
+        if dressed && dressKind == .md, let ink = dressFaceLabel {
+            // The Mega Drive's letter, the colour its palette gives it (set per
+            // button in `MDTouchControlsView`): PRINTED on Classic, so flat;
+            // SET INTO the button on Retro Pal, so with the light catch below
+            // that a groove shows, as on the Nintendo 64.
+            var attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 20, weight: .bold), .foregroundColor: ink,
+            ]
+            if dressVariant.md.incisedLabels {
+                let shadow = NSShadow()
+                shadow.shadowColor = UIColor.white.withAlphaComponent(0.5)
+                shadow.shadowOffset = CGSize(width: 0, height: 1)
+                shadow.shadowBlurRadius = 0.5
+                attributes[.shadow] = shadow
+            }
+            label.attributedText = NSAttributedString(string: titleText, attributes: attributes)
+        } else if dressed && (dressKind.usesLightFaces
                        || ((dressKind == .snes || dressKind == .n64) && dressFaceLabel != nil)
                        || dressKind == .nes) {
             let shadow = NSShadow()
@@ -2358,7 +2555,12 @@ final class ActionButton: UIView, HighlightableButton {
             arrowCatch.fillColor = face.rpMixed(with: .white, 0.45).cgColor
             setNeedsLayout()
         }
-        label.isHidden = drawn || arrow
+        // The Game Gear prints 1 and 2 on the shell above the buttons, which
+        // are plain; the letter stays for VoiceOver through the accessibility
+        // label the control view sets.
+        // The Master System prints its numbers in the red bar above each one.
+        let printedAbove = dressed && (dressKind == .gg || dressKind == .sms)
+        label.isHidden = drawn || arrow || printedAbove
         if drawn {
             symbolLayer.strokeColor = (dressFaceLabel ?? .white).cgColor
             setNeedsLayout()
@@ -2444,7 +2646,24 @@ final class ActionButton: UIView, HighlightableButton {
         layer.insertSublayer(sheen, at: 0)
         layer.addSublayer(dome)
         layer.addSublayer(core)
+        layer.addSublayer(mdCap)
+        pspCrescent.fillColor = UIColor.clear.cgColor
+        pspCrescent.lineCap = .round
+        pspCrescent.isHidden = true
+        layer.addSublayer(pspCrescent)
         layer.addSublayer(relief)
+        layer.addSublayer(mdDotCatch)
+        layer.addSublayer(mdDotLayer)
+        mdCap.type = .radial
+        mdCap.colors = [UIColor.white.withAlphaComponent(0.14).cgColor,
+                        UIColor.white.withAlphaComponent(0).cgColor,
+                        UIColor.black.withAlphaComponent(0.24).cgColor]
+        mdCap.locations = [0, 0.45, 1]
+        mdCap.startPoint = CGPoint(x: 0.42, y: 0.36)
+        mdCap.endPoint = CGPoint(x: 1.08, y: 1.02)
+        mdCap.isHidden = true
+        mdDotLayer.isHidden = true
+        mdDotCatch.isHidden = true
 
         titleText = text
         label.text = text
@@ -2507,10 +2726,13 @@ final class ActionButton: UIView, HighlightableButton {
 
     private func layoutPS1Symbol() {
         guard let symbol = ps1Symbol, !symbolLayer.isHidden else { return }
-        let side = (bounds.width / 2) * Self.ps1SymbolBox
+        // The PSP-1000's marks are smaller and finer than the DualShock's:
+        // about 0.4 of the button across, a thin even stroke.
+        let isPSP = dressVariant.isPSP
+        let side = isPSP ? bounds.width * 0.40 : (bounds.width / 2) * Self.ps1SymbolBox
         let box = CGRect(x: bounds.midX - side / 2, y: bounds.midY - side / 2,
                          width: side, height: side)
-        symbolLayer.lineWidth = side * 0.10
+        symbolLayer.lineWidth = isPSP ? max(1, bounds.width * 0.05) : side * 0.10
         let path = UIBezierPath()
         switch symbol {
         case .circle:
@@ -2549,6 +2771,36 @@ final class ActionButton: UIView, HighlightableButton {
         symbolLayer.path = path.cgPath
     }
 
+    /// The Mega Drive's domed cap and tactile dots, fitted to the button.
+    private func layoutMDDetails() {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let crescent = UIBezierPath(arcCenter: CGPoint(x: bounds.midX, y: bounds.midY),
+                                    radius: bounds.width / 2 * 0.80, startAngle: .pi * 0.28,
+                                    endAngle: .pi * 0.72, clockwise: true)
+        pspCrescent.path = crescent.cgPath
+        pspCrescent.lineWidth = max(1, bounds.width * 0.045)
+        mdCap.frame = bounds
+        let mask = CAShapeLayer()
+        mask.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: bounds.size)).cgPath
+        mdCap.mask = mask
+        let dots = UIBezierPath(), catches = UIBezierPath()
+        if mdDots > 0, bounds.width > 0 {
+            let r = max(1.2, bounds.width * 0.045)
+            let y = bounds.midY + bounds.height * 0.30
+            let spread = bounds.width * 0.14
+            let xs: [CGFloat] = mdDots == 1 ? [bounds.midX]
+                                            : [bounds.midX - spread, bounds.midX + spread]
+            for x in xs {
+                dots.append(UIBezierPath(ovalIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)))
+                catches.append(UIBezierPath(ovalIn: CGRect(x: x - r, y: y - r + max(0.75, r * 0.4),
+                                                           width: r * 2, height: r * 2)))
+            }
+        }
+        mdDotLayer.path = dots.cgPath
+        mdDotCatch.path = catches.cgPath
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         layoutPS1Symbol()
@@ -2562,9 +2814,10 @@ final class ActionButton: UIView, HighlightableButton {
         Bombe.fit(dome, to: bounds, corner: nil)
         Bombe.fitCore(core, over: bounds,
                       clippedTo: UIBezierPath(ovalIn: bounds).cgPath)
-        if dressKind == .n64 {
+        if dressKind.wearsButtonRelief {
             relief.fit(over: bounds, clippedTo: UIBezierPath(ovalIn: bounds).cgPath)
         }
+        layoutMDDetails()
         // THE SHADOW NEEDS ITS PATH, and this is not a micro-optimisation.
         //
         // Without one, Core Animation has to derive the silhouette itself: it rasterises the
@@ -2616,15 +2869,32 @@ final class ShoulderButton: UIView, HighlightableButton {
     var dressVariant: DressVariant = .nostalgia {
         didSet { guard dressVariant != oldValue else { return }; applyResting() }
     }
+    /// The PSP's L and R (2026-10-10): the PSP-1000's silver on Nostalgia
+    /// (`PSPSkinPalette.shouldersHex`); clear glass over the shell on Retro
+    /// Pal, a faint tint of it with the darker line where the glass turns.
+    private var pspFill: UIColor? {
+        guard dressKind == .ps1, dressVariant.isPSP else { return nil }
+        if dressVariant.isPSPGlass {
+            let shell = dressVariant.ps1Palette?.body ?? .white
+            return shell.rpMixed(with: .black, 0.05).withAlphaComponent(0.50)
+        }
+        return dressVariant.pspPalette?.shoulders ?? UIColor(rpHex: 0xF3F3F3)
+    }
     private var fill: UIColor {
+        if let c = pspFill { return c }
         if let c = dressVariant.shoulderFace(dressKind) { return c }
         return dressKind.faceFill
     }
     private var pressedFill: UIColor {
+        if let c = pspFill { return c.rpPressed }
         if let c = dressVariant.shoulderFace(dressKind) { return c.rpPressed }
         return dressKind.facePressed
     }
     private var edge: UIColor {
+        if dressKind == .ps1, dressVariant.isPSPGlass {
+            return (dressVariant.ps1Palette?.body ?? .white).rpMixed(with: .black, 0.40)
+        }
+        if let c = pspFill { return c.rpEdge }
         if let c = dressVariant.shoulderFace(dressKind) { return c.rpEdge }
         return dressKind.faceEdge
     }
@@ -2640,6 +2910,12 @@ final class ShoulderButton: UIView, HighlightableButton {
     }
 
     private var labelInk: UIColor {
+        // The PSP's shoulders carry their letter in the palette's print grey
+        // on the glass, and in the shell's black on the silver.
+        if dressKind == .ps1, dressVariant.isPSP {
+            return dressVariant.isPSPGlass ? (dressVariant.ps1Palette?.print ?? .gray)
+                                           : (dressVariant.pspPalette?.body ?? UIColor(rpHex: 0x2F2F2F))
+        }
         if let p = dressVariant.gbaPalette { return p.letters }
         if let p = dressVariant.ndsPalette { return p.letters }
         if dressVariant == .retroPal, dressKind == .nds { return RetroPalPalette.ndsInk }
@@ -2809,6 +3085,16 @@ final class SmallButton: UIView, HighlightableButton {
         /// takes the console's small-button colour, which here is a neutral
         /// grey; START is the one control on this pad painted red.
         case n64Start
+        /// The Game Gear's START (2026-10-10): a blue disc cut by one straight
+        /// chord, from the top of the circle to the point halfway round between
+        /// its left and its bottom, so the flat side leans 22.5 degrees off
+        /// upright and faces the screen, as on the handheld. Its word is printed
+        /// beside it on the shell, to its right (`GGStart`).
+        case ggStart
+        /// The Master System's PAUSE (2026-10-10), as on the console: a black
+        /// plate with a white keyline, PAUSE printed in it on the left, and the
+        /// black rocker at its right end (`SMSPause`).
+        case smsPause
         var isPS1: Bool {
             self == .ps1Rect || self == .ps1Triangle || self == .ps1Plate || self == .ps1Stub
         }
@@ -2883,6 +3169,12 @@ final class SmallButton: UIView, HighlightableButton {
         // you already know it is there. A cut goes properly dark; what makes it
         // read as cut rather than as painted is the light catch below it, not
         // the letter being timid.
+        // The PSP's SELECT and START words take the colour of the marks on its
+        // four faces (asked 2026-10-10: in the shell's black they did not read).
+        if dressStyle.ps1LabelBelow, dressKind == .ps1, dressVariant.isPSP,
+           let ink = dressVariant.ps1Palette?.print {
+            return ink
+        }
         return dressStyle.ps1LabelBelow ? pillBase
                                         : ps1PlateColor.rpMixed(with: .black, 0.62)
     }
@@ -2916,6 +3208,11 @@ final class SmallButton: UIView, HighlightableButton {
     private var circleEdgeC: UIColor { dressVariant.gbaPalette != nil ? circleBgColor.rpEdge : pillEdgeC }
     // The MENU/CLIP circle ICON: custom uses the menu-icons (GBC/GBA) / icons (NDS) slot.
     private var circleIconC: UIColor {
+        // The PSP's Retro Pal: MENU and CLIP in the grey of the four faces'
+        // marks (asked 2026-10-10).
+        if dressKind == .ps1, dressVariant.isPSPGlass, let ink = dressVariant.ps1Palette?.print {
+            return ink
+        }
         if let printed = ps1PrintSlot { return printed }
         if let p = dressVariant.gbcPalette { return p.menuIcons }
         if let p = dressVariant.gbaPalette { return p.menuIcons }
@@ -2932,6 +3229,13 @@ final class SmallButton: UIView, HighlightableButton {
         // The Nintendo 64's MENU and CLIP likewise: the glyph set into its disc,
         // unless a custom skin gave the glyphs their own colour.
         if dressKind == .n64, let p = dressVariant.n64Palette { return p.menuIcons }
+        // The Mega Drive's glyph: printed in the label ink on Classic; on Retro
+        // Pal the X Y Z grey (asked 2026-10-08, with the surround in the same
+        // grey); a custom skin's set into its disc (`MDSkinPalette.label(on:)`).
+        if dressKind == .md {
+            if dressVariant == .retroPal { return dressVariant.md.xyz }
+            return dressVariant.md.label(on: circleBgColor)
+        }
         if dressKind == .ps1 || dressKind == .n64 {
             return circleBgColor.rpMixed(with: .black, circleBgColor.rpIsLight ? 0.42 : 0.34)
         }
@@ -2948,6 +3252,10 @@ final class SmallButton: UIView, HighlightableButton {
             if let p = dressVariant.nesPalette { return p.body }
             return dressVariant == .retroPal ? RetroPalPalette.nesInk : DressKind.nesBody
         }
+        // The two 8-bit Segas' glyph from their look, so a custom skin reaches
+        // it (their palettes' print-on-control slot).
+        if dressKind == .sms { return DressKind.smsLook(dressVariant).onAccent }
+        if dressKind == .gg { return DressKind.ggLook(dressVariant).onAccent }
         return dressKind.circleGlyph
     }
 
@@ -2974,6 +3282,9 @@ final class SmallButton: UIView, HighlightableButton {
     /// START, so the label's vertical placement is not a constant. Held here and
     /// moved in layoutSubviews, where the shape's own height is known.
     private var labelCentreY: NSLayoutConstraint?
+    /// The Game Gear prints START BESIDE its button, so the word moves off the
+    /// hitbox's centre to the right of the shape. Zero on every other style.
+    private var labelCentreXOffset: NSLayoutConstraint?
     /// Caps the word's width so `adjustsFontSizeToFitWidth` has a bound to work
     /// against. Only the styles that print their word INSIDE a plate want it.
     private var labelWidth: NSLayoutConstraint?
@@ -3061,8 +3372,20 @@ final class SmallButton: UIView, HighlightableButton {
             CATransaction.commit()
         case .n64Start:
             CATransaction.begin(); CATransaction.setDisableActions(true)
-            pillBg.fillColor = (isPressed ? dressVariant.n64.start.rpPressed : dressVariant.n64.start).cgColor
+            pillBg.fillColor = (isPressed ? startDiscColor.rpPressed : startDiscColor).cgColor
             CATransaction.commit()
+        case .ggStart:
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            let start = DressKind.ggLook(dressVariant).accent
+            pillBg.fillColor = (isPressed ? start.rpPressed : start).cgColor
+            CATransaction.commit()
+        case .smsPause:
+            // The rocker goes down; the plate and its word stay where they are.
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            let rocker = DressKind.smsLook(dressVariant).control
+            circleBg.fillColor = (isPressed ? rocker.rpMixed(with: .black, 0.4) : rocker).cgColor
+            CATransaction.commit()
+            return
         case .circle:
             CATransaction.begin(); CATransaction.setDisableActions(true)
             circleBg.fillColor = (isPressed ? circlePressedColor : circleBgColor).cgColor
@@ -3092,25 +3415,46 @@ final class SmallButton: UIView, HighlightableButton {
         textLabel?.shadowOffset = .zero
     }
 
+    /// Whether this button wears the rim relief (2026-10-09). MENU and CLIP
+    /// (`.circle`) and the discs (`.n64Start`) on every console; SELECT and
+    /// START where the pill IS the button (GB/GBC, NES, SNES; not the GBA's and
+    /// the DS's tiny circle beside a printed pill), and the PlayStation's
+    /// rectangle and triangle. Not ANALOG, L3 or R3, which were not asked.
+    private var wearsRimRelief: Bool {
+        guard dressKind.wearsButtonRelief else { return false }
+        switch dressStyle {
+        case .circle, .n64Start, .ggStart, .ps1Rect, .ps1Triangle: return true
+        case .smsPause: return false
+        case .pill, .pillTop: return !dressKind.selectIsTinyCircle
+        case .none, .iconOnly, .decal, .ps1Plate, .ps1Stub: return false
+        }
+    }
+
     /// Resting appearance for the current dress style.
     private func applyResting() {
-        circleBg.isHidden = (dressStyle != .circle)
+        // PAUSE draws its plate in `pillBg` and its rocker in `circleBg`.
+        circleBg.isHidden = (dressStyle != .circle && dressStyle != .smsPause)
         pillBg.isHidden = (dressStyle != .pill && dressStyle != .pillTop && !dressStyle.isPS1
-                           && dressStyle != .n64Start)
+                           && dressStyle != .n64Start && dressStyle != .ggStart
+                           && dressStyle != .smsPause)
         // The bombé belongs to the CONSOLE, not to the four ps1 shapes: MENU and
         // CLIP wear `.circle` here exactly as they do everywhere else, and they
         // are as much a moulding on this pad as SELECT is.
-        dome.isHidden = !(dressKind == .ps1 && dressStyle != .none)
+        // Except where the rim relief now stands (2026-10-09): MENU, CLIP,
+        // SELECT and START. ANALOG, L3 and R3 keep the bombé.
+        dome.isHidden = !(dressKind == .ps1 && dressStyle != .none && !wearsRimRelief)
         core.isHidden = dome.isHidden
         // The Nintendo 64's MENU, CLIP and START wear its rim relief instead
-        // (asked 2026-09-27), like its A, B, Z and C.
-        relief.isHidden = !(dressKind == .n64 && (dressStyle == .circle || dressStyle == .n64Start))
+        // (asked 2026-09-27), like its A, B, Z and C; every console's MENU and
+        // CLIP, and SELECT and START where asked, since 2026-10-09.
+        relief.isHidden = !wearsRimRelief
         // Dressed (SELECT/START): the identifier is printed on the case (slice 3c), so the
         // pill is bare. Its diagonal shape is built in layoutSubviews.
         // The PlayStation is the exception: its SELECT, START, ANALOG, L3 and R3
         // wear their word themselves, either under the shape or cut into it, so
         // the dress does not print it on the shell for them.
-        textLabel?.isHidden = (dressStyle != .none && !dressStyle.isPS1 && dressStyle != .n64Start)
+        textLabel?.isHidden = (dressStyle != .none && !dressStyle.isPS1 && dressStyle != .n64Start
+                               && dressStyle != .ggStart && dressStyle != .smsPause)
         setNeedsLayout()
         // Enlarge the icon only when it stands alone (icon-only), to fill its round well.
         if iconView != nil {
@@ -3122,6 +3466,7 @@ final class SmallButton: UIView, HighlightableButton {
         // label keeps its shadow until something takes it away, so resetting in
         // one place is what stops this pad's groove following a console switch.
         clearEngravedWord()
+        if dressStyle != .ggStart && dressStyle != .smsPause { labelCentreXOffset?.constant = 0 }
         // The word is capped only where it is printed inside something: ANALOG,
         // L3 and R3. SELECT and START stand theirs on the shell, with the whole
         // hitbox to spread into.
@@ -3181,14 +3526,43 @@ final class SmallButton: UIView, HighlightableButton {
         case .n64Start:
             backgroundColor = .clear
             layer.borderWidth = 0
-            let start = dressVariant.n64.start
+            let start = startDiscColor
             pillBg.fillColor = start.cgColor
             pillBg.strokeColor = start.rpEdge.cgColor
             pillBg.lineWidth = 1
             // Set INTO the disc: the disc's own colour, darker, with a light catch below it.
-            textLabel?.textColor = DressKind.n64Incised(start)
-            textLabel?.shadowColor = start.rpMixed(with: .white, 0.35)
-            textLabel?.shadowOffset = CGSize(width: 0, height: 1)
+            // The Mega Drive's MODE and START take this disc too, with their word printed
+            // on Classic and set in on Retro Pal (`MDSkinPalette.label(on:)`).
+            let printed = dressKind == .md && !dressVariant.md.incisedLabels
+            textLabel?.textColor = dressKind == .md ? dressVariant.md.label(on: start)
+                                                    : DressKind.n64Incised(start)
+            textLabel?.shadowColor = printed ? nil : start.rpMixed(with: .white, 0.35)
+            textLabel?.shadowOffset = printed ? .zero : CGSize(width: 0, height: 1)
+            labelCentreY?.constant = 0
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .smsPause:
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            pillBg.fillColor = UIColor(rpHex: 0x0B0B0C).cgColor
+            pillBg.strokeColor = DressKind.smsLook(dressVariant).onAccent.cgColor
+            pillBg.lineWidth = 0.8
+            circleBg.fillColor = DressKind.smsLook(dressVariant).control.cgColor
+            circleBg.strokeColor = UIColor.white.withAlphaComponent(0.18).cgColor
+            circleBg.lineWidth = 0.75
+            textLabel?.textColor = DressKind.smsLook(dressVariant).onAccent
+            labelCentreY?.constant = 0
+            iconHighlight?.isHidden = true
+            iconShadow?.isHidden = true
+        case .ggStart:
+            backgroundColor = .clear
+            layer.borderWidth = 0
+            let start = DressKind.ggLook(dressVariant).accent
+            pillBg.fillColor = start.cgColor
+            pillBg.strokeColor = start.rpEdge.cgColor
+            pillBg.lineWidth = 1
+            // Printed on the shell beside the button, in the console's one ink.
+            textLabel?.textColor = DressKind.ggLook(dressVariant).shellInk
             labelCentreY?.constant = 0
             iconHighlight?.isHidden = true
             iconShadow?.isHidden = true
@@ -3207,7 +3581,14 @@ final class SmallButton: UIView, HighlightableButton {
             // INVERTED like the words: the glyph itself takes the light tone
             // and the copy behind it the dark one, so the mark reads at a glance
             // on a disc this dark.
-            let engraved = (dressKind == .ps1 || dressKind == .n64)
+            // Not the Mega Drive's Retro Pal glyph: that one is the X Y Z grey,
+            // flat (asked 2026-10-08), and the catch below re-tinted it light,
+            // which is why the first try left it looking unchanged.
+            let mdFlatGlyph = dressKind == .md && dressVariant == .retroPal
+            // Not the PSP's Retro Pal: its glyph is printed flat in the faces'
+            // grey (`circleIconC`), not carved.
+            let engraved = ((dressKind == .ps1 && !dressVariant.isPSPGlass) || dressKind == .n64
+                            || (dressKind == .md && dressVariant.md.incisedLabels && !mdFlatGlyph))
             iconHighlight?.isHidden = true
             iconShadow?.isHidden = !engraved
             if engraved {
@@ -3243,7 +3624,7 @@ final class SmallButton: UIView, HighlightableButton {
             circleBg.path = circle.cgPath
             Bombe.fit(dome, over: bounds, clippedTo: circle.cgPath)
             Bombe.fitCore(core, over: bounds, clippedTo: circle.cgPath)
-            if dressKind == .n64 { relief.fit(over: bounds, clippedTo: circle.cgPath) }
+            if wearsRimRelief { relief.fit(over: bounds, clippedTo: circle.cgPath) }
         case .pill where dressKind.selectIsTinyCircle, .pillTop where dressKind.selectIsTinyCircle:
             // GBA/NDS: the visible "button" is a tiny circle at the right of the pill (the dress
             // draws the creusé pill bg + the label).
@@ -3261,11 +3642,13 @@ final class SmallButton: UIView, HighlightableButton {
             let line = CGMutablePath(); line.move(to: q1); line.addLine(to: q2)
             pillBg.path = line.copy(strokingWithWidth: t, lineCap: .round,
                                     lineJoin: .round, miterLimit: 0)
+            if wearsRimRelief, let pill = pillBg.path { relief.fit(over: bounds, clippedTo: pill) }
         case .ps1Rect, .ps1Triangle, .ps1Plate, .ps1Stub:
             let shape = ps1ShapePath()
             pillBg.path = shape.cgPath
             Bombe.fit(dome, over: bounds, clippedTo: shape.cgPath)
             Bombe.fitCore(core, over: bounds, clippedTo: shape.cgPath)
+            if wearsRimRelief { relief.fit(over: bounds, clippedTo: shape.cgPath) }
             // Bold, not semibold: a groove is read by its edges, and a heavier
             // stroke gives the catch below it more edge to fall on.
             textLabel?.font = .systemFont(ofSize: ps1LabelPointSize, weight: .bold)
@@ -3274,6 +3657,17 @@ final class SmallButton: UIView, HighlightableButton {
             labelCentreY?.constant = dressStyle.ps1LabelBelow
                 ? (ps1BlockTop + ps1BandHeight + ps1LabelGap + ps1LabelHeight / 2) - bounds.midY
                 : 0
+        case .smsPause:
+            pillBg.path = SMSPause.plate(in: bounds).cgPath
+            circleBg.path = SMSPause.rocker(in: bounds).cgPath
+            textLabel?.font = .systemFont(ofSize: SMSPause.labelPointSize(bounds), weight: .semibold)
+            labelCentreXOffset?.constant = SMSPause.labelCentreX(bounds) - bounds.width / 2
+        case .ggStart:
+            let shape = GGStart.path(in: bounds)
+            pillBg.path = shape.cgPath
+            relief.fit(over: bounds, clippedTo: shape.cgPath)
+            textLabel?.font = .systemFont(ofSize: GGStart.labelPointSize(bounds), weight: .bold)
+            labelCentreXOffset?.constant = GGStart.labelCentreX(bounds) - bounds.width / 2
         case .n64Start:
             let d = min(bounds.width, bounds.height)
             let disc = CGRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
@@ -3283,6 +3677,67 @@ final class SmallButton: UIView, HighlightableButton {
             textLabel?.font = .systemFont(ofSize: max(7, d * 0.21), weight: .bold)
         case .none, .iconOnly, .decal:
             layer.cornerRadius = 6
+        }
+    }
+
+    // MARK: The Master System's PAUSE
+
+    /// The Master System's PAUSE as pure geometry: the plate fills the
+    /// hitbox's middle band, the rocker sits in its right end, the word in
+    /// the rest. Shared with the dress, which carves the plate's seat.
+    enum SMSPause {
+        static func plate(in b: CGRect) -> UIBezierPath {
+            let h = b.height * 0.62
+            // The keyline is a hair inside the black plate, as printed.
+            return UIBezierPath(rect: CGRect(x: b.minX + 1, y: b.midY - h / 2, width: b.width - 2, height: h))
+        }
+        static func rocker(in b: CGRect) -> UIBezierPath {
+            let h = b.height * 0.40, w = b.width * 0.28
+            return UIBezierPath(roundedRect: CGRect(x: b.maxX - w - b.width * 0.07, y: b.midY - h / 2,
+                                                    width: w, height: h), cornerRadius: h * 0.18)
+        }
+        static func labelPointSize(_ b: CGRect) -> CGFloat { max(7, b.height * 0.22) }
+        /// The word's centre, in the plate left of the rocker.
+        static func labelCentreX(_ b: CGRect) -> CGFloat {
+            let rockerLeft = b.width - b.width * 0.28 - b.width * 0.07
+            return rockerLeft / 2
+        }
+    }
+
+    // MARK: The Game Gear's START
+
+    /// The Game Gear's START, as pure geometry, shared with the dress (which
+    /// carves its seat) for the same reason as `PS1Shape`.
+    ///
+    /// The hitbox holds the button AND its word, the hardware's arrangement:
+    /// the cut disc on the left of the box, START printed to its right. The
+    /// disc keeps the side of the circle away from the chord, which is a
+    /// little more than half of it, so it reads as a button and not a sliver.
+    enum GGStart {
+        /// The disc's radius: as tall as the box allows, at most 40% of its
+        /// width, so the word keeps the rest.
+        static func radius(_ b: CGRect) -> CGFloat {
+            min(b.height * 0.40, b.width * 0.20)
+        }
+        static func centre(_ b: CGRect) -> CGPoint {
+            CGPoint(x: b.minX + radius(b) * 1.1, y: b.midY)
+        }
+        /// From the top of the circle (-90 degrees) clockwise to the point
+        /// halfway between its left and its bottom (135 degrees, y down), then
+        /// the chord straight back: the flat side faces left, leaning 22.5
+        /// degrees off upright, its top to the right.
+        static func path(in b: CGRect) -> UIBezierPath {
+            let c = centre(b), r = radius(b)
+            let p = UIBezierPath(arcCenter: c, radius: r, startAngle: -.pi / 2,
+                                 endAngle: .pi * 3 / 4, clockwise: true)
+            p.close()
+            return p
+        }
+        static func labelPointSize(_ b: CGRect) -> CGFloat { max(7, radius(b) * 0.62) }
+        /// The word's centre, a small gap past the disc's right edge.
+        static func labelCentreX(_ b: CGRect) -> CGFloat {
+            let wordRoom = b.maxX - (centre(b).x + radius(b) * 1.25)
+            return centre(b).x + radius(b) * 1.25 + wordRoom / 2 - b.minX
         }
     }
 
@@ -3397,12 +3852,27 @@ final class SmallButton: UIView, HighlightableButton {
     }
 
     private var ps1LabelPointSize: CGFloat { PS1Shape.labelPointSize(dressStyle, bounds) }
+    /// The disc `.n64Start` draws: the Nintendo 64's red START, or the Mega
+    /// Drive's small-button plastic for its MODE and START.
+    private var startDiscColor: UIColor {
+        dressKind == .md ? dressVariant.md.smallButtons : dressVariant.n64.start
+    }
+
     private var ps1LabelHeight: CGFloat { PS1Shape.labelHeight(dressStyle, bounds) }
     private var ps1LabelGap: CGFloat { PS1Shape.labelGap(bounds) }
     private var ps1BandHeight: CGFloat { PS1Shape.band(bounds) }
     private var ps1BlockTop: CGFloat { PS1Shape.blockTop(dressStyle, bounds) }
 
     private func ps1ShapePath() -> UIBezierPath { PS1Shape.path(dressStyle, in: bounds) }
+
+    /// Change the word on the button after it was built.
+    ///
+    /// For the Mega Drive, whose pad prints MODE where every other console
+    /// here prints SELECT; the same reason `ActionButton.setTitle` and
+    /// `ShoulderButton.setTitle` exist (the class knows nothing of consoles).
+    func setTitle(_ text: String) {
+        textLabel?.text = text
+    }
 
     init(label text: String) {
         super.init(frame: .zero)
@@ -3413,6 +3883,10 @@ final class SmallButton: UIView, HighlightableButton {
 
         pillBg.isHidden = true
         layer.insertSublayer(pillBg, at: 0)
+        // The Master System's PAUSE draws its rocker in this layer, over its
+        // plate (`SMSPause`); hidden on every other labelled button.
+        circleBg.isHidden = true
+        layer.insertSublayer(circleBg, above: pillBg)
         layer.addSublayer(dome)
         layer.addSublayer(core)
         layer.addSublayer(relief)
@@ -3442,10 +3916,9 @@ final class SmallButton: UIView, HighlightableButton {
                                                multiplier: 0.80)
         width.isActive = false
         labelWidth = width
-        NSLayoutConstraint.activate([
-            lbl.centerXAnchor.constraint(equalTo: centerXAnchor),
-            centreY,
-        ])
+        let centreX = lbl.centerXAnchor.constraint(equalTo: centerXAnchor)
+        labelCentreXOffset = centreX
+        NSLayoutConstraint.activate([centreX, centreY])
     }
 
     /// Icon variant (Menu / Clip): same rounded-rect chrome as the labelled small buttons,

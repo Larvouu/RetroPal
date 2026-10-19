@@ -36,7 +36,10 @@ final class SkinPreviewView: UIView {
     /// Retro Pal recolour, a live custom palette, or the original Nostalgia look.
     private var variant: DressVariant {
         if let p = paletteOverride { return .custom(p) }
-        return skin == .retroPal ? .retroPal : .nostalgia
+        let look: DressVariant = skin == .retroPal ? .retroPal : .nostalgia
+        // The PSP's looks are the PlayStation's dress in its own colours,
+        // resolved as the game screen resolves them, shell and controls alike.
+        return system == .psp ? ConsoleSkinView.pspVariant(look) : look
     }
 
     init(system: PresetSystem, skin: GameSkin, isLandscape: Bool,

@@ -1,0 +1,106 @@
+Take the rewind snapshot inside the frame
+
+retro_serialize() runs the emulation until the end of the frame it is
+called in: the state is written at the first safe interrupt, then the
+rest of that frame is emulated and never shown. A frontend that snapshots
+between two frames, as a rewind does, pays a whole extra frame each time.
+Three entry points queue the save for the next retro_run() instead, which
+takes it at the same point and goes on with the frame it was going to run
+anyway: retro_serialize_in_frame() queues it, _result() says when it has
+landed (the core postpones a save while the RSP is mid-task), _cancel()
+drops it. They are exported as n64_retro_* by Vendor/n64-ios/n64_symbols.h.
+
+In the libretro build the state is also written straight into the
+caller's buffer, which retro_serialize_size() sizes exactly, instead of
+being built in a fresh 16 MB allocation and copied across. Same bytes,
+one allocation, its page faults and a 16 MB pass fewer on every save.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0007.
+
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -2166,6 +2166,47 @@
+     return 16788288 + 1024 + 4 + 4096;
+ }
+ 
++/* A save taken INSIDE the next retro_run, for the frontend's rewind.
++ *
++ * retro_serialize() asks for a save, then runs the emulation until the
++ * frame it is in has ended: the state is written at the first safe interrupt,
++ * and the rest of that frame is emulated without being shown. Called between
++ * two retro_run(), that is one whole extra frame, every time. Here the job is
++ * only queued; the next retro_run() takes the state at the same point
++ * retro_serialize() would have (the end of the interrupt the core yielded
++ * in) and carries on with the frame it was going to run anyway.
++ *
++ * The save can land later than that frame: the core postpones it while the
++ * RSP is mid-task. retro_serialize_in_frame_result() says when it has landed;
++ * until then `data` belongs to the core and must not be read, freed or
++ * reused. Any retro_serialize(), retro_unserialize() or reset replaces the
++ * queued job, so the frontend cancels its own first. */
++RETRO_API bool retro_serialize_in_frame(void *data, size_t size)
++{
++   if (initializing || !data || size < retro_serialize_size())
++      return false;
++
++   retro_savestate_complete = false;
++   retro_savestate_result = 0;
++   savestates_set_job(savestates_job_save, savestates_type_m64p, data);
++   return true;
++}
++
++/* 0 while the save is queued, 1 once it is in the buffer, -1 if it failed. */
++RETRO_API int retro_serialize_in_frame_result(void)
++{
++   if (!retro_savestate_complete)
++      return 0;
++   return retro_savestate_result ? 1 : -1;
++}
++
++/* Drops a queued save that has not landed, so its buffer is free again. */
++RETRO_API void retro_serialize_in_frame_cancel(void)
++{
++   if (savestates_get_job() == savestates_job_save)
++      savestates_set_job(savestates_job_nothing, savestates_type_unknown, NULL);
++}
++
+ bool retro_serialize(void *data, size_t size)
+ {
+    if (initializing)
+--- a/mupen64plus-core/src/main/savestates.c
++++ b/mupen64plus-core/src/main/savestates.c
+@@ -1621,11 +1621,9 @@
+ 
+     gzclose(f);
+     main_message(M64MSG_STATUS, OSD_BOTTOM_LEFT, "Saved state to: %s", namefrompath(save->filepath));
+-#else
+-    memcpy(save->mempointer, save->data, save->size);
+ #endif
+-    free(save->data);
+ #ifndef __LIBRETRO__
++    free(save->data);
+     free(save->filepath);
+ #endif
+     free(save);
+@@ -1675,6 +1673,7 @@
+ 
+     // Allocate memory for the save state data
+     save->size = 16788288 + sizeof(queue) + 4 + 4096;
++#ifndef __LIBRETRO__
+     save->data = curr = malloc(save->size);
+     if (save->data == NULL)
+     {
+@@ -1684,6 +1683,13 @@
+         StateChanged(M64CORE_STATE_SAVECOMPLETE, 0);
+         return 0;
+     }
++#else
++    /* Straight into the frontend's buffer, which retro_serialize_size()
++     * sized to exactly save->size. Building the state in a fresh 16 MB block
++     * and copying it across cost an allocation, its page faults and a second
++     * pass over 16 MB on every save, rewind snapshots included. */
++    save->data = curr = (char *)save->mempointer;
++#endif
+ 
+     memset(save->data, 0, save->size);
+ 

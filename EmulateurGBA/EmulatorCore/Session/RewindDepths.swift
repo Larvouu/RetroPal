@@ -42,10 +42,28 @@ enum RewindDepths {
         return steps.filter { $0 <= cap }
     }
 
-    /// What a plain TAP rewinds: as far back as this tier allows, which is what
-    /// the button's own title says. Unchanged since it shipped, and deliberately
-    /// not routed through `available` — the tap is not one of the steps, it is
-    /// "everything you have", which after twelve seconds of play is eleven.
+    /// How deep each tier reaches: the free five seconds and the Pro thirty,
+    /// the split the rewind ring was built around (the ring holds 35 on every
+    /// console, so this is a product line, not a memory limit). The long-press
+    /// row offers every step up to it.
+    static func ceiling(isPro: Bool) -> Int { isPro ? 30 : 5 }
+
+    /// What a plain TAP rewinds at most, and what the button's title says:
+    /// five seconds free, TEN for Pro (asked 2026-10-11, the 30-second rewind
+    /// rethought: the tap is the everyday jump, the long press reaches the
+    /// thirty). Free is its whole allowance either way.
+    static func tapCap(isPro: Bool) -> Int { isPro ? 10 : 5 }
+
+    /// What a plain TAP rewinds: up to its cap (`tapCap`), deliberately not
+    /// routed through `available` — the tap is not one of the steps, it is
+    /// "as far as the button says", which after eight seconds of play is seven.
+    /// The tap, whole: the tier's cap and the sitting's length in one call, so
+    /// the screen cannot pass the wrong ceiling (it did once, 2026-10-11: the
+    /// button said 10 s and the tap went 30).
+    static func tapSeconds(isPro: Bool, playedSeconds: Int) -> Int {
+        tapSeconds(maxSeconds: tapCap(isPro: isPro), playedSeconds: playedSeconds)
+    }
+
     static func tapSeconds(maxSeconds: Int, playedSeconds: Int) -> Int {
         min(maxSeconds, max(1, playedSeconds - 1))
     }

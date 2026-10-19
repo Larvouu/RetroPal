@@ -510,10 +510,37 @@ enum ControlLayoutDefaults {
             return nes(containerSize: containerSize, scale: scale,
                        isLandscape: isLandscape, safeLeftInset: safeLeftInset,
                        safeRightInset: safeRightInset)
+        case .sms, .gg:
+            if family == .tablet {
+                return sega8BitTablet(system: system, containerSize: containerSize, scale: scale,
+                                      isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                                      safeRightInset: safeRightInset)
+            }
+            return sega8Bit(system: system, containerSize: containerSize, scale: scale,
+                            isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                            safeRightInset: safeRightInset)
         case .ps1:
             return ps1(containerSize: containerSize, scale: scale,
                        isLandscape: isLandscape, safeLeftInset: safeLeftInset,
                        safeRightInset: safeRightInset)
+        case .psp:
+            if family == .tablet {
+                return pspTablet(containerSize: containerSize, scale: scale,
+                                 isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                                 safeRightInset: safeRightInset)
+            }
+            return psp(containerSize: containerSize, scale: scale,
+                       isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                       safeRightInset: safeRightInset)
+        case .md:
+            if family == .tablet {
+                return mdTablet(containerSize: containerSize, scale: scale,
+                                isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                                safeRightInset: safeRightInset)
+            }
+            return md(containerSize: containerSize, scale: scale,
+                      isLandscape: isLandscape, safeLeftInset: safeLeftInset,
+                      safeRightInset: safeRightInset)
         case .n64:
             if family == .tablet {
                 return n64Tablet(containerSize: containerSize, scale: scale,
@@ -571,19 +598,22 @@ enum ControlLayoutDefaults {
     /// (the stick's gate, the cross's well, the lines between A, B and Z, the C
     /// circle) is drawn by the dress from these same frames.
     ///
-    /// UPRIGHT the columns are the two halves of the page, L · MENU · R is the
-    /// GBA's row exactly, and START sits at the dead centre of the block.
+    /// UPRIGHT the columns are the two halves of the page, and L and R are the
+    /// GBA's row exactly. Between them CLIP and MENU (asked 2026-10-09:
+    /// L · CLIP · MENU · R), the row's three gaps equal. The stick sits a little
+    /// below its quarter's centre, where the left thumb reaches it (same day),
+    /// and START at the bottom of the page, between the cross and the C
+    /// buttons, its centre level with the bottom of C DOWN.
     ///
     /// ON ITS SIDE the columns are the two gutters beside the picture, each
     /// measured from the safe area to the picture. The left one breaks the
     /// quarters: the stick sits near the middle of the page's height, where the
     /// thumb rests, and a smaller cross fills the room under it. L and R keep the corners
-    /// the PlayStation's page gives them, and MENU and START are one pair
-    /// centred under the picture, a little further apart than that page had
-    /// its row.
-    ///
-    /// CLIP, both ways: under R, in the column, centred in the gap between the
-    /// bottom of A and the top of C UP.
+    /// the PlayStation's page gives them, and CLIP · START · MENU are one row
+    /// centred under the picture (asked 2026-10-09: CLIP took MENU's place,
+    /// MENU went beside START). Freed of CLIP, the right gutter holds A-B-Z
+    /// and the C buttons larger (`n64LandscapeFaceScale`), the two groups
+    /// spread with equal gaps from the bottom of R down to the home indicator.
     static func n64(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
                     safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
         let w = containerSize.width
@@ -610,7 +640,14 @@ enum ControlLayoutDefaults {
             let rowY = (36 + lHalf) * k
             place(.btnL, (16 + 45) * k, rowY)
             place(.btnR, w - (16 + 45) * k, rowY)
-            place(.btnMenu, w / 2, rowY)
+            // CLIP then MENU between them, the three gaps of the row equal
+            // (asked 2026-10-09): L to CLIP, CLIP to MENU, MENU to R.
+            let lRight = (16 + 45) * k + size(.btnL).width / 2
+            let rLeft = w - (16 + 45) * k - size(.btnR).width / 2
+            let clipW = size(.btnClip).width, menuW = size(.btnMenu).width
+            let gap = (rLeft - lRight - clipW - menuW) / 3
+            place(.btnClip, lRight + gap + clipW / 2, rowY)
+            place(.btnMenu, rLeft - gap - menuW / 2, rowY)
             leftX = w / 4
             rightX = w * 3 / 4
         } else {
@@ -629,13 +666,15 @@ enum ControlLayoutDefaults {
             let margin = 8 * k
             leftX = (max(safeLeftInset, margin) + screen.minX) / 2
             rightX = (screen.maxX + w - max(safeRightInset, margin)) / 2
-            // MENU and START, one pair centred under the picture.
+            // CLIP, START and MENU, one row centred under the picture.
             if let rowY = menuRowY {
                 let gap = n64LandscapeRowGap * k
-                let menuW = size(.btnMenu).width, startW = size(.btnStart).width
-                let left = screen.midX - (menuW + gap + startW) / 2
-                place(.btnMenu, left + menuW / 2, rowY)
-                place(.btnStart, left + menuW + gap + startW / 2, rowY)
+                let clipW = size(.btnClip).width, startW = size(.btnStart).width
+                let menuW = size(.btnMenu).width
+                let left = screen.midX - (clipW + gap + startW + gap + menuW) / 2
+                place(.btnClip, left + clipW / 2, rowY)
+                place(.btnStart, left + clipW + gap + startW / 2, rowY)
+                place(.btnMenu, left + clipW + gap + startW + gap + menuW / 2, rowY)
             }
         }
 
@@ -657,31 +696,54 @@ enum ControlLayoutDefaults {
             place(.stickLeft, leftX, stickY)
             place(.dpad, leftX, (surroundBottom + h) / 2)
         } else {
-            place(.stickLeft, leftX, upper)
+            place(.stickLeft, leftX, upper + n64PortraitStickDrop * k)
             place(.dpad, leftX, lower)
         }
-        if !isLandscape { place(.btnStart, w / 2, top + (h - top) / 2) }
 
-        // A, B and Z: an equilateral triangle centred in its quarter, A at the
+        // On its side the right gutter's two groups are larger
+        // (`n64LandscapeFaceScale`), spacing and buttons alike.
+        let grow = isLandscape ? n64LandscapeFaceScale : 1
+        let face = size(.btnA).height * grow
+        let c = size(.btnCUp).width * grow
+        let radius = n64FaceTriangleSide * k * grow / CGFloat(3).squareRoot()
+        let step = n64CGeometry(buttonWidth: c, scale: k * grow).step
+
+        // Where the two groups' centres go: the quarters upright; on its side,
+        // the two stacked with equal gaps from the bottom of R to the home
+        // indicator, the flat reserve the Super Nintendo's page counts too.
+        let facesY: CGFloat, cY: CGFloat
+        if isLandscape {
+            let bottom = h - EmulatorLayoutGeometry.snesLandscapeIndicatorReserve
+            let facesH = radius * 1.5 + face
+            let cH = step * 2 + c
+            let gap = max(0, (bottom - top - facesH - cH) / 3)
+            facesY = top + gap + face / 2 + radius / 2
+            cY = top + gap + facesH + gap + cH / 2
+        } else {
+            facesY = upper
+            cY = lower
+        }
+
+        // A, B and Z: an equilateral triangle about its centre, A at the
         // bottom, B up and to the left of it as on the pad, Z the third corner
         // up and to the right.
-        let radius = n64FaceTriangleSide * k / CGFloat(3).squareRoot()
-        place(.btnA, rightX, upper + radius)
-        place(.btnB, rightX - radius * CGFloat(3).squareRoot() / 2, upper - radius / 2)
-        place(.btnL2, rightX + radius * CGFloat(3).squareRoot() / 2, upper - radius / 2)
+        place(.btnA, rightX, facesY + radius)
+        place(.btnB, rightX - radius * CGFloat(3).squareRoot() / 2, facesY - radius / 2)
+        place(.btnL2, rightX + radius * CGFloat(3).squareRoot() / 2, facesY - radius / 2)
 
-        // The C buttons on their circle, around the centre of their quarter.
-        let step = n64CGeometry(buttonWidth: size(.btnCUp).width, scale: k).step
-        place(.btnCUp, rightX, lower - step)
-        place(.btnCDown, rightX, lower + step)
-        place(.btnCLeft, rightX - step, lower)
-        place(.btnCRight, rightX + step, lower)
+        // The C buttons on their circle.
+        place(.btnCUp, rightX, cY - step)
+        place(.btnCDown, rightX, cY + step)
+        place(.btnCLeft, rightX - step, cY)
+        place(.btnCRight, rightX + step, cY)
 
-        // CLIP under R, halfway down the gap between A and C UP.
-        if let r = centre(.btnR) {
-            let aBottom = upper + radius + size(.btnA).height / 2
-            let cTop = lower - step - size(.btnCUp).height / 2
-            place(.btnClip, r.x, (aBottom + cTop) / 2)
+        // START upright: at the bottom, centred between the two columns, its
+        // centre level with the bottom of C DOWN. Held on the glass: on a
+        // phone with a home button (the SE) C DOWN ends so near the edge that
+        // START would hang past it, and there it rises just enough to stay on.
+        if !isLandscape {
+            let startHalf = size(.btnStart).height / 2
+            place(.btnStart, w / 2, min(cY + step + c / 2, h - startHalf - n64StartEdge * k))
         }
         return layout
     }
@@ -794,9 +856,26 @@ enum ControlLayoutDefaults {
     static let n64TabletBottom: CGFloat = 24
     static let n64TabletGap: CGFloat = 12
 
-    /// The gap between MENU and START on the page on its side, in reference
-    /// points: a little wider than the PlayStation's row (10).
+    /// The gap between two controls of the row under the picture on its side
+    /// (CLIP · START · MENU), in reference points: a little wider than the
+    /// PlayStation's row (10).
     static let n64LandscapeRowGap: CGFloat = 20
+
+    /// The least START keeps from the bottom of the glass upright, in reference points.
+    static let n64StartEdge: CGFloat = 4
+
+    /// How far below its quarter's centre the stick sits upright, in reference
+    /// points (asked 2026-10-09: lower, easier to reach with the left thumb).
+    static let n64PortraitStickDrop: CGFloat = 24
+
+    /// A-B-Z and the C buttons on an iPhone on its side, against their size
+    /// everywhere else (asked 2026-10-09, once CLIP left that gutter): 12 %
+    /// larger, buttons and spacing. The binding phone is the 14 Pro, whose
+    /// right gutter between the picture and the Dynamic Island's inset is
+    /// 177 points; the triangle measures 159 there at this scale.
+    /// Applied where the default layout is drawn (`n64PhoneScale`), as the
+    /// stick's own scale is; presets and the tablet keep their sizes.
+    static let n64LandscapeFaceScale: CGFloat = 1.12
 
     /// On its side, where the stick's centre sits down the block under L, as a
     /// fraction of its height: a little above the middle.
@@ -804,23 +883,97 @@ enum ControlLayoutDefaults {
 
     /// The Nintendo 64's stick on an iPhone on its side, against its size
     /// everywhere else: 5% smaller (asked 2026-09-27, that page only; a first
-    /// try at 20% was too small).
+    /// try at 20% was too small), then a further 12% (asked 2026-10-09, by the
+    /// same ratio as its surround, so neither runs into the picture's frame).
     /// Applied where the default layout is drawn (`applyDefaultLayout`), which
     /// is where the window's family is known; the size tables are not asked,
     /// so the tablet's stick and every preset keep theirs.
-    static let n64LandscapeStickScale: CGFloat = 0.95
+    static let n64LandscapeStickScale: CGFloat = 0.95 * 0.88
 
     static func n64StickScale(isLandscape: Bool, family: LayoutFamily,
                               system: PresetSystem) -> CGFloat {
         system == .n64 && isLandscape && family == .phone ? n64LandscapeStickScale : 1
     }
 
+    /// Every control's drawn size on the default page against its table size:
+    /// the stick (above) and the right gutter's two groups
+    /// (`n64LandscapeFaceScale`) on an iPhone on its side, 1 everywhere else.
+    /// ONE function, read by the controls that draw them and by the tests that
+    /// sweep them, so the two cannot measure different buttons.
+    static func n64PhoneScale(_ element: ControlElement, isLandscape: Bool,
+                              family: LayoutFamily, system: PresetSystem) -> CGFloat {
+        if family == .tablet { return tabletThumbScale(element, system: system) }
+        guard system == .n64, isLandscape, family == .phone else { return 1 }
+        switch element {
+        case .stickLeft: return n64LandscapeStickScale
+        case .btnA, .btnB, .btnL2, .btnCUp, .btnCDown, .btnCLeft, .btnCRight:
+            return n64LandscapeFaceScale
+        default: return 1
+        }
+    }
+
+    /// The four consoles added in 1.3.4, on an iPad (asked 2026-10-11: "the
+    /// controls could be smaller and closer to the edges, the purpose is to be
+    /// reachable by thumbs"). The tablet scale makes every control 1.25 to 1.6
+    /// times its iPhone size, and a 212-point cross is larger than a thumb
+    /// sweeps; these bring the thumb clusters back to a thumb's span. Their
+    /// tablet pages place by the same sizes (`tabletSize`), so the clusters move
+    /// out to the edges rather than leaving gaps. The other eight consoles,
+    /// whose iPad pages were judged on device before, are untouched.
+    static func tabletThumbScale(_ element: ControlElement, system: PresetSystem) -> CGFloat {
+        switch system {
+        case .md:
+            if element == .dpad { return 0.75 }
+            return ControlElement.mdFaces.contains(element) ? 0.85 : 1
+        case .sms, .gg:
+            switch element {
+            // The Master System's page is the NES's, whose cross is a larger
+            // table size than the Game Boy page's: both land near 130 points
+            // on an iPad mini.
+            case .dpad: return system == .sms ? 0.60 : 0.75
+            case .btnA, .btnB: return 0.85
+            default: return 1
+            }
+        case .psp:
+            switch element {
+            case .dpad: return 0.80
+            case .btnA, .btnB, .btnX, .btnY, .stickLeft: return 0.85
+            default: return 1
+            }
+        default: return 1
+        }
+    }
+
+    /// A control's size on a tablet page, the table size times
+    /// `tabletThumbScale`: what the four tablet pages place by.
+    static func tabletSize(_ element: ControlElement, system: PresetSystem, isLandscape: Bool,
+                           deviceScale k: CGFloat) -> CGSize {
+        let s = EmulatorLayoutGeometry.buttonSize(element, system: system, isLandscape: isLandscape,
+                                                  deviceScale: k)
+        let f = tabletThumbScale(element, system: system)
+        return CGSize(width: s.width * f, height: s.height * f)
+    }
+
     /// The stick surround's radius, drawn by the dress: twice the stick's
-    /// diameter as laid out, which on an iPhone on its side is the diameter the
-    /// stick had before it shrank, so the surround keeps its size there.
+    /// diameter as laid out (its table size), which on an iPhone on its side
+    /// is the diameter the stick had before it shrank. There it is
+    /// `n64LandscapeSurroundScale` of that (asked 2026-10-09: a little smaller,
+    /// clear of the picture's frame), while the gate inside it keeps its size
+    /// (`n64StickGateRadius`).
     static func n64StickSurroundRadius(drawnStickWidth w: CGFloat, isLandscape: Bool,
                                        family: LayoutFamily) -> CGFloat {
-        w / n64StickScale(isLandscape: isLandscape, family: family, system: .n64)
+        let laid = w / n64StickScale(isLandscape: isLandscape, family: family, system: .n64)
+        return isLandscape && family == .phone ? laid * n64LandscapeSurroundScale : laid
+    }
+
+    static let n64LandscapeSurroundScale: CGFloat = 0.88
+
+    /// The octagonal gate's corner radius: 0.78 of the laid-out stick's
+    /// diameter, everywhere, so shrinking the surround round it on an iPhone on
+    /// its side leaves the gate as it was (asked 2026-10-09).
+    static func n64StickGateRadius(drawnStickWidth w: CGFloat, isLandscape: Bool,
+                                   family: LayoutFamily) -> CGFloat {
+        w / n64StickScale(isLandscape: isLandscape, family: family, system: .n64) * 0.78
     }
 
     // MARK: - PlayStation
@@ -906,15 +1059,21 @@ enum ControlLayoutDefaults {
     /// exactly where the other six consoles put them, and a control moves only
     /// when it genuinely does not fit, only as far as it must, and only on the
     /// devices where that is true.
+    /// - Parameter system: whose picture the page is built against: the
+    ///   PlayStation itself, or the PSP, which is laid out on this page
+    ///   (`layoutPage`) with its own, wider picture. Every measurement this page
+    ///   takes from the picture (the bands, the row under it, the gutters) has
+    ///   to be the one the game draws, as on the NES's page for the Master System.
     static func ps1(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
-                    safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+                    safeLeftInset: CGFloat, safeRightInset: CGFloat = 0,
+                    system: PresetSystem = .ps1) -> OrientationLayout {
         let w = containerSize.width
         let h = containerSize.height
         guard w > 0 && h > 0 else { return OrientationLayout() }
 
         var layout = snes(containerSize: containerSize, scale: k, isLandscape: isLandscape,
                           safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
-                          system: .ps1)
+                          system: system)
 
         // Everything below works in POINTS and converts once on the way back out.
         // The layout stores fractions of the container, and doing collision
@@ -958,8 +1117,8 @@ enum ControlLayoutDefaults {
             // the row, and each gutter takes one thumb's worth of controls.
             let screen = EmulatorLayoutGeometry.screenFrame(
                 deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
-                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.ps1),
-                system: .ps1, controllerConnected: false, deviceScale: k)
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(system),
+                system: system, controllerConnected: false, deviceScale: k)
             // The dress's own skirt, so nothing is placed against the picture
             // when what a player sees is the frame around it.
             let surroundBottom = screen.maxY + ps1LandscapeSkirt * k
@@ -1255,6 +1414,249 @@ enum ControlLayoutDefaults {
         return layout
     }
 
+    // MARK: - PSP
+
+    /// The PSP's own page (redesigned 2026-10-10, asked that day: every control
+    /// placed by how much PSP games use it, where the thumbs reach it).
+    ///
+    /// WHAT PSP GAMES PRESS, read from the controls of its best sellers (Monster
+    /// Hunter Freedom Unite, God of War, the GTA Stories, Tekken 6, Crisis
+    /// Core, Kingdom Hearts Birth by Sleep, Patapon, Persona 3 Portable, Peace
+    /// Walker, Gran Turismo, Daxter, Wipeout): the NUB moves the player in
+    /// nearly all of them; Cross and Square are the most pressed faces; R and L
+    /// are held WHILE moving or attacking (dash, guard, lock-on, aim, camera);
+    /// the cross is a second-rank control whose job changes by game (MHFU's
+    /// camera, item and command picking elsewhere); START and SELECT are menus.
+    ///
+    /// SO, ON EVERY PAGE (the second pass, asked 2026-10-10, keeps that order
+    /// of importance and puts it in the logic every other console here follows):
+    /// - Each thumb's resting place holds its hand's busiest control: the nub
+    ///   on the left, the diamond on the right, on ONE line.
+    /// - The cross directly above the nub, as on the hardware and as PPSSPP's
+    ///   own touch layout places it, a step smaller than the PlayStation's
+    ///   (`EmulatorLayoutGeometry.pspPadScale`): it is the second-rank control.
+    /// - L and R where the GBA has them, the shoulders: under the picture's
+    ///   corners upright, the top corners of the phone on its side, each in a
+    ///   recess the dress draws; nothing else enters that recess.
+    /// - The PSP's own SELECT and START at the bottom, as on every other pad
+    ///   here, and APART from Retro Pal's MENU and CLIP, so a player tells the
+    ///   console's buttons from the app's. MENU in the middle of the shoulder
+    ///   row as on the GBA; CLIP smaller in importance, under R upright. On its
+    ///   side all four share one row under the picture, CLIP · SELECT · START
+    ///   · MENU (2026-10-11).
+    ///
+    /// The phone's page here; a tablet's in `pspTablet`.
+    static func psp(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                    safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+        func size(_ element: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(element, system: .psp, isLandscape: isLandscape,
+                                              deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ element: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+
+        let pad = size(.dpad), stick = size(.stickLeft), face = size(.btnA).width
+        let step = face * diamondStep
+        let diamondHalf = step + face / 2
+        // What each cluster takes with the ground the dress draws under it.
+        let padReach = max(pad.width, pad.height) * ps1PlateauScale / 2
+        let stickReach = max(stick.width, stick.height) * ps1StickBossSpan / 2
+        let gap = pspGap * k
+        let shoulder = size(.btnL), menu = size(.btnMenu), clip = size(.btnClip)
+        let select = size(.btnSelect), start = size(.btnStart)
+        let pairGap = pspRowGap * k
+
+        if isLandscape {
+            let screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.psp),
+                system: .psp, controllerConnected: false, deviceScale: k)
+            let margin = 8 * k
+            let leftEdge = max(safeLeftInset, margin), rightEdge = w - max(safeRightInset, margin)
+            let leftX = (leftEdge + screen.minX) / 2
+            let rightX = (screen.maxX + rightEdge) / 2
+            let bottom = h - EmulatorLayoutGeometry.snesLandscapeIndicatorReserve
+
+            // The shoulders in the top corners, held to the outer edges as the
+            // GBA's are.
+            let shoulderY = pspLandscapeShoulderTop * k + shoulder.height / 2
+            place(.btnL, leftEdge + shoulder.width / 2, shoulderY)
+            place(.btnR, rightEdge - shoulder.width / 2, shoulderY)
+            // The recess the dress draws around each reaches this far down
+            // (`pspShoulderRecessDepth`); nothing is placed in it.
+            let recessBottom = shoulderY + shoulder.height / 2 + pspShoulderRecessDepth * k
+
+            // The thumb line, low in each gutter, clear of the indicator.
+            let thumbY = bottom - max(stickReach, diamondHalf) - gap
+            place(.stickLeft, leftX, thumbY)
+            place(.btnA, rightX + step, thumbY)
+            place(.btnB, rightX, thumbY + step)
+            place(.btnX, rightX, thumbY - step)
+            place(.btnY, rightX - step, thumbY)
+            // The cross between the recess and the nub, their touch boxes a
+            // gap apart, centred in that room when there is more.
+            let room = (recessBottom + thumbY - stick.height / 2) / 2
+            place(.dpad, leftX, min(room, thumbY - stick.height / 2 - gap - pad.height / 2))
+
+            // Under the picture, one row of four, centred: CLIP · SELECT ·
+            // START · MENU, every gap the one between SELECT and START (asked
+            // 2026-10-11: MENU and CLIP had sat at the picture's two ends).
+            let rowY = (screen.maxY + bottom) / 2
+            place(.btnSelect, screen.midX - pairGap / 2 - select.width / 2, rowY)
+            place(.btnStart, screen.midX + pairGap / 2 + start.width / 2, rowY)
+            place(.btnClip, screen.midX - pairGap * 1.5 - select.width - clip.width / 2, rowY)
+            place(.btnMenu, screen.midX + pairGap * 1.5 + start.width + menu.width / 2, rowY)
+        } else {
+            let leftX = w / 4, rightX = w * 3 / 4
+            // How much taller this band is than the pad's own block: the
+            // picture above was raised by that much (by the triangle's height,
+            // asked 2026-10-12, `EmulatorLayoutGeometry.pspPortraitPictureLift`),
+            // and the controls that hang from the band's top come back down by
+            // it, so none of them moves on the glass. Zero before that change.
+            let raised = max(0, h - EmulatorLayoutGeometry.pspPortraitControlsHeight(deviceScale: k))
+            // The shoulder row at the top of the band, under the picture's
+            // corners as on the GBA, MENU between them; CLIP under R.
+            let shoulderY = raised + pspPortraitShoulderTop * k + shoulder.height / 2
+            let edge = pspPortraitShoulderEdge * k
+            place(.btnL, edge + shoulder.width / 2, shoulderY)
+            place(.btnR, w - edge - shoulder.width / 2, shoulderY)
+            // MENU a step lower than the bars' line, so it is not glued to the
+            // picture's panel above it (asked 2026-10-10): its top a full gap
+            // below the panel's edge.
+            let panelEdge = raised + ps1PortraitSkirt * k
+            place(.btnMenu, w / 2, max(shoulderY, panelEdge + gap + menu.height / 2))
+            let shoulderBottom = shoulderY + max(shoulder.height, menu.height) / 2
+            place(.btnClip, w - edge - clip.width / 2, shoulderBottom + gap + clip.height / 2)
+
+            // SELECT and START, a pair at the bottom, above the home indicator.
+            let rowY = h - pspPortraitBottomLift * k - max(select.height, start.height) / 2
+            place(.btnSelect, w / 2 - pairGap / 2 - select.width / 2, rowY)
+            place(.btnStart, w / 2 + pairGap / 2 + start.width / 2, rowY)
+
+            // The thumb line just above that row; the cross above the nub,
+            // centred in the room up to the shoulder recess.
+            let rowTop = rowY - max(select.height, start.height) / 2
+            let thumbY = rowTop - gap - max(stickReach, diamondHalf)
+            place(.stickLeft, leftX, thumbY)
+            place(.btnA, rightX + step, thumbY)
+            place(.btnB, rightX, thumbY + step)
+            place(.btnX, rightX, thumbY - step)
+            place(.btnY, rightX - step, thumbY)
+            // The cross's ground and the nub's touch, a gap apart, but never
+            // into the shoulder recess. Their touch boxes are what must not meet:
+            // the grounds the dress draws are allowed to merge (they are one
+            // moulded piece of plastic on this dress, `drawRaisedGround`).
+            let recessBottom = shoulderBottom + pspShoulderRecessDepth * k
+            let stacked = thumbY - stick.height / 2 - gap - pad.height / 2
+            place(.dpad, leftX, max(recessBottom + pad.height / 2, stacked))
+        }
+        return layout
+    }
+
+    /// The PSP on a tablet: the same order of importance, each column held to
+    /// its own edge and packed up from the bottom, where the hands are (the
+    /// phone's page scaled up would put every control hundreds of points above
+    /// the thumbs, the lesson of the N64's tablet page).
+    ///
+    /// Lowest, the nub (left) and the diamond (right); the cross above the nub;
+    /// L and R above each column; SELECT · START a pair at the bottom, MENU
+    /// and CLIP apart from them, as on the phone.
+    static func pspTablet(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                          safeLeftInset: CGFloat, safeRightInset: CGFloat) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+        func size(_ element: ControlElement) -> CGSize {
+            tabletSize(element, system: .psp, isLandscape: isLandscape, deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ element: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+        let edge = n64TabletEdge * k
+        let gap = n64TabletGap * k
+        let pad = size(.dpad), stick = size(.stickLeft), face = size(.btnA).width
+        let step = face * diamondStep
+        let diamondHalf = step + face / 2
+        let padReach = max(pad.width, pad.height) * ps1PlateauScale / 2
+        let stickReach = max(stick.width, stick.height) * ps1StickBossSpan / 2
+        let leftHalf = max(padReach, stickReach)
+        let rightHalf = max(diamondHalf + 6 * k, padReach)
+
+        let lx: CGFloat, rx: CGFloat
+        var screen = CGRect.null
+        if isLandscape {
+            screen = EmulatorLayoutGeometry.screenFrame(
+                deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.psp),
+                system: .psp, controllerConnected: false, deviceScale: k)
+            // Held to the outer edges, as the PlayStation's tablet page holds
+            // them: an iPad is held by its sides, and centred in the gutter the
+            // cross met the picture.
+            // Held to the outer edge, and never closer to the picture than a gap.
+            lx = min(max(safeLeftInset, edge) + pad.width / 2, screen.minX - gap - pad.width / 2)
+            rx = w - max(safeRightInset, edge) - rightHalf
+        } else {
+            lx = edge + leftHalf
+            rx = w - edge - rightHalf
+        }
+        let bottom = h - n64TabletBottom * k
+        let thumbY = bottom - max(stickReach, diamondHalf)
+
+        place(.stickLeft, lx, thumbY)
+        place(.btnA, rx + step, thumbY)
+        place(.btnB, rx, thumbY + step)
+        place(.btnX, rx, thumbY - step)
+        place(.btnY, rx - step, thumbY)
+        let padY = thumbY - stickReach - gap - padReach
+        place(.dpad, lx, padY)
+
+        let l = size(.btnL)
+        let clustersTop = min(padY - padReach, thumbY - diamondHalf)
+        let shoulderY = clustersTop - gap - l.height / 2
+        place(.btnL, lx, shoulderY)
+        place(.btnR, rx, shoulderY)
+
+        // The same logic as the phone (2026-10-10): the PSP's own SELECT and
+        // START a pair at the bottom between the columns (on its side, under
+        // the picture), Retro Pal's MENU and CLIP apart from them: MENU between
+        // L and R on the shoulders' line, CLIP under R.
+        let menu = size(.btnMenu), select = size(.btnSelect), start = size(.btnStart)
+        let clip = size(.btnClip)
+        let pairGap = pspRowGap * k
+        let pairY = bottom - max(select.height, start.height) / 2
+        let pairX = isLandscape ? screen.midX : w / 2
+        place(.btnSelect, pairX - pairGap / 2 - select.width / 2, pairY)
+        place(.btnStart, pairX + pairGap / 2 + start.width / 2, pairY)
+        place(.btnMenu, isLandscape ? screen.midX : w / 2,
+              isLandscape ? pairY - max(select.height, start.height) / 2 - gap - menu.height / 2 : shoulderY)
+        place(.btnClip, rx + l.width / 2 - clip.width / 2, shoulderY + l.height / 2 + gap + clip.height / 2)
+        return layout
+    }
+
+    /// Between two clusters' grounds, and between a cluster and its shoulder,
+    /// in reference points.
+    static let pspGap: CGFloat = 10
+    /// How far below the shoulder bars the recess the dress draws around them
+    /// reaches, in reference points; no control is placed in it.
+    static let pspShoulderRecessDepth: CGFloat = 10
+    /// Upright: the shoulder row's distance from the top of the band (the
+    /// picture's bottom edge) and from the sides, and SELECT · START's lift
+    /// above the bottom of the glass (the home indicator and a margin).
+    static let pspPortraitShoulderTop: CGFloat = 24   // the picture's panel (`ps1PortraitSkirt`, 14) and a gap
+    static let pspPortraitShoulderEdge: CGFloat = 16
+    static let pspPortraitBottomLift: CGFloat = 40
+    /// Between two controls of the utility row, in reference points.
+    static let pspRowGap: CGFloat = 10
+    /// On its side, L and R's distance from the top of the page, in reference
+    /// points (the PlayStation's page holds them the same way).
+    static let pspLandscapeShoulderTop: CGFloat = 20
+
     // MARK: - SNES
 
     /// How far each face PAIR steps away from the other along the perpendicular to their shared
@@ -1426,8 +1828,9 @@ enum ControlLayoutDefaults {
         // steps apart along the diagonal. This console has no capsules. Its four
         // buttons are four separate mouldings at equal distance, and separating
         // the pairs here made the diamond read as two pills, which is the Super
-        // Nintendo's shape rather than this one's.
-        if !isLandscape && system != .ps1 {
+        // Nintendo's shape rather than this one's. Nor on the PSP, laid out on
+        // this page, whose four are the same separate mouldings.
+        if !isLandscape && system.layoutPage != .ps1 {
             let step = Self.facePairSeparation * k / CGFloat(2).squareRoot()   // along (±1, ±1)/√2
             let moves: [(ControlElement, CGFloat)] = [(.btnX, -1), (.btnY, -1), (.btnA, 1), (.btnB, 1)]
             for (element, direction) in moves {
@@ -1484,6 +1887,183 @@ enum ControlLayoutDefaults {
         }
     }
 
+    // MARK: - Mega Drive
+
+    /// The Mega Drive layout: the Super Nintendo's page, with the pad's own six
+    /// buttons where the diamond was.
+    ///
+    /// Everything but the faces is the Super Nintendo's, because the two pages
+    /// are the same shape (one 4:3 picture, the cross on the left, the face
+    /// buttons on the right, SELECT/START under, MENU and CLIP): the cross, MODE
+    /// (SELECT's place) and START, MENU. The six faces are two rows of three,
+    /// A B C below and X Y Z above, each row rising to the right by
+    /// `mdFaceRise`, which is the pad's arc. The block is centred where the
+    /// diamond's centre was, on the cross's line, so it takes the place the
+    /// page already keeps for the face buttons (the right half upright, the
+    /// right gutter on its side).
+    ///
+    /// CLIP is placed again afterwards, because the Super Nintendo places it
+    /// against controls this page moves: upright, it keeps the Super Nintendo's
+    /// rule (SELECT/START's line, the rightmost face's column); on its side,
+    /// the Super Nintendo lines it up under the R shoulder, which is a face in
+    /// the arc here, so it goes above the arc instead, in the gutter's middle.
+    static func md(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                   safeLeftInset: CGFloat, safeRightInset: CGFloat = 0) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+
+        var layout = snes(containerSize: containerSize, scale: k, isLandscape: isLandscape,
+                          safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
+                          system: .md)
+
+        // The diamond's centre, which the arc takes over: its four buttons are
+        // symmetric about it, so it is the mean of their centres.
+        let diamond: [ControlElement] = [.btnA, .btnB, .btnX, .btnY]
+        let placed = diamond.compactMap { layout.buttons[$0.rawValue] }
+        guard placed.count == diamond.count else { return layout }
+        let cx = placed.map { $0.centerX * w }.reduce(0, +) / CGFloat(placed.count)
+        let cy = placed.map { $0.centerY * h }.reduce(0, +) / CGFloat(placed.count)
+
+        let face = EmulatorLayoutGeometry.buttonSize(.btnA, system: .md,
+                                                     isLandscape: isLandscape, deviceScale: k)
+        let step = face.width + EmulatorLayoutGeometry.mdFaceGap * k
+        let rowOffset = (face.height + EmulatorLayoutGeometry.mdFaceGap * k) / 2
+        let rise = EmulatorLayoutGeometry.mdFaceRise * k
+        for (row, elements) in [(1.0, ControlElement.mdLowerRow), (-1.0, ControlElement.mdUpperRow)] {
+            for (i, element) in elements.enumerated() {
+                let column = CGFloat(i) - 1                     // -1, 0, 1
+                let x = cx + column * step
+                let y = cy + CGFloat(row) * rowOffset - column * rise
+                let hidden = layout.buttons[element.rawValue]?.isHidden ?? false
+                layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h,
+                                                                isHidden: hidden)
+            }
+        }
+
+        guard let clip = layout.buttons[ControlElement.btnClip.rawValue] else { return layout }
+        if !isLandscape {
+            if let right = ControlElement.mdLowerRow.last,
+               let c = layout.buttons[right.rawValue],
+               let row = layout.buttons[ControlElement.btnSelect.rawValue] {
+                layout.buttons[ControlElement.btnClip.rawValue] =
+                    ButtonLayout(centerX: c.centerX, centerY: row.centerY, isHidden: clip.isHidden)
+            }
+        } else {
+            // Above the arc: the top of its highest button (Z, the upper row's
+            // right end) is the band's floor, the page's top margin its ceiling.
+            let clipSize = EmulatorLayoutGeometry.buttonSize(.btnClip, system: .md,
+                                                             isLandscape: true, deviceScale: k)
+            let arcTop = cy - rowOffset - rise - face.height / 2
+            let margin = 8 * k
+            let y = Swift.max(margin + clipSize.height / 2, arcTop / 2)
+            layout.buttons[ControlElement.btnClip.rawValue] =
+                ButtonLayout(centerX: cx / w, centerY: y / h, isHidden: clip.isHidden)
+        }
+        return layout
+    }
+
+    /// The Mega Drive on a tablet (asked 2026-10-08: "where would be the
+    /// better place to put each control depending on its priority so it's
+    /// easily playable", the Nintendo 64's exercise).
+    ///
+    /// The phone's page scaled up leaves the controls where a phone's are,
+    /// which on an iPad is a long way up from where hands hold it. So the
+    /// page is built from the thumbs:
+    /// - THE CROSS AND A B C, what every game uses, are where the thumbs rest:
+    ///   one column held to each side, both centred on ONE line (the pad's own
+    ///   arrangement: cross and arc face each other). Upright that line is as
+    ///   low as the two need; on its side it is `mdTabletLandscapeThumbLine`
+    ///   of the height, in each gutter's middle.
+    /// - X Y Z, the six-button games' extra row, above A B C in the arc, a
+    ///   reach up from the resting thumb, as on the pad.
+    /// - START, pressed every pause: upright, low on the inner side of the
+    ///   buttons' column, where the right thumb curls in; on its side, at the
+    ///   right end of the row under the picture, nearest the right gutter.
+    /// - MODE, almost never pressed (it switches a game to three buttons):
+    ///   upright, above the cross, out of the resting thumb's way (the inner
+    ///   side has no room for both small buttons on a mini); on its side, at
+    ///   the left end of the row.
+    /// - MENU stays under the picture, inside the surround, as on the phone.
+    /// - CLIP, the least pressed, above the six buttons, mirroring MODE.
+    static func mdTablet(containerSize: CGSize, scale k: CGFloat, isLandscape: Bool,
+                         safeLeftInset: CGFloat, safeRightInset: CGFloat) -> OrientationLayout {
+        let w = containerSize.width
+        let h = containerSize.height
+        guard w > 0 && h > 0 else { return OrientationLayout() }
+        typealias G = EmulatorLayoutGeometry
+        func size(_ element: ControlElement) -> CGSize {
+            tabletSize(element, system: .md, isLandscape: isLandscape, deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ element: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[element.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+
+        let edge = G.mdTabletEdge * k
+        let gap = G.mdTabletGap * k
+        let bowl = G.mdBowlMargin * k
+        let pad = size(.dpad)
+        let arc = G.mdArcHalfExtent(isLandscape: isLandscape, deviceScale: k)
+        let face = size(.btnA)
+        let step = face.width + G.mdFaceGap * k
+        let rowOffset = (face.height + G.mdFaceGap * k) / 2
+        let rise = G.mdFaceRise * k
+        let padHalf = pad.width / 2 + bowl
+        let arcHalfW = arc.width + bowl
+        let arcHalfH = arc.height + bowl
+        let clip = size(.btnClip)
+
+        let lx: CGFloat, rx: CGFloat, line: CGFloat
+        var screen = CGRect.null
+        if isLandscape {
+            screen = G.screenFrame(deviceSize: containerSize, safeInsets: .zero,
+                                   hasTouchScreen: false, isLandscape: true,
+                                   gameAspect: PresetLayoutResolver.displayAspect(.md),
+                                   system: .md, controllerConnected: false, deviceScale: k)
+            let surroundSide = 8 * k
+            lx = (max(safeLeftInset, edge) + screen.minX - surroundSide) / 2
+            rx = (screen.maxX + surroundSide + w - max(safeRightInset, edge)) / 2
+            let lowest = h - G.mdTabletBottom * k - max(padHalf, arcHalfH)
+            line = min(h * G.mdTabletLandscapeThumbLine, lowest)
+        } else {
+            lx = edge + padHalf
+            rx = w - edge - arcHalfW
+            line = h - G.mdTabletBottom * k - max(padHalf, arcHalfH)
+        }
+
+        place(.dpad, lx, line)
+        for (row, elements) in [(CGFloat(1), ControlElement.mdLowerRow),
+                                (-1, ControlElement.mdUpperRow)] {
+            for (i, element) in elements.enumerated() {
+                let column = CGFloat(i) - 1
+                place(element, rx + column * step, line + row * rowOffset - column * rise)
+            }
+        }
+
+        // CLIP over the six buttons, a margin past them.
+        let arcTop = line - arcHalfH
+        if isLandscape {
+            place(.btnClip, rx, max(edge + clip.height / 2, (G.mdTabletBottom * k + arcTop) / 2))
+        } else {
+            place(.btnClip, rx, arcTop - gap - clip.height / 2)
+        }
+
+        let menu = size(.btnMenu), mode = size(.btnSelect), start = size(.btnStart)
+        if isLandscape {
+            let rowY = screen.maxY + G.gbcLandscapeRowGap * k + start.height / 2
+            place(.btnSelect, screen.minX + mode.width / 2, rowY)
+            place(.btnMenu, screen.midX, rowY)
+            place(.btnStart, screen.maxX - start.width / 2, rowY)
+        } else {
+            place(.btnMenu, w / 2, G.mdTabletMenuGap * k + menu.height / 2)
+            let bottom = h - G.mdTabletBottom * k
+            place(.btnSelect, lx, line - padHalf - gap - mode.height / 2)
+            place(.btnStart, rx - arcHalfW - gap - start.width / 2, bottom - start.height / 2)
+        }
+        return layout
+    }
+
     // MARK: - NES
 
     /// The NES layout: the Game Boy's, with one clamp.
@@ -1495,9 +2075,15 @@ enum ControlLayoutDefaults {
     /// close on each other as it shrinks — on an iPhone SE, by 4pt too much. The clamp keeps
     /// Clip a clear gap above A and does nothing at all where there is room, so the layout
     /// stays the Game Boy's on every other device.
+    ///
+    /// `system` is the console whose PICTURE the page is built against: the NES itself, or the
+    /// Master System, which is laid out on this page (`layoutPage`) with its own 4:3 picture.
+    /// The landscape row and the portrait band are both measured from that picture, so it has
+    /// to be the one the game draws.
     static func nes(containerSize: CGSize, scale k: CGFloat,
                     isLandscape: Bool, safeLeftInset: CGFloat,
-                    safeRightInset: CGFloat = 0) -> OrientationLayout {
+                    safeRightInset: CGFloat = 0,
+                    system: PresetSystem = .nes) -> OrientationLayout {
         var layout = isLandscape
             ? gbcLandscape(containerSize: containerSize, scale: k,
                            safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
@@ -1521,8 +2107,8 @@ enum ControlLayoutDefaults {
         if isLandscape {
             let screen = EmulatorLayoutGeometry.screenFrame(
                 deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
-                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.nes),
-                system: .nes, controllerConnected: false, deviceScale: k)
+                isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(system),
+                system: system, controllerConnected: false, deviceScale: k)
             // Centred between the picture's bottom edge and the top of the home indicator, not
             // the bottom of the glass: the indicator owns that strip and takes the swipe that
             // starts in it. The reserve is the same flat 21 the screen frame counts (see
@@ -1560,7 +2146,7 @@ enum ControlLayoutDefaults {
         let w = containerSize.width
         guard w > 0 else { return layout }
         func rect(_ e: ControlElement, _ b: ButtonLayout) -> CGRect {
-            let s = EmulatorLayoutGeometry.buttonSize(e, system: .nes, isLandscape: false,
+            let s = EmulatorLayoutGeometry.buttonSize(e, system: system, isLandscape: false,
                                                       deviceScale: k)
             return CGRect(x: b.centerX * w - s.width / 2, y: b.centerY * h - s.height / 2,
                           width: s.width, height: s.height)
@@ -1577,5 +2163,205 @@ enum ControlLayoutDefaults {
             }
         }
         return layout
+    }
+
+    // MARK: - Master System and Game Gear
+
+    /// The Master System's and the Game Gear's layouts: the page each is laid out on
+    /// (`layoutPage`, decided 2026-10-09), without SELECT, which neither console has.
+    ///
+    /// The Master System takes the NES's page, built against its own 4:3 picture so the
+    /// landscape row and the portrait band are measured from the picture the game draws. The
+    /// Game Gear takes the Game Boy's page unchanged: its screen is the Game Boy's 10:9 shape,
+    /// so every measurement that page makes from the picture is already right for it.
+    ///
+    /// On both, START (PAUSE on the Master System) stays where the page puts it, so the row
+    /// under the picture reads MENU · START on the NES's page and START alone beside where
+    /// SELECT was on the Game Boy's. Removing SELECT from the layout is what hides it: the
+    /// control view hides every element a layout does not carry.
+    static func sega8Bit(system: PresetSystem, containerSize: CGSize, scale k: CGFloat,
+                         isLandscape: Bool, safeLeftInset: CGFloat,
+                         safeRightInset: CGFloat = 0) -> OrientationLayout {
+        var layout: OrientationLayout
+        if system == .sms {
+            layout = nes(containerSize: containerSize, scale: k, isLandscape: isLandscape,
+                         safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
+                         system: .sms)
+        } else {
+            layout = isLandscape
+                ? gbcLandscape(containerSize: containerSize, scale: k,
+                               safeLeftInset: safeLeftInset, safeRightInset: safeRightInset)
+                : gbcPortrait(containerSize: containerSize, scale: k)
+        }
+        layout.buttons[ControlElement.btnSelect.rawValue] = nil
+        // The Game Gear's cross is drawn smaller than the page's
+        // (`EmulatorLayoutGeometry.ggPadScale`). Upright its top edge stays
+        // where the page's cross had it, so the room it gives back all goes to
+        // the speaker under it (asked 2026-10-10).
+        if system == .gg, !isLandscape, let pad = layout.buttons[ControlElement.dpad.rawValue],
+           containerSize.height > 0 {
+            let full = ControlElement.dpad.defaultSize.height * k
+            let drawn = EmulatorLayoutGeometry.buttonSize(.dpad, system: .gg, isLandscape: false,
+                                                          deviceScale: k).height
+            layout.buttons[ControlElement.dpad.rawValue] = ButtonLayout(
+                centerX: pad.centerX, centerY: pad.centerY - (full - drawn) / 2 / containerSize.height,
+                isHidden: pad.isHidden)
+        }
+        if system == .sms {
+            smsOwnRules(&layout, containerSize: containerSize, scale: k, isLandscape: isLandscape)
+        }
+        return layout
+    }
+
+    /// The Master System and the Game Gear on an iPad (asked 2026-10-11: the
+    /// controls smaller and near the edges, where thumbs holding an iPad by its
+    /// sides reach). Their phone pages are the NES's and the Game Boy's, whose
+    /// clusters float in the middle of a tablet's band; this page is the logic
+    /// the Nintendo 64's and the Mega Drive's tablet pages follow:
+    /// - the cross at the left edge and 1 · 2 at the right edge, on ONE thumb
+    ///   line, low (upright, just above the bottom margin; on its side, the
+    ///   Mega Drive's thumb line), both drawn smaller (`tabletThumbScale`);
+    /// - 1 · 2 as on each pad: level side by side on the Master System, on
+    ///   the Game Gear's rising diagonal;
+    /// - PAUSE / START between the thumbs at the bottom (upright) or under the
+    ///   picture (on its side), MENU centred under the picture, CLIP over 1 · 2.
+    static func sega8BitTablet(system: PresetSystem, containerSize: CGSize, scale k: CGFloat,
+                               isLandscape: Bool, safeLeftInset: CGFloat,
+                               safeRightInset: CGFloat) -> OrientationLayout {
+        let w = containerSize.width, h = containerSize.height
+        guard w > 0, h > 0 else { return OrientationLayout() }
+        typealias G = EmulatorLayoutGeometry
+        func size(_ e: ControlElement) -> CGSize {
+            tabletSize(e, system: system, isLandscape: isLandscape, deviceScale: k)
+        }
+        var layout = OrientationLayout()
+        func place(_ e: ControlElement, _ x: CGFloat, _ y: CGFloat) {
+            layout.buttons[e.rawValue] = ButtonLayout(centerX: x / w, centerY: y / h)
+        }
+        let edge = G.mdTabletEdge * k, gap = G.mdTabletGap * k, bottom = G.mdTabletBottom * k
+        let pad = size(.dpad)
+        // The larger of the pair: the Game Gear's 2 is drawn larger than its 1.
+        let face = max(size(.btnA).width, size(.btnB).width)
+        let menu = size(.btnMenu), clip = size(.btnClip), start = size(.btnStart)
+        // The face pair's half extents: level on the Master System (a plate
+        // each, `smsPlateScale`), a rising diagonal on the Game Gear.
+        let levelStep = face * smsPlateScale + smsPlateGap * k
+        // The Game Gear's pair on its rising axis (about 37 degrees), one
+        // button's width and a gap apart.
+        let diagonal = CGPoint(x: (face + gap) * 0.80, y: (face + gap) * 0.60)
+        let pairHalfW = system == .sms ? levelStep / 2 + face * smsPlateScale / 2
+                                       : diagonal.x / 2 + face / 2
+        let pairHalfH = system == .sms ? face * smsPlateScale * 0.75 : diagonal.y / 2 + face / 2
+        // The Master System's red outline round its cross reaches a little
+        // past the control (`MasterSystemSkin`).
+        let padHalf = pad.width / 2 * (system == .sms ? 1.12 : 1.15)
+
+        let lx: CGFloat, rx: CGFloat, line: CGFloat
+        var screen = CGRect.null
+        if isLandscape {
+            screen = G.screenFrame(deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+                                   isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(system),
+                                   system: system, controllerConnected: false, deviceScale: k)
+            lx = max(safeLeftInset, edge) + padHalf
+            rx = w - max(safeRightInset, edge) - pairHalfW
+            line = min(h * G.mdTabletLandscapeThumbLine, h - bottom - max(padHalf, pairHalfH))
+        } else {
+            lx = edge + padHalf
+            rx = w - edge - pairHalfW
+            line = h - bottom - max(padHalf, pairHalfH)
+        }
+        // The cross is drawn smaller than its touch box (`tabletThumbScale`);
+        // the box stays whole on the glass, so a thumb at the edge still lands
+        // on it and a preset saved from this page keeps it where it is (the
+        // Master System's, at 0.60, hung 8 to 11 points off the left edge and
+        // a few under the bottom: ⌘U 2026-10-11).
+        let padBox = EmulatorLayoutGeometry.buttonSize(.dpad, system: system, isLandscape: isLandscape,
+                                                       deviceScale: k)
+        let padX = max(lx, padBox.width / 2), padY = min(line, h - padBox.height / 2)
+        place(.dpad, padX, padY)
+        if system == .sms {
+            place(.btnB, rx - levelStep / 2, line)
+            place(.btnA, rx + levelStep / 2, line)
+        } else {
+            place(.btnB, rx - diagonal.x / 2, line + diagonal.y / 2)
+            place(.btnA, rx + diagonal.x / 2, line - diagonal.y / 2)
+        }
+        // CLIP above everything the pair carries: on the Game Gear the printed
+        // 1 · 2 figure rises about a button above 2 (`GameGearSkin.drawOneTwoLine`),
+        // on the Master System the red bars stand over the plates.
+        let printed = system == .gg ? face * 1.05 : face * 0.30
+        place(.btnClip, rx, line - pairHalfH - printed - gap - clip.height / 2)
+        if isLandscape {
+            let rowY = min(screen.maxY + G.tabletLandscapeRowGap * k + start.height / 2,
+                           h - bottom - start.height / 2)
+            place(.btnMenu, screen.midX - gap / 2 - menu.width / 2, rowY)
+            place(.btnStart, screen.midX + gap / 2 + start.width / 2, rowY)
+        } else if system == .gg {
+            // MENU beside START at the bottom, as on its side (asked 2026-10-11:
+            // under the picture it met the surround).
+            let rowY = h - bottom - max(menu.height, start.height) / 2
+            place(.btnMenu, w / 2 - gap / 2 - menu.width / 2, rowY)
+            place(.btnStart, w / 2 + gap / 2 + start.width / 2, rowY)
+        } else {
+            // A gap below the panel round the picture, which reaches its skirt
+            // below it (`MasterSystemSkin`, asked 2026-10-11: MENU met it).
+            place(.btnMenu, w / 2, DressKind.nesPanelSkirt * k + gap + menu.height / 2)
+            place(.btnStart, w / 2, h - bottom - start.height / 2)
+        }
+        return layout
+    }
+
+    /// The gap between the Master System's two button plates, and a plate's
+    /// side as a fraction of its button (its dress, `MasterSystemSkin`).
+    static let smsPlateGap: CGFloat = 6
+    static let smsPlateScale: CGFloat = 1.30
+
+    /// The Master System's own rules on the NES's page (its dress, 2026-10-10).
+    ///
+    /// 1 AND 2 SIDE BY SIDE, level, as on its pad: each sits on a grey square
+    /// plate a little larger than itself, and on the NES page's diagonal two
+    /// plates overlapped. The pair stays centred where the page put it, one
+    /// plate's width and a gap apart; 1 on the left.
+    ///
+    /// ON ITS SIDE, CLIP · MENU · PAUSE in one row under the picture (asked
+    /// 2026-10-10): MENU and PAUSE where they were against the picture, CLIP
+    /// moved from the right gutter to the left of MENU at the same distance
+    /// PAUSE is on the right. The row is stuck a fixed gap under the picture,
+    /// inside the surround that frames both, and the block is centred on the
+    /// page (`EmulatorLayoutGeometry.smsLandscapePictureTop`).
+    static func smsOwnRules(_ layout: inout OrientationLayout, containerSize: CGSize,
+                            scale k: CGFloat, isLandscape: Bool) {
+        let w = containerSize.width, h = containerSize.height
+        guard w > 0, h > 0,
+              let a = layout.buttons[ControlElement.btnA.rawValue],
+              let b = layout.buttons[ControlElement.btnB.rawValue] else { return }
+        let face = EmulatorLayoutGeometry.buttonSize(.btnB, system: .sms, isLandscape: isLandscape,
+                                                     deviceScale: k).width
+        let step = face * smsPlateScale + smsPlateGap * k
+        let midX = (a.centerX + b.centerX) / 2 * w
+        let midY = (a.centerY + b.centerY) / 2 * h
+        layout.buttons[ControlElement.btnB.rawValue] =
+            ButtonLayout(centerX: (midX - step / 2) / w, centerY: midY / h, isHidden: b.isHidden)
+        layout.buttons[ControlElement.btnA.rawValue] =
+            ButtonLayout(centerX: (midX + step / 2) / w, centerY: midY / h, isHidden: a.isHidden)
+        guard isLandscape,
+              let menu = layout.buttons[ControlElement.btnMenu.rawValue],
+              let pause = layout.buttons[ControlElement.btnStart.rawValue],
+              let clip = layout.buttons[ControlElement.btnClip.rawValue] else { return }
+        let screen = EmulatorLayoutGeometry.screenFrame(
+            deviceSize: containerSize, safeInsets: .zero, hasTouchScreen: false,
+            isLandscape: true, gameAspect: PresetLayoutResolver.displayAspect(.sms),
+            system: .sms, controllerConnected: false, deviceScale: k)
+        let rowH = EmulatorLayoutGeometry.buttonSize(.btnMenu, system: .sms, isLandscape: true,
+                                                     deviceScale: k).height
+        let rowY = (screen.maxY + EmulatorLayoutGeometry.gbcLandscapeRowGap * k + rowH / 2) / h
+        let menuX = menu.centerX * w
+        let clipX = menuX - (pause.centerX * w - menuX)
+        layout.buttons[ControlElement.btnMenu.rawValue] =
+            ButtonLayout(centerX: menu.centerX, centerY: rowY, isHidden: menu.isHidden)
+        layout.buttons[ControlElement.btnStart.rawValue] =
+            ButtonLayout(centerX: pause.centerX, centerY: rowY, isHidden: pause.isHidden)
+        layout.buttons[ControlElement.btnClip.rawValue] =
+            ButtonLayout(centerX: clipX / w, centerY: rowY, isHidden: clip.isHidden)
     }
 }

@@ -76,12 +76,20 @@ final class ConsoleSkinView: UIView {
     /// Whether a system has a dress at all — the host uses this to show/hide the view.
     /// A console without one gets the plain page, which is better than another console's body
     /// around its game. The NES, the PlayStation and the Nintendo 64 each started that way and
-    /// are all dressed now, so this answers yes for every console; it stays a function because
-    /// the next console added starts undressed, and this is where it says so.
+    /// are all dressed now, the Mega Drive since 2026-10-08, the Master System and the Game Gear
+    /// since 2026-10-09, the PSP since 2026-10-10 (the PlayStation's dress, `pspVariant`).
     static func hasSkin(for system: PresetSystem) -> Bool { true }
 
     /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, for the same reason.
-    static func hasDressedControls(for system: PresetSystem) -> Bool { true }
+    static func hasDressedControls(for system: PresetSystem) -> Bool { hasSkin(for: system) }
+
+    /// The PSP's palette, whichever way the variant arrives: its two looks
+    /// are its own (`PS1SkinPalette.pspNostalgia` / `pspRetroPal`), carried in
+    /// the PlayStation's slots because it wears that pad's shapes.
+    static func pspVariant(_ variant: DressVariant) -> DressVariant {
+        if case .custom(.psp) = variant { return variant }
+        return .custom(.psp(variant == .retroPal ? .retroPal : .nostalgia))
+    }
 
     private var skin: ConsoleSkin? {
         switch system {
@@ -99,6 +107,17 @@ final class ConsoleSkinView: UIView {
         case .ps1: return PlayStationSkin(variant: variant, cardMode: cardMode,
                                           controllerConnected: controllerConnected)
         case .n64: return NintendoSixtyFourSkin(variant: variant, cardMode: cardMode)
+        case .md: return MegaDriveSkin(variant: variant, cardMode: cardMode)
+        case .sms: return MasterSystemSkin(variant: variant, cardMode: cardMode,
+                                           controllerConnected: controllerConnected)
+        case .gg: return GameGearSkin(variant: variant, cardMode: cardMode,
+                                      controllerConnected: controllerConnected)
+        // The PlayStation's dress, in the PSP's colours (`pspVariant`): the
+        // pad is the PlayStation's without six controls, and every piece of
+        // the dress (plateaus, stick boss, seats, the panel) is drawn from the
+        // controls' own frames, so it follows the PSP's page.
+        case .psp: return PlayStationSkin(variant: Self.pspVariant(variant), cardMode: cardMode,
+                                          controllerConnected: controllerConnected, pspShoulders: true)
         }
     }
 
@@ -1575,7 +1594,7 @@ struct GameBoyAdvanceSkin: ConsoleSkin {
         }
         guard rect.width > 8, rect.height > 8 else { return .zero }
 
-        let path = surroundPath(rect, topR: 10 * scale, botR: 24 * scale)
+        let path = Self.surroundPath(rect, topR: 10 * scale, botR: 24 * scale)
 
         // Glossy raised black panel: a soft drop shadow so it sits proud of the body.
         ctx.saveGState()
@@ -1606,7 +1625,8 @@ struct GameBoyAdvanceSkin: ConsoleSkin {
     }
 
     /// Rounded-rect path with independent top / bottom corner radii (clockwise from top-left).
-    private func surroundPath(_ r: CGRect, topR: CGFloat, botR: CGFloat) -> UIBezierPath {
+    /// Static so the Mega Drive's surround, built on this one, draws the same shape.
+    static func surroundPath(_ r: CGRect, topR: CGFloat, botR: CGFloat) -> UIBezierPath {
         let p = UIBezierPath()
         p.move(to: CGPoint(x: r.minX + topR, y: r.minY))
         p.addLine(to: CGPoint(x: r.maxX - topR, y: r.minY))
@@ -1703,7 +1723,7 @@ struct GameBoyAdvanceSkin: ConsoleSkin {
         let rad = 22 * scale                     // rounded joins — matches the landscape corners
         let bottom = surroundRect.maxY
         let over = 6 * scale                     // overshoot below the bezel (clipped away)
-        let clip = surroundPath(surroundRect, topR: 10 * scale, botR: 24 * scale)
+        let clip = Self.surroundPath(surroundRect, topR: 10 * scale, botR: 24 * scale)
 
         func creuse(button b: CGRect, deviceEdgeX: CGFloat, vertexX: CGFloat, endX: CGFloat) {
             let y1 = (screen.maxY + b.minY) / 2
@@ -3695,6 +3715,10 @@ struct PlayStationSkin: ConsoleSkin {
     var variant: DressVariant = .nostalgia
     var cardMode: Bool = false
     var controllerConnected: Bool = false
+    /// The PSP wears this dress (2026-10-10) with the GBA's shoulders: L and R
+    /// each in a darker recess, in the phone's top corners on its side and
+    /// under the picture's corners upright (`drawPSPShoulders`).
+    var pspShoulders: Bool = false
 
     // MARK: Palette
 
@@ -3732,13 +3756,31 @@ struct PlayStationSkin: ConsoleSkin {
         // under the picture's frame, and drawn afterwards it printed a grey disc
         // ON the screen surround. Under it, the surround simply covers what it
         // overlaps, which is what a raised area behind a screen does.
-        drawRaisedGround(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        // The PSP has neither the DualShock's raised plateaus nor the wedges
+        // between its keys (its own face, 2026-10-10, `PSPFace`).
+        if !pspShoulders {
+            drawRaisedGround(buttons: buttons, isLandscape: isLandscape, scale: scale)
+        }
         drawScreenPanel(ctx, bounds: bounds, screen: screen, isLandscape: isLandscape, scale: scale)
+        // Not on an iPad (asked 2026-10-11): there L and R sit beside the
+        // clusters, far from the top, and a recess reaching up to them ran
+        // the whole height of the glass. Nor upright on a phone (asked
+        // 2026-10-12): on its side only. The layout still keeps the cross out
+        // of where the recess was, so no button moves.
+        if pspShoulders && !cardMode && isLandscape && LayoutFamily.of(bounds.size) == .phone {
+            drawPSPShoulders(bounds: bounds, screen: screen, buttons: buttons,
+                             isLandscape: isLandscape, scale: scale)
+        }
+        if pspShoulders {
+            PSPFace(variant: variant, cardMode: cardMode, controllerConnected: controllerConnected)
+                .draw(ctx, bounds: bounds, screen: screen, buttons: buttons,
+                      isLandscape: isLandscape, scale: scale)
+        }
         // EVERY CONTROL DRAWS ITSELF on this console, so the skin draws none of
         // them. It draws what a button cannot: the shell, the panel around the
         // picture, and the seat each face button sits in.
         drawSetControls(buttons: buttons, scale: scale)
-        drawPadWedges(buttons: buttons, scale: scale)
+        if !pspShoulders { drawPadWedges(buttons: buttons, scale: scale) }
         drawFaceSeats(buttons: buttons, scale: scale)
         drawBrand(bounds: bounds, screen: screen, buttons: buttons,
                   isLandscape: isLandscape, scale: scale)
@@ -3857,6 +3899,39 @@ struct PlayStationSkin: ConsoleSkin {
         Self.drawMouldedShell(ctx, bounds, mid: bodyMid)
     }
 
+    /// The PSP's shoulders, after the GBA's (asked 2026-10-10): a recess a
+    /// shade darker than the shell around each of L and R, carved like the
+    /// pad's wells. On its side each is the top corner of the phone, down to
+    /// a little below its bar and in to a little past it, its inner corner
+    /// rounded. Upright each runs from the side of the phone, under the
+    /// picture, down past its bar and in past it, its inner bottom corner
+    /// rounded. The layout keeps every other control out of both
+    /// (`ControlLayoutDefaults.pspShoulderRecessDepth`).
+    private func drawPSPShoulders(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                                  isLandscape: Bool, scale: CGFloat) {
+        let reach = ControlLayoutDefaults.pspShoulderRecessDepth * scale
+        let corner = 22 * scale
+        let over = 6 * scale   // past the glass and the panel, so no edge line shows
+        let fill = bodyMid.rpMixed(with: .black, bodyMid.rpIsLight ? 0.22 : 0.30)
+        for (element, isLeft) in [(ControlElement.btnL, true), (.btnR, false)] {
+            guard let bar = buttons[element] else { continue }
+            // Upright it starts under the panel framing the picture, so the
+            // panel keeps its whole edge.
+            let top = isLandscape ? bounds.minY - over
+                                  : screen.maxY + ControlLayoutDefaults.ps1PortraitSkirt * scale
+            let bottom = bar.maxY + reach
+            let inner = isLeft ? bar.maxX + reach : bar.minX - reach
+            let outer = isLeft ? bounds.minX - over : bounds.maxX + over
+            let rect = CGRect(x: min(inner, outer), y: top, width: abs(inner - outer), height: bottom - top)
+            // Only the corner that faces the page's middle is rounded; the
+            // others run off the glass or meet the picture's panel.
+            let path = UIBezierPath(roundedRect: rect,
+                                    byRoundingCorners: isLeft ? .bottomRight : .bottomLeft,
+                                    cornerRadii: CGSize(width: corner, height: corner))
+            drawWell(path, lip: 0, fill: fill, scale: scale)
+        }
+    }
+
     /// A moulded plastic shell: the body colour lit from the top, the grain the
     /// other shells share, and a soft vignette. The Nintendo 64's shell is the
     /// same material treatment in its own colour, so both draw it from here.
@@ -3904,6 +3979,19 @@ struct PlayStationSkin: ConsoleSkin {
     /// went without and its faces floated on the shell.
     private func drawFaceSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
         let lip = 1.5 * scale
+        // The PSP's glass look (Retro Pal): clear faces and arrows over the
+        // shell, so what sits under them is not a black hole but the shell, a
+        // thin dark rim where each piece of glass meets it.
+        if variant.isPSPGlass {
+            let rim = bodyMid.rpMixed(with: .black, 0.35)
+            rim.setStroke()
+            for element in [ControlElement.btnA, .btnB, .btnX, .btnY] {
+                guard let f = buttons[element] else { continue }
+                let ring = UIBezierPath(ovalIn: f.insetBy(dx: -lip / 2, dy: -lip / 2))
+                ring.lineWidth = lip; ring.stroke()
+            }
+            return
+        }
         // BLACK, not a dark grey. These read as holes the buttons come up
         // through, and a hole is not a shade of the shell: anything short of
         // black keeps looking like paint. The cross's seat below stays a
@@ -4293,6 +4381,40 @@ struct PlayStationSkin: ConsoleSkin {
                                        width: w, height: h), ink: ink, scale: scale)
             return
         }
+        // THE PSP ON ITS SIDE (2026-10-10): its picture takes almost all the
+        // height, so the band above it is gone; the room the controls leave is
+        // the right gutter between R's recess and the diamond, and the plaque
+        // is centred there, sized to it, or left out.
+        // THE PSP ON AN IPAD ON ITS SIDE (asked 2026-10-11): the band above
+        // the picture has the room, so the plaque goes there, centred, larger.
+        if isLandscape, pspShoulders, !cardMode, LayoutFamily.of(bounds.size) == .tablet {
+            let top = screen.minY - ControlLayoutDefaults.ps1LandscapeSkirt * scale
+            let band = top - bounds.minY
+            guard band > 20 * scale else { return }
+            var h = Swift.min(band * 0.62, 44 * scale)
+            var w = h * aspect
+            let room = screen.width - 32 * scale
+            if w > room { w = room; h = w / aspect }
+            drawBrandPlaque(in: CGRect(x: screen.midX - w / 2, y: (bounds.minY + top) / 2 - h / 2,
+                                       width: w, height: h), ink: ink, scale: scale)
+            return
+        }
+        if isLandscape, pspShoulders, !cardMode {
+            guard let r = buttons[.btnR], let tri = buttons[.btnX] else { return }
+            let m = 8 * scale
+            let top = r.maxY + ControlLayoutDefaults.pspShoulderRecessDepth * scale + m
+            let room = CGRect(x: screen.maxX + m, y: top,
+                              width: bounds.maxX - screen.maxX - m * 2, height: tri.minY - top - m)
+            guard room.width > 0, room.height > 0 else { return }
+            var w = room.width
+            var h = w / aspect
+            if h > 30 * scale { h = 30 * scale; w = h * aspect }
+            if h > room.height { h = room.height; w = h * aspect }
+            guard h > 12 * scale else { return }
+            drawBrandPlaque(in: CGRect(x: room.midX - w / 2, y: room.midY - h / 2, width: w, height: h),
+                            ink: ink, scale: scale)
+            return
+        }
         if isLandscape {
             // ABOVE THE PICTURE, centred on the page. This page puts the picture
             // in the middle, so the band above it is empty except for the
@@ -4321,6 +4443,29 @@ struct PlayStationSkin: ConsoleSkin {
         // rather than shrinking to a smear if a narrower phone ever leaves less.
         guard let select = buttons[.btnSelect] else { return }
         let margin = 10 * scale
+        // THE PSP'S PAGE (second pass, 2026-10-10): no row of its own. The
+        // room the controls leave upright is the shoulder line between L's
+        // recess and MENU, the plaque centred there on that line, sized to it,
+        // or left out where it is too small.
+        // THE PSP, upright (asked 2026-10-10): above the triangle, centred on
+        // it, as large as the room between R's recess and CLIP above and the
+        // triangle below allows, and never into the cross's column.
+        if pspShoulders, let tri = buttons[.btnX] {
+            let above = [buttons[.btnR].map { $0.maxY + ControlLayoutDefaults.pspShoulderRecessDepth * scale },
+                         buttons[.btnClip]?.maxY, buttons[.btnMenu]?.maxY]
+                .compactMap { $0 }.filter { $0 < tri.minY }.max() ?? screen.maxY
+            let top = above + margin, bottom = tri.minY - margin
+            let halfRoom = min(tri.midX - (buttons[.dpad]?.maxX ?? bounds.minX) - margin,
+                               bounds.maxX - margin - tri.midX)
+            guard bottom > top, halfRoom > 0 else { return }
+            var h = min(bottom - top, 40 * scale)
+            var w = h * aspect
+            if w > halfRoom * 2 { w = halfRoom * 2; h = w / aspect }
+            guard h > 12 * scale else { return }
+            drawBrandPlaque(in: CGRect(x: tri.midX - w / 2, y: (top + bottom) / 2 - h / 2, width: w, height: h),
+                            ink: ink, scale: scale)
+            return
+        }
         var w = (select.minX - bounds.minX) - margin * 2
         var h = w / aspect
         // Never deeper than the row it sits in.
@@ -4332,6 +4477,214 @@ struct PlayStationSkin: ConsoleSkin {
                                    y: line - h / 2, width: w, height: h), ink: ink, scale: scale)
     }
 
+}
+
+// MARK: - PSP
+
+/// The PSP-1000's face, drawn over the PlayStation's dress for the PSP (asked
+/// 2026-10-10, his notes and the photographs): everything on the handheld
+/// except the buttons the phone already has (volume, display, sound, HOME) and
+/// the brand marks (no PlayStation logo, no SONY, no PSP). The hairline groove
+/// round the cross and the one through the four faces; the perforated strip
+/// above the picture and the two speaker slots under its corners; the memory
+/// stick and wireless marks with their lamps beside the nub; and POWER and
+/// HOLD with theirs under the diamond. Each piece is placed from the controls' own frames
+/// and left out where the page has no room for it.
+struct PSPFace {
+    var variant: DressVariant
+    var cardMode: Bool
+    var controllerConnected: Bool
+
+    private var palette: PS1SkinPalette { variant.ps1Palette ?? .pspNostalgia }
+    private var shell: UIColor { palette.body }
+    /// The grooves and the perforations: darker than the shell on both looks.
+    private var groove: UIColor { shell.rpMixed(with: .black, shell.rpIsLight ? 0.30 : 0.45) }
+    /// Printed marks: the palette's grey.
+    private var ink: UIColor { palette.print }
+    /// POWER's green: the PSP-1000's on the black shell; a deeper one of the
+    /// same hue on the pale Retro Pal shell (asked 2026-10-10), 4.0:1 there.
+    private var powerGreen: UIColor {
+        UIColor(rpHex: shell.rpIsLight ? 0x14705A : 0x3FD0A8)
+    }
+    private static let lampOff = UIColor(rpHex: 0xA7B0B7)
+
+    func draw(_ ctx: CGContext, bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+              isLandscape: Bool, scale: CGFloat) {
+        drawGloss(ctx, bounds: bounds)
+        drawGrooves(buttons: buttons, scale: scale)
+        guard !cardMode else { return }
+        drawGrille(bounds: bounds, screen: screen, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawSpeakerSlots(bounds: bounds, screen: screen, buttons: buttons, isLandscape: isLandscape,
+                         scale: scale)
+        guard !controllerConnected else { return }
+        drawStatusMarks(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        drawPowerHold(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+    }
+
+    /// The piano black's gloss: a soft light band across the top of the page.
+    private func drawGloss(_ ctx: CGContext, bounds: CGRect) {
+        let strong = shell.rpIsLight ? 0.10 : 0.07
+        let colours = [UIColor.white.withAlphaComponent(strong).cgColor, UIColor.clear.cgColor] as CFArray
+        guard let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colours,
+                                 locations: [0, 1]) else { return }
+        ctx.drawLinearGradient(g, start: CGPoint(x: bounds.midX, y: bounds.minY),
+                               end: CGPoint(x: bounds.midX, y: bounds.minY + bounds.height * 0.22),
+                               options: [])
+    }
+
+    /// The two engraved hairlines: a circle round the four arrows, and one
+    /// through the four faces' centres, which shows only between them (the
+    /// faces and their seats are drawn over it).
+    private func drawGrooves(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        let width = max(0.75, 1 * scale)
+        if let pad = buttons[.dpad] {
+            let r = min(pad.width, pad.height) / 2 * 1.02
+            let ring = UIBezierPath(arcCenter: CGPoint(x: pad.midX, y: pad.midY), radius: r,
+                                    startAngle: 0, endAngle: .pi * 2, clockwise: true)
+            engrave(ring, width: width, scale: scale)
+        }
+        let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { buttons[$0] }
+        if faces.count == 4 {
+            let cx = faces.map(\.midX).reduce(0, +) / 4, cy = faces.map(\.midY).reduce(0, +) / 4
+            let r = faces.map { hypot($0.midX - cx, $0.midY - cy) }.max() ?? 0
+            let ring = UIBezierPath(arcCenter: CGPoint(x: cx, y: cy), radius: r,
+                                    startAngle: 0, endAngle: .pi * 2, clockwise: true)
+            engrave(ring, width: width, scale: scale)
+        }
+    }
+
+    /// A groove: a dark line with a light catch just under it.
+    private func engrave(_ path: UIBezierPath, width: CGFloat, scale: CGFloat) {
+        let catchLine = path.copy() as! UIBezierPath
+        catchLine.apply(CGAffineTransform(translationX: 0, y: 0.75 * scale))
+        catchLine.lineWidth = width
+        UIColor.white.withAlphaComponent(shell.rpIsLight ? 0.45 : 0.10).setStroke()
+        catchLine.stroke()
+        path.lineWidth = width
+        groove.setStroke(); path.stroke()
+    }
+
+    /// The perforated strip above the picture, two rows of tiny holes, where
+    /// there is a band of shell above it (upright: the band above the picture;
+    /// on its side the picture reaches the top, so it is left out).
+    private func drawGrille(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                            isLandscape: Bool, scale: CGFloat) {
+        let panelTop = screen.minY - ControlLayoutDefaults.ps1PortraitSkirt * scale
+        let band = panelTop - bounds.minY
+        guard !isLandscape, band > 14 * scale else { return }
+        let pitch = 3.2 * scale, hole = 1.3 * scale
+        let rowY = [panelTop - 7 * scale, panelTop - 7 * scale - pitch]
+        let x0 = screen.minX + screen.width * 0.12, x1 = screen.maxX - screen.width * 0.12
+        groove.setFill()
+        for (row, y) in rowY.enumerated() {
+            var x = x0 + (row == 1 ? pitch / 2 : 0)
+            while x <= x1 {
+                UIBezierPath(ovalIn: CGRect(x: x - hole / 2, y: y - hole / 2, width: hole, height: hole)).fill()
+                x += pitch
+            }
+        }
+    }
+
+    /// The two small speaker slots, a pill under each bottom corner of the
+    /// picture's panel, where nothing else sits.
+    private func drawSpeakerSlots(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                                  isLandscape: Bool, scale: CGFloat) {
+        let skirt = (isLandscape ? ControlLayoutDefaults.ps1LandscapeSkirt
+                                 : ControlLayoutDefaults.ps1PortraitSkirt) * scale
+        let w = 16 * scale, h = 5 * scale
+        let y = screen.maxY + skirt + 6 * scale + h / 2
+        let taken = Array(buttons.values)
+        for x in [screen.minX + 14 * scale, screen.maxX - 14 * scale] {
+            let slot = CGRect(x: x - w / 2, y: y - h / 2, width: w, height: h)
+            guard bounds.contains(slot),
+                  !taken.contains(where: { $0.insetBy(dx: -4 * scale, dy: -4 * scale).intersects(slot) })
+            else { continue }
+            let pill = UIBezierPath(roundedRect: slot, cornerRadius: h / 2)
+            UIColor.black.withAlphaComponent(0.75).setFill(); pill.fill()
+            // The perforation inside it.
+            groove.rpMixed(with: .white, 0.25).setFill()
+            var x0 = slot.minX + h * 0.7
+            while x0 < slot.maxX - h * 0.6 {
+                UIBezierPath(ovalIn: CGRect(x: x0 - 0.6 * scale, y: slot.midY - 0.6 * scale,
+                                            width: 1.2 * scale, height: 1.2 * scale)).fill()
+                x0 += 2.6 * scale
+            }
+        }
+    }
+
+    /// The memory stick and wireless marks, stacked beside the nub on the
+    /// side away from the picture, each with its pinhole lamp to its left.
+    private func drawStatusMarks(bounds: CGRect, buttons: [ControlElement: CGRect],
+                                 isLandscape: Bool, scale: CGFloat) {
+        guard let nub = buttons[.stickLeft] else { return }
+        let side = 9 * scale
+        let x = nub.minX - side * 0.9
+        let lampX = x - side * 0.95
+        guard lampX - 3 * scale > bounds.minX else { return }
+        let ys = [nub.midY - side * 0.85, nub.midY + side * 0.85]
+        let taken = buttons.filter { $0.key != .stickLeft }.map(\.value)
+        let area = CGRect(x: lampX - 3 * scale, y: ys[0] - side / 2, width: side * 2.2, height: side * 2.7)
+        guard !taken.contains(where: { $0.intersects(area) }) else { return }
+        ink.setStroke(); ink.setFill()
+        // The memory stick: a small card with a notched corner.
+        let card = UIBezierPath()
+        let c0 = CGRect(x: x - side / 2, y: ys[0] - side * 0.35, width: side, height: side * 0.7)
+        card.move(to: CGPoint(x: c0.minX, y: c0.minY))
+        card.addLine(to: CGPoint(x: c0.maxX - side * 0.2, y: c0.minY))
+        card.addLine(to: CGPoint(x: c0.maxX, y: c0.minY + side * 0.2))
+        card.addLine(to: CGPoint(x: c0.maxX, y: c0.maxY))
+        card.addLine(to: CGPoint(x: c0.minX, y: c0.maxY))
+        card.close()
+        card.lineWidth = max(0.75, 0.9 * scale); card.stroke()
+        // The wireless mark: a dot and three arcs.
+        let o = CGPoint(x: x - side * 0.35, y: ys[1] + side * 0.35)
+        UIBezierPath(ovalIn: CGRect(x: o.x - 0.9 * scale, y: o.y - 0.9 * scale,
+                                    width: 1.8 * scale, height: 1.8 * scale)).fill()
+        for i in 1...3 {
+            let arc = UIBezierPath(arcCenter: o, radius: side * 0.28 * CGFloat(i),
+                                   startAngle: -.pi / 2, endAngle: 0, clockwise: true)
+            arc.lineWidth = max(0.75, 0.9 * scale); arc.stroke()
+        }
+        for y in ys { lamp(at: CGPoint(x: lampX, y: y), colour: Self.lampOff, scale: scale) }
+    }
+
+    /// POWER, printed green with its lamp to its right, and HOLD under it, in
+    /// the corner below the diamond.
+    private func drawPowerHold(bounds: CGRect, buttons: [ControlElement: CGRect], isLandscape: Bool,
+                               scale: CGFloat) {
+        let faces = [ControlElement.btnA, .btnB, .btnX, .btnY].compactMap { buttons[$0] }
+        guard faces.count == 4, let right = faces.map(\.maxX).max(),
+              let below = faces.map(\.maxY).max() else { return }
+        let size = 7 * scale
+        let font = UIFont.systemFont(ofSize: size, weight: .medium)
+        let power = NSAttributedString(string: "POWER", attributes: [.font: font,
+                                                                    .foregroundColor: powerGreen])
+        let hold = NSAttributedString(string: "HOLD", attributes: [.font: font, .foregroundColor: ink])
+        let lineH = power.size().height
+        let lampGap = 5 * scale
+        let blockW = power.size().width + lampGap + 4 * scale
+        let x = min(right, bounds.maxX - 6 * scale) - blockW
+        let y = below + 8 * scale
+        let block = CGRect(x: x, y: y, width: blockW, height: lineH * 2 + 3 * scale)
+        let taken = buttons.filter { ![.btnA, .btnB, .btnX, .btnY].contains($0.key) }.map(\.value)
+        guard bounds.insetBy(dx: 2 * scale, dy: 2 * scale).contains(block),
+              !taken.contains(where: { $0.intersects(block) }) else { return }
+        power.draw(at: CGPoint(x: x, y: y))
+        hold.draw(at: CGPoint(x: x + power.size().width - hold.size().width, y: y + lineH + 3 * scale))
+        let lampX = x + power.size().width + lampGap
+        lamp(at: CGPoint(x: lampX, y: y + lineH / 2), colour: powerGreen, scale: scale)
+        lamp(at: CGPoint(x: lampX, y: y + lineH * 1.5 + 3 * scale), colour: Self.lampOff, scale: scale)
+    }
+
+    /// A pinhole lamp, recessed.
+    private func lamp(at c: CGPoint, colour: UIColor, scale: CGFloat) {
+        let r = 1.8 * scale
+        UIColor.black.withAlphaComponent(0.6).setFill()
+        UIBezierPath(ovalIn: CGRect(x: c.x - r - 0.8 * scale, y: c.y - r - 0.8 * scale,
+                                    width: (r + 0.8 * scale) * 2, height: (r + 0.8 * scale) * 2)).fill()
+        colour.setFill()
+        UIBezierPath(ovalIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)).fill()
+    }
 }
 
 // MARK: - Nintendo 64
@@ -4375,6 +4728,9 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
         PlayStationSkin.drawMouldedShell(ctx, bounds, mid: body)
         drawShoulders(bounds: bounds, screen: screen, buttons: buttons,
                       isLandscape: isLandscape, scale: scale)
+        if !cardMode {
+            drawScreenFrame(ctx, bounds: bounds, screen: screen, buttons: buttons, scale: scale)
+        }
         drawBrand(bounds: bounds, screen: screen, buttons: buttons,
                   isLandscape: isLandscape, scale: scale)
         drawFaceGrooves(buttons: buttons, scale: scale)
@@ -4467,6 +4823,46 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
                height: Swift.min(gap * 0.62, 30 * scale), maxWidth: halfRoom * 2)
     }
 
+    // MARK: The picture's frame
+
+    /// The band's width, in reference points.
+    static let screenFrameWidth: CGFloat = 10
+    /// What it keeps clear of the controls round it, in reference points.
+    static let screenFrameClearance: CGFloat = 4
+
+    /// A very thick frame round the picture (asked 2026-10-09, "like the DS's"):
+    /// the DS's printed rim, its rounded corner and its drop shadow, as a wide
+    /// band in the ink set into this shell (`DressKind.n64Incised`).
+    ///
+    /// The picture keeps its size (decided 2026-10-09), so the band takes only
+    /// the room the page has: upright the picture runs from one edge of the
+    /// phone to the other, and the band shows above and below it; on its side
+    /// it goes all round, as wide as the gap to the row under the picture and
+    /// to the nearest control allows. Drawn under the picture, which covers its
+    /// inner edge.
+    private func drawScreenFrame(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                                 buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard !screen.isEmpty else { return }
+        let clearance = Self.screenFrameClearance * scale
+        var band = Self.screenFrameWidth * scale
+        // Never onto a control: the band stops `clearance` short of the nearest.
+        for (_, f) in buttons {
+            let dx = max(screen.minX - f.maxX, f.minX - screen.maxX, 0)
+            let dy = max(screen.minY - f.maxY, f.minY - screen.maxY, 0)
+            guard dx > 0 || dy > 0 else { continue }
+            band = min(band, hypot(dx, dy) - clearance)
+        }
+        guard band >= 2 * scale else { return }
+        let path = UIBezierPath(roundedRect: screen.insetBy(dx: -band, dy: -band),
+                                cornerRadius: band * 0.6)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.5 * scale), blur: 3 * scale,
+                      color: UIColor.black.withAlphaComponent(0.45).cgColor)
+        DressKind.n64Incised(body).setFill()
+        path.fill()
+        ctx.restoreGState()
+    }
+
     // MARK: Shoulders
 
     /// The recess the shoulders are cut into: darker than the shell.
@@ -4555,7 +4951,10 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
             PlayStationSkin.carveWell(UIBezierPath(roundedRect: f, cornerRadius: f.height / 2),
                                       lip: seat, fill: shoulderFill, scale: scale)
         }
-        if let m = buttons[.btnMenu] {
+        // MENU's seat, and CLIP's beside it (asked 2026-10-09: CLIP set into
+        // the shell as MENU, START, L and R are).
+        for element in [ControlElement.btnMenu, .btnClip] {
+            guard let m = buttons[element] else { continue }
             let d = min(m.width, m.height)
             PlayStationSkin.carveWell(UIBezierPath(ovalIn: CGRect(x: m.midX - d / 2, y: m.midY - d / 2,
                                                                   width: d, height: d)),
@@ -4718,10 +5117,14 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
         let r = min(stick.width, stick.height) / 2
         guard r > 0 else { return }
         let margin = 4 * scale
-        // The iPhone on its side draws a smaller stick in the same surround.
+        // The iPhone on its side draws a smaller stick in a smaller surround,
+        // round a gate of the usual size (both asked 2026-10-09).
+        let isLandscape = bounds.width > bounds.height
+        let family = LayoutFamily.of(bounds.size)
         let full = ControlLayoutDefaults.n64StickSurroundRadius(
-            drawnStickWidth: r * 2, isLandscape: bounds.width > bounds.height,
-            family: LayoutFamily.of(bounds.size))
+            drawnStickWidth: r * 2, isLandscape: isLandscape, family: family)
+        let gateCorner = ControlLayoutDefaults.n64StickGateRadius(
+            drawnStickWidth: r * 2, isLandscape: isLandscape, family: family)
         var outer = min(full, centre.x - bounds.minX - margin, bounds.maxX - centre.x - margin,
                         centre.y - bounds.minY - margin, bounds.maxY - centre.y - margin)
         for (element, frame) in buttons where element != .stickLeft {
@@ -4744,8 +5147,9 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
         surround.rpMixed(with: .black, 0.45).setStroke()
         ringPath.stroke()
 
-        // The gate, the size it had inside the old band.
-        let corner = outer * 0.78
+        // The gate, the size it had inside the old band; never wider than the
+        // surround a crowded custom page leaves it.
+        let corner = min(gateCorner, outer * 0.78)
         let vertices = (0..<8).map { i -> CGPoint in
             let angle = CGFloat(i) * .pi / 4 - .pi / 2
             return CGPoint(x: centre.x + cos(angle) * corner, y: centre.y + sin(angle) * corner)
@@ -4779,5 +5183,1086 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
         UIColor.black.withAlphaComponent(0.35).setStroke(); creases.stroke()
         gate.lineWidth = 1.5 * scale
         UIColor.black.withAlphaComponent(0.5).setStroke(); gate.stroke()
+    }
+}
+
+// MARK: - Mega Drive skin
+
+/// The Mega Drive's dress (palettes given 2026-10-08), drawn the Nintendo 64's
+/// way, as asked: the moulded shell, a black hole under every round control,
+/// the cross set into a hollow, MODE and START in wells of their own, and the
+/// Retro Pal plaque. What the Nintendo 64's dress draws for its own hardware
+/// (the grooves joining A, B and Z, the C buttons' circle, the stick's gate,
+/// the shoulder recesses) has no counterpart on this pad and is not drawn.
+/// The colours of the controls themselves are theirs (`MDTouchControlsView`).
+struct MegaDriveSkin: ConsoleSkin {
+    var variant: DressVariant = .nostalgia
+    /// The share card: the plaque goes above the picture, as on every card.
+    var cardMode: Bool = false
+
+    private var body: UIColor { variant.md.body }
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        PlayStationSkin.drawMouldedShell(ctx, bounds, mid: body)
+        // The cross's bowl first: on a page on its side the cross stands close
+        // to the picture, and the surround, a raised panel, is drawn over the
+        // edge of the bowl where it reaches under it.
+        drawCrossWell(ctx, bounds: bounds, buttons: buttons, scale: scale)
+        let surround = drawSurround(ctx, bounds: bounds, screen: screen, buttons: buttons,
+                                    isLandscape: isLandscape, scale: scale)
+        drawBrand(bounds: bounds, screen: screen, buttons: buttons, surround: surround,
+                  isLandscape: isLandscape, scale: scale)
+        drawSmallButtonWells(buttons: buttons, scale: scale)
+        drawButtonHoles(buttons: buttons, scale: scale)
+    }
+
+    /// The screen's surround (asked 2026-10-08), the GBA's: a raised panel
+    /// grown from the picture and extended down to take in MENU (upright) or
+    /// the MODE · MENU · START row (on its side), with the GBA's corners
+    /// (`GameBoyAdvanceSkin.surroundPath`), drop shadow, sheen and the groove
+    /// round the picture. On the card it hugs the picture, as the GBA's does.
+    ///
+    /// UPRIGHT it takes the shape the GBA's surround SHOWS (`portraitPath`),
+    /// which is not the rectangle it draws: the GBA cuts its two shoulder
+    /// areas out of the lower corners, and what the eye reads as the surround
+    /// is the panel without them. On the iPad too (asked 2026-10-08), where it
+    /// also spans the PICTURE's width rather than the window's: the first
+    /// version ran it to the window's edges, which on a phone are the
+    /// picture's and on an iPad were far outside it.
+    ///
+    /// LIGHTER than the shell on Classic's dark one, DARKER on Retro Pal's
+    /// light one, as asked, and by enough to read against the shell's own
+    /// gradient, which is already 7 % lighter than the shell's colour at the
+    /// top where the surround sits (`RetroPalPalette.bodyGradient`): Classic's
+    /// first +10 % was 3 % off the shell around it, the same as the shell to
+    /// the eye. A custom skin takes the same rule from its own shell, so it
+    /// needs no slot. Returns the panel's rect.
+    @discardableResult
+    private func drawSurround(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                              buttons: [ControlElement: CGRect], isLandscape: Bool,
+                              scale: CGFloat) -> CGRect {
+        guard !screen.isEmpty else { return .zero }
+        let sidePad = 8 * scale
+        let topPad = EmulatorLayoutGeometry.mdLandscapeSurroundTop * scale
+        let botMargin = EmulatorLayoutGeometry.mdLandscapeSurroundBottom * scale
+        var bottom = screen.maxY + 18 * scale
+        if isLandscape {
+            let ys = [buttons[.btnSelect], buttons[.btnMenu], buttons[.btnStart]].compactMap { $0?.maxY }
+            if let m = ys.max() { bottom = m + botMargin }
+        } else if let menu = buttons[.btnMenu], menu.minY > screen.maxY {
+            bottom = menu.maxY + botMargin
+        }
+        let top: CGFloat
+        if !isLandscape, let menu = buttons[.btnMenu], menu.minY > screen.maxY {
+            top = screen.minY - max(topPad, menu.minY - screen.maxY)
+        } else {
+            top = screen.minY - topPad
+        }
+        var rect: CGRect
+        if cardMode {
+            rect = screen.insetBy(dx: -18 * scale, dy: -18 * scale)
+        } else if isLandscape {
+            rect = CGRect(x: screen.minX - sidePad, y: top,
+                          width: screen.width + 2 * sidePad, height: bottom - top)
+            rect = rect.intersection(bounds.insetBy(dx: 4 * scale, dy: 4 * scale))
+        } else if screen.minX - bounds.minX < 1, bounds.maxX - screen.maxX < 1 {
+            // The picture spans the window: so does the surround.
+            rect = CGRect(x: bounds.minX, y: top, width: bounds.width, height: bottom - top)
+        } else {
+            rect = CGRect(x: screen.minX - sidePad, y: top,
+                          width: screen.width + 2 * sidePad, height: bottom - top)
+            rect = rect.intersection(bounds)
+        }
+        guard rect.width > 8, rect.height > 8 else { return .zero }
+
+        // Retro Pal's is the X Y Z grey, one flat colour with no sheen (asked
+        // 2026-10-08, with MENU and CLIP's glyphs in the same grey).
+        let flat = variant == .retroPal
+        let fill = flat ? variant.md.xyz
+            : body.rpIsLight ? body.rpMixed(with: .black, 0.14)
+                             : body.rpMixed(with: .white, 0.20)
+        let path: UIBezierPath
+        if !cardMode, !isLandscape, let menu = buttons[.btnMenu], menu.minY > screen.maxY {
+            path = Self.portraitPath(rect, screen: screen, menu: menu,
+                                     family: LayoutFamily.of(bounds.size), scale: scale)
+        } else {
+            path = GameBoyAdvanceSkin.surroundPath(rect, topR: 10 * scale, botR: 24 * scale)
+        }
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 2 * scale), blur: 6 * scale,
+                      color: UIColor.black.withAlphaComponent(0.40).cgColor)
+        fill.setFill(); path.fill()
+        ctx.restoreGState()
+
+        ctx.saveGState(); path.addClip()
+        let sheen = [UIColor.white.withAlphaComponent(flat ? 0 : 0.06).cgColor, UIColor.clear.cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: sheen, locations: [0, 1]) {
+            ctx.drawLinearGradient(g, start: CGPoint(x: rect.midX, y: rect.minY),
+                                   end: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.4), options: [])
+        }
+        ctx.restoreGState()
+
+        UIColor.black.withAlphaComponent(0.6).setStroke()
+        let groove = UIBezierPath(roundedRect: screen.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                                  cornerRadius: 4 * scale)
+        groove.lineWidth = 1.5 * scale; groove.stroke()
+        UIColor.white.withAlphaComponent(0.05).setStroke()
+        let rim = UIBezierPath(roundedRect: screen.insetBy(dx: -3 * scale, dy: -3 * scale),
+                               cornerRadius: 5 * scale)
+        rim.lineWidth = 1; rim.stroke()
+        return rect
+    }
+
+    /// The GBA's upright surround as it shows: the full width down to the
+    /// shoulder line, then a diagonal on each side running in to MENU's edge
+    /// at the bottom, with the GBA's own numbers. The GBA draws these lines as
+    /// the edges of its shoulder areas (`GameBoyAdvanceSkin.drawPortraitShoulders`):
+    /// the line sits halfway between the picture and the top of L, which shares
+    /// MENU's centre line; the corner is at L's inner edge, 16 pt in from the
+    /// side plus L's width; both corners are rounded the same way. This
+    /// console has no L or R there, so their GBA sizes stand in.
+    ///
+    /// On an iPad the GBA's L would put the corner a long way from MENU and
+    /// lay the diagonal nearly flat, a different shape. What the phone shows
+    /// is a 45-degree diagonal (the GBA's numbers give exactly that on a 14
+    /// Pro: 68 points across, 68 down), so the iPad keeps the ANGLE: the
+    /// corner sits as far out from MENU's edge as the diagonal drops.
+    private static func portraitPath(_ r: CGRect, screen: CGRect, menu: CGRect,
+                                     family: LayoutFamily, scale: CGFloat) -> UIBezierPath {
+        let topR = 10 * scale, rad = 22 * scale, diagInset = 6 * scale
+        let l = EmulatorLayoutGeometry.buttonSize(.btnL, system: .gba, isLandscape: false,
+                                                  deviceScale: scale)
+        let y1 = (screen.maxY + menu.midY - l.height / 2) / 2
+        let shoulder: CGFloat
+        if family == .tablet {
+            let drop = r.maxY - y1
+            shoulder = max(2 * rad, min(menu.minX - r.minX - drop, r.maxX - menu.maxX - drop))
+        } else {
+            shoulder = 16 * scale + l.width
+        }
+        func toward(_ corner: CGPoint, from: CGPoint, by d: CGFloat) -> CGPoint {
+            let dx = from.x - corner.x, dy = from.y - corner.y
+            let len = max(1, hypot(dx, dy))
+            return CGPoint(x: corner.x + dx / len * d, y: corner.y + dy / len * d)
+        }
+        let startR = CGPoint(x: r.maxX, y: y1), startL = CGPoint(x: r.minX, y: y1)
+        let vR = CGPoint(x: r.maxX - shoulder, y: y1), vL = CGPoint(x: r.minX + shoulder, y: y1)
+        let eR = CGPoint(x: menu.maxX, y: r.maxY), eL = CGPoint(x: menu.minX, y: r.maxY)
+        let menuWard = CGPoint(x: menu.midX, y: r.maxY)
+
+        let p = UIBezierPath()
+        p.move(to: CGPoint(x: r.minX + topR, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX - topR, y: r.minY))
+        p.addArc(withCenter: CGPoint(x: r.maxX - topR, y: r.minY + topR), radius: topR,
+                 startAngle: -.pi / 2, endAngle: 0, clockwise: true)
+        p.addLine(to: startR)
+        p.addLine(to: toward(vR, from: startR, by: rad))
+        p.addQuadCurve(to: toward(vR, from: eR, by: rad), controlPoint: vR)
+        p.addLine(to: toward(eR, from: vR, by: diagInset))
+        p.addQuadCurve(to: toward(eR, from: menuWard, by: rad), controlPoint: eR)
+        p.addLine(to: toward(eL, from: menuWard, by: rad))
+        p.addQuadCurve(to: toward(eL, from: vL, by: diagInset), controlPoint: eL)
+        p.addLine(to: toward(vL, from: eL, by: rad))
+        p.addQuadCurve(to: toward(vL, from: startL, by: rad), controlPoint: vL)
+        p.addLine(to: startL)
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + topR))
+        p.addArc(withCenter: CGPoint(x: r.minX + topR, y: r.minY + topR), radius: topR,
+                 startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true)
+        p.close()
+        return p
+    }
+
+    /// The black hole each round control comes up through, a little larger
+    /// than it: at rest a hairline, on a press a ring (the Nintendo 64's lip).
+    private func drawButtonHoles(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        let lip = 1.5 * scale
+        UIColor.black.setFill()
+        for element in ControlElement.mdFaces + [.btnMenu, .btnClip] {
+            guard let f = buttons[element] else { continue }
+            let d = min(f.width, f.height)
+            UIBezierPath(ovalIn: CGRect(x: f.midX - d / 2 - lip, y: f.midY - d / 2 - lip,
+                                        width: d + lip * 2, height: d + lip * 2)).fill()
+        }
+    }
+
+    /// MODE and START: the disc each draws, carved into the shell a little
+    /// wider, then the black gap round the moving part (the Nintendo 64's
+    /// START well, twice).
+    private func drawSmallButtonWells(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        for element in [ControlElement.btnSelect, .btnStart] {
+            guard let f = buttons[element] else { continue }
+            let d = min(f.width, f.height)
+            let disc = UIBezierPath(ovalIn: CGRect(x: f.midX - d / 2, y: f.midY - d / 2,
+                                                   width: d, height: d))
+            PlayStationSkin.carveWell(disc, lip: 5 * scale, fill: body.rpMixed(with: .black, 0.16),
+                                      scale: scale)
+            UIColor.black.setFill()
+            PlayStationSkin.grown(disc, by: 1 * scale).fill()
+        }
+    }
+
+    /// The disc's bowl and gap, read off the six-button pad: the disc sits in
+    /// a round black gap, and that in a GLOSSY bowl sunk into the matte shell,
+    /// an oval a little wider than tall. The bowl is held clear of the
+    /// window's edges (on a phone upright the cross is 11 points from the
+    /// edge, so there the bowl is narrower than the pad's). Drawn on the
+    /// shell, so it stays still while the disc rocks over it, and the gap
+    /// opens on the side the disc goes down.
+    private func drawCrossWell(_ ctx: CGContext, bounds: CGRect,
+                               buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let d = buttons[.dpad] else { return }
+        let centre = CGPoint(x: d.midX, y: d.midY)
+        let disc = CrossDPadView.mdDiscRadius(in: d)
+        let room = min(centre.x - bounds.minX, bounds.maxX - centre.x) - 3 * scale
+        let rx = max(disc + 4 * scale, min(disc + 14 * scale, room))
+        let ry = min(disc + 8 * scale, rx)
+        let bowl = UIBezierPath(ovalIn: CGRect(x: centre.x - rx, y: centre.y - ry,
+                                               width: rx * 2, height: ry * 2))
+        drawGlossyBowl(ctx, bowl, scale: scale)
+        UIColor.black.setFill()
+        let gap = disc + 1.5 * scale
+        UIBezierPath(ovalIn: CGRect(x: centre.x - gap, y: centre.y - gap,
+                                    width: gap * 2, height: gap * 2)).fill()
+    }
+
+    /// A glossy sunk area in the matte shell: darker than the shell, no grain
+    /// (the pad's bowls are polished where its shell is textured), the dark
+    /// inner shadow from the top rim and the light catch on the bottom one
+    /// that every recess here has, and a soft sheen across its upper part.
+    private func drawGlossyBowl(_ ctx: CGContext, _ shape: UIBezierPath, scale: CGFloat) {
+        let fill = body.rpMixed(with: .black, body.rpIsLight ? 0.16 : 0.32)
+        fill.setFill(); shape.fill()
+        let outer = PlayStationSkin.grown(shape, by: 2 * scale)
+        ctx.saveGState(); shape.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 2.4 * scale), blur: 3.2 * scale,
+                      color: UIColor.black.withAlphaComponent(0.6).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 2 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); shape.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.4 * scale), blur: 1.8 * scale,
+                      color: UIColor.white.withAlphaComponent(0.35).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
+        let box = shape.bounds
+        let sheen = [UIColor.white.withAlphaComponent(0.10).cgColor,
+                     UIColor.white.withAlphaComponent(0).cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: sheen,
+                              locations: [0, 1]) {
+            ctx.saveGState(); shape.addClip()
+            ctx.drawLinearGradient(g, start: CGPoint(x: box.midX, y: box.minY),
+                                   end: CGPoint(x: box.midX, y: box.minY + box.height * 0.45),
+                                   options: [])
+            ctx.restoreGState()
+        }
+    }
+
+    /// Where the Retro Pal plaque goes:
+    /// - ON THE CARD, above the picture, the Nintendo 64 card's size and place;
+    /// - ON ITS SIDE, on an iPad, centred in the band between the top of the
+    ///   page and the surround, as on the Nintendo 64; on a phone, over the
+    ///   cross in the left gutter (the band there is the few points the
+    ///   centred block leaves, `EmulatorLayoutGeometry.mdLandscapePictureTop`);
+    /// - UPRIGHT ON A PHONE, over the six buttons, centred on them, in the
+    ///   gap between their top and the surround above;
+    /// - UPRIGHT ON AN IPAD, where CLIP stands over the buttons and MODE over
+    ///   the cross (`ControlLayoutDefaults.mdTablet`), centred on the page in
+    ///   the band between the surround and the highest control.
+    /// Engraved on a light shell, printed in a pale ink on a dark one (a groove
+    /// darker than a dark plate is a letter nobody reads), the Nintendo 64's rule.
+    private func drawBrand(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                           surround: CGRect, isLandscape: Bool, scale: CGFloat) {
+        guard !screen.isEmpty else { return }
+        let aspect = PlayStationSkin.brandPlaqueAspect
+        let plate = body.rpMixed(with: .white, body.rpIsLight ? 0.22 : 0.16)
+        let iconInk = body.rpIsLight ? body.rpMixed(with: .black, 0.34)
+                                     : body.rpMixed(with: .white, 0.40)
+        let ink: UIColor? = body.rpIsLight ? nil : body.rpMixed(with: .white, 0.75)
+        let icon = RetroPalPalette.brandIcon(tinted: iconInk)
+        func plaque(centre: CGPoint, height: CGFloat, maxWidth: CGFloat) {
+            var h = height, w = height * aspect
+            if w > maxWidth { w = maxWidth; h = w / aspect }
+            PlayStationSkin.drawPlaque(in: CGRect(x: centre.x - w / 2, y: centre.y - h / 2,
+                                                  width: w, height: h),
+                                       plate: plate, icon: icon, ink: ink, scale: scale)
+        }
+        let room = bounds.width - 32 * scale
+
+        if cardMode {
+            let top = screen.minY
+            guard top > 20 * scale else { return }
+            let h = Swift.min(34 * scale, (top - bounds.minY) * 0.4) * 2.5
+            let cy = Swift.max(h / 2 + 8 * scale, (bounds.minY + top) / 2)
+            plaque(centre: CGPoint(x: bounds.midX, y: cy), height: h, maxWidth: room)
+            return
+        }
+        if isLandscape {
+            let ceiling = surround.isEmpty ? screen.minY : surround.minY
+            let band = ceiling - bounds.minY
+            if LayoutFamily.of(bounds.size) == .tablet, band > 14 * scale {
+                plaque(centre: CGPoint(x: bounds.midX, y: (bounds.minY + ceiling) / 2),
+                       height: Swift.min(band * 0.62, 30 * scale), maxWidth: room)
+                return
+            }
+            // On a phone the band above the surround is thin, so the plaque
+            // goes where the Super Nintendo, whose page this is, puts its own:
+            // the left gutter, over the cross, centred on it (the cross is
+            // centred in the gutter's safe part).
+            guard let pad = buttons[.dpad] else { return }
+            let gap = pad.minY - bounds.minY
+            guard gap > 14 * scale else { return }
+            let rightEdge = surround.isEmpty ? screen.minX : surround.minX
+            let halfRoom = Swift.min(pad.midX - bounds.minX, rightEdge - pad.midX) - 8 * scale
+            guard halfRoom > 0 else { return }
+            plaque(centre: CGPoint(x: pad.midX, y: (bounds.minY + pad.minY) / 2),
+                   height: Swift.min(gap * 0.62, 30 * scale), maxWidth: halfRoom * 2)
+            return
+        }
+        // Below the surround, which takes in the picture and MENU upright.
+        let underSurround = Swift.max(screen.maxY, surround.isEmpty ? 0 : surround.maxY)
+        if LayoutFamily.of(bounds.size) == .tablet {
+            let tops = [ControlElement.dpad, .btnSelect, .btnClip] + ControlElement.mdFaces
+            guard let floor = tops.compactMap({ buttons[$0]?.minY }).min() else { return }
+            let band = floor - underSurround
+            guard band > 14 * scale else { return }
+            plaque(centre: CGPoint(x: bounds.midX, y: (underSurround + floor) / 2),
+                   height: Swift.min(band * 0.62, 30 * scale), maxWidth: room)
+            return
+        }
+        let faces = ControlElement.mdFaces.compactMap { buttons[$0] }
+        guard !faces.isEmpty else { return }
+        let block = faces.dropFirst().reduce(faces[0]) { $0.union($1) }
+        var ceiling = underSurround
+        if let menu = buttons[.btnMenu], menu.maxY < block.minY { ceiling = Swift.max(ceiling, menu.maxY) }
+        let gap = block.minY - ceiling
+        guard gap > 14 * scale else { return }
+        let halfRoom = Swift.min(block.midX - bounds.minX, bounds.maxX - block.midX) - 8 * scale
+        plaque(centre: CGPoint(x: block.midX, y: (ceiling + block.minY) / 2),
+               height: Swift.min(gap * 0.62, 30 * scale), maxWidth: halfRoom * 2)
+    }
+}
+
+// MARK: - Master System and Game Gear
+
+/// The Master System's dress (2026-10-10, his notes and photographs of the
+/// 3020 pad and the console): the black shell, the picture in a near-black
+/// panel with the console's one thin red trim under it, and the pad's face
+/// printed round its controls. The cross's grey plate with a bevelled frame
+/// leading to the key, a small white arrowhead on each edge, the dark channel
+/// the key sits in, and the thin red keyline broken by CONTROL PAD. Each
+/// button's grey square plate, a dark ring round the cap, and the red bar
+/// above with "1  START" or "2" in white. The pinstriped panel where the pad
+/// prints SEGA carries "Retro Pal" in lettering drawn the same way (slanted,
+/// extended, square ends, a hairline inside every stroke), our own paths.
+/// PAUSE is the console's black plate and rocker (`SmallButton.SMSPause`).
+struct MasterSystemSkin: ConsoleSkin {
+    var variant: DressVariant = .nostalgia
+    var cardMode: Bool = false
+    var controllerConnected: Bool = false
+
+    private var look: DressKind.SegaLook { DressKind.smsLook(variant) }
+    private var body: UIColor { look.body }
+    private var plate: UIColor { look.plate }
+    private var red: UIColor { look.accent }
+    /// Printed on the shell (CONTROL PAD, the pad's arrowheads, Retro Pal).
+    private var ink: UIColor { look.shellInk }
+    /// Printed on red (the button bars) or on black (PAUSE): always white.
+    private var onRed: UIColor { look.onAccent }
+    private var panelColor: UIColor { look.surround }
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        PlayStationSkin.drawMouldedShell(ctx, bounds, mid: body)
+        guard !screen.isEmpty else { return }
+        let frame = drawScreenPanel(ctx, bounds: bounds, screen: screen, buttons: buttons,
+                                    isLandscape: isLandscape, scale: scale)
+        drawCrossPrint(ctx, bounds: bounds, buttons: buttons, usesJoystick: usesJoystick, scale: scale)
+        for (element, word) in [(ControlElement.btnB, "1  START"), (.btnA, "2")] {
+            drawButtonPlate(buttons[element], word: word, scale: scale)
+        }
+        drawPauseSeat(buttons: buttons, scale: scale)
+        drawAppButtonSeats(buttons: buttons, scale: scale)
+        drawBrand(ctx, bounds: bounds, frame: frame, buttons: buttons, isLandscape: isLandscape,
+                  scale: scale)
+    }
+
+    // MARK: The picture
+
+    /// Upright the panel spans the page, the NES's skirt above and below; on
+    /// its side it frames the picture and the CLIP · MENU · PAUSE row under
+    /// it (`EmulatorLayoutGeometry.smsLandscapeSurroundTop`/`Bottom`).
+    @discardableResult
+    private func drawScreenPanel(_ ctx: CGContext, bounds: CGRect, screen: CGRect,
+                                 buttons: [ControlElement: CGRect], isLandscape: Bool,
+                                 scale: CGFloat) -> CGRect {
+        var rect: CGRect
+        if cardMode {
+            rect = screen.insetBy(dx: -18 * scale, dy: -18 * scale)
+        } else if isLandscape {
+            let rowBottom = [buttons[.btnClip], buttons[.btnMenu], buttons[.btnStart]]
+                .compactMap { $0?.maxY }.max() ?? screen.maxY
+            let top = screen.minY - EmulatorLayoutGeometry.smsLandscapeSurroundTop * scale
+            let bottom = max(screen.maxY, rowBottom) + EmulatorLayoutGeometry.smsLandscapeSurroundBottom * scale
+            rect = CGRect(x: screen.minX - 8 * scale, y: top,
+                          width: screen.width + 16 * scale, height: bottom - top)
+                .intersection(bounds)
+        } else {
+            let skirt = DressKind.nesPanelSkirt * scale
+            rect = CGRect(x: bounds.minX, y: screen.minY - skirt, width: bounds.width,
+                          height: screen.height + skirt * 2)
+        }
+        guard rect.width > 8, rect.height > 8 else { return .zero }
+        let corner = (isLandscape || cardMode) ? 8 * scale : 0
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: corner)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.5 * scale), blur: 5 * scale,
+                      color: UIColor.black.withAlphaComponent(0.5).cgColor)
+        panelColor.setFill(); path.fill()
+        ctx.restoreGState()
+        UIColor.black.withAlphaComponent(0.6).setStroke()
+        let lcd = UIBezierPath(roundedRect: screen.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                               cornerRadius: 2 * scale)
+        lcd.lineWidth = 1.5 * scale; lcd.stroke()
+        // The console's one red line, printed under the top deck: upright,
+        // across the page under the panel; on its side, along the frame's foot.
+        if !cardMode {
+            let y = isLandscape ? rect.maxY - 3 * scale : rect.maxY + 6 * scale
+            let x0 = isLandscape ? rect.minX + 10 * scale : bounds.minX
+            let x1 = isLandscape ? rect.maxX - 10 * scale : bounds.maxX
+            red.setFill()
+            ctx.fill(CGRect(x: x0, y: y, width: x1 - x0, height: 1.5 * scale))
+        }
+        return rect
+    }
+
+    // MARK: The cross
+
+    /// Everything the pad prints round its cross, from the outside in.
+    private func drawCrossPrint(_ ctx: CGContext, bounds: CGRect, buttons: [ControlElement: CGRect],
+                                usesJoystick: Bool, scale: CGFloat) {
+        guard let d = buttons[.dpad] else { return }
+        let side = min(d.width, d.height)
+        let c = CGPoint(x: d.midX, y: d.midY)
+        // The plate is the control's own square; the keyline a step outside it,
+        // held inside the page (an iPad on its side puts the cross at its edge).
+        let plateRect = CGRect(x: c.x - side / 2, y: c.y - side / 2, width: side, height: side)
+        var lineRect = plateRect.insetBy(dx: -side * 0.05, dy: -side * 0.05)
+        lineRect = lineRect.intersection(bounds.insetBy(dx: 2 * scale, dy: 2 * scale))
+        let line = UIBezierPath(roundedRect: lineRect, cornerRadius: 3 * scale)
+        line.lineWidth = 1.2 * scale
+        red.setStroke(); line.stroke()
+        // CONTROL PAD over the keyline's top edge, a band of shell behind it.
+        let label = NSAttributedString(string: "CONTROL PAD", attributes: [
+            .font: UIFont(name: "TimesNewRomanPSMT", size: side * 0.075)
+                ?? UIFont.systemFont(ofSize: side * 0.075),
+            .foregroundColor: ink, .kern: 0.3 * scale,
+        ])
+        let size = label.size()
+        body.setFill()
+        ctx.fill(CGRect(x: c.x - size.width / 2 - 4 * scale, y: lineRect.minY - size.height / 2,
+                        width: size.width + 8 * scale, height: size.height))
+        label.draw(at: CGPoint(x: c.x - size.width / 2, y: lineRect.minY - size.height / 2))
+
+        plate.setFill(); UIBezierPath(rect: plateRect).fill()
+        let key = CrossDPadView.smsKeyRect(in: d)
+        // The frame's four bevels, plate corner to key corner, a printed line.
+        UIColor(rpHex: 0x18181A).setStroke()
+        let bevels = UIBezierPath()
+        for (px, py, kx, ky) in [(plateRect.minX, plateRect.minY, key.minX, key.minY),
+                                 (plateRect.maxX, plateRect.minY, key.maxX, key.minY),
+                                 (plateRect.maxX, plateRect.maxY, key.maxX, key.maxY),
+                                 (plateRect.minX, plateRect.maxY, key.minX, key.maxY)] {
+            bevels.move(to: CGPoint(x: px, y: py))
+            bevels.addLine(to: CGPoint(x: kx + (px - kx) * 0.25, y: ky + (py - ky) * 0.25))
+        }
+        bevels.lineWidth = 1 * scale; bevels.stroke()
+        // A small white arrowhead on each edge, between the plate's edge and
+        // the key, pointing out.
+        let at = (side / 2 + key.width / 2) / 2, tip = side * 0.028
+        onRed.setFill()
+        for quarter in 0..<4 {
+            let arrow = UIBezierPath()
+            arrow.move(to: CGPoint(x: 0, y: -at - tip))
+            arrow.addLine(to: CGPoint(x: tip, y: -at + tip * 0.6))
+            arrow.addLine(to: CGPoint(x: -tip, y: -at + tip * 0.6))
+            arrow.close()
+            arrow.apply(CGAffineTransform(rotationAngle: CGFloat(quarter) * .pi / 2)
+                .concatenating(CGAffineTransform(translationX: c.x, y: c.y)))
+            arrow.fill()
+        }
+        // The channel the key sits in. With the joystick, a round well instead.
+        UIColor(rpHex: 0x0B0B0B).setFill()
+        if usesJoystick {
+            let r = side * 0.44
+            UIBezierPath(ovalIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)).fill()
+        } else {
+            let gap = side * 0.02
+            UIBezierPath(roundedRect: key.insetBy(dx: -gap, dy: -gap),
+                         cornerRadius: key.width * 0.22 + gap).fill()
+        }
+    }
+
+    // MARK: 1 and 2
+
+    /// A button's plate: the grey square under the cap, the dark ring round
+    /// the cap, and the red bar above with its number, left-aligned, in white.
+    private func drawButtonPlate(_ frame: CGRect?, word: String, scale: CGFloat) {
+        guard let f = frame else { return }
+        let d = min(f.width, f.height)
+        let side = d * ControlLayoutDefaults.smsPlateScale
+        let c = CGPoint(x: f.midX, y: f.midY)
+        let plateRect = CGRect(x: c.x - side / 2, y: c.y - side * 0.46, width: side, height: side * 0.92)
+        plate.setFill(); UIBezierPath(rect: plateRect).fill()
+        let bar = CGRect(x: plateRect.minX, y: plateRect.minY - d * 0.035 - d * 0.24,
+                         width: side, height: d * 0.24)
+        red.setFill(); UIBezierPath(rect: bar).fill()
+        let text = NSAttributedString(string: word, attributes: [
+            .font: UIFont.systemFont(ofSize: bar.height * 0.62, weight: .heavy),
+            .foregroundColor: onRed, .kern: 0.6 * scale,
+        ])
+        let size = text.size()
+        text.draw(at: CGPoint(x: bar.minX + side * 0.16, y: bar.midY - size.height / 2))
+        let ring = d / 2 * 1.12
+        UIColor(rpHex: 0x141416).setFill()
+        UIBezierPath(ovalIn: CGRect(x: c.x - ring, y: c.y - ring, width: ring * 2, height: ring * 2)).fill()
+    }
+
+    // MARK: PAUSE, MENU, CLIP
+
+    /// A shadow under PAUSE's plate, so it sits on the shell.
+    private func drawPauseSeat(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let f = buttons[.btnStart], let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1 * scale), blur: 3 * scale,
+                      color: UIColor.black.withAlphaComponent(0.6).cgColor)
+        UIColor.black.setFill(); SmallButton.SMSPause.plate(in: f).fill()
+        ctx.restoreGState()
+    }
+
+    private func drawAppButtonSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        UIColor.black.setFill()
+        for element in [ControlElement.btnMenu, .btnClip] {
+            guard let f = buttons[element] else { continue }
+            let r = min(f.width, f.height) / 2 + 1.5 * scale
+            UIBezierPath(ovalIn: CGRect(x: f.midX - r, y: f.midY - r, width: r * 2, height: r * 2)).fill()
+        }
+    }
+
+    // MARK: The brand panel
+
+    /// The pinstriped panel the pad prints its maker's name on, with "Retro
+    /// Pal" in its place. Upright, in the band between the screen panel's red
+    /// line and the controls, centred; on its side in the left gutter above
+    /// the cross; on the card above the picture.
+    private func drawBrand(_ ctx: CGContext, bounds: CGRect, frame: CGRect,
+                           buttons: [ControlElement: CGRect], isLandscape: Bool, scale: CGFloat) {
+        var area: CGRect
+        if cardMode {
+            guard frame.minY - bounds.minY > 24 * scale else { return }
+            area = CGRect(x: bounds.midX - 90 * scale, y: bounds.minY + 6 * scale,
+                          width: 180 * scale, height: frame.minY - bounds.minY - 12 * scale)
+        } else if isLandscape {
+            guard let pad = buttons[.dpad] else { return }
+            let left = bounds.minX + 8 * scale, right = frame.minX - 8 * scale
+            area = CGRect(x: left, y: bounds.minY + 10 * scale, width: right - left,
+                          height: pad.minY - side(pad) * 0.12 - bounds.minY - 18 * scale)
+        } else {
+            let top = frame.maxY + 14 * scale
+            let floor = [ControlElement.dpad, .btnA, .btnB, .btnMenu, .btnClip]
+                .compactMap { buttons[$0]?.minY }.filter { $0 > top }.min() ?? bounds.maxY
+            // Under MENU and CLIP's line when they sit in the band.
+            let menuLeft = buttons[.btnMenu]?.minX ?? bounds.midX
+            area = CGRect(x: bounds.minX + 16 * scale, y: top,
+                          width: menuLeft - bounds.minX - 28 * scale, height: floor - top - 10 * scale)
+        }
+        // The word's own proportions decide its size; the stripes fill its box.
+        let cap = min(area.height * 0.55, area.width / SegaLettering.width("RETRO PAL", cap: 1) * 0.86)
+        guard cap > 7 * scale else { return }
+        let wordW = SegaLettering.width("RETRO PAL", cap: cap)
+        let box = CGRect(x: area.midX - wordW / 2 - cap * 0.4, y: area.midY - cap * 0.95,
+                         width: wordW + cap * 0.8, height: cap * 1.9)
+        ctx.saveGState()
+        UIBezierPath(rect: box).addClip()
+        UIColor(rpHex: 0x9A9A9A).setStroke()
+        let stripes = UIBezierPath()
+        let pitch = cap * 0.2, lean = box.height * tan(12 * CGFloat.pi / 180)
+        var x = box.minX - lean
+        while x < box.maxX {
+            stripes.move(to: CGPoint(x: x, y: box.maxY))
+            stripes.addLine(to: CGPoint(x: x + lean, y: box.minY))
+            x += pitch
+        }
+        stripes.lineWidth = max(0.5, cap * 0.035); stripes.stroke()
+        ctx.restoreGState()
+        SegaLettering.draw("RETRO PAL", origin: CGPoint(x: area.midX - wordW / 2, y: area.midY - cap / 2),
+                           cap: cap, ink: ink, inline: body)
+    }
+
+    private func side(_ r: CGRect) -> CGFloat { min(r.width, r.height) }
+}
+
+/// "RETRO PAL" drawn the way the Master System pad's maker name is: monoline
+/// capitals wider than tall, slanted 12 degrees, square ends, rounded joins,
+/// a hairline of the shell's colour running inside every stroke. Our own
+/// paths, not a font: no freely licensed face imitates that lettering
+/// (searched 2026-10-10), and only these seven letters are needed.
+enum SegaLettering {
+    /// Stroke weight, as a fraction of the cap height.
+    private static let stroke: CGFloat = 0.28
+    private static let slant: CGFloat = tan(12 * CGFloat.pi / 180)
+    private static let advance: CGFloat = 1.05
+    private static let tracking: CGFloat = 0.12
+    private static let space: CGFloat = 0.45
+
+    /// One letter as strokes in a unit cell (x right, y down, 0 to 1 tall).
+    private static func strokes(_ letter: Character) -> [[CGPoint]] {
+        let h = stroke / 2, w = advance
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+        switch letter {
+        case "R": return [[p(h, 1), p(h, h), p(w - h, h), p(w - h, 0.5), p(h, 0.5)],
+                          [p(w * 0.48, 0.5), p(w - h, 0.78), p(w - h, 1)]]
+        case "E": return [[p(w, h), p(h, h), p(h, 1 - h), p(w, 1 - h)], [p(h, 0.5), p(w * 0.82, 0.5)]]
+        case "T": return [[p(0, h), p(w, h)], [p(w / 2, h), p(w / 2, 1)]]
+        case "O": return [[p(h, h + 0.001), p(h, h), p(w - h, h), p(w - h, 1 - h), p(h, 1 - h), p(h, h)]]
+        case "P": return [[p(h, 1), p(h, h), p(w - h, h), p(w - h, 0.56), p(h, 0.56)]]
+        case "A": return [[p(h, 1), p(h, 0.62), p(w * 0.42, h), p(w - h, h), p(w - h, 1)],
+                          [p(h, 0.62), p(w - h, 0.62)]]
+        case "L": return [[p(h, 0), p(h, 1 - h), p(w, 1 - h)]]
+        default: return []
+        }
+    }
+
+    static func width(_ text: String, cap: CGFloat) -> CGFloat {
+        var x: CGFloat = 0
+        for ch in text { x += ch == " " ? space : advance + tracking }
+        return (x - tracking + slant) * cap
+    }
+
+    static func draw(_ text: String, origin: CGPoint, cap: CGFloat, ink: UIColor, inline: UIColor) {
+        var lines: [[CGPoint]] = []
+        var x: CGFloat = 0
+        for ch in text {
+            if ch == " " { x += space; continue }
+            for line in strokes(ch) { lines.append(line.map { CGPoint(x: $0.x + x, y: $0.y) }) }
+            x += advance + tracking
+        }
+        func placed(_ q: CGPoint) -> CGPoint {
+            CGPoint(x: origin.x + (q.x + (1 - q.y) * slant) * cap, y: origin.y + q.y * cap)
+        }
+        for (weight, colour) in [(stroke, ink), (stroke * 0.09, inline)] {
+            let path = UIBezierPath()
+            for line in lines {
+                guard let first = line.first else { continue }
+                path.move(to: placed(first))
+                for q in line.dropFirst() { path.addLine(to: placed(q)) }
+            }
+            path.lineWidth = weight * cap
+            path.lineCapStyle = .butt
+            path.lineJoinStyle = .round
+            colour.setStroke(); path.stroke()
+        }
+    }
+}
+
+/// The Game Gear's dress (2026-10-10, his notes and the 1990 handheld's
+/// photographs): the matte grey shell, the screen in the Game Boy's surround
+/// with every corner the same, three slanted pills and the POWER lamp in the
+/// surround's left margin, the cross's faceted disc in a round hole set in a
+/// bowl, 1 and 2 in their sockets with the white three-segment line that ties
+/// their numbers together, START's blue cut disc in its seat, and the speaker
+/// under the cross, a tilted grid of holes. No Sega or Game Gear mark: the
+/// Retro Pal plaque stands where a brand would.
+struct GameGearSkin: ConsoleSkin {
+    var variant: DressVariant = .nostalgia
+    var cardMode: Bool = false
+    var controllerConnected: Bool = false
+
+    private var look: DressKind.SegaLook { DressKind.ggLook(variant) }
+    private var body: UIColor { look.body }
+    private var surround: UIColor { look.surround }
+    /// Printed on the shell: the 1 / 2 line and numbers.
+    private var ink: UIColor { look.shellInk }
+    /// Printed on the dark surround: POWER, always light.
+    private var surroundInk: UIColor { look.onAccent }
+    /// The three pills, left to right, and the lamp (the Game Boy's red).
+    private static let pills: [UIColor] = [UIColor(rpHex: 0xD9574E), UIColor(rpHex: 0x60AFAA),
+                                           UIColor(rpHex: 0x4474BD)]
+    private static let lamp = UIColor(red: 0.831, green: 0.157, blue: 0.176, alpha: 1)
+
+    func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
+              buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
+        PlayStationSkin.drawMouldedShell(ctx, bounds, mid: body)
+        guard !screen.isEmpty else { return }
+        let panel = surroundRect(bounds: bounds, screen: screen, buttons: buttons,
+                                 isLandscape: isLandscape, scale: scale)
+        drawSurround(ctx, panel: panel, screen: screen, scale: scale)
+        drawPillsAndLamp(panel: panel, screen: screen, isLandscape: isLandscape, scale: scale)
+        drawCrossHole(ctx, buttons: buttons, usesJoystick: usesJoystick, scale: scale)
+        drawFaceSockets(buttons: buttons, scale: scale)
+        drawOneTwoLine(buttons: buttons, keepClearOf: panel, scale: scale)
+        drawStartSeat(buttons: buttons, scale: scale)
+        drawAppButtonSeats(buttons: buttons, scale: scale)
+        if !cardMode && !controllerConnected {
+            drawSpeaker(bounds: bounds, panel: panel, buttons: buttons,
+                        isLandscape: isLandscape, scale: scale)
+        }
+        drawBrand(bounds: bounds, panel: panel, buttons: buttons, isLandscape: isLandscape,
+                  scale: scale)
+    }
+
+    // MARK: The surround
+
+    /// The Game Boy's surround, grown from the picture: upright by the same
+    /// margins (the left one wide enough for the pills and the lamp, mirrored
+    /// right, the top mirrored below), held clear of the edges; on its side a
+    /// frame round the picture whose bottom takes in the MENU · START row, as
+    /// the Game Boy's does. Every corner the same (his note: "the bottom right
+    /// is not more curvy").
+    private func surroundRect(bounds: CGRect, screen: CGRect, buttons: [ControlElement: CGRect],
+                              isLandscape: Bool, scale: CGFloat) -> CGRect {
+        if cardMode { return screen.insetBy(dx: -18 * scale, dy: -18 * scale) }
+        if isLandscape {
+            let frame = 14 * scale
+            let gap = EmulatorLayoutGeometry.gbcLandscapeRowGap * scale
+            let rowH = EmulatorLayoutGeometry.buttonSize(.btnStart, isNDS: false,
+                                                         isLandscape: true, deviceScale: scale).height
+            let bottom = min(screen.maxY + gap + rowH + gap, bounds.maxY - 1)
+            var r = screen.insetBy(dx: -frame, dy: -frame)
+            r.size.height = bottom - r.minY
+            return r.intersection(bounds)
+        }
+        let padH = Self.marginWidth * scale
+        let padV = 30 * scale
+        return screen.insetBy(dx: -padH, dy: -padV)
+            .intersection(bounds.insetBy(dx: 8 * scale, dy: 8 * scale))
+    }
+    /// The width the pills and the lamp need beside the picture, upright.
+    private static let marginWidth: CGFloat = 44
+
+    private func drawSurround(_ ctx: CGContext, panel: CGRect, screen: CGRect, scale: CGFloat) {
+        guard panel.width > 8, panel.height > 8 else { return }
+        let corner = 12 * scale
+        let path = UIBezierPath(roundedRect: panel, cornerRadius: corner)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.5 * scale), blur: 5 * scale,
+                      color: UIColor.black.withAlphaComponent(0.35).cgColor)
+        surround.setFill(); path.fill()
+        ctx.restoreGState()
+        // Inlaid in the shell: a dark rim falling in at the top, a light catch below.
+        let outer = UIBezierPath(roundedRect: panel.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                 cornerRadius: corner + 2 * scale)
+        Self.recessRelief(path, outer: outer, scale: scale)
+        // A glossy panel: a soft sheen on its upper part.
+        ctx.saveGState(); path.addClip()
+        let sheen = [UIColor.white.withAlphaComponent(0.05).cgColor, UIColor.clear.cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: sheen, locations: [0, 1]) {
+            ctx.drawLinearGradient(g, start: CGPoint(x: panel.midX, y: panel.minY),
+                                   end: CGPoint(x: panel.midX, y: panel.minY + panel.height * 0.45),
+                                   options: [])
+        }
+        ctx.restoreGState()
+        let lcd = UIBezierPath(roundedRect: screen.insetBy(dx: -1.5 * scale, dy: -1.5 * scale),
+                               cornerRadius: 3 * scale)
+        UIColor.black.withAlphaComponent(0.6).setStroke()
+        lcd.lineWidth = 1.5 * scale
+        lcd.stroke()
+    }
+
+    // MARK: The pills and the lamp
+
+    /// Three filled ellipses in a row, each leaning like "/" (about 53 degrees
+    /// on the handheld), red, green, blue from the left; under them the red
+    /// lamp with POWER beneath it. Upright they stand in the surround's left
+    /// margin, at the picture's top; on its side, where that margin is thin,
+    /// in the left gutter above the cross.
+    private func drawPillsAndLamp(panel: CGRect, screen: CGRect, isLandscape: Bool, scale: CGFloat) {
+        guard !cardMode else { return }
+        let pillLong = 14 * scale, pillShort = 5.2 * scale, step = 10 * scale
+        let lampR = 3.2 * scale
+        let wordSize = 6.5 * scale
+        let centreX: CGFloat, top: CGFloat
+        if isLandscape {
+            centreX = (panel.minX + screen.minX) / 2
+            top = screen.minY + 10 * scale
+            // The landscape frame is 14 points: too thin for the cluster.
+            guard screen.minX - panel.minX > 3 * step + pillLong * 0.6 else { return }
+        } else {
+            centreX = (panel.minX + screen.minX) / 2
+            top = screen.minY + 10 * scale
+        }
+        for (i, colour) in Self.pills.enumerated() {
+            let cx = centreX + CGFloat(i - 1) * step
+            let cy = top + pillLong / 2
+            let oval = UIBezierPath(ovalIn: CGRect(x: -pillShort / 2, y: -pillLong / 2,
+                                                   width: pillShort, height: pillLong))
+            // Leaning like "/": the long axis rises to the right.
+            oval.apply(CGAffineTransform(rotationAngle: .pi / 2 - .pi * 53 / 180))
+            oval.apply(CGAffineTransform(translationX: cx, y: cy))
+            colour.setFill(); oval.fill()
+        }
+        let lampY = top + pillLong + 24 * scale
+        let lampX = centreX + step * 0.2
+        UIColor.black.withAlphaComponent(0.5).setFill()
+        UIBezierPath(ovalIn: CGRect(x: lampX - lampR - 1.2 * scale, y: lampY - lampR - 1.2 * scale,
+                                    width: (lampR + 1.2 * scale) * 2, height: (lampR + 1.2 * scale) * 2)).fill()
+        Self.lamp.setFill()
+        UIBezierPath(ovalIn: CGRect(x: lampX - lampR, y: lampY - lampR, width: lampR * 2, height: lampR * 2)).fill()
+        UIColor.white.withAlphaComponent(0.55).setFill()
+        UIBezierPath(ovalIn: CGRect(x: lampX - lampR * 0.5, y: lampY - lampR * 0.65,
+                                    width: lampR * 0.6, height: lampR * 0.6)).fill()
+        let word = NSAttributedString(string: "POWER", attributes: [
+            .font: UIFont.systemFont(ofSize: wordSize, weight: .medium),
+            .foregroundColor: surroundInk, .kern: 0.4 * scale,
+        ])
+        let size = word.size()
+        word.draw(at: CGPoint(x: lampX - size.width / 2, y: lampY + lampR + 3 * scale))
+    }
+
+    // MARK: The cross
+
+    /// The round hole the faceted disc sits in, a dark gap round it, and the
+    /// shallow bowl the shell makes round the hole.
+    private func drawCrossHole(_ ctx: CGContext, buttons: [ControlElement: CGRect],
+                               usesJoystick: Bool, scale: CGFloat) {
+        guard let d = buttons[.dpad] else { return }
+        let c = CGPoint(x: d.midX, y: d.midY)
+        let r = min(d.width, d.height) / 2
+        // The bowl: the shell falling in toward the hole.
+        let bowlR = r * 1.22
+        let colours = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.30).cgColor] as CFArray
+        if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colours,
+                              locations: [0, 1]) {
+            ctx.saveGState()
+            UIBezierPath(ovalIn: CGRect(x: c.x - bowlR, y: c.y - bowlR, width: bowlR * 2,
+                                        height: bowlR * 2)).addClip()
+            ctx.drawRadialGradient(g, startCenter: CGPoint(x: c.x, y: c.y + r * 0.1),
+                                   startRadius: bowlR, endCenter: c, endRadius: r,
+                                   options: [])
+            ctx.restoreGState()
+        }
+        UIColor.white.withAlphaComponent(0.10).setStroke()
+        let lip = UIBezierPath(arcCenter: c, radius: bowlR, startAngle: .pi * 0.15,
+                               endAngle: .pi * 0.85, clockwise: true)
+        lip.lineWidth = 1 * scale; lip.stroke()
+        // The hole: the dark gap that shows round the disc.
+        UIColor.black.setFill()
+        UIBezierPath(ovalIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)).fill()
+    }
+
+    // MARK: 1 and 2
+
+    /// A dark socket a little wider than each button, as on the handheld.
+    private func drawFaceSockets(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        UIColor.black.setFill()
+        for element in [ControlElement.btnA, .btnB] {
+            guard let f = buttons[element] else { continue }
+            let r = min(f.width, f.height) / 2 * 1.07
+            UIBezierPath(ovalIn: CGRect(x: f.midX - r, y: f.midY - r, width: r * 2, height: r * 2)).fill()
+        }
+    }
+
+    /// The printed line that ties 1 and 2 together, and the two numbers, as
+    /// on the handheld (asked 2026-10-10): the whole figure is TILTED with the
+    /// line through the two buttons. In that tilted frame it is a "Π" on the
+    /// pair's upper side: the long segment runs parallel to the axis, a short
+    /// leg drops square from each of its ends toward its button, and each
+    /// number sits just past its leg's foot, above its button, turned with the
+    /// axis like the legs. On its side the pair sits close to the picture's
+    /// frame, so the figure slides along the axis, toward 2, until it is clear
+    /// of it; where it cannot be, only the numbers are drawn.
+    private func drawOneTwoLine(buttons: [ControlElement: CGRect], keepClearOf panel: CGRect,
+                                scale: CGFloat) {
+        guard let one = buttons[.btnB], let two = buttons[.btnA],
+              let ctx = UIGraphicsGetCurrentContext() else { return }
+        let c1 = CGPoint(x: one.midX, y: one.midY), c2 = CGPoint(x: two.midX, y: two.midY)
+        let span = hypot(c2.x - c1.x, c2.y - c1.y)
+        guard span > 1 else { return }
+        // The axis, and the normal on its upper side (screen y is down).
+        let ux = (c2.x - c1.x) / span, uy = (c2.y - c1.y) / span
+        var nx = uy, ny = -ux
+        if ny > 0 { nx = -nx; ny = -ny }
+        let d = min(one.width, one.height)
+        let r = max(min(one.width, one.height), min(two.width, two.height)) / 2
+        let size = max(8, d * 0.28)
+        let numberAt = r + size * 0.65          // a number's centre, off the axis
+        let footAt = r + size * 1.30            // a leg's foot
+        let leg = d * 0.22
+        let headAt = footAt + leg               // the long segment
+        func point(_ base: CGPoint, along: CGFloat, off: CGFloat) -> CGPoint {
+            CGPoint(x: base.x + ux * along + nx * off, y: base.y + uy * along + ny * off)
+        }
+        // 1's leg a little before its button's top, 2's at its top.
+        let along1 = -d * 0.12, along2: CGFloat = 0
+        let clear = panel.insetBy(dx: -4 * scale, dy: -4 * scale)
+        var slide: CGFloat = 0
+        func figure(_ s: CGFloat) -> [CGPoint] {
+            [point(c1, along: along1 + s, off: footAt), point(c1, along: along1 + s, off: headAt),
+             point(c2, along: along2 + s, off: headAt), point(c2, along: along2 + s, off: footAt)]
+        }
+        while figure(slide).contains(where: { clear.contains($0) }) && slide < d * 0.8 {
+            slide += 1 * scale
+        }
+        let pts = figure(slide)
+        let angle = atan2(uy, ux)
+        let font = UIFont.systemFont(ofSize: size, weight: .heavy)
+        if !pts.contains(where: { clear.contains($0) }) {
+            let line = UIBezierPath()
+            line.move(to: pts[0]); line.addLine(to: pts[1]); line.addLine(to: pts[2]); line.addLine(to: pts[3])
+            line.lineWidth = max(1, d * 0.05)
+            line.lineCapStyle = .round
+            line.lineJoinStyle = .round
+            ink.setStroke(); line.stroke()
+        }
+        for (text, base, along) in [("1", c1, along1 + slide), ("2", c2, along2 + slide)] {
+            let at = point(base, along: along, off: numberAt)
+            let word = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: ink])
+            let w = word.size()
+            ctx.saveGState()
+            ctx.translateBy(x: at.x, y: at.y)
+            ctx.rotate(by: angle)
+            word.draw(at: CGPoint(x: -w.width / 2, y: -w.height / 2))
+            ctx.restoreGState()
+        }
+    }
+
+    // MARK: START, MENU, CLIP
+
+    /// START's seat: the cut disc's own outline, a hair wider, in black.
+    private func drawStartSeat(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        guard let f = buttons[.btnStart] else { return }
+        let seat = PlayStationSkin.grown(SmallButton.GGStart.path(in: f), by: 1.5 * scale)
+        UIColor.black.setFill(); seat.fill()
+    }
+
+    /// A black hole a little wider than MENU and CLIP, the sockets 1 and 2 have.
+    private func drawAppButtonSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        UIColor.black.setFill()
+        for element in [ControlElement.btnMenu, .btnClip] {
+            guard let f = buttons[element] else { continue }
+            let r = min(f.width, f.height) / 2 + 1.5 * scale
+            UIBezierPath(ovalIn: CGRect(x: f.midX - r, y: f.midY - r, width: r * 2, height: r * 2)).fill()
+        }
+    }
+
+    // MARK: The speaker
+
+    /// The handheld's speaker, under the cross: five rows of six holes, the
+    /// three middle rows with a blind dimple at each end (a hole that does not
+    /// go through, so grey rather than black), the whole grid turned so each
+    /// row rises to the right (his note, 2026-10-10). Upright under the cross;
+    /// on its side in the left gutter under the cross too.
+    private func drawSpeaker(bounds: CGRect, panel: CGRect, buttons: [ControlElement: CGRect],
+                             isLandscape: Bool, scale: CGFloat) {
+        guard let pad = buttons[.dpad] else { return }
+        let lowestLeft = pad.maxY
+        let floor = bounds.maxY - (isLandscape ? 10 : 18) * scale
+        let roomH = floor - (lowestLeft + 10 * scale)
+        // Pitch from the room under the cross and the column it stands in
+        // (the cross's width plus the shell either side of it, up to the
+        // nearest control): eight columns and five rows, turned. Larger since
+        // the cross was made smaller (asked 2026-10-10).
+        let others = buttons.filter { $0.key != .dpad }.map(\.value)
+            .filter { $0.maxY > lowestLeft && $0.minX > pad.midX }
+        let rightLimit = others.map(\.minX).min() ?? bounds.maxX
+        let column = 2 * min(pad.midX - bounds.minX, rightLimit - pad.midX) - 16 * scale
+        let pitch = min(roomH / 6.4, column / 9.2, 11 * scale)
+        guard pitch > 3 * scale else { return }
+        let centre = CGPoint(x: pad.midX, y: lowestLeft + 10 * scale + roomH / 2)
+        let hole = pitch * 0.52
+        let angle = -CGFloat.pi * 12 / 180
+        for row in 0..<5 {
+            let long = (1...3).contains(row)
+            let columns = long ? -1...6 : 0...5
+            for col in columns {
+                let lx = (CGFloat(col) - 2.5) * pitch, ly = (CGFloat(row) - 2) * pitch
+                let x = centre.x + lx * cos(angle) - ly * sin(angle)
+                let y = centre.y + lx * sin(angle) + ly * cos(angle)
+                let rect = CGRect(x: x - hole / 2, y: y - hole / 2, width: hole, height: hole)
+                let blind = (col == -1 || col == 6)
+                if blind {
+                    body.rpMixed(with: .black, 0.28).setFill()
+                    UIBezierPath(ovalIn: rect).fill()
+                    UIColor.white.withAlphaComponent(0.18).setFill()
+                    UIBezierPath(ovalIn: rect.offsetBy(dx: 0, dy: hole * 0.22)
+                        .insetBy(dx: hole * 0.2, dy: hole * 0.3)).fill()
+                } else {
+                    UIColor.black.withAlphaComponent(0.85).setFill()
+                    UIBezierPath(ovalIn: rect).fill()
+                    // The light catching the hole's lower wall.
+                    UIColor.white.withAlphaComponent(0.12).setStroke()
+                    let wall = UIBezierPath(arcCenter: CGPoint(x: rect.midX, y: rect.midY),
+                                            radius: hole / 2, startAngle: .pi * 0.2,
+                                            endAngle: .pi * 0.8, clockwise: true)
+                    wall.lineWidth = max(0.5, 0.6 * scale); wall.stroke()
+                }
+            }
+        }
+    }
+
+    // MARK: The plaque
+
+    /// The Retro Pal plaque: on the card above the picture; upright under the
+    /// surround in the clear band above the controls; on its side in the
+    /// right gutter above CLIP if it fits, else above the cross.
+    private func drawBrand(bounds: CGRect, panel: CGRect, buttons: [ControlElement: CGRect],
+                           isLandscape: Bool, scale: CGFloat) {
+        let aspect = PlayStationSkin.brandPlaqueAspect
+        let plate = body.rpMixed(with: .black, 0.18)
+        let icon = RetroPalPalette.brandIcon(tinted: body.rpMixed(with: .white, 0.45))
+        let wordInk = body.rpMixed(with: .white, 0.70)
+        func plaque(centre: CGPoint, height: CGFloat, maxWidth: CGFloat) {
+            var h = height, w = height * aspect
+            if w > maxWidth { w = maxWidth; h = w / aspect }
+            guard h > 10 * scale else { return }
+            PlayStationSkin.drawPlaque(in: CGRect(x: centre.x - w / 2, y: centre.y - h / 2, width: w, height: h),
+                                       plate: plate, icon: icon, ink: wordInk, scale: scale)
+        }
+        if cardMode {
+            let top = panel.minY - bounds.minY
+            guard top > 20 * scale else { return }
+            plaque(centre: CGPoint(x: bounds.midX, y: bounds.minY + top / 2),
+                   height: min(26 * scale, top * 0.5), maxWidth: bounds.width - 32 * scale)
+            return
+        }
+        if !isLandscape {
+            // Right of MENU, on its line, as large as the room up to the page's
+            // edge allows, and clear of CLIP below it (asked 2026-10-10).
+            guard let menu = buttons[.btnMenu] else { return }
+            let m = 10 * scale
+            let left = menu.maxX + m, right = bounds.maxX - m
+            var below = bounds.maxY
+            if let clip = buttons[.btnClip], clip.maxX > left { below = clip.minY - m }
+            let halfH = min(menu.midY - (panel.maxY + m), below - menu.midY)
+            guard right > left, halfH > 0 else { return }
+            var h = min(halfH * 2, 34 * scale)
+            var w = h * aspect
+            if w > right - left { w = right - left; h = w / aspect }
+            plaque(centre: CGPoint(x: (left + right) / 2, y: menu.midY), height: h, maxWidth: w)
+            return
+        }
+        // On its side: above the cross, its centre where it was, larger
+        // (asked 2026-10-10), held inside the left gutter.
+        guard let pad = buttons[.dpad] else { return }
+        let gap = pad.minY - bounds.minY
+        let halfRoom = min(pad.midX - bounds.minX, panel.minX - pad.midX) - 6 * scale
+        guard gap > 24 * scale, halfRoom > 0 else { return }
+        plaque(centre: CGPoint(x: pad.midX, y: (bounds.minY + pad.minY) / 2),
+               height: min(gap * 0.72, 34 * scale), maxWidth: halfRoom * 2)
+    }
+
+    /// The inlaid look, a dark rim inside the top edge and a light catch
+    /// inside the bottom one, as the other dresses draw it.
+    private static func recessRelief(_ path: UIBezierPath, outer: UIBezierPath, scale: CGFloat) {
+        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: 1.8 * scale), blur: 2.6 * scale,
+                      color: UIColor.black.withAlphaComponent(0.5).cgColor)
+        UIColor.black.setStroke(); outer.lineWidth = 2 * scale; outer.stroke()
+        ctx.restoreGState()
+        ctx.saveGState(); path.addClip()
+        ctx.setShadow(offset: CGSize(width: 0, height: -1.2 * scale), blur: 1.6 * scale,
+                      color: UIColor.white.withAlphaComponent(0.25).cgColor)
+        UIColor.white.setStroke(); outer.lineWidth = 1.5 * scale; outer.stroke()
+        ctx.restoreGState()
     }
 }

@@ -203,6 +203,45 @@ struct SkinEditorView: View {
                     ("skin.editor.faceZ", n64Binding(\.zHex)),
                     ("skin.editor.cButtons", n64Binding(\.cHex)),
                     ("skin.editor.startButton", n64Binding(\.startHex))]
+        // Every colour the dress paints (`MDSkinPalette`), as on the Nintendo 64,
+        // in the order the eye meets them. Labels are printed in a custom skin
+        // (Classic's way), so their colour is a slot.
+        case .md:
+            return [("skin.editor.body", mdBinding(\.bodyHex)),
+                    ("skin.editor.dpad", mdBinding(\.padHex)),
+                    ("skin.editor.abcButtons", mdBinding(\.abcHex)),
+                    ("skin.editor.xyzButtons", mdBinding(\.xyzHex)),
+                    ("skin.editor.smallButtons", mdBinding(\.smallButtonsHex)),
+                    ("skin.editor.letters", mdBinding(\.labelsHex))]
+        // Every colour the dress paints (`SMSSkinPalette`), as the eye meets
+        // them: the shell and the picture's panel, then the pad.
+        case .sms:
+            return [("skin.editor.body", smsBinding(\.bodyHex)),
+                    ("skin.editor.surround", smsBinding(\.surroundHex)),
+                    ("skin.editor.plates", smsBinding(\.plateHex)),
+                    ("skin.editor.accent", smsBinding(\.accentHex)),
+                    ("skin.editor.buttons", smsBinding(\.keysHex)),
+                    ("skin.editor.onAccent", smsBinding(\.onAccentHex)),
+                    ("skin.editor.printedText", smsBinding(\.inkHex))]
+        // Every colour the dress paints (`GGSkinPalette`). The three pills and
+        // the lamp are the console's printed marks and stay as they are.
+        case .gg:
+            return [("skin.editor.body", ggBinding(\.bodyHex)),
+                    ("skin.editor.surround", ggBinding(\.surroundHex)),
+                    ("skin.editor.buttons", ggBinding(\.buttonsHex)),
+                    ("skin.editor.startButton", ggBinding(\.startHex)),
+                    ("skin.editor.menuIcons", ggBinding(\.glyphsHex)),
+                    ("skin.editor.printedText", ggBinding(\.inkHex))]
+        // Every colour the dress paints (`PSPSkinPalette`). The glass of the
+        // Retro Pal look is a look, not a colour: a skin keeps the one it
+        // started from. The symbols' shapes are fixed; their grey is the print.
+        case .psp:
+            return [("skin.editor.body", pspBinding(\.bodyHex)),
+                    ("skin.editor.surround", pspBinding(\.surroundHex)),
+                    ("skin.editor.buttons", pspBinding(\.controlsHex)),
+                    ("skin.editor.printedText", pspBinding(\.printHex)),
+                    ("skin.editor.shoulders", pspBinding(\.shouldersHex)),
+                    ("skin.editor.stick", pspBinding(\.stickHex))]
         case .gbc:
             return [("skin.editor.body", gbcBinding(\.bodyHex)),
                     ("skin.editor.surround", gbcBinding(\.surroundHex)),
@@ -276,6 +315,25 @@ struct SkinEditorView: View {
                 set: { v in if case .n64(var p) = palette { p[keyPath: kp] = v; palette = .n64(p) } })
     }
 
+    private func mdBinding(_ kp: WritableKeyPath<MDSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .md(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .md(var p) = palette { p[keyPath: kp] = v; palette = .md(p) } })
+    }
+
+    private func smsBinding(_ kp: WritableKeyPath<SMSSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .sms(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .sms(var p) = palette { p[keyPath: kp] = v; palette = .sms(p) } })
+    }
+    private func ggBinding(_ kp: WritableKeyPath<GGSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .gg(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .gg(var p) = palette { p[keyPath: kp] = v; palette = .gg(p) } })
+    }
+
+    private func pspBinding(_ kp: WritableKeyPath<PSPSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .psp(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .psp(var p) = palette { p[keyPath: kp] = v; palette = .psp(p) } })
+    }
+
     private var saveButton: some View {
         Button { save() } label: {
             Text(editing == nil
@@ -313,7 +371,7 @@ struct SkinEditorView: View {
             CustomSkinStore.shared.add(skin, system: system)
             Analytics.signal("custom_skin", ["action": "created", "system": "\(system)"])
         }
-        Analytics.signal("pro_feature_used", ["feature": "custom_skin"])
+        Analytics.signal("pro_feature_used", ["feature": "custom_skin", "system": "\(system)"])
         onSaved()
         dismiss()
     }

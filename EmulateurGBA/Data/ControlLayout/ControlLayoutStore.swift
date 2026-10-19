@@ -20,6 +20,10 @@ final class ControlLayoutStore {
     private let activeNESKey = "activePresetNES"
     private let activePS1Key = "activePresetPS1"
     private let activeN64Key = "activePresetN64"
+    private let activeMDKey = "activePresetMD"
+    private let activeSMSKey = "activePresetSMS"
+    private let activeGGKey = "activePresetGG"
+    private let activePSPKey = "activePresetPSP"
 
     private init() {}
 
@@ -33,6 +37,10 @@ final class ControlLayoutStore {
         case .nes: return activeNESKey
         case .ps1: return activePS1Key
         case .n64: return activeN64Key
+        case .md: return activeMDKey
+        case .sms: return activeSMSKey
+        case .gg: return activeGGKey
+        case .psp: return activePSPKey
         }
     }
 

@@ -156,7 +156,12 @@ struct ControllerRemapView: View {
     }
 
     private var bindingsSection: some View {
-        Section(footer: Text(NSLocalizedString("remap.footer", comment: "How the remap flow works + the D-pad exception"))) {
+        // The footer says what the stick does, which is not the same on every
+        // console: it steers the cross, or (N64, PSP) it is the analog stick
+        // alone (`ControllerManager.stickIsAnalogOnly`).
+        Section(footer: Text(ControllerManager.stickIsAnalogOnly(on: system)
+                             ? NSLocalizedString("remap.footer.analogStick", comment: "How the remap flow works; the stick is the console's own analog stick")
+                             : NSLocalizedString("remap.footer", comment: "How the remap flow works + the D-pad exception"))) {
             if !controllers.isConnected {
                 // The pad left mid-screen: say so instead of dead rows.
                 Label(NSLocalizedString("remap.noController", comment: "Shown when the controller disconnects while remapping"),

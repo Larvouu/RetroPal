@@ -2,7 +2,8 @@
 //  MesenBridge.mm
 //  EmulateurGBA
 //
-//  ObjC++ implementation bridging MesenCE (SNES + NES) to Swift.
+//  ObjC++ implementation bridging MesenCE (SNES, NES, Master System, Game
+//  Gear) to Swift.
 //
 //  HOW THIS CORE IS DRIVEN, AND WHY IT IS NOT DRIVEN THE WAY MESEN DRIVES ITSELF
 //
@@ -95,6 +96,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstring>
 #include <mutex>
@@ -104,6 +106,7 @@
 #include <vector>
 
 #include "Shared/Emulator.h"
+#include "Shared/BatteryManager.h"
 #include "Shared/EmuSettings.h"
 #include "Shared/SettingTypes.h"
 #include "Shared/BaseControlDevice.h"
@@ -120,6 +123,7 @@
 #include "Shared/Video/VideoRenderer.h"
 #include "SNES/Input/SnesController.h"
 #include "NES/Input/NesController.h"
+#include "SMS/Input/SmsController.h"
 #include "Utilities/FolderUtilities.h"
 #include "Utilities/VirtualFile.h"
 
@@ -148,10 +152,53 @@ static const uint32_t kSnesOverscanBottom = 8;
 /// there — a strip a real TV hid as well.
 static const uint32_t kNesOverscanLeft = 8;
 
+/// What the Master System and the Game Gear show of the 256x240 frame Mesen
+/// draws them into. These are the values Mesen's own frontend ships
+/// (`UI/Config/SmsConfig.cs`); the core's `SmsConfig` defaults to no crop at all,
+/// and a frontend that leaves it there gets the Master System's 192 lines
+/// between two 24-line black bands and the Game Gear's 160x144 screen as a small
+/// window in the middle of a black 256x240 frame.
+///
+/// The Master System's 24 lines come off the top and bottom of every frame, so
+/// the texture is the 192-line picture a television showed. The rare game that
+/// switches the console's video chip to its 224- or 240-line mode loses those
+/// extra lines, which is exactly what Mesen's frontend does too and what keeps
+/// the texture one size for the session.
+static const uint32_t kSmsOverscanTopBottom = 24;
+/// The Game Gear's screen is the window of 160x144 inside the Master System's
+/// picture that the handheld's LCD actually shows.
+static const uint32_t kGgOverscan = 48;
+
+/// The Master System's and the Game Gear's cartridge RAM as Mesen holds it
+/// (`SmsMemoryManager::CartRamMaxSize`): the largest battery save they have.
+static const uint32_t kSmsCartRamBytes = 0x8000;
+
 const NSInteger SNESBufferWidth  = 512;
 const NSInteger SNESBufferHeight = 448;
 const NSInteger NESBufferWidth   = 256 - (NSInteger)kNesOverscanLeft;
 const NSInteger NESBufferHeight  = 240;
+const NSInteger SMSBufferWidth   = 256;
+const NSInteger SMSBufferHeight  = 240 - 2 * (NSInteger)kSmsOverscanTopBottom;
+const NSInteger GGBufferWidth    = 256 - 2 * (NSInteger)kGgOverscan;
+const NSInteger GGBufferHeight   = 240 - 2 * (NSInteger)kGgOverscan;
+
+/// The console a session is running. Mesen picks its console from the
+/// extension on its own; the bridge needs to know it too, because the buffer,
+/// the settings, the pad, the save's file name and the memory map differ.
+/// `.sms` and `.gg` are one console to Mesen (`SmsConsole`), but not to the
+/// screen, so they are two kinds here.
+enum class MesenKind : uint8_t { Snes, Nes, Sms, Gg };
+
+static const char* MesenKindName(MesenKind kind)
+{
+	switch(kind) {
+		case MesenKind::Snes: return "SNES";
+		case MesenKind::Nes: return "NES";
+		case MesenKind::Sms: return "SMS";
+		case MesenKind::Gg: return "GG";
+	}
+	return "?";
+}
 
 /// The NES palette, which the frontend owns.
 ///
@@ -189,7 +236,14 @@ static const uint32_t kAudioSampleRate = 48000;
 /// affordable and the entire delta apparatus would be complexity bought for
 /// nothing. Snapshot cost and the real state size are logged in DEBUG and are to
 /// be confirmed on device.
-static const NSInteger kRewindFramesPerSnapshot = 60;
+///
+/// One a SECOND, not one every 60 frames: a European cartridge runs at 50 (the
+/// Master System at 49.70), and counted in its own frames a snapshot fell every
+/// 1.2 seconds, so the 5 seconds the caller asks for (in sixtieths of a second,
+/// `seconds * 60`, whatever the console) went back 6 and the 30 went back 36,
+/// past what the ring holds. The Mega Drive and the PlayStation had the same
+/// unit error, fixed 2026-10-08; see `framesPerSnapshot`.
+static const NSInteger kRewindSecondsPerSnapshot = 1;
 /// Hard ceiling on rewind memory. If a game's states are unexpectedly large (a
 /// 128 KB-SRAM cart plus coprocessor RAM), DEPTH shrinks instead of the memory
 /// growing. Depth is what the pause menu offers, so a shorter ring is visible to
@@ -419,7 +473,7 @@ public:
 	std::atomic<uint32_t> Keys { 0 };
 	/// Player 2's mask (port 2).
 	std::atomic<uint32_t> Keys2 { 0 };
-	std::atomic<bool> IsNes { false };
+	std::atomic<MesenKind> Kind { MesenKind::Snes };
 
 	bool SetInput(BaseControlDevice* device) override
 	{
@@ -440,13 +494,39 @@ public:
 	/// The console's ordinary controller, the one this app drives.
 	ControllerType StandardPadType()
 	{
-		return IsNes.load() ? ControllerType::NesController : ControllerType::SnesController;
+		switch(Kind.load()) {
+			case MesenKind::Nes: return ControllerType::NesController;
+			case MesenKind::Sms:
+			case MesenKind::Gg: return ControllerType::SmsController;
+			default: return ControllerType::SnesController;
+		}
 	}
 
 private:
 	void ApplyKeys(BaseControlDevice* device, uint32_t keys)
 	{
-		if(IsNes.load()) {
+		const MesenKind kind = Kind.load();
+		if(kind == MesenKind::Sms || kind == MesenKind::Gg) {
+			//The pad's two buttons are printed 1 (left) and 2 (right), and Mesen
+			//calls them B and A in that order (`SmsController.h` reads B as the
+			//port's 0x10 bit, which is button 1). So the app's B, the left face
+			//button on every page, is 1, and A, the right one, is 2: the same
+			//places an NES pad's B and A take on the pages these two share.
+			//
+			//START is the console's own extra button: PAUSE on the Master
+			//System (on the console, not the pad, and it raises an NMI) and
+			//START on the Game Gear. Mesen reads both as its `Pause` bit and
+			//routes it by model (`SmsVdp` raises the NMI on the Master System,
+			//`ReadGameGearPort` answers port 0 on the Game Gear), so one bit
+			//serves both. SELECT has no button on either and sends nothing.
+			device->SetBitValue(SmsController::Buttons::B, keys & 0x002);
+			device->SetBitValue(SmsController::Buttons::A, keys & 0x001);
+			device->SetBitValue(SmsController::Buttons::Pause, keys & 0x008);
+			device->SetBitValue(SmsController::Buttons::Right, keys & 0x010);
+			device->SetBitValue(SmsController::Buttons::Left, keys & 0x020);
+			device->SetBitValue(SmsController::Buttons::Up, keys & 0x040);
+			device->SetBitValue(SmsController::Buttons::Down, keys & 0x080);
+		} else if(kind == MesenKind::Nes) {
 			device->SetBitValue(NesController::Buttons::A, keys & 0x001);
 			device->SetBitValue(NesController::Buttons::B, keys & 0x002);
 			device->SetBitValue(NesController::Buttons::Select, keys & 0x004);
@@ -492,19 +572,23 @@ private:
 	BOOL _port2Plugged;
 
 	BOOL _romLoaded;
-	BOOL _isNes;
+	MesenKind _kind;
 	uint32_t _bufferWidth;
 	uint32_t _bufferHeight;
 	int _speedMultiplier;
 
 	/// Battery saves. Mesen names its own file (`<rom>.srm` on SNES, `<rom>.sav`
-	/// on NES) inside a folder we choose, while the app's canonical name is
+	/// on NES, Master System and Game Gear) inside a folder we choose, while the app's canonical name is
 	/// `<rom>.sav` for every console. See the battery section for why that is
 	/// reconciled with a shadow folder rather than by changing either side.
 	std::string _canonicalSavePath;
 	std::string _shadowFolder;
 	std::string _romBasename;
 	BOOL _batteryNeedsReload;
+	/// Set when a save on disk could not be handed to the core AND could not be
+	/// moved aside: writing would then replace it, so nothing is written this
+	/// session. See `seedShadowFromCanonical`.
+	BOOL _saveWritesBlocked;
 
 	/// Rewind: whole states in a ring, one a second.
 	std::vector<std::vector<uint8_t>> _rwStates;
@@ -525,7 +609,7 @@ private:
 	self = [super init];
 	if(self) {
 		_romLoaded = NO;
-		_isNes = NO;
+		_kind = MesenKind::Snes;
 		_connectedPlayers = 1;
 		_portsDirty = false;
 		_port2Plugged = NO;
@@ -533,6 +617,7 @@ private:
 		_bufferHeight = (uint32_t)SNESBufferHeight;
 		_speedMultiplier = 1;
 		_batteryNeedsReload = NO;
+		_saveWritesBlocked = NO;
 		_rwCapacity = 0;
 		_rwStored = 0;
 		_rwNewest = -1;
@@ -560,7 +645,8 @@ private:
 - (BOOL)hasTouchScreen { return NO; }
 
 /// The console's OWN frame with square pixels: SNES 8:7 (256x224), NES 31:30
-/// (248x240, the 240-line frame minus its 8 cropped columns).
+/// (248x240, the 240-line frame minus its 8 cropped columns), Master System
+/// 4:3 (256x192) and Game Gear 10:9 (160x144).
 ///
 /// Both consoles drew for a television that stretched them to 4:3, so there are
 /// two defensible shapes: the television's, where a circle drawn by the artist
@@ -571,17 +657,28 @@ private:
 ///
 /// The SNES buffer is presented double-height for hi-res mode, so 512x448 is
 /// exactly 2x of 256x224 and its ratio is already the one returned here.
+///
+/// The Master System and the Game Gear follow the same rule. The Master System's
+/// square-pixel frame happens to be 4:3 exactly; the Game Gear's LCD has square
+/// pixels for real, which makes its 10:9 the handheld's own screen, the shape the
+/// Game Boy's 160x144 has too.
 - (CGFloat)displayAspect {
-	return _isNes ? (CGFloat)NESBufferWidth / (CGFloat)NESBufferHeight : 8.0 / 7.0;
+	switch(_kind) {
+		case MesenKind::Nes: return (CGFloat)NESBufferWidth / (CGFloat)NESBufferHeight;
+		case MesenKind::Sms: return (CGFloat)SMSBufferWidth / (CGFloat)SMSBufferHeight;
+		case MesenKind::Gg: return (CGFloat)GGBufferWidth / (CGFloat)GGBufferHeight;
+		default: return 8.0 / 7.0;
+	}
 }
 
 /// Mesen writes 0xAARRGGBB, which on a little-endian device is B,G,R,A in
 /// memory, the same order melonDS produces.
 - (BOOL)usesBGRAPixelOrder { return YES; }
 
-/// The rate the cartridge actually runs at, from the core, because on these two
-/// consoles it is not a constant: a European SNES or NES cartridge runs at 50
-/// and a North American one just over 60. Paced at the GBA's 59.7275 a PAL game
+/// The rate the cartridge actually runs at, from the core, because on these
+/// consoles it is not a constant: a European SNES, NES or Master System
+/// cartridge runs at 50 and a North American one just over 60. (The Game Gear
+/// runs at its one rate everywhere; Mesen answers that too.) Paced at the GBA's 59.7275 a PAL game
 /// runs a fifth too fast and produces a fifth more audio per second than the
 /// output can take. 60 is only the fallback before a game is loaded.
 - (double)framesPerSecond {
@@ -597,9 +694,23 @@ private:
 	[self shutdown];
 
 	NSString *ext = path.pathExtension.lowercaseString;
-	_isNes = [ext isEqualToString:@"nes"];
-	_bufferWidth = (uint32_t)(_isNes ? NESBufferWidth : SNESBufferWidth);
-	_bufferHeight = (uint32_t)(_isNes ? NESBufferHeight : SNESBufferHeight);
+	if([ext isEqualToString:@"nes"]) {
+		_kind = MesenKind::Nes;
+		_bufferWidth = (uint32_t)NESBufferWidth;
+		_bufferHeight = (uint32_t)NESBufferHeight;
+	} else if([ext isEqualToString:@"sms"]) {
+		_kind = MesenKind::Sms;
+		_bufferWidth = (uint32_t)SMSBufferWidth;
+		_bufferHeight = (uint32_t)SMSBufferHeight;
+	} else if([ext isEqualToString:@"gg"]) {
+		_kind = MesenKind::Gg;
+		_bufferWidth = (uint32_t)GGBufferWidth;
+		_bufferHeight = (uint32_t)GGBufferHeight;
+	} else {
+		_kind = MesenKind::Snes;
+		_bufferWidth = (uint32_t)SNESBufferWidth;
+		_bufferHeight = (uint32_t)SNESBufferHeight;
+	}
 	_romBasename = std::string(path.lastPathComponent.stringByDeletingPathExtension.UTF8String);
 
 	_emu.reset(new Emulator());
@@ -613,7 +724,7 @@ private:
 	_frameSink.reset(new MesenFrameSink(_bufferWidth, _bufferHeight));
 	_audioSink.reset(new MesenAudioSink());
 	_input.reset(new MesenInputSource());
-	_input->IsNes = (bool)_isNes;
+	_input->Kind = _kind;
 	_emu->GetVideoRenderer()->RegisterRenderingDevice(_frameSink.get());
 	_emu->GetSoundMixer()->RegisterAudioDevice(_audioSink.get());
 
@@ -676,7 +787,7 @@ private:
 	emulation.EmulationSpeed = 0;
 	_emu->GetSettings()->SetEmulationConfig(emulation);
 
-	if(_isNes) {
+	if(_kind == MesenKind::Nes) {
 		NesConfig nes = _emu->GetSettings()->GetNesConfig();
 
 		//Two arrays NesConfig ships EMPTY and expects the frontend to fill. Both
@@ -734,7 +845,53 @@ private:
 		_emu->GetSettings()->SetNesConfig(nes);
 	}
 
-	if(!_isNes) {
+	if(_kind == MesenKind::Sms || _kind == MesenKind::Gg) {
+		SmsConfig sms = _emu->GetSettings()->GetSmsConfig();
+
+		//The NES's two empty arrays, again, on this console. `ChannelVolumes`
+		//ships zero-filled for the four PSG channels (three tones and the
+		//noise), and SmsPsg scales each by it, so a frontend that leaves it
+		//alone gets a game that runs and draws and is entirely silent. 100 is
+		//what Mesen's own frontend sets (`SmsConfig.cs`, Tone1Vol..NoiseVol).
+		//The FM unit's volume already defaults to 100 in the core.
+		for(size_t i = 0; i < sizeof(sms.ChannelVolumes) / sizeof(sms.ChannelVolumes[0]); i++) {
+			sms.ChannelVolumes[i] = 100;
+		}
+
+		//The crop, which the core also ships empty. See kSmsOverscanTopBottom.
+		sms.NtscOverscan.Top = kSmsOverscanTopBottom;
+		sms.NtscOverscan.Bottom = kSmsOverscanTopBottom;
+		sms.PalOverscan.Top = kSmsOverscanTopBottom;
+		sms.PalOverscan.Bottom = kSmsOverscanTopBottom;
+		sms.GameGearOverscan.Left = kGgOverscan;
+		sms.GameGearOverscan.Right = kGgOverscan;
+		sms.GameGearOverscan.Top = kGgOverscan;
+		sms.GameGearOverscan.Bottom = kGgOverscan;
+
+		//RAM powers on as ZEROES, not Mesen's default of random bytes. Random
+		//RAM made a RetroAchievements progress counter read its maximum at
+		//boot (Wonder Boy III's "find all 8 heart containers" showed 104/104
+		//five seconds in, found on device 2026-10-09): achievement sets are
+		//written against emulators whose RAM starts from a known state, and
+		//so is a game's own first frame. It also makes a session reproducible.
+		//Work RAM and the cartridge's RAM both read this (`InitializeRam`); a
+		//battery save, when there is one, is loaded over it as before.
+		sms.RamPowerOnState = RamState::AllZeros;
+
+		//And the pad, for the same reason as on the SNES: every port defaults
+		//to None and nothing in SmsConsole plugs one in, so without this line
+		//the game runs and answers no button. Port 2 is `applyPorts`'s, and
+		//only on the Master System (the Game Gear has one player).
+		sms.Port1.Type = ControllerType::SmsController;
+
+		//Region stays on Auto, which is Mesen's own default and reads it from
+		//the file name: "(Europe)" or "(E)" makes a Master System game PAL (50
+		//frames a second), everything else NTSC. The importer keeps a game's
+		//original name, so a No-Intro European dump runs at its own speed.
+		_emu->GetSettings()->SetSmsConfig(sms);
+	}
+
+	if(_kind == MesenKind::Snes) {
 		SnesConfig snes = _emu->GetSettings()->GetSnesConfig();
 		snes.Overscan.Top = kSnesOverscanTop;
 		snes.Overscan.Bottom = kSnesOverscanBottom;
@@ -777,13 +934,36 @@ private:
 - (void)reset {
 	if(!_emu || !_romLoaded) return;
 	[self invalidateRewind];
-	if(_batteryNeedsReload) {
+	//THE MASTER SYSTEM AND THE GAME GEAR HAVE NO SOFT RESET IN MESEN.
+	//`SmsConsole::Reset()` reloads the ROM (`ReloadRom(true)`, "behave like
+	//power cycle"), and `Emulator::Reset()` calls it from inside its own lock
+	//and then goes on using the console it held before the reload, which the
+	//reload has just replaced. So on this console a reset is a power cycle,
+	//taken the bridge's way: through `PowerCycle()`, then the input provider
+	//registered on the NEW console's control manager, as below.
+	if(_batteryNeedsReload || _kind == MesenKind::Sms || _kind == MesenKind::Gg) {
 		//The save path arrives AFTER loadROMAtPath: (EmulatorSession sets it
 		//between the load and this reset, so an existing save is picked up).
 		//Mesen reads the battery when the cartridge initialises, so a power
 		//cycle is what makes a save that arrived late take effect. Later resets
 		//are ordinary soft resets.
+		//
+		//And the console being replaced must not write ITS battery first.
+		//`Emulator::InternalLoadRom` saves the outgoing console's battery before
+		//reloading, and that console was loaded before the save path was known:
+		//its cartridge RAM is whatever the shadow held then (the power-on fill
+		//when there was none), not the save just seeded. Written over the
+		//shadow `setSavePath` has just seeded, it is what the reload then read,
+		//and the next flush copied it over the canonical save. The SNES and the
+		//NES write unconditionally, so a save that arrived since the last
+		//session (imported, or pulled from iCloud) was replaced at its first
+		//launch (host, Super Mario World with an imported save: lost in 8 of 8
+		//runs without this line, kept in 16 of 16 with it); the Master System
+		//writes only RAM the game changed, which is why it was spared. An empty name is Mesen's
+		//own "battery disabled" (`BatteryManager::SaveBattery`), and the reload
+		//names the battery again before the new console reads it (`TryLoadRom`).
 		_batteryNeedsReload = NO;
+		_emu->GetBatteryManager()->Initialize("");
 		_emu->PowerCycle();
 		_emu->RegisterInputProvider(_input.get());
 		//A power cycle reloads the cartridge, and with it an NES game's own
@@ -803,7 +983,8 @@ private:
 // reconciles, what the per-game export shares, and what the save importer
 // writes, and BatterySaveImporter is the single source of truth for it.
 //
-// Mesen names its own file: `<rom>.srm` on SNES, `<rom>.sav` on NES, plus
+// Mesen names its own file: `<rom>.srm` on SNES, `<rom>.sav` on NES, Master
+// System and Game Gear, plus
 // occasional companions (`.rtc` for the SPC7110 clock, `.bs` for BS-X, and
 // `.chr.sav` for NES CHR RAM). The extension is hardcoded at each call site in
 // the cartridge code, so it cannot be asked to use ours.
@@ -826,8 +1007,9 @@ private:
 }
 
 - (NSString *)shadowPrimaryPath {
+	//`SmsMemoryManager` names its file `.sav` too (`LoadBattery(".sav", ...)`).
 	NSString *name = [NSString stringWithFormat:@"%s%s", _romBasename.c_str(),
-	                  _isNes ? ".sav" : ".srm"];
+	                  _kind == MesenKind::Snes ? ".srm" : ".sav"];
 	return [@(_shadowFolder.c_str()) stringByAppendingPathComponent:name];
 }
 
@@ -840,6 +1022,34 @@ private:
 	NSString *canonical = @(_canonicalSavePath.c_str());
 	NSString *shadow = [self shadowPrimaryPath];
 	if(![fm fileExistsAtPath:canonical]) return;
+	//A Master System or Game Gear save LARGER than the cartridge's 32 KB of RAM
+	//is never handed to Mesen. `SmsMemoryManager::SaveBattery` writes as many
+	//bytes as the file on disk holds, from its 32 KB buffer: a 64 KB file there
+	//is a heap overflow (host, AddressSanitizer, Waternet with a 64 KB .sav) and
+	//garbage written into the save. Such a file is another console's save (the
+	//importer takes 64 KB for the SNES and the Mega Drive) or another
+	//emulator's layout, so it is moved aside, as the Mega Drive does
+	//(BlastEmBridge, loadSaveRAM), and kept under a name the battery-save sync
+	//does not read. If it cannot be moved, nothing is written this session, so
+	//it is never overwritten.
+	if(_kind == MesenKind::Sms || _kind == MesenKind::Gg) {
+		NSNumber *size = [fm attributesOfItemAtPath:canonical error:nil][NSFileSize];
+		if(size && size.unsignedLongLongValue > kSmsCartRamBytes) {
+			[fm removeItemAtPath:shadow error:nil];
+			NSString *aside = [NSString stringWithFormat:@"%@.unread-%lld", canonical,
+			                   (long long)[NSDate date].timeIntervalSince1970];
+			NSError *moveError = nil;
+			if(![fm moveItemAtPath:canonical toPath:aside error:&moveError]) {
+				_saveWritesBlocked = YES;
+				NSLog(@"MesenBridge: save is %@ bytes, the cartridge has %u; could not move it aside (%@), save writes blocked",
+				      size, kSmsCartRamBytes, moveError);
+			} else {
+				NSLog(@"MesenBridge: save is %@ bytes, the cartridge has %u; kept unread as %@",
+				      size, kSmsCartRamBytes, aside.lastPathComponent);
+			}
+			return;
+		}
+	}
 	[fm removeItemAtPath:shadow error:nil];
 	NSError *error = nil;
 	if(![fm copyItemAtPath:canonical toPath:shadow error:&error]) {
@@ -856,7 +1066,7 @@ private:
 }
 
 - (void)copyShadowToCanonical {
-	if(_canonicalSavePath.empty()) return;
+	if(_canonicalSavePath.empty() || _saveWritesBlocked) return;
 	NSFileManager *fm = NSFileManager.defaultManager;
 	NSString *shadow = [self shadowPrimaryPath];
 	if(![fm fileExistsAtPath:shadow]) return;   //game has no battery
@@ -930,9 +1140,20 @@ private:
 /// so a change made here takes effect on the next frame, mid-game included.
 - (void)applyPorts {
 	if(!_emu || !_romLoaded) return;
-	const bool wantsPort2 = _connectedPlayers.load() >= 2;
-	const ControllerType pad = _isNes ? ControllerType::NesController : ControllerType::SnesController;
-	if(_isNes) {
+	//The Game Gear is a handheld with one player and no second port to fill.
+	const bool wantsPort2 = _connectedPlayers.load() >= 2 && _kind != MesenKind::Gg;
+	const ControllerType pad = _input ? _input->StandardPadType() : ControllerType::SnesController;
+	if(_kind == MesenKind::Sms || _kind == MesenKind::Gg) {
+		SmsConfig sms = _emu->GetSettings()->GetSmsConfig();
+		if(wantsPort2 && sms.Port2.Type == ControllerType::None) {
+			sms.Port2.Type = pad;
+			_port2Plugged = YES;
+		} else if(!wantsPort2 && _port2Plugged) {
+			if(sms.Port2.Type == pad) sms.Port2.Type = ControllerType::None;
+			_port2Plugged = NO;
+		}
+		_emu->GetSettings()->SetSmsConfig(sms);
+	} else if(_kind == MesenKind::Nes) {
 		NesConfig nes = _emu->GetSettings()->GetNesConfig();
 		if(wantsPort2 && nes.Port2.Type == ControllerType::None) {
 			nes.Port2.Type = pad;
@@ -1082,9 +1303,15 @@ private:
 	_rwSnapshotDue = YES;
 }
 
+/// The console's own frames in one snapshot's second: 60 for an NTSC
+/// cartridge, 50 for a PAL one.
+- (NSInteger)framesPerSnapshot {
+	return MAX((NSInteger)1, (NSInteger)llround(self.framesPerSecond * kRewindSecondsPerSnapshot));
+}
+
 - (void)rewindAppend {
 	if(_rwCapacity <= 0 || !_emu || !_romLoaded) return;
-	if(!_rwSnapshotDue && ++_rwFrameCounter < kRewindFramesPerSnapshot) return;
+	if(!_rwSnapshotDue && ++_rwFrameCounter < [self framesPerSnapshot]) return;
 	_rwSnapshotDue = NO;
 	_rwFrameCounter = 0;
 
@@ -1101,7 +1328,7 @@ private:
 		NSInteger depth = MIN(_rwCapacity, MAX((NSInteger)1, affordable));
 #if DEBUG
 		NSLog(@"[REWIND] %s state %.2f MB, depth %ld of %ld requested",
-		      _isNes ? "NES" : "SNES", bytes.size() / 1048576.0, (long)depth, (long)_rwCapacity);
+		      MesenKindName(_kind), bytes.size() / 1048576.0, (long)depth, (long)_rwCapacity);
 #endif
 		_rwCapacity = depth;
 		_rwStates.resize((size_t)depth);
@@ -1115,10 +1342,13 @@ private:
 - (BOOL)rewindFrames:(NSInteger)count {
 	if(!_emu || !_romLoaded || _rwStored <= 0) return NO;
 
-	//The caller counts frames; we hold one snapshot a second. Both of the app's
-	//rewind targets (5 s free, 30 s Pro) are whole seconds, so this is exact on
-	//every value the UI can actually ask for.
-	NSInteger back = MAX((NSInteger)1, count / kRewindFramesPerSnapshot);
+	//The caller counts SIXTIETHS of a second (EmulatorViewController asks
+	//`seconds * 60` whatever the cartridge's rate), and we hold one snapshot a
+	//second of play, so a second is 60 here on every console, PAL included.
+	//The app's depths are whole seconds, so this is exact on every value the
+	//UI can actually ask for.
+	const NSInteger perSnapshot = kRewindSecondsPerSnapshot * 60;
+	NSInteger back = MAX((NSInteger)1, count / perSnapshot);
 	if(back > _rwStored) back = _rwStored;
 
 	NSInteger index = _rwNewest - (back - 1);
@@ -1152,6 +1382,12 @@ private:
 // NES: internal RAM at 0x0000-0x07FF and cartridge save RAM at 0x6000-0x7FFF;
 // the mirrors are virtual in rcheevos' map and never reach us.
 //
+// Master System and Game Gear: one map for both. System RAM (8 KB) at 0xC000,
+// and the cartridge's RAM placed OUTSIDE the console's 64 KB, at 0x10000, as
+// one 32 KB block: rcheevos' own comment says the mappers bank it in pieces, so
+// its "real address" is a virtual one. Mesen registers the same 32 KB block
+// (`SmsMemoryManager::CartRamMaxSize`), so the offsets line up one for one.
+//
 // Stated rather than hidden: rcheevos' NES map also describes the cartridge ROM
 // at 0x8000 as readable, and this serves nothing there. Reading it would mean
 // resolving the mapper's current bank for every address, and achievement logic is
@@ -1164,7 +1400,17 @@ private:
 
 	MemoryType type;
 	uint32_t offset;
-	if(_isNes) {
+	if(_kind == MesenKind::Sms || _kind == MesenKind::Gg) {
+		if(address >= 0xC000 && address < 0xE000) {
+			type = MemoryType::SmsWorkRam;
+			offset = address - 0xC000;
+		} else if(address >= 0x10000 && address < 0x18000) {
+			type = MemoryType::SmsCartRam;
+			offset = address - 0x10000;
+		} else {
+			return 0;
+		}
+	} else if(_kind == MesenKind::Nes) {
 		if(address < 0x0800) {
 			type = MemoryType::NesInternalRam;
 			offset = address;
@@ -1218,7 +1464,17 @@ private:
 	if(!_emu || !_romLoaded) return NO;
 
 	CheatType cheatType;
-	if(_isNes) {
+	const bool isSms = (_kind == MesenKind::Sms || _kind == MesenKind::Gg);
+	if(isSms) {
+		//The Master System's and the Game Gear's two formats, which Mesen shares
+		//between them: Game Genie (`XXX-XXX` or `XXX-XXX-XXX`) and Pro Action
+		//Replay (eight hex digits, an address and a value).
+		switch(type) {
+			case 0: cheatType = CheatType::SmsGameGenie; break;
+			case 1: cheatType = CheatType::SmsProActionReplay; break;
+			default: return NO;
+		}
+	} else if(_kind == MesenKind::Nes) {
 		switch(type) {
 			case 0: cheatType = CheatType::NesGameGenie; break;
 			case 1: cheatType = CheatType::NesProActionRocky; break;
@@ -1240,6 +1496,9 @@ private:
 		NSString *trimmed = [line stringByTrimmingCharactersInSet:
 		                     NSCharacterSet.whitespaceCharacterSet];
 		if(trimmed.length == 0) continue;
+		if(isSms && cheatType == CheatType::SmsProActionReplay) {
+			trimmed = [MesenBridge sega8BitProActionReplayDigits:trimmed];
+		}
 		//Mesen's code field is 16 bytes including its terminator; nothing this
 		//long is a valid code on either console.
 		if(trimmed.length > 15) return NO;
@@ -1268,6 +1527,27 @@ private:
 	if(_emu) _emu->GetCheatManager()->ClearCheats(false);
 }
 
+/// A Pro Action Replay code is printed in the books and on the cheat sites as
+/// `00C0:0F01` or `00C0 0F01`, and libretro's cheat files (the app's cheat
+/// browser) print it `00C0-0F01`; Mesen's validator takes the eight digits
+/// alone. Those separators carry nothing (the code is fixed-width), so they are
+/// dropped for this format and these two consoles only. The dash was not, until
+/// 2026-10-10, and refused 3,286 of the Master System's browser codes and 3,054
+/// of the Game Gear's (host, Mesen's own converter: one of each left refused,
+/// both malformed in the file).
+///
+/// The Game Genie's dashes are part of ITS format and are never touched: the
+/// session tries the Game Genie first (type 0), and this runs only for the
+/// Pro Action Replay (type 1), which takes exactly eight hex digits, so a
+/// Game Genie code (six or nine) stripped of its dashes still cannot pass as one.
++ (NSString *)sega8BitProActionReplayDigits:(NSString *)code {
+	NSString *digits = code;
+	for(NSString *separator in @[@":", @" ", @"-"]) {
+		digits = [digits stringByReplacingOccurrencesOfString:separator withString:@""];
+	}
+	return digits;
+}
+
 #pragma mark - Touch screen (not applicable)
 
 - (void)touchScreenAtX:(int)x y:(int)y {}
@@ -1293,6 +1573,7 @@ private:
 	_input.reset();
 	_romLoaded = NO;
 	_batteryNeedsReload = NO;
+	_saveWritesBlocked = NO;
 	_canonicalSavePath.clear();
 	_romBasename.clear();
 }

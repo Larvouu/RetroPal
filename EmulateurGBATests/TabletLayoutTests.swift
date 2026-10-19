@@ -48,7 +48,7 @@ struct TabletLayoutTests {
         ("iPhone 16 Pro Max", CGSize(width: 440, height: 956)),
     ]
 
-    static let systems: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes, .ps1, .n64]
+    static let systems: [PresetSystem] = PresetSystem.allCases
 
     private func onItsSide(_ portrait: CGSize) -> CGSize {
         CGSize(width: portrait.height, height: portrait.width)
@@ -83,8 +83,13 @@ struct TabletLayoutTests {
         var rects: [ControlElement: CGRect] = [:]
         for e in ControlElement.elements(for: system) {
             guard let bl = layout.buttons[e.rawValue], !bl.isHidden else { continue }
-            let baseSize = EmulatorLayoutGeometry.buttonSize(e, system: system,
-                                                             isLandscape: isLandscape, deviceScale: k)
+            // The size DRAWN, as the controls apply it (`n64PhoneScale`): the four
+            // consoles added in 1.3.4 draw smaller on a tablet (`tabletThumbScale`).
+            let table = EmulatorLayoutGeometry.buttonSize(e, system: system,
+                                                          isLandscape: isLandscape, deviceScale: k)
+            let drawn = ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape,
+                                                            family: LayoutFamily.of(deviceSize), system: system)
+            let baseSize = CGSize(width: table.width * drawn, height: table.height * drawn)
             let adj = EmulatorLayoutGeometry.ndsLandscapeAdjusted(
                 element: e, isNDS: isNDS, isLandscape: isLandscape,
                 center: CGPoint(x: container.width * bl.centerX, y: container.height * bl.centerY),
@@ -293,13 +298,23 @@ struct TabletLayoutTests {
     /// The reason the tablet page exists: the picture fills at least half the
     /// window's height on its side, where the phone page gave the 13-inch a
     /// picture two fifths as tall as its window.
+    ///
+    /// OR it already takes the whole width between the two panels, which is the
+    /// other bound the page sets (`tabletLandscapeScreenFrame`): a picture wider
+    /// than 4:3 meets the panels before it reaches half the height. The PSP's
+    /// 480:272 is the first such console (2026-10-09): on the 13-inch it is 800
+    /// wide, the PlayStation's width, and 453 tall. A picture that is neither
+    /// half the height nor the whole width still fails, which is the case this
+    /// test was written for.
     @Test func tabletLandscapePictureFillsHalfTheHeight() {
         for system in Self.systems where system != .nds {
             for (name, portrait) in Self.tablets {
                 let size = onItsSide(portrait)
                 let screen = page(system: system, isLandscape: true, deviceSize: size, insets: Self.tabletInsets).screen
-                #expect(screen.height >= size.height * 0.5,
-                        "\(system) \(name) on its side: the picture is \(screen.height) of \(size.height)")
+                let k = EmulatorLayoutGeometry.deviceScale(for: size)
+                let room = size.width - 2 * EmulatorLayoutGeometry.tabletLandscapePanel * k
+                #expect(screen.height >= size.height * 0.5 || screen.width >= room - 0.5,
+                        "\(system) \(name) on its side: the picture is \(screen.height) of \(size.height), \(screen.width) wide of \(room)")
                 #expect(screen.minY >= EmulatorLayoutGeometry.tabletLandscapeTopReserve - 0.5,
                         "\(system) \(name) on its side: the picture starts at \(screen.minY), under the status bar")
             }
@@ -310,18 +325,54 @@ struct TabletLayoutTests {
     /// that console, scaled: the pad is that page scaled, anchored to both ends
     /// of its band, and a shorter band closes the anchors on each other (Clip
     /// sat 58 points into A on the first sweep, when the reserve was flat).
+    /// The Mega Drive has a page of its own on a tablet (`mdTablet`, 2026-10-08)
+    /// that packs its controls into a band it computes, so it is held to THAT
+    /// band, which is what lets its picture take the window's width.
     @Test func tabletPortraitPictureLeavesTheReserve() {
         for system in Self.systems where system != .nds {
             for (name, portrait) in Self.tablets {
                 let k = EmulatorLayoutGeometry.deviceScale(for: portrait)
                 let laid = page(system: system, isLandscape: false, deviceSize: portrait, insets: Self.tabletInsets)
                 let band = portrait.height - laid.screen.maxY
-                let promised = EmulatorLayoutGeometry.referencePortraitControlsHeight(
-                    gameAspect: EmulatorLayoutGeometryTests.displayAspect(system), system: system) * k
+                // The PSP sits its picture just above the band its own page
+                // needs (asked 2026-10-11: the picture lower), as the Mega Drive does.
+                let promised: CGFloat
+                switch system {
+                case .md:  promised = EmulatorLayoutGeometry.mdTabletPortraitControlsHeight(deviceScale: k)
+                case .psp: promised = EmulatorLayoutGeometry.pspTabletPortraitControlsHeight(deviceScale: k)
+                default:   promised = EmulatorLayoutGeometry.referencePortraitControlsHeight(
+                        gameAspect: EmulatorLayoutGeometryTests.displayAspect(system), system: system) * k
+                }
                 #expect(band >= promised - 0.5,
                         "\(system) \(name) upright: \(band) points under the picture, \(promised) promised")
                 #expect(laid.screen.width <= portrait.width + 0.5 && laid.screen.minX >= -0.5,
                         "\(system) \(name) upright: the picture \(laid.screen) leaves the window")
+            }
+        }
+    }
+
+    /// The Mega Drive upright on a tablet: the picture takes the window's
+    /// whole width (asked 2026-10-08; the shared rule left it 595 points wide
+    /// on a 744-point mini), and its own band still fits under it.
+    @Test func megaDriveTabletPictureTakesTheWidth() {
+        for (name, portrait) in Self.tablets {
+            let laid = page(system: .md, isLandscape: false, deviceSize: portrait, insets: Self.tabletInsets)
+            #expect(approx(laid.screen.width, portrait.width),
+                    "Mega Drive \(name) upright: the picture is \(laid.screen.width) of \(portrait.width)")
+        }
+    }
+
+    /// The six-button pad's X Y Z are smaller than its A B C (close
+    /// photographs, 2026-10-08), on every page.
+    @Test func megaDriveUpperRowIsSmaller() {
+        for isLandscape in [false, true] {
+            let lower = EmulatorLayoutGeometry.buttonSize(.btnA, system: .md, isLandscape: isLandscape,
+                                                          deviceScale: 1)
+            for element in ControlElement.mdUpperRow {
+                let upper = EmulatorLayoutGeometry.buttonSize(element, system: .md,
+                                                              isLandscape: isLandscape, deviceScale: 1)
+                #expect(upper.width < lower.width,
+                        "\(element.rawValue) is \(upper.width), A B C are \(lower.width)")
             }
         }
     }

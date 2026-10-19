@@ -154,6 +154,89 @@ struct BoxArtMatchingTests {
         #expect(BoxArtManager.stemVariants("Tetris (World)") == ["Tetris (World)"])
     }
 
+    // MARK: - Server aliases (the PSP's thumbnails are not named after Redump)
+
+    @Test func pspAliasesPointAtTheNameTheServerHolds() {
+        let index = BoxArtIndex.shared
+        // Language group dropped, article moved, region narrowed, romanisation:
+        // each target was in the server's listing on 2026-10-10.
+        #expect(index.serverAlias(forStem: "Ace Combat X - Skies of Deception (USA) (En,Ja,Fr,De,Es,It,Ko)",
+                                  system: .psp) == "Ace Combat X - Skies of Deception (USA)")
+        #expect(index.serverAlias(forStem: "Pucelle, La - Ragnarok (Japan)",
+                                  system: .psp) == "La Pucelle - Ragnarok (Japan)")
+        #expect(index.serverAlias(forStem: "Persona 3 Portable (Japan, Asia)",
+                                  system: .psp) == "Persona 3 Portable (Japan)")
+        #expect(index.serverAlias(forStem: "Saikyou Toudai Shougi Portable (Japan)",
+                                  system: .psp) == "Saikyou Toudai Shogi Portable (Japan) (v1.02)")
+        // A name the server already holds as it is carries no alias.
+        #expect(index.serverAlias(forStem: "Monster Hunter Freedom Unite (USA) (En,Fr,De,Es,It)",
+                                  system: .psp) == nil)
+    }
+
+    @Test func anAliasReplacesTheIndexNameInTheFetchList() {
+        let index = BoxArtIndex.shared
+        #expect(BoxArtManager.fetchStems("Persona 3 Portable (Japan, Asia)", system: .psp, index: index)
+                == ["Persona 3 Portable (Japan)"])
+        // Without an alias the list is the one `stemVariants` always gave.
+        #expect(BoxArtManager.fetchStems("Tetris (World) (Rev 1)", system: .gb, index: index)
+                == ["Tetris (World) (Rev 1)", "Tetris (World)"])
+    }
+
+    /// Only the PSP has an alias table, and the eleven other consoles keep the
+    /// tables they had before it (the generator's `--only psp` merge leaves
+    /// them byte-identical; the name counts below are those of that file).
+    @Test func otherConsolesHaveNoAliasesAndUnchangedTables() {
+        let index = BoxArtIndex.shared
+        let others: [ROMSystemType] = [.gb, .gbc, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg]
+        for system in others {
+            #expect(index.serverAliases(system: system).isEmpty, "a console other than the PSP has an alias table")
+        }
+        #expect(index.serverAliases(system: .psp).count == 698)
+        // A name each console's table held before the aliases still resolves.
+        #expect(index.exactName(crc32: 0x2A10F7E4, system: .gba) == "Lilo _ Stitch (Europe) (En,Fr,De,Es,It,Nl)")
+        #expect(index.serialName("BPEF", system: .gba) == "Pokemon - Version Emeraude (France)")
+    }
+
+    /// Every alias target is a file the server listed, every aliased name is one
+    /// it did not, and no alias crosses regions. Reads the listing snapshot the
+    /// generator used, from the checkout (skipped where the checkout cannot be
+    /// read, as the localization scans are).
+    @Test func everyPSPAliasTargetIsInTheMeasuredListing() throws {
+        let listingURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Tools/boxart-listings/Sony - PlayStation Portable.txt")
+        guard let text = try? String(contentsOf: listingURL, encoding: .utf8) else {
+            print("[boxart] SKIPPED on this runtime: the listing snapshot is not readable at \(listingURL.path)")
+            return
+        }
+        let listing = Set(text.split(separator: "\n").map(String.init))
+        #expect(listing.count == 1752)
+        let aliases = BoxArtIndex.shared.serverAliases(system: .psp)
+        #expect(!aliases.isEmpty)
+        for (name, target) in aliases {
+            #expect(listing.contains(target), "an alias target is not in the server listing")
+            #expect(!listing.contains(name), "an aliased name is already on the server as it is")
+            #expect(Self.regions(of: name).isDisjoint(with: Self.regions(of: target)) == false,
+                    "an alias crosses regions")
+        }
+    }
+
+    /// The regions named in a No-Intro / Redump stem's parentheses.
+    private static func regions(of stem: String) -> Set<String> {
+        let known: Set<String> = ["USA", "Europe", "Japan", "Asia", "Korea", "UK", "Australia",
+                                  "Germany", "France", "Spain", "Italy", "Netherlands", "Sweden",
+                                  "Russia", "World", "Brazil", "Canada", "China", "Hong Kong",
+                                  "Taiwan", "Scandinavia", "Portugal", "Greece", "Poland"]
+        var found = Set<String>()
+        var rest = Substring(stem)
+        while let open = rest.firstIndex(of: "("), let close = rest[open...].firstIndex(of: ")") {
+            let words = rest[rest.index(after: open)..<close].components(separatedBy: ", ")
+            if words.allSatisfy(known.contains) { found.formUnion(words) }
+            rest = rest[rest.index(after: close)...]
+        }
+        return found
+    }
+
     // MARK: - The real bundled index
 
     @Test func bundledIndexLoads() {

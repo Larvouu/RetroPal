@@ -10,11 +10,11 @@
 "library.empty.subtitle" = "Joacă-ți jocurile retro pe iPhone. Fără reclame, fără urmărire personală.";
 "library.empty.subtitle.ipad" = "Joacă-ți jocurile retro pe iPad. Fără reclame, fără urmărire personală.";
 "library.empty.button" = "Adaugă un joc";
-"library.empty.step1" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 sau .chd) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
-"library.empty.step1.ipad" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 sau .chd) pe iPad, prin Safari, AirDrop sau iCloud Drive.";
+"library.empty.step1" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso sau .pbp) pe iPhone, prin Safari, AirDrop sau iCloud Drive.";
+"library.empty.step1.ipad" = "Adu un joc (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso sau .pbp) pe iPad, prin Safari, AirDrop sau iCloud Drive.";
 "library.empty.step2" = "Atinge %@, apoi alege fișierul în aplicația Fișiere.";
 "library.empty.step3" = "Joacă. Progresul se salvează automat";
-"library.empty.romHint" = "Încă nu ai ROM-uri? Există multe jocuri gratuite și legale. Caută online \"GBA homebrew\".";
+"library.empty.romHint" = "Încă nu ai jocuri? Există multe gratuite și legale. Caută online \"GBA homebrew\".";
 "library.empty.legal" = "Importă doar fișiere pe care le deții legal.";
 "library.search" = "Caută jocuri";
 "library.sort.lastPlayed" = "Jucat recent";
@@ -41,7 +41,8 @@
 "details.newGame" = "Pornește de la ecranul de titlu";
 "details.saveSlots" = "Sloturi de salvare rapidă";
 "details.delete" = "Șterge jocul";
-"details.delete.confirm" = "Ștergi acest joc și toate datele salvate?";
+"details.delete.confirm" = "Ștergi acest joc?";
+"details.delete.confirm.message" = "Stările de salvare și codurile lui se șterg. Salvarea din joc rămâne: importă jocul din nou și îți recuperezi progresul.";
 "details.rename" = "Redenumește";
 "details.rename.title" = "Redenumește jocul";
 "details.cover.choose" = "Alege coperta";
@@ -106,6 +107,8 @@
 "settings.dpad" = "D-Pad";
 "settings.joystick" = "Joystick";
 "settings.clipButton" = "Buton clip";
+"details.playAsP2" = "Joacă ca Jucătorul 2";
+"details.playAsP2.caption" = "Joci ca Jucătorul 2, cu comenzile tactile sau cu controlerul, iar jocul îl conduce pe Jucătorul 1: antrenează-te contra calculatorului din cealaltă parte. Un al doilea controler joacă Jucătorul 1.";
 "settings.nds.swapScreens" = "Inversează ecranele";
 "settings.nds.language" = "Limba jocului";
 "settings.nds.language.auto" = "Auto (%@)";
@@ -151,7 +154,7 @@
 "pro.benefit.speed" = "Toate vitezele: de la 0,25x la 4x";
 "pro.benefit.slots" = "5 sloturi de salvare (în loc de 2)";
 "pro.benefit.rewind" = "Derulare înapoi de 30 de secunde";
-"pro.benefit.cheats" = "Coduri de trișare (GameShark / Action Replay)";
+"pro.benefit.cheats" = "Coduri de trișare (Action Replay, Game Genie, GameShark și altele)";
 "pro.benefit.controls" = "Controale personalizate (tactil și controller)";
 "pro.benefit.speed.short" = "Toate vitezele";
 "pro.benefit.slots.short" = "5 sloturi de salvare";
@@ -226,7 +229,7 @@
 "legal.melonds" = "Licența melonDS";
 "legal.importantNotice.title" = "Notificare importantă";
 "legal.aboutApp.title" = "Despre această aplicație";
-"legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation și Nintendo 64. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
+"legal.aboutApp.description1" = "Retro Pal este un frontend de emulator local pentru jocuri Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation, Nintendo 64, Mega Drive, Master System, Game Gear și PSP. Nu descarcă, nu distribuie și nu oferă acces la conținut de joc. Toate fișierele ROM trebuie importate de utilizator din stocarea propriului dispozitiv prin aplicația Fișiere.";
 "legal.aboutApp.description2" = "Această aplicație nu oferă un catalog de jocuri, nu distribuie conținut de jocuri și nu facilitează descărcarea de materiale protejate prin drepturi de autor.";
 "legal.privacy.title" = "Confidențialitate";
 "legal.privacy.description" = "Jocurile și salvările tale rămân pe dispozitivul tău. Pentru a îmbunătăți aplicația, Retro Pal trimite doar statistici de utilizare anonime, fără date personale și fără identificatori publicitari.";
@@ -237,13 +240,19 @@
 "legal.melonds.description" = "melonDS este un emulator Nintendo DS folosit ca motor de emulare pentru jocurile DS în această aplicație. Codul sursă al melonDS este disponibil la [https://melonds.kuribo64.net](https://melonds.kuribo64.net)";
 "legal.mesen" = "Licența MesenCE";
 "legal.mesen.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
-"legal.mesen.description" = "MesenCE este un emulator Super Nintendo și NES folosit ca motor de emulare pentru jocurile SNES și NES în această aplicație. Codul sursă al MesenCE este disponibil la [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
+"legal.mesen.description" = "MesenCE este un emulator multisistem folosit ca motor de emulare pentru jocurile Super Nintendo, NES, Master System și Game Gear în această aplicație. Codul sursă al MesenCE este disponibil la [https://github.com/nesdev-org/MesenCE](https://github.com/nesdev-org/MesenCE)";
 "legal.pcsx" = "Licența PCSX-ReARMed";
 "legal.pcsx.licenseLine" = "Licențiat sub GNU General Public License v2.0 sau ulterioară (GPL-2.0-or-later)";
 "legal.pcsx.description" = "PCSX-ReARMed este un emulator PlayStation folosit ca motor de emulare pentru jocurile PlayStation în această aplicație. Codul sursă al PCSX-ReARMed este disponibil la [https://github.com/notaz/pcsx_rearmed](https://github.com/notaz/pcsx_rearmed)";
 "legal.mupen" = "Licența Mupen64Plus-Next";
 "legal.mupen.licenseLine" = "Licențiat sub GNU General Public License v2.0 sau ulterioară (GPL-2.0-or-later)";
 "legal.mupen.description" = "Mupen64Plus-Next este un emulator Nintendo 64 folosit ca motor de emulare pentru jocurile Nintendo 64 în această aplicație, împreună cu procesorul de semnal cxd4 al lui Iconoclast (CC0). Este folosit cu câteva modificări, publicate ca fișiere patch alături de codul sursă. Codul sursă al Mupen64Plus-Next este disponibil la [https://github.com/libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx)";
+"legal.blastem" = "Licența BlastEm";
+"legal.blastem.licenseLine" = "Licențiat sub GNU General Public License v3.0 sau ulterioară (GPL-3.0-or-later)";
+"legal.blastem.description" = "BlastEm este un emulator Mega Drive folosit ca motor de emulare pentru jocurile Mega Drive în această aplicație. Este folosit cu câteva modificări, publicate ca fișiere patch alături de codul sursă. Codul sursă al BlastEm este disponibil la [https://www.retrodev.com/repos/blastem](https://www.retrodev.com/repos/blastem)";
+"legal.ppsspp" = "Licența PPSSPP";
+"legal.ppsspp.licenseLine" = "Licențiat sub GNU General Public License v2.0 sau ulterioară (GPL-2.0-or-later)";
+"legal.ppsspp.description" = "PPSSPP este un emulator PSP folosit ca motor de emulare pentru jocurile PSP în această aplicație. Codul sursă al PPSSPP este disponibil la [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp)";
 "legal.parallelrdp" = "Licența ParaLLEl-RDP";
 "legal.parallelrdp.licenseLine" = "Licențiat sub licența MIT";
 "legal.parallelrdp.description" = "ParaLLEl-RDP desenează imaginea consolei Nintendo 64 pe procesorul grafic în această aplicație. Codul sursă al ParaLLEl-RDP este disponibil la [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
@@ -253,7 +262,7 @@
 "legal.retropal" = "Licența Retro Pal";
 "legal.retropal.licenseLine" = "Licențiat sub GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Codul sursă complet al Retro Pal este disponibil la [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Software-ul este furnizat fără nicio garanție.";
-"legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și PCSX-ReARMed (GPL-2.0 sau ulterioară), utilizate fără modificări, pe melonDS (GPL-3.0), utilizat cu două mici modificări, pe MesenCE (GPL-3.0), utilizat cu o mică modificare, și pe Mupen64Plus-Next (GPL-2.0 sau ulterioară), utilizat cu câteva modificări, împreună cu ParaLLEl-RDP (MIT), procesorul de semnal cxd4 (CC0) și MoltenVK (Apache License 2.0). Fiecare modificare este publicată ca fișier patch alături de codul sursă. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
+"legal.compliance" = "Retro Pal este distribuit sub GNU General Public License v3.0. Se bazează pe mGBA (Mozilla Public License 2.0) și PCSX-ReARMed (GPL-2.0 sau ulterioară), utilizate fără modificări, pe MesenCE (GPL-3.0) și PPSSPP (GPL-2.0 sau ulterioară), utilizate fiecare cu o mică modificare, pe melonDS (GPL-3.0) și BlastEm (GPL-3.0 sau ulterioară), utilizate fiecare cu două mici modificări, și pe Mupen64Plus-Next (GPL-2.0 sau ulterioară), utilizat cu câteva modificări, împreună cu ParaLLEl-RDP (MIT), procesorul de semnal cxd4 (CC0) și MoltenVK (Apache License 2.0). Fiecare modificare este publicată ca fișier patch alături de codul sursă. Codul sursă corespunzător complet este disponibil în depozitul legat mai sus, iar software-ul este furnizat fără nicio garanție.";
 "legal.thirdParty.title" = "Licențe terțe";
 "legal.thirdParty.caption" = "Textul complet al fiecărei licențe sub care este distribuit software-ul inclus în Retro Pal, cu componentele care o folosesc.";
 "legal.thirdParty.usedBy" = "Folosită de";
@@ -273,6 +282,8 @@
 "overlay.sound.off" = "Sunet oprit";
 "overlay.overwrite.title" = "Suprascrii slotul %@?";
 "overlay.overwrite.message" = "Salvarea existentă va fi înlocuită.";
+"overlay.save.failed.title" = "Salvarea în slotul %@ a eșuat";
+"overlay.save.failed.message" = "Slotul păstrează salvarea anterioară. Încearcă din nou. Dacă eșuează în continuare, eliberează spațiu de stocare sau închide alte aplicații.";
 "overlay.overwrite" = "Suprascrie";
 "overlay.load.confirm.title" = "Încarci slotul %@?";
 "overlay.load.confirm.message" = "Progresul nesalvat va fi pierdut.";
@@ -283,6 +294,9 @@
 "cheats.hint.snes" = "Format Game Genie (XXXX-XXXX) sau Pro Action Replay";
 "cheats.hint.nes" = "Format Game Genie (litere) sau Pro Action Rocky";
 "cheats.hint.ps1" = "Format GameShark sau Action Replay (XXXXXXXX YYYY)";
+"cheats.hint.md" = "Format Pro Action Replay (XXXXXX:YYYY)";
+"cheats.hint.sega8" = "Format Game Genie (XXX-XXX) sau Pro Action Replay (XXXX:YYYY)";
+"cheats.hint.psp" = "Format CWCheat (_L 0xXXXXXXXX 0xYYYYYYYY)";
 "cheats.namePlaceholder" = "Nume (opțional)";
 "cheats.edit.title" = "Editează codul";
 "cheats.edit.hint" = "Editează acest cod";
@@ -292,6 +306,9 @@
 "cheats.invalid.snes" = "Cod nerecunoscut. Se aștepta Game Genie (XXXX-XXXX) sau Pro Action Replay (opt caractere).";
 "cheats.invalid.nes" = "Cod nerecunoscut. Se aștepta Game Genie (șase sau opt litere) sau Pro Action Rocky (opt caractere).";
 "cheats.invalid.ps1" = "Cod nerecunoscut. Format așteptat: GameShark sau Action Replay (XXXXXXXX YYYY, o pereche pe linie).";
+"cheats.invalid.md" = "Cod nerecunoscut. Format așteptat: Pro Action Replay (XXXXXX:YYYY, un cod pe linie). Codurile Game Genie nu funcționează pe această consolă.";
+"cheats.invalid.sega8" = "Cod nerecunoscut. Format așteptat: Game Genie (XXX-XXX sau XXX-XXX-XXX) sau Pro Action Replay (XXXX:YYYY, un cod pe linie).";
+"cheats.invalid.psp" = "Cod nerecunoscut. Format așteptat: CWCheat (_L 0xXXXXXXXX 0xYYYYYYYY, o pereche pe linie).";
 "cheats.empty" = "Niciun cod activ";
 "cheats.findHint" = "Codurile se găsesc ușor online. Caută cheat codes pentru jocul tău.";
 "cheats.clearAll" = "Șterge tot";
@@ -337,6 +354,7 @@
 "remap.press" = "Apasă un buton…";
 "remap.reset" = "Restabilește valorile implicite";
 "remap.footer" = "Atinge un buton, apoi apasă butonul controllerului pe care vrei să îl asociezi. Crucea direcțională și stickul controlează mereu crucea.";
+"remap.footer.analogStick" = "Atinge un buton, apoi apasă butonul controllerului pe care vrei să îl asociezi. Pe această consolă, crucea direcțională controlează crucea, iar stickul stâng este stickul ei analogic.";
 "remap.noController" = "Conectează un controller pentru a-i reasocia butoanele.";
 "remap.actions.header" = "Scurtături";
 "remap.action.fastForward" = "Derulare rapidă (ține apăsat)";
@@ -403,7 +421,7 @@
 "saveImport.overwrite.title" = "Salvare existentă";
 "saveImport.overwrite.message" = "%@ are deja o salvare. Va fi păstrată ca rezervă dacă o înlocuiești.";
 "saveImport.overwrite.confirm" = "Înlocuiește";
-"saveImport.error.invalidFormat" = "Acest fișier nu este o salvare recunoscută. Importă un fișier .sav sau .srm exportat din alt emulator.";
+"saveImport.error.invalidFormat" = "Acest fișier nu este o salvare recunoscută. Importă un fișier .sav, .srm sau .mcd exportat din alt emulator.";
 "saveImport.error.wrongSystem" = "Această salvare nu este compatibilă cu acest joc.";
 "saveImport.error.duplicateExists" = "Există deja o salvare pentru acest joc.";
 "saveImport.error.fileAccessDenied" = "Fișierul selectat nu a putut fi citit.";
@@ -413,13 +431,13 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Adaugă un joc";
 "guide.importRom.intro" = "Retro Pal nu include jocuri. Tu îți furnizezi propriile fișiere ROM, pentru care deții drepturile legal (propriile cartușe sau jocuri homebrew gratuite și legale).";
-"guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 sau un disc PlayStation în format .chd ori .cue cu fișierul .bin) pe iPhone: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
-"guide.importRom.step1.ipad" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64 sau un disc PlayStation în format .chd ori .cue cu fișierul .bin) pe iPad: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
+"guide.importRom.step1" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg sau un disc PlayStation în format .chd ori .cue cu fișierul .bin, sau un joc PSP în format .iso, .cso, .chd ori .pbp) pe iPhone: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
+"guide.importRom.step1.ipad" = "Adu fișierul jocului (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg sau un disc PlayStation în format .chd ori .cue cu fișierul .bin, sau un joc PSP în format .iso, .cso, .chd ori .pbp) pe iPad: descarcă-l în Safari, trimite-l prin AirDrop de pe un computer sau folosește iCloud Drive.";
 "guide.importRom.step2" = "Verifică să apară în aplicația Fișiere (în Descărcări, Pe iPhone-ul meu sau iCloud Drive).";
 "guide.importRom.step2.ipad" = "Verifică că apare în aplicația Fișiere (în Descărcări, Pe iPad-ul meu sau iCloud Drive).";
 "guide.importRom.step3" = "În Retro Pal, atinge butonul + din partea de sus a bibliotecii.";
 "guide.importRom.step4" = "Alege fișierul. Jocul apare imediat în biblioteca ta, gata de jucat.";
-"guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u. Merge și un .zip, fie că are un singur joc, toate fișierele unui disc sau mai multe jocuri din care să alegi. Formatul .7z nu este acceptat. Importă doar fișiere pe care le deții legal.";
+"guide.importRom.footer" = "Formate acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u, și jocuri PSP în format .iso, .cso, .chd sau .pbp. Merge și un .zip, fie că are un singur joc, toate fișierele unui disc sau mai multe jocuri din care să alegi. Formatul .7z nu este acceptat. Importă doar fișiere pe care le deții legal.";
 "settings.guides.section" = "Ghiduri";
 "settings.controller.row" = "Controler";
 "common.done" = "Gata";
@@ -442,6 +460,8 @@
 "saveImport.mismatch.title" = "Salvare de la alt joc?";
 "saveImport.mismatch.message" = "Numele fișierului nu corespunde cu %@. Importă-o doar dacă ești sigur că aparține acestui joc.";
 "saveImport.mismatch.confirm" = "Importă oricum";
+"saveOpen.choose.caption" = "Cărui joc îi aparține „%@”? Numele cele mai apropiate apar primele.";
+"saveOpen.noGame" = "Niciun joc din biblioteca ta nu poate folosi această salvare. Importă mai întâi jocul, apoi deschide din nou salvarea.";
 "saveExport.title" = "Exportă salvarea";
 "saveExport.none.title" = "Nicio salvare de exportat";
 "saveExport.none.message" = "Acest joc nu are încă o salvare în joc. Salvează mai întâi din meniul jocului, apoi revino aici pentru a o exporta.";
@@ -514,6 +534,8 @@
 "skin.editor.surround" = "Ramă";
 "skin.editor.dpad" = "Cruce";
 "skin.editor.abButtons" = "Butoane A/B";
+"skin.editor.abcButtons" = "Butoane A/B/C";
+"skin.editor.xyzButtons" = "Butoane X/Y/Z";
 "skin.editor.faceButtons" = "Butoane de acțiune";
 "skin.editor.faceA" = "Buton A";
 "skin.editor.faceB" = "Buton B";
@@ -556,6 +578,9 @@
 "skin.editor.faceZ" = "Buton Z";
 "skin.editor.cButtons" = "Butoane C";
 "skin.editor.startButton" = "Buton START";
+"skin.editor.plates" = "Plăcuțele butoanelor";
+"skin.editor.accent" = "Bordură roșie";
+"skin.editor.onAccent" = "Text pe roșu";
 
 
 /* RetroAchievements */
@@ -615,9 +640,11 @@
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Fișierul selectat nu poate fi accesat. Încearcă să îl imporți din aplicația Fișiere.";
 "import.error.copyFailed" = "Jocul nu a putut fi copiat în Retro Pal. Eliberează spațiu de stocare și încearcă din nou.";
-"import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 și .v64, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u.";
+"import.error.invalidROM" = "Acest fișier nu este un joc pe care Retro Pal îl poate citi. Jocuri acceptate: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms și .gg, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u, și jocuri PSP în format .iso, .cso, .chd sau .pbp.";
 "import.error.discMissingFiles" = "Acestui disc îi lipsesc fișiere care nu au fost selectate: %@. Selectează fișierul .cue și toate fișierele .bin împreună, dintr-o singură dată.";
-"import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64 și .v64, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u; alte console nu sunt acceptate.";
+"import.console.title" = "Pentru ce consolă este acest joc?";
+"import.console.message" = "Retro Pal nu poate afla din fișier dacă „%@” este un joc de PlayStation sau de PSP. Alege-i consola, ca să pornească pe cea potrivită.";
+"import.error.zipNoROM" = "Niciun joc nu a fost găsit în acest ZIP. Retro Pal citește jocuri .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms și .gg, plus discuri PlayStation în format .chd, .cue cu fișierul .bin, sau .m3u, și jocuri PSP în format .iso, .cso, .chd sau .pbp; alte console nu sunt acceptate.";
 "import.error.zipExtractionFailed" = "Acest ZIP nu a putut fi deschis. Dezarhivează-l în aplicația Fișiere, apoi importă direct fișierul jocului.";
 "import.error.zipUnsupportedCompression" = "Acest ZIP folosește o metodă de compresie pe care Retro Pal nu o poate citi, precum LZMA sau BZIP2. Fișierul nu este deteriorat. Dezarhivează-l în aplicația Fișiere și importă jocul direct, sau creează ZIP-ul din nou cu compresie standard.";
 "import.error.zipEncrypted" = "Acest ZIP este protejat cu parolă. Dezarhivează-l în aplicația Fișiere, apoi importă fișierul jocului direct.";
@@ -685,12 +712,18 @@
 
 /* --- Cheat code entry: named problems --- */
 "cheats.invalid.characters" = "Acest cod conține caractere neașteptate. Codurile folosesc doar 0-9, A-F, spații și liniuțe.";
+"cheats.invalid.characters.md" = "Acest cod conține caractere neașteptate. Aceste coduri folosesc doar 0-9, A-F, spații, liniuțe și două puncte.";
+"cheats.invalid.characters.psp" = "Acest cod conține caractere neașteptate. Codurile pentru PSP folosesc doar _L, 0x, cifrele 0-9, literele A-F și spații.";
 "cheats.invalid.characters.nes" = "Acest cod conține caractere neașteptate. Codurile NES folosesc literele Game Genie A P Z L G I T Y E O X U K S V N sau 0-9 și A-F, plus spații și liniuțe.";
 "cheats.invalid.pairs" = "Codurile Action Replay DS vin în perechi: fiecare linie are nevoie de două blocuri de opt caractere, de exemplu 94000130 FCFF0000.";
-"cheats.invalid.placeholder" = "Acest cod lasă o valoare la alegere. Înlocuiește fiecare X cu o cifră hexazecimală (0-9 sau A-F), de exemplu XXXX cu 0063.";
+"cheats.invalid.pairs.psp" = "Codurile CWCheat vin în perechi: fiecare linie are nevoie de două numere după _L, de exemplu _L 0x20123456 0x0000270F.";
+"cheats.invalid.placeholder" = "Acest cod lasă o valoare la alegere. Înlocuiește fiecare X sau ? cu o cifră hexazecimală (0-9 sau A-F), de exemplu XXXX cu 0063.";
 "n64.displayLost.title" = "Imaginea nu se mai actualizează";
 "n64.displayLost.message" = "Procesorul grafic nu mai răspunde, așa că imaginea jocului nu mai poate fi afișată. Ieși pentru a-ți salva progresul, apoi deschide din nou jocul pentru a continua.";
 "n64.displayLost.quit" = "Salvează și ieși";
+"psp.bootFailed.title" = "Acest joc nu a putut porni";
+"psp.bootFailed.message" = "Emulatorul PSP nu a putut porni acest fișier. Dacă acest joc a mai funcționat, închide complet Retro Pal, deschide-l din nou și încearcă încă o dată. Altfel, fișierul poate fi deteriorat sau incomplet ori poate fi o copie pe care emulatorul nu o poate citi, cum ar fi o imagine criptată. Salvările tale și celelalte jocuri nu sunt afectate.";
+"psp.bootFailed.quit" = "Ieși";
 "n64.libdragonUnsupported" = "Acest joc Nintendo 64 a fost creat cu un instrument homebrew recent (libdragon) pe care Retro Pal nu îl poate rula încă. Jocurile Nintendo 64 pe cartuș nu sunt afectate.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -737,25 +770,26 @@
 "externalDisplay.idle.hint.ipad" = "Pornește un joc pe iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "Nintendo 64";
-"whatsnew.s1.b1" = "Jocurile Nintendo 64 rulează acum în Retro Pal, iar consola este gratuită pentru toată lumea.";
-"whatsnew.s1.b2" = "Salvările, stările de salvare, codurile, realizările și copertele oficiale funcționează din prima zi.";
-"whatsnew.s1.b3" = "Pe ecran, stickul, A, B, Z și cele patru butoane C stau sub degetele mari. Cu un controler, stickul drept acționează butoanele C.";
-"whatsnew.s1.b4" = "În jurul jocului poartă propria carcasă, pe verticală și pe orizontală. Cu {PRO} o repictezi în culorile tale.";
-"whatsnew.s2.title" = "Până la patru controlere";
-"whatsnew.s2.b1" = "Conectează până la patru controlere și jucați împreună: doi jucători pe NES, Super Nintendo și PlayStation, patru pe Nintendo 64. Gratuit.";
-"whatsnew.s2.b2" = "În Setări, secțiunea Jucători le stabilește ordinea. Jucătorul 1 joacă pe consolele pentru un singur jucător și controlează meniurile; apasă un buton pe un controler ca să i se aprindă rândul.";
-"whatsnew.s2.b3" = "Bara bibliotecii arată bateria fiecărui controler.";
-"whatsnew.s3.title" = "Toată aplicația cu un controler";
-"whatsnew.s3.b1" = "Navighează cu crucea direcțională prin bibliotecă, pagina unui joc, RetroAchievements și Setări: A deschide, B revine, L și R trec între Bibliotecă și Setări, iar un cadru arată unde te afli.";
-"whatsnew.s3.b2" = "În joc, butonul Home al controlerului, sau Start și Select ținute apăsate o secundă, deschide meniul de pauză, unde salvezi, încarci și ieși fără să atingi ecranul.";
-"whatsnew.s4.title" = "Coperte";
-"whatsnew.s4.b1" = "Alege coperta tuturor jocurilor dintr-odată cu butonul paletă {PALETTE}, la Coperte: coperta oficială, imaginea RetroAchievements sau captura. Coperta aleasă pentru un joc rămâne neschimbată.";
-"whatsnew.s4.b2" = "Un joc a cărui copertă devenise imaginea RetroAchievements își poate recăpăta coperta oficială, iar imaginea RetroAchievements e propusă chiar înainte să deschizi jocul.";
-"whatsnew.s5.title" = "Și în plus";
-"whatsnew.s5.b1" = "Pe DS, meniul de pauză poate închide consola pentru rarele enigme care o cer. Rămâne închisă până apeși orice buton.";
-"whatsnew.s5.b2" = "Jocurile DS rulează mai fluid, mai ales în modul consum redus, iar sunetul nu se mai întrerupe în timpul jocului.";
-"whatsnew.s5.b3" = "Stările de salvare DS ocupă acum cam o treime din spațiu. Cele pe care le ai deja se încarcă în continuare; una nouă se va deschide pe celelalte dispozitive ale tale după ce primesc și ele această actualizare.";
+"whatsnew.s1.title" = "Patru console noi";
+"whatsnew.s1.b1" = "Jocurile de Mega Drive, Master System, Game Gear și PSP rulează acum în Retro Pal, iar toate patru sunt gratuite pentru toată lumea.";
+"whatsnew.s1.b2" = "Salvările, stările de salvare, realizările și copertele oficiale funcționează pe toate patru din prima zi, iar cu {PRO} și codurile.";
+"whatsnew.s1.b3" = "Doi jucători pe Mega Drive și Master System. Mega Drive are pe ecran controlerul său cu șase butoane.";
+"whatsnew.s1.b4" = "Cardurile lor de captură și de clip arată consola însăși, iar cu {PRO} creează skinuri personalizate pentru toate patru.";
+"whatsnew.s2.title" = "Nintendo 64";
+"whatsnew.s2.b1" = "Cu {PRO}, derularea înapoi ajunge acum până la 30 de secunde pe Nintendo 64, față de 5 înainte.";
+"whatsnew.s2.b2" = "Jocurile de Nintendo 64 solicită mai puțin telefonul: până la 18% mai puțină muncă pe cadru în modul de consum redus.";
+"whatsnew.s2.b3" = "Stările de salvare de pe Nintendo 64 sunt acum de aproximativ zece ori mai mici.";
+"whatsnew.s3.title" = "Clasic";
+"whatsnew.s3.b1" = "Clasic devine un aspect de sine stătător, și pe orizontală: un fundal negru uniform, din butonul paletă {PALETTE}.";
+"whatsnew.s4.title" = "Și în plus";
+"whatsnew.s4.b1" = "Deschide un joc sau o salvare direct din aplicația Fișiere sau prin AirDrop, iar Retro Pal îl pune la locul potrivit.";
+"whatsnew.s4.b2" = "Ține apăsat pe pictograma Retro Pal de pe ecranul principal ca să ne spui când ceva nu merge.";
+"whatsnew.s4.b3" = "Când o stare de salvare nu poate fi scrisă, Retro Pal îți spune acum asta, în loc să eșueze în tăcere. Iar înainte de a încărca o stare de salvare, o copie a salvării jocului rămâne în aplicația Fișiere: o stare mai veche nu îți poate lua niciodată definitiv o salvare mai nouă.";
+"whatsnew.s4.b4" = "Butoanele fiecărei console au acum relief, cu un contur de lumină și umbră.";
+"whatsnew.s4.b5" = "Master System, Game Gear și PSP poartă fiecare înfățișarea propriei console, până la butoane.";
+"whatsnew.s4.b6" = "Cu {PRO}, o atingere pe Derulează înapoi te duce cu 10 secunde în urmă pe orice consolă; ține apăsat ca să alegi până la 30.";
+"whatsnew.s4.b7" = "Panoul Aspect din meniul de pauză merge cu controlerul: carcase, filtre de ecran și toate butoanele.";
+"whatsnew.s4.b8" = "Pe pagina unui joc, alege Joacă ca Jucătorul 2 pe consolele cu doi sau mai mulți jucători: joci ca Jucătorul 2, tactil sau cu un controler, și te antrenezi contra calculatorului din cealaltă parte.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nu este încărcată nicio realizare din această serie.";
@@ -766,3 +800,10 @@
 "library.untitled" = "Joc fără titlu";
 "guide.controller.keyboard" = "Tastatură fizică: săgețile mișcă, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Tastele sunt citite după poziție, așa că literele sunt cele ale unei tastaturi QWERTY (aranjament american). Controlerele Bluetooth pe care iOS le recunoaște drept tastatură, precum 8BitDo Zero în modul tastatură, funcționează și ele. Fiecare tastă poate fi reasociată în Setări, Controler, cât timp tastatura este conectată. Pe iPhone, comenzile tactile dispar cât timp o tastatură este conectată.";
 "guide.controller.keyboard.ipad" = "Tastatură fizică: săgețile mișcă, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. Tastele sunt citite după poziție, așa că literele sunt cele ale unei tastaturi QWERTY (aranjament american). Controlerele Bluetooth pe care iOS le recunoaște drept tastatură, precum 8BitDo Zero în modul tastatură, funcționează și ele. Fiecare tastă poate fi reasociată în Setări, Controler, cât timp tastatura este conectată.";
+
+/* The Mega Drive's name as sold in this market (Genesis in the Americas) */
+"console.name.md" = "Mega Drive";
+
+/* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
+"feedback.mail.subject" = "Părere despre Retro Pal";
+"feedback.mail.body" = "Spune-ne ce nu merge și cu ce joc, dacă e vorba de un joc:\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";

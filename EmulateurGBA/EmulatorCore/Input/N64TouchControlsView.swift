@@ -46,6 +46,15 @@ final class N64TouchControlsView: TouchControlsView {
     /// session passes on.
     var onStickChanged: ((_ value: CGPoint) -> Void)?
 
+    /// A, B and Z lock (asked 2026-10-09: Z is the trigger N64 games hold,
+    /// to aim, crouch or shield). Z travels as the l2 bit.
+    override var lockableMask: UInt32 {
+        GBAInput.a.rawValue | GBAInput.b.rawValue | GBAInput.l2.rawValue
+    }
+
+    /// The base class names only A, B, X and Y, so Z is added here.
+    override var lockableLetters: [String] { ["A", "B", "Z"] }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupN64Buttons()

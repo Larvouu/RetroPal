@@ -21,7 +21,12 @@
 #             commercial use.
 #   RSP       cxd4 (CC0), the low-level interpreter parallel-RDP needs (LLE=1).
 #             parallel-RSP is a JIT (HAVE_PARALLEL_RSP=0). The high-level RSP
-#             is always compiled in, and handles the audio tasks.
+#             is always compiled in, but with cxd4 chosen it runs nothing:
+#             cxd4 also runs the games' AUDIO microcode itself, because the
+#             libretro build zeroes its configuration (update_conf in
+#             mupen64plus-rsp-cxd4/module.c), so CFG_HLE_AUD is 0 and an audio
+#             task never leaves cxd4. Checked 2026-10-07 in the source; an
+#             earlier version of this comment said the opposite.
 #   CPU       the cached interpreter. WITH_DYNAREC is empty and NO_ASM is set:
 #             the App Store forbids JIT, so a recompiler would be code we ship
 #             and are never allowed to run.
@@ -49,7 +54,7 @@
 # The export check at the end FAILS the build if anything else is global.
 #
 # PATCHES, applied here rather than forked, so the submodule stays pinned to
-# upstream; the seven files are the whole of our modification to the core:
+# upstream; the ten files are the whole of our modification to the core:
 #   0001-build-without-gliden64.patch   compiles GLideN64 and OpenGL out
 #   0002-free-the-emulation-coroutine-at-deinit.patch
 #                                       lets a statically linked core be
@@ -74,6 +79,34 @@
 #                                       a game that wrote a CPU pointer to the
 #                                       audio address register sent the sample
 #                                       push past RDRAM and crashed the app
+#   0008-take-the-rewind-snapshot-inside-the-frame.patch
+#                                       lets the rewind's snapshot ride inside
+#                                       the next frame instead of running a
+#                                       hidden one, and writes every state
+#                                       straight into the caller's buffer; its
+#                                       three entry points are exported through
+#                                       n64_symbols.h
+#   0009-inline-the-cpu-register-accessors.patch
+#                                       makes the CPU's thirteen one-line register
+#                                       accessors visible to every file, so the
+#                                       interpreter stops calling a function for
+#                                       each register it touches (identical frames,
+#                                       the CPU part of a frame ~60 % cheaper on
+#                                       Tools/n64-bench)
+#   0010-let-parallel-rdp-read-rdram-in-place-on-apple-gpus.patch
+#                                       lets the GPU import the console's RAM
+#                                       instead of copying it across around
+#                                       every RDP sync (the import was tied to
+#                                       Linux/Windows handle extensions MoltenVK
+#                                       lacks); a misaligned RAM falls back to the
+#                                       copies instead of failing the renderer
+#
+# WHY NOT LINK-TIME OPTIMISATION, which the DS core uses (melonds-ios/build.sh)
+# and which gives the same gain here on the host: the prelink below is an
+# `ld -r`, and when every input is bitcode ld64 writes a merged BITCODE file
+# from it and stops (lto_file.cpp, "special case running ld -r on all bitcode
+# files"), without optimising or hiding a single symbol. The export check
+# would then fail, rightly. 0009 gets ~90 % of LTO's gain in plain source.
 # The `legal.compliance` string x15 names the cores we modify, and has to stay
 # accurate while these patches exist.
 

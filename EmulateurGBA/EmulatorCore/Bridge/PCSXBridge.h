@@ -104,6 +104,9 @@ extern const NSInteger PS1MaxBufferHeight;   // 512
 /// only ever engages when a physical stick moves, so a player on glass could
 /// never reach a game's analog mode at all.
 - (void)pressAnalogModeButton;
+/// The same switch on one player's pad, 0-based (the touch controls can play
+/// player 2). Out of range: nothing.
+- (void)pressAnalogModeButtonForPlayer:(NSInteger)player NS_SWIFT_NAME(pressAnalogModeButton(forPlayer:));
 
 /// Whether the game the core loaded holds more than one disc (an `.m3u`, or a
 /// single image the core found several sessions in).

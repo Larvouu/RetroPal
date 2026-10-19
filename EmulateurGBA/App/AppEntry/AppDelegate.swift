@@ -27,6 +27,22 @@ enum AppOrientationLock {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    /// The app's own window scene gets `MainSceneDelegate`, which is where iOS
+    /// hands a Home Screen quick action. The television's scene keeps the
+    /// delegate Info.plist names for its role (`ExternalDisplaySceneDelegate`).
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: connectingSceneSession.configuration.name,
+                                                 sessionRole: connectingSceneSession.role)
+        if connectingSceneSession.role == .windowApplication {
+            configuration.delegateClass = MainSceneDelegate.self
+        } else {
+            configuration.delegateClass = connectingSceneSession.configuration.delegateClass
+        }
+        return configuration
+    }
+
     func application(_ application: UIApplication,
                      supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         // The per-game lock is a PHONE concern. This hook is asked about every
@@ -35,5 +51,35 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // would rotate the whole television.
         if ExternalDisplayManager.shared.isExternalWindow(window) { return .all }
         return AppOrientationLock.mask
+    }
+}
+
+/// The app window's scene delegate, for one thing only: the Home Screen quick
+/// action (`FeedbackQuickAction`). SwiftUI still builds and owns the window;
+/// this class adds no window of its own.
+///
+/// iOS delivers the action two ways: in the connection options when the tap
+/// cold-launches the app, and through `windowScene(_:performActionFor:)` when
+/// the app was already running.
+final class MainSceneDelegate: NSObject, UIWindowSceneDelegate {
+    /// A cold launch's action, kept until the scene is active: opening another
+    /// app while the scene is still connecting is not reliable.
+    private var pendingItem: UIApplicationShortcutItem?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+               options connectionOptions: UIScene.ConnectionOptions) {
+        pendingItem = connectionOptions.shortcutItem
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard let item = pendingItem else { return }
+        pendingItem = nil
+        FeedbackQuickAction.handle(item)
+    }
+
+    func windowScene(_ windowScene: UIWindowScene,
+                     performActionFor shortcutItem: UIApplicationShortcutItem,
+                     completionHandler: @escaping (Bool) -> Void) {
+        completionHandler(FeedbackQuickAction.handle(shortcutItem))
     }
 }

@@ -26,8 +26,48 @@ extension DressVariant {
     var ndsPalette: NDSSkinPalette? { if case .custom(.nds(let p)) = self { return p }; return nil }
     var snesPalette: SNESSkinPalette? { if case .custom(.snes(let p)) = self { return p }; return nil }
     var nesPalette: NESSkinPalette? { if case .custom(.nes(let p)) = self { return p }; return nil }
-    var ps1Palette: PS1SkinPalette? { if case .custom(.ps1(let p)) = self { return p }; return nil }
+    /// The PlayStation's palette, or a PSP's seen as one: the PSP wears the
+    /// PlayStation's pad shapes, and that dress code reads these slots.
+    var ps1Palette: PS1SkinPalette? {
+        if case .custom(.ps1(let p)) = self { return p }
+        if case .custom(.psp(let p)) = self { return p.asPS1 }
+        return nil
+    }
+    var pspPalette: PSPSkinPalette? { if case .custom(.psp(let p)) = self { return p }; return nil }
     var n64Palette: N64SkinPalette? { if case .custom(.n64(let p)) = self { return p }; return nil }
+    var mdPalette: MDSkinPalette? { if case .custom(.md(let p)) = self { return p }; return nil }
+    var smsPalette: SMSSkinPalette? { if case .custom(.sms(let p)) = self { return p }; return nil }
+    var ggPalette: GGSkinPalette? { if case .custom(.gg(let p)) = self { return p }; return nil }
+
+    /// The Master System's and the Game Gear's colours under this variant,
+    /// whichever it is, as for the Mega Drive (`md`): one code path for the
+    /// three looks. `DressKind.smsLook` / `ggLook` read these.
+    var sms: SMSSkinPalette {
+        if let p = smsPalette { return p }
+        return self == .retroPal ? .retroPal : .nostalgia
+    }
+    var gg: GGSkinPalette {
+        if let p = ggPalette { return p }
+        return self == .retroPal ? .retroPal : .nostalgia
+    }
+
+    /// The Mega Drive's colours under this variant, whichever it is, as for
+    /// the Nintendo 64 (`n64`): one code path for the three dresses.
+    /// Whether this is one of the PSP's two looks (`PS1SkinPalette.psp*`):
+    /// the PSP wears the PlayStation's pad shapes, and the pieces that are its
+    /// own (glossy separate arrows, grey symbols, light or glass shoulders, a
+    /// small knurled nub) ask this.
+    /// Asks the palette's type (`PSPSkinPalette`), so a custom PSP skin is a
+    /// PSP too.
+    var isPSP: Bool { pspPalette != nil }
+    /// The PSP's glass look (Retro Pal, or a skin made from it): the four
+    /// faces, the arrows and L / R drawn as clear glass over the shell.
+    var isPSPGlass: Bool { pspPalette?.glass ?? false }
+
+    var md: MDSkinPalette {
+        if let p = mdPalette { return p }
+        return self == .retroPal ? .retroPal : .nostalgia
+    }
 
     /// The Nintendo 64's colours under this variant, whichever it is: the
     /// custom palette, or the built-in one this variant stands for. The
@@ -47,13 +87,16 @@ extension DressVariant {
                             snes: (SNESSkinPalette) -> UIColor = { $0.pad },
                             nes: (NESSkinPalette) -> UIColor = { $0.face },
                             ps1: (PS1SkinPalette) -> UIColor = { $0.pad },
-                            n64: (N64SkinPalette) -> UIColor = { $0.shoulders }) -> UIColor? {
+                            n64: (N64SkinPalette) -> UIColor = { $0.shoulders },
+                            md: (MDSkinPalette) -> UIColor = { $0.pad }) -> UIColor? {
         switch self {
         case .nostalgia:            return nil
         //Retro Pal answers PER CONTROL on the NES by feeding its own values through the very
         //closures a custom skin uses. `buttonFill` gives one colour per console, which is right
         //for the three that have one and wrong here: it would paint A and B with the pad.
         case .retroPal where kind == .nes: return nes(NESSkinPalette.retroPal)
+        //The Mega Drive the same way: its Retro Pal look is a palette of its own, per control.
+        case .retroPal where kind == .md: return md(MDSkinPalette.retroPal)
         case .retroPal:             return RetroPalPalette.buttonFill(kind)
         case .custom(.gbc(let p)):  return gbc(p)
         case .custom(.gba(let p)):  return p.buttons
@@ -77,6 +120,15 @@ extension DressVariant {
         //slot, chosen by the closures below. Its A and B are set per button in
         //`N64TouchControlsView` (`ActionButton.dressFace` outranks this).
         case .custom(.n64(let p)): return n64(p)
+        //The Mega Drive answers per control, as the Nintendo 64 does: the cross by default,
+        //the faces and the small buttons through the closures below.
+        case .custom(.md(let p)): return md(p)
+        //The two 8-bit Segas: every control is the one plastic (`DressKind.smsLook` /
+        //`ggLook`, which a custom skin feeds), as their Retro Pal answers.
+        case .custom(.sms(let p)): return p.keys
+        case .custom(.gg(let p)): return p.buttons
+        //The PSP answers as the PlayStation does, from its PlayStation view.
+        case .custom(.psp(let p)): return ps1(p.asPS1)
         }
     }
     /// The D-pad cross face (+ its under-discs).
@@ -89,11 +141,12 @@ extension DressVariant {
     /// a palette. Square, cross, circle and triangle are how a player
     /// identifies a button, so they stay fixed on every skin, always.
     func abFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { $0.abButtons }, ps1: { $0.diamond }, n64: { $0.a })
+        customFace(kind, gbc: { $0.abButtons }, ps1: { $0.diamond }, n64: { $0.a }, md: { $0.abc })
     }
     /// The SELECT / START / MENU / CLIP button faces.
     func smallButtonFace(_ kind: DressKind) -> UIColor? {
-        customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad }, n64: { $0.menuButtons })
+        customFace(kind, gbc: { $0.smallButtons }, nes: { $0.pad }, n64: { $0.menuButtons },
+                   md: { $0.smallButtons })
     }
     /// The L/R shoulder faces (GB/GBC has none). The SNES's are the BODY colour with dark
     /// letters, exactly like the real pad, which is why this one asks for a different slot than
@@ -147,7 +200,12 @@ enum RetroPalPalette {
     // every control on this pad: there are no per-button slots to recolour.
     static let ps1Body     = UIColor(rpHex: 0x1F1F1F)    // fond
     static let ps1Surround = UIColor(rpHex: 0x000000)    // screen panel: black, as on the Nostalgia dress
-    static let ps1Face     = UIColor(rpHex: 0x727272)    // every control
+    static let ps1Face     = UIColor(rpHex: 0x727272)    // every control but the four faces
+    /// The four face buttons, darker than every other control (asked
+    /// 2026-10-09): the symbols are the same pastel inks as on Nostalgia, and
+    /// on #727272 they read at 2.2 to 3.7:1, too light to tell apart. Here 4.1
+    /// to 6.8:1, near Nostalgia's 4.7 to 7.9 on #404145.
+    static let ps1Faces    = UIColor(rpHex: 0x4A4A4A)
 
     // Nintendo 64: the shell only, every control as on the Classic dress.
     static let n64Body     = UIColor(rpHex: 0x253E8B)
@@ -206,6 +264,12 @@ enum RetroPalPalette {
         // UNTOUCHED: the Retro Pal N64 changes the shell and nothing else, so
         // every control keeps its Classic colour (given 2026-09-27).
         case .n64: return nil
+        // The same rule on the Mega Drive (`MDSkinPalette.retroPal`).
+        case .md: return nil
+        // The two 8-bit Segas' light Retro Pal looks (`DressKind.ggLook` /
+        // `smsLook`): every control takes the look's one control colour.
+        case .gg: return DressKind.ggLook(.retroPal).control
+        case .sms: return DressKind.smsLook(.retroPal).control
         }
     }
 

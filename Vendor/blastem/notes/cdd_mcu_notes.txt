@@ -1,0 +1,429 @@
+CD Block Clock: 16.9344 MHz
+MCU Clock divider: 2.1168 MHz (cd clock / 8)
+
+State at Reset:
+	Status buffer is filled with zero
+	Mechanism is reset
+	Emulation state set to ES_CLOSING
+
+HSCK active low
+IRQ active high
+CDCK active high
+
+Main Loop:
+	wait for subcode data for next frame
+		seems to be delivered via a "bank" IRQ
+	if servo is not in PLAY state
+		set DOUT and EMP to inactive
+		set MUTE to active
+	elif Q subcode CRC is not valid
+		set MUTE to active
+	elif Q subcode CONTROL field indicates a DATA track
+		set DOUT and MUTE to active
+		set EMP to inactive
+	else
+		set DOUT and MUTE to inactive
+		set EMP based on emphasis bit in Q subcode CONTROL field
+	run drive emulation state machine
+	if we received a valid command last loop
+		populate status buffer based on request format (see table below)
+		if drive error status is valid
+			override status format (2nd nibble) to RF_NOTREADY
+			put error status in STATUS (1st nibble) of status buffer
+			set error status valid to false
+		else
+			put drive status in STATUS (1st nibble) of status buffer
+	Communication with Host via gate array:
+		goes to fail state if HSCK is active (i.e. low)
+		IRQ line is asserted
+		Waits ~2ms (4234 cycles) for HSCK to go active (i.e lo)
+			on timeout, resets outputs to host to inactive and quits comms this loop
+		deasserts irq
+		Sends 10 status nibbles
+			nibbles are inverted
+			HSCK is handshake from host
+			CDCK is handshake frm MCU
+			minimum 77 cycles per nibble
+
+			HSCK 1 (inactive) -> 0 (active)
+			nibble output
+			CDCK 0 (inactive) ->1 (active)
+			HSCK 0->1
+			CDCK 1->0
+		sets status sent flag
+		Gets 10 command nibbles
+			HSCK 1->0
+			nibble input
+			CDCK 0->1
+			HSCK 0->1
+			CDCK 1->0
+		Entire status/command transfer has timeout of ~3ms (6351 cycles)
+			on timeout, resets outputs to host to inactive and quits comms this loop
+		sets command received flag
+		Checksum of command is checked
+			if bad, resets outputs to host to inactive and quits comms this loop
+		set command valid flag
+		resets outputs to host to inactive
+	Runs command from host
+		Generally comms failures cause it to just run a Nop command
+		checksum failures cause drive error status to be set to STATUS_SUMERROR
+		command is specified by first 2 nibbles of command packet
+		second nibble must be zero or command is invalid
+		first nibble must be < 0xE and != 0x5 or command is invalid
+		command is sent to PC
+		command implementation is run
+
+
+format Absolute
+	if Q subcode CRC is bad OR Q subcode Control ADR mode is not 1 or Q subcode tracknum indicates leadin
+		set status format (2nd nibble) to RF_NOTREADY
+	else
+		store Absolute (RF_A == 0) in status format (2nd nibble)
+		copy ATIME in BCD format from Q subcode buffer to 3rd through 8th nibble (inclusive)
+		store flags in 9th nibble
+			these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+format Relative
+	if Q subcode CRC is bad OR Q subcode Control ADR mode is not 1 or Q subcode tracknum indicates leadin
+		set status format (2nd nibble) to RF_NOTREADY
+	else
+		store Relative (RF_R == 1) in status format (2nd nibble)
+		copy relative track TIME in BCD format from Q subcode buffer to 3rd through 8th nibble (inclusive)
+		store flags in 9th nibble
+			these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+format Track
+	if Q subcode CRC is bad OR Q subcode Control ADR mode is not 1 or Q subcode tracknum indicates leadin
+		set status format (2nd nibble) to RF_NOTREADY
+	else
+		store Track (RF_T == 2) in status format (2nd nibble)
+		copy track number to 3rd and 4th status buffer nibbles
+		copy Q subcode CONTROL field to 5th status buffer nibble
+		copy Q subcode ADR field to 6th status buffer nibble
+		store flags in 9th nibble
+			these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+format TOCO
+	if disc is not validated
+		set status format (2nd nibble) to RF_NOTREADY
+	else
+		set status format (2nd nibble) to RF_TOCO(3)
+		copy leadout start in MM:SS:FF format (BCD) to 3rd through 8th nibble (inclusive)
+	store flags in 9th nibble
+		these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+format TOCT
+	if disc is not validated
+		set status format (2nd nibble) to RF_NOTREADY
+	else
+		set status format (2nd nibble) to RF_TOCT(4)
+		copy first track number in BCD format to 3rd and 4th nibbles
+		copy last track number in BCD format to 5th and 6th nibbles
+		copy TOCTVERSION(0) in BCD format to 7th and 8th nibbles
+	store flags in 9th nibble
+		these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+format TOCN
+	if disc is not validated
+		set status format (2nd nibble) to RF_NOTREADY
+		store flags in 9th nibble
+			these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+	else
+		set status format (2nd nibble) to RF_TOCN(5)
+		if requested trac is not valid
+			set status format (2nd nibble) to RF_NOTREADY(F)
+			store flags in 9th nibble
+				these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+		else
+			copy track start time in MM:SS:FF format (BCD) to 3rd through 8th nibble (includisve)
+			if track is a data track, force MSB of frame to 1
+				notably, since frame numbers sould be <75 this bit would always be zero otherwise
+			store low nibble of BCD track number in 8th nibble
+format Error
+	set status format (2nd nibble) to RF_E(6)
+	error number is placed in 3rd nibble
+		note emulator always writes 0
+	store flags in 9th nibble
+		these seem to correspond to the data, emphasis and mute control bits sent to CD hardware
+
+state Stopping:
+	if servo is in STOP status
+		if disc is known present or disc status is unknown
+			set drive status to STOP
+		else
+			set drive status to NODISC
+state TOCing:
+	if servo is in STOP status
+		if focus is in NOTFOCUSING status
+			set haveDisc to FALSE
+			set haveDiscValid to TRUE
+			set drive status to NODISC
+		else
+			do nothing this tick
+	elif haveDisc is FALSE
+		do nothing this tick (comments suggest this is an abnormal situation)
+	else
+		set drive status to TOCREAD
+		if servo is NOT in PLAY status
+			stop here
+		if haveTOCValid is FALSE
+			process current Q subcode data for TOC entry (see GetTOC)
+			if TOC reading is done
+				set haveTOCValid to true
+				SEEK command is set to mechanism for PBA of program area start
+				stop until next tick
+			else
+				stop until next tick
+		else
+			if havePAValid is TRUE (comments say this isn't supposed to happen)
+				PAUSE command is sent to mechanism
+			else
+				check Q subcode data to see if we have found the start of the Program Area
+				if we have
+					set havePAValid to TRUE
+					SEEK command for start of first track is sent to mechanism
+					PAUSE command is sent to mechanism
+				else if current block Q subcode is invalid or not Mode 1
+					SEEK to next block
+				else
+					SEEK forward 250 blocks
+state Reading:
+state Seeking:
+state Pausing:
+state Playing:
+state Cuing:
+	These 5 states share a common implementation
+	if servo status is STOP
+		do nothing
+	elif servo status is SEEK
+		if mechanism error status is NOERROR
+			set drive status to SEEK
+		else
+			STOP command sent to mechanism
+			emulation state set to STOPPING
+	else
+		if servo status is PAUSE
+			if drive status is NOT DISCEND
+				set drive status to PAUSE
+		else
+			if Q subcode CRC is bad OR Q Control ADR is not mode 1 OR Q subcode tracknum is not lead out
+				set drive status to PLAY
+			else
+				PAUSE command sent to mechanism
+				set drive status to DISCEND
+
+state FWDing:
+	if servo status is STOP
+		do nothing
+	elif servo status is SEEK
+		if mechanism error status is NOERROR
+			set drive status to SCAN
+		else
+			STOP command is sent to mechanism
+			emulation state is set to STOPPING
+	elif servo status is PAUSE
+		set drive status to DISCEND
+	else:
+		set drive status to SCAN
+		if Q subcode CRC is valid AND Q Control ADR is mode 1
+			if Q subcode tracknum indicates leadout
+				PAUSE command is sent to mechanism
+				set drive status to DISCEND
+			else
+				if scanClock is 0
+					get ATIME from current Q subcode block
+					turn it into an LBA, then PBA
+					Add 100 to it
+					SEEK command sent to mechanism
+					reset scanClock to SCANPLAYTIME(10)
+state RVSing:
+	if servo status is STOP
+		do nothing
+	elif servo status is SEEK
+		if mechanism error status is NOERROR
+			set drive status to SCAN
+		else
+			STOP command is sent to mechanism
+			emulation state is set to STOPPING
+	elif servo status is PAUSE
+		do nothing
+	else
+		set drive status to SCAN
+		if Q subcode CRC is valid AND Q Control ADR is mode 1
+			if Q subcode tracknum indcates we're in the leadin area
+				SEEK command is sent to mechanism for beginning of first track
+				PLAY command is sent to mechanism
+				Set emulation state to PLAYING
+			else
+				if scanClock is 0
+					get ATIME from current Q subcode block
+					turn it into an LBA, then PBA
+					subtract 140 from it
+					SEEK command sent to mechanism
+					reset scanClock to SCANPLAYTIME(10)
+state Skipping:
+	if servo status is STOP
+		do nothing
+	elif servo status is SEEK
+		if mechanism error status is NOERROR
+			set drive status to TRACKING
+		else
+			STOP command is sent to mechanism
+			emulation state is set to STOPPING
+	elif servo status is PAUSE
+		set drive status to PAUSE
+	else
+		PAUSE command sent to mechanism
+state DoorClosing:
+	if door state is CLOSING
+		set drive status to TRAYMOVING
+	elif door state is CLOSED
+		set drive status to STOP
+		set request format to absolute
+		set emulation state to CLOSED
+state DoorClosed:
+	do nothing
+state DoorOpening:
+	if door state is OPENING
+		set drive status to TRAYMOVING
+	elif door state is OPEN
+		set drive status to DOOROPEN
+		set emulation state to OPEN
+state DoorOpen:
+	if door status is NOT one of OPEN or OPENING
+		set emulation state to CLOSING
+
+command Nop
+command Stop
+	set request format to absolute
+	if drive status is not DOOROPEN and status is notTRAYMOVING
+		send stop command to mechanism
+		set emulation state to ES_STOPPING
+command Report Request
+	4th nibble specifies request type
+	RF_A(0)
+		set absolute time format
+	RF_R(1)
+		set relative time format
+	RF_T(2)
+		request current track info
+	RF_TOCO(3)
+		request disc completion time
+		will be ignored if disc has not been validated yet
+			drive error status will be set to COMMANDERROR
+			request format will be set back to absolute
+	RF_TOCT(4)
+		request start/end tracks on disc
+		if disc is validated and drive is stopped
+			will seek to start of disc and pause there
+			emulation state set to TOCing
+		if disc is validated and drive is not stopped
+			only request format is changed
+		else
+			prepares memory state for TOC read
+			will seek to start of disc and tell mechanism to play
+			emulation state set to TOCing
+	RF_TOCN(5)
+		request start time of track N
+		if drivestatus is DOOROPEN, TRAYMOVING or STOP
+			command will be ignore dand drive error status will be set to COMMANDERROR
+			request format will be set back to absolute
+		requested track number is in the 5th and 6th nibbles in BCD format
+		SEEK command sent to mechanism for start of disc
+		PAUSE command sent to mechansim
+		emulation state set to TOCing
+	RF_E(6)
+		request error info
+
+command Read
+	if drive status is DOOROPEN or TRAYMOVING
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	location specified in MM:SS:FF format (BCD) in the 3rd through 8th nibbles (inclusive)
+	location is converted to an LBA
+	if location >= leadout start
+		set drive error status to COMMANDERROR and stop processing command
+	program area offset is added to location to convert it to a physical block address
+	PBA is adjusted back 4
+	SEEK command is sent to mechanism for adjusted PBA
+	PLAY command is sent to mechanism
+	Emulation state set to Reading
+command Seek
+	Same as Read, except sends Pause instead of Play for second command to mechanism
+	Emulation state set to Seeking
+command Pause
+	if drive status is DOOROPEN or TRAYMOVING or SCAN
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	if drive status is STOP
+		calculates PBA of first track from TOC
+		PBA is NOT adjusted back
+		send SEEK command to mechanism for calculated PBA
+	send PAUSE to mechanism
+	set emulation state to Pausing
+command Play
+	if drive status is DOOROPEN or TRAYMOVING or DISCEND or DISCIN
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	if drive status is TOCREAD or STOP
+		calculates PBA of first track from TOC
+		PBA is adjusted back by 4
+		SEEK command is sent to mechanism for adjusted PBA
+	send PLAY command to mechanism
+	set emulation state to Playing
+command Fwd
+	if drive status is NOT one of PLAY, PAUSE or DISCIN
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	Send PLAY command to mechanism
+	Emulation state set to Fwding
+	scanClock is set to SCANPLAYTIME(10)??
+command Rvs
+	if drive status is NOT one of PLAY, PAUSE or DISCEND
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	Send PLAY command to mechanism
+	Emulation state set to Rvsing
+command TrackSkip
+	if drive status is NOT one of PLAY, PAUSE or DISCEND
+		set drive error status to COMMANDERROR and stop processing command
+	check request format, if it's TOCT or TOCN, force it to absolute
+	if disc is not validated
+		set drive error status to COMMANDERROR and stop processing command
+	direction to skip is in 4th nibble of command
+	number of tracks to skip is a 16-bit value in the 5th-8th nibbles
+		note tese are physical tracks i.e. loops of the spiral
+	SKIP command is sent to mechanism
+	PAUSE command is sent to mechanism
+	emulation state is set to TSkping
+command TrackCue
+	if drive status is NOT one of STOP, PLAY, PAUSE, DISCEND, DISCIN or TOCREAD
+		set drive error status to COMMANDERROR and stop processing command
+	if drive status is TOCREAD
+		check request format, if it's TOCT or TOCN, force it to absolute
+		if disc is not validated
+			set drive error status to COMMANDERROR and stop processing command
+	track number is in nibbles 3 and 4 in BCD format
+	calculates PBA of requested track from TOC
+	Sends SEEK command to mechanism for calculated PBA
+	if drive status at start of command was STOP, DISCEND or DISCIN
+		send PLAY command to mechanism
+	emulation state is set to CUING
+command DoorClose
+	if drive status is NOT one of DOOROPEN or TRAYMOVING
+		set drive error status to COMMANDERROR and stop processing command
+	CLOSE command is set to mechanism
+	emulation state is set to CLOSING
+command DoorOpen
+	if drive status is DOOROPEN
+		set drive error status to COMMANDERROR and stop processing command
+	if drive servo is not stopped:
+		set request format to absolute
+	OPEN command is sent to mechanism
+	emulation state set to OPENING
+	disc, TOC and program area validitly flags are cleared

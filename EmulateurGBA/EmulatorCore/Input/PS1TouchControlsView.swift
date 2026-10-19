@@ -63,12 +63,34 @@ final class PS1TouchControlsView: TouchControlsView {
         GBAInput.a.rawValue | GBAInput.b.rawValue | GBAInput.x.rawValue | GBAInput.y.rawValue
     }
 
+    /// The four faces by the symbols this pad prints (the PlayStation's, and the
+    /// PSP's on the same view), in the base class's order a, b, x, y. The base
+    /// class names them A, B, X and Y, which the pause menu's hold-to-lock row
+    /// drew on both consoles (found 2026-10-09). The same glyphs as the remap
+    /// screen's (`RemappableInput.displayName(for: .ps1)`), read from there.
+    override var lockableLetters: [String] {
+        [RemappableInput.a, .b, .x, .y].map { $0.displayName(for: .ps1) }
+    }
+
+    /// The console this pad is drawn for: the PlayStation, or the PSP, which
+    /// is this pad without six controls and prints its one shoulder pair L
+    /// and R rather than L1 and R1 (found 2026-10-10: the PSP showed L1, R1).
+    private let system: PresetSystem
+
+    init(system: PresetSystem) {
+        self.system = system
+        super.init(frame: .zero)
+        setupPS1Buttons()
+    }
+
     override init(frame: CGRect) {
+        self.system = .ps1
         super.init(frame: frame)
         setupPS1Buttons()
     }
 
     required init?(coder: NSCoder) {
+        self.system = .ps1
         super.init(coder: coder)
         setupPS1Buttons()
     }
@@ -126,9 +148,12 @@ final class PS1TouchControlsView: TouchControlsView {
 
         // The shoulders are printed L1 and R1 on this pad. The base class
         // builds them as L and R, which is right for every console that has
-        // only one pair.
-        btnL.setTitle("L1")
-        btnR.setTitle("R1")
+        // only one pair, the PSP included: it keeps them. The editor's names
+        // (`ControlElement.displayName(for:)`) say the same.
+        if system == .ps1 {
+            btnL.setTitle("L1")
+            btnR.setTitle("R1")
+        }
 
         // Round hit-tests for the diamond so the four buttons do not steal each
         // other's corners, exactly as the DS and the SNES do.
@@ -260,10 +285,15 @@ final class PS1TouchControlsView: TouchControlsView {
         // Square, cross, circle and triangle are how a player identifies a
         // button, and a skin that recolours them is a skin that makes the pad
         // unreadable.
-        let backing = variant.abFace(kind) ?? DressKind.ps1Face
+        // Retro Pal darkens the four faces under their inks (`RetroPalPalette.ps1Faces`).
+        let backing = variant == .retroPal ? RetroPalPalette.ps1Faces
+                                           : (variant.abFace(kind) ?? DressKind.ps1Face)
+        // The PSP-1000 prints its four symbols in ONE grey, not four colours
+        // (its own looks, 2026-10-10): the palette's print slot carries it.
+        let pspInk = variant.isPSP ? variant.ps1Palette?.print : nil
         for (button, ink, symbol) in faces {
             button.dressFace = on ? backing : nil
-            button.dressFaceLabel = on ? ink : nil
+            button.dressFaceLabel = on ? (pspInk ?? ink) : nil
             button.ps1Symbol = on ? symbol : nil
         }
     }

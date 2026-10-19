@@ -199,8 +199,20 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
     case meadow
     /// Orange and gold.
     case sunset
+    /// The List upright, the system's own look, and on its side a flat black
+    /// ground with nothing moving on it (2026-10-07: Classic became a look
+    /// of its own, in both orientations, instead of a portrait-only switch
+    /// back to the List). Its accents are Aurora's, the ones the List's plus
+    /// already wore.
+    case classic
 
     var id: String { rawValue }
+
+    /// The five looks with a moving ground, in the picker's order; Classic
+    /// has its own row above them.
+    static var looks: [LandscapeTheme] { allCases.filter { $0 != .classic } }
+
+    var isClassic: Bool { self == .classic }
 
     var name: String {
         switch self {
@@ -209,6 +221,7 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
         case .ember:    return "Ember"
         case .meadow:   return "Meadow"
         case .sunset:   return "Sunset"
+        case .classic:  return NSLocalizedString("library.theme.classic", comment: "")
         }
     }
 
@@ -221,6 +234,7 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
         case .ember:    return (0.878, 0.290, 0.416)
         case .meadow:   return (0.184, 0.702, 0.416)
         case .sunset:   return (0.941, 0.478, 0.165)
+        case .classic:  return (0.459, 0.345, 0.922)
         }
     }
 
@@ -233,6 +247,7 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
         case .ember:    return (1.0, 0.620, 0.541)
         case .meadow:   return (0.718, 0.949, 0.478)
         case .sunset:   return (1.0, 0.820, 0.400)
+        case .classic:  return (0.435, 0.827, 1.0)
         }
     }
 
@@ -244,12 +259,19 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
         case .ember:    return (0.10, 0.03, 0.05)
         case .meadow:   return (0.03, 0.08, 0.05)
         case .sunset:   return (0.10, 0.05, 0.02)
+        case .classic:  return (0, 0, 0)
         }
     }
 
     /// How strong the glows and the dust are, 1 for the coloured looks and
     /// low for the neutral one, which is meant to stay almost dark.
-    var glow: Double { self == .graphite ? 0.5 : 1 }
+    var glow: Double {
+        switch self {
+        case .graphite: return 0.5
+        case .classic:  return 0
+        default:        return 1
+        }
+    }
 
     var accent: Color { Color(red: accentRGB.r, green: accentRGB.g, blue: accentRGB.b) }
     var highlight: Color { Color(red: highlightRGB.r, green: highlightRGB.g, blue: highlightRGB.b) }
@@ -261,16 +283,17 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
 /// The chosen theme, persisted, and the one object every landscape surface
 /// observes so a change in the picker repaints them all at once.
 ///
-/// Since 2026-09-07 it also holds whether an upright phone (or an iPad
-/// window narrowed to a phone's width, since 2026-09-08) shows the List
-/// ("Classic", the default, so nothing changes until a look is picked) or the
-/// themed surface in the chosen look. The look itself is ONE value for both
-/// orientations: picking Ember upright makes the landscape Ember too, and
-/// picking Classic leaves the landscape look as it was.
+/// The look is ONE value for both orientations: picking Ember upright makes
+/// the landscape Ember too. Since 2026-10-07 that includes Classic, which is
+/// a look like the others (the List upright, a flat black ground on its
+/// side); from 2026-09-07 until then it was a separate switch that only sent
+/// the upright phone back to the List and left the landscape look as it was.
 final class LandscapeThemeStore: ObservableObject {
     static let shared = LandscapeThemeStore()
     private static let key = "landscape.theme"
-    private static let classicKey = "library.portrait.classic"
+    /// The portrait-only Classic switch of 1.3.1 to 1.3.3. Read once, to move
+    /// a player who had it on to the Classic look, then removed.
+    private static let legacyClassicKey = "library.portrait.classic"
     private static let heroKey = "library.hero.shown"
     /// Stamped once the 1.3.1 default has been applied. **Every user, old or
     /// new, lands on Aurora upright at the first launch of 1.3.1** (2026-09-07):
@@ -283,11 +306,9 @@ final class LandscapeThemeStore: ObservableObject {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.key) }
     }
 
-    /// True while the upright surface (a phone, or an iPad window at a
-    /// phone's width) keeps the List.
-    @Published var portraitClassic: Bool {
-        didSet { UserDefaults.standard.set(portraitClassic, forKey: Self.classicKey) }
-    }
+    /// Classic is the look: the List upright (a phone, or an iPad window at
+    /// a phone's width), the flat black ground on its side.
+    var isClassic: Bool { theme.isClassic }
 
     /// Whether the upright library shows the last game played above its List.
     @Published var showsHero: Bool {
@@ -298,11 +319,19 @@ final class LandscapeThemeStore: ObservableObject {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: Self.defaultStampKey) != Self.defaultStamp {
             defaults.set(LandscapeTheme.aurora.rawValue, forKey: Self.key)
-            defaults.set(false, forKey: Self.classicKey)
+            defaults.removeObject(forKey: Self.legacyClassicKey)
             defaults.set(Self.defaultStamp, forKey: Self.defaultStampKey)
         }
+        // A player who had the old switch on chose the List upright; Classic
+        // is that choice now, in both orientations (2026-10-07). Once, then
+        // the key is gone and the look is the only value.
+        if defaults.object(forKey: Self.legacyClassicKey) != nil {
+            if defaults.bool(forKey: Self.legacyClassicKey) {
+                defaults.set(LandscapeTheme.classic.rawValue, forKey: Self.key)
+            }
+            defaults.removeObject(forKey: Self.legacyClassicKey)
+        }
         theme = LandscapeTheme(rawValue: defaults.string(forKey: Self.key) ?? "") ?? .aurora
-        portraitClassic = defaults.object(forKey: Self.classicKey) as? Bool ?? false
         showsHero = defaults.object(forKey: Self.heroKey) as? Bool ?? true
     }
 }
@@ -662,7 +691,7 @@ struct ScaffoldBack: ViewModifier {
 /// decisions observes the store and reads the same two things.
 enum UprightLook {
     static func isActive(isLandscape: Bool, store: LandscapeThemeStore) -> Bool {
-        !isLandscape && !store.portraitClassic
+        !isLandscape && !store.isClassic
     }
 }
 
@@ -863,6 +892,14 @@ struct LibraryEmptyLandscapeView: View {
                             }
                             .frame(maxWidth: 620)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                            // A tighter step before the scroll, so a smaller phone
+                            // still shows the whole welcome at once (2026-10-09).
+                            VStack(spacing: 12) {
+                                pitchColumn
+                                stepsColumn
+                            }
+                            .frame(maxWidth: 620)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             ScrollView(.vertical, showsIndicators: false) {
                                 VStack(spacing: 24) {
                                     pitchColumn
@@ -915,7 +952,7 @@ struct LibraryEmptyLandscapeView: View {
             }
 
             if showThemePicker {
-                LandscapeThemePicker(offersClassic: upright, onClose: { showThemePicker = false })
+                LandscapeThemePicker(upright: upright, onClose: { showThemePicker = false })
             }
         }
         .frame(width: geo.size.width, height: geo.size.height)
@@ -924,7 +961,7 @@ struct LibraryEmptyLandscapeView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// The headline, the one line and the eight consoles.
+    /// The headline, the one line and every console, in one strip.
     private var pitchColumn: some View {
         VStack(spacing: 14) {
             Text(NSLocalizedString("library.empty.title", comment: ""))
@@ -936,7 +973,7 @@ struct LibraryEmptyLandscapeView: View {
                 .foregroundStyle(.white.opacity(0.75))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            ConsoleIconRow()
+            ConsoleIconRow(isActive: isActive)
                 .padding(.horizontal, 8)
                 .padding(.top, 4)
         }
@@ -993,17 +1030,30 @@ struct LibraryEmptyLandscapeView: View {
 
 // MARK: - The view
 
+/// What the upright surface hands the library's List to show (2026-10-07).
+/// The hero is the List's FIRST ROW since that day, not a card fixed above
+/// it: scrolling down to look for a game takes the hero away with the rows,
+/// and the List gets the whole height under the bar.
+struct LibraryUprightListContent {
+    /// The hero, nil when it is switched off or no game matches.
+    let hero: AnyView?
+    /// False when the hero IS the library (a single game): its row is not
+    /// repeated under it.
+    let showsGames: Bool
+}
+
 struct LibraryLandscapeView: View {
     /// An upright phone in a chosen look (2026-09-07): the bar in two rows
-    /// under the status bar, the hero, then `uprightList` down to the tab
+    /// under the status bar, then `uprightList`, hero first, down to the tab
     /// bar, which stays (portrait keeps its navigation model, Settings is a
     /// tab, so no Settings circle here). Everything else is the landscape
     /// surface as it is.
     var upright: Bool = false
     /// The library's List, at its own density, for the upright surface. The
     /// library builds it because the rows are its own (their navigation link,
-    /// their swipe to delete, the rename); this view only dresses the page.
-    var uprightList: (() -> AnyView)? = nil
+    /// their swipe to delete, the rename); this view only dresses the page,
+    /// and hands it the hero to put at its top.
+    var uprightList: ((LibraryUprightListContent) -> AnyView)? = nil
     /// How many games the library holds in all, before the search and the
     /// console filter (2026-09-07): with exactly ONE, the upright hero is the
     /// whole page and the List under it is not shown, so a player who has
@@ -1128,22 +1178,19 @@ struct LibraryLandscapeView: View {
                         uprightTopBar
                             .padding(.horizontal, 24)
                             .padding(.top, LandscapeChrome.barTopPadding(tablet: isTablet, upright: true, insets: insets))
-                        // The gaps, settled 2026-09-07 evening: the bar has no
-                        // bottom padding of its own (two 40-point rows in a
-                        // 90-point frame), the hero carries the SAME margin
-                        // above and below itself, and the List adds nothing
-                        // under a hero; without one, the List takes that
-                        // margin so its distance to the search field is the
-                        // hero's. One number, three places.
-                        if themeStore.showsHero {
-                            uprightHero
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, Self.uprightGap)
-                        }
-                        if let uprightList, showsUprightList {
-                            uprightList()
-                                .padding(.top, themeStore.showsHero ? 0 : Self.uprightGap)
+                        // The bar has no bottom padding of its own (two 40-point
+                        // rows in a 90-point frame); the List starts one gap
+                        // under it, hero or not, and the hero scrolls inside it
+                        // (2026-10-07).
+                        if let uprightList {
+                            uprightList(uprightListContent)
+                                .padding(.top, Self.uprightGap)
                         } else {
+                            if themeStore.showsHero {
+                                uprightHero
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, Self.uprightGap)
+                            }
                             Spacer(minLength: 0)
                         }
                     } else {
@@ -1189,7 +1236,7 @@ struct LibraryLandscapeView: View {
                                     onClose: { self.playMenu = nil })
                 }
                 if showThemePicker {
-                    LandscapeThemePicker(offersClassic: upright, onClose: { showThemePicker = false })
+                    LandscapeThemePicker(upright: upright, onClose: { showThemePicker = false })
                 }
                 if showSortPicker {
                     LibrarySortPicker(upright: upright, sortOrder: $sortOrder, consoleFilter: $consoleFilter,
@@ -1417,7 +1464,8 @@ struct LibraryLandscapeView: View {
                 .frame(width: geometry.itemSide * LibraryCarouselGeometry.selectedScale,
                        height: geometry.itemSide * LibraryCarouselGeometry.selectedScale)
                 .blur(radius: 22)
-                .opacity(list.isEmpty ? 0 : 0.6)
+                // No glow under Classic: its ground is plain black (2026-10-07).
+                .opacity(list.isEmpty || themeStore.theme.isClassic ? 0 : 0.6)
                 .zIndex(-1000)
                 .allowsHitTesting(false)
             // The rack is ONE stop for a controller, at the centred cover
@@ -1491,142 +1539,43 @@ struct LibraryLandscapeView: View {
 
     // MARK: The hero (upright)
 
-    /// The cover side of the hero, and the height of its card.
-    static let heroCoverSide: CGFloat = 120
-
-    /// The one vertical gap of the upright page: above and below the hero,
-    /// or above the List when there is no hero.
+    /// The gap between the upright bar and the List.
     static let uprightGap: CGFloat = 14
 
-    /// Whether the List shows under the hero: always, except when the hero
+    /// The hero and the games, as the library's List takes them.
+    private var uprightListContent: LibraryUprightListContent {
+        // Borderless: in a List row, plain buttons answer a tap anywhere in
+        // the row, so Play and (i) would both fire (2026-10-07).
+        let hero: AnyView? = themeStore.showsHero && heroGame != nil
+            ? AnyView(uprightHero.buttonStyle(.borderless))
+            : nil
+        return LibraryUprightListContent(hero: hero, showsGames: showsUprightGames)
+    }
+
+    /// Whether the games show under the hero: always, except when the hero
     /// is on and the whole library is that one game. While an import runs
-    /// the List comes back whatever the count, for its skeleton row: that
-    /// row is the upright surface's only sign of the wait, and hidden with
-    /// the List a second game imported into a library of one showed nothing
+    /// they come back whatever the count, for the skeleton row: that row is
+    /// the upright surface's only sign of the wait, and hidden with the
+    /// games a second game imported into a library of one showed nothing
     /// until it appeared (2026-09-08).
-    private var showsUprightList: Bool {
+    private var showsUprightGames: Bool {
         guard themeStore.showsHero, heroGame != nil else { return true }
         if isImporting { return true }
         return (libraryCount ?? games.count) != 1
     }
 
-    /// Upright, the game to put first is the one played LAST, whatever the
-    /// sort: the hero is "continue", the way a console home shows the last
-    /// game before the shelf. With nothing played yet, the first of the list.
-    private var heroGame: GameEntity? {
-        let played = games.filter { $0.lastPlayedAt != nil }
-        return played.max { ($0.lastPlayedAt ?? .distantPast) < ($1.lastPlayedAt ?? .distantPast) } ?? games.first
-    }
+    private var heroGame: GameEntity? { LibraryHeroCard.game(in: games) }
 
-    /// One glass card: the cover with its ring on the left; on the right the
-    /// title with the row's console tag, "played 2 days ago" and the play
-    /// time on their own lines as the rows show them (2026-09-07: one joined
-    /// line was cropped, and a "Last played" label lied while a search
-    /// narrowed the hero to the games found, which is kept on purpose), then
-    /// Play and (i). The same Play the line offers (the slot choice when a
-    /// save exists), the same (i). Under it the library's List does the finding.
+    /// The hero in this surface's glass (`LibraryHeroCard`): the same Play the
+    /// line offers (the slot choice when a save exists), the same (i).
     @ViewBuilder
     private var uprightHero: some View {
         if let game = heroGame {
-            HStack(alignment: .top, spacing: 14) {
-                LibraryLandscapeTile(game: game, side: Self.heroCoverSide, isSelected: true,
-                                     saveTick: saveTick, showsConsoleTag: false)
-                    .onTapGesture {
-                        Haptics.tap()
-                        onOpenDetails(game)
-                    }
-                    .controllerFocusable(shape: .rounded(Self.heroCoverSide * 0.11)) {
-                        Haptics.tap()
-                        onOpenDetails(game)
-                    }
-                    // Rename and delete on a long press, as on the rack's
-                    // covers and the rows (2026-09-07).
-                    .contextMenu {
-                        Button {
-                            onRename(game)
-                        } label: {
-                            Label(NSLocalizedString("details.rename", comment: ""), systemImage: "pencil")
-                        }
-                        Button(role: .destructive) {
-                            onDelete(game)
-                        } label: {
-                            Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
-                        }
-                    }
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(game.title ?? NSLocalizedString("library.untitled", comment: ""))
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.8)
-                        if let system = game.systemType {
-                            ConsoleTagBadge(systemType: system, drawing: true)
-                        }
-                    }
-                    if let ago = Self.playedAgoLine(for: game) {
-                        Text(ago)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(1)
-                    }
-                    if let time = Self.playTimeLine(for: game) {
-                        Text(time)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 6)
-                    heroActions(game)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(height: Self.heroCoverSide)
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(LandscapeChrome.cardFill))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.white.opacity(LandscapeChrome.cardStroke), lineWidth: 1)
-            )
-            .id(game.objectID)
-            .animation(.easeOut(duration: 0.18), value: game.objectID)
-        }
-    }
-
-    /// Play and (i) at the hero's size: a shorter capsule and a 40-point circle.
-    private func heroActions(_ game: GameEntity) -> some View {
-        HStack(spacing: 10) {
-            FocusableButton(shape: .capsule, isDefault: true) {
-                Haptics.tap()
-                playTapped(game)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "play.fill")
-                    Text(NSLocalizedString("details.play", comment: ""))
-                        .fontWeight(.semibold)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .frame(height: 40)
-                .background(Capsule().fill(LibraryLandscapePalette.accentGradient))
-                .shadow(color: LibraryLandscapePalette.accent.opacity(0.55), radius: 12, y: 3)
-            }
-            FocusableButton(shape: .capsule) {
-                Haptics.tap()
-                onOpenDetails(game)
-            } label: {
-                Image(systemName: "info")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(LandscapeChrome.glass(Circle()))
-                    .contentShape(Circle())
-            }
-            .accessibilityLabel(game.title ?? "")
+            LibraryHeroCard(game: game, saveTick: saveTick,
+                            onOpenDetails: { onOpenDetails(game) },
+                            onPlay: { playTapped(game) },
+                            onRename: { onRename(game) },
+                            onDelete: { onDelete(game) })
         }
     }
 
@@ -1768,16 +1717,12 @@ struct LibraryLandscapeView: View {
     /// Play with no quick-save anywhere starts the game at once; with one, the
     /// slot choice opens, the same list Game Details shows.
     private func playTapped(_ game: GameEntity) {
-        guard let path = game.romFilePath else { return }
-        let romName = BatterySaveImporter.romBasename(forStoredFilename: path)
-        guard !romName.isEmpty else {
+        switch LibraryPlayMenuModel.action(for: game) {
+        case .nothing:
+            break
+        case .start:
             onPlay(game, nil)
-            return
-        }
-        let model = LibraryPlayMenuModel(game: game, manager: SaveStateManager(romName: romName))
-        if model.rows.isEmpty {
-            onPlay(game, nil)
-        } else {
+        case .choose(let model):
             playMenu = model
         }
     }
@@ -1787,17 +1732,7 @@ struct LibraryLandscapeView: View {
         if let slot {
             onPlay(game, slot)
         } else {
-            // Same guard as Game Details: a fresh start with a session to
-            // resume asks first. A UIKit alert with navigable actions, so a
-            // controller can answer it too (`ControllerAlert`); the same two
-            // buttons the SwiftUI alert here had.
-            ControllerAlert.present(
-                title: NSLocalizedString("details.newGame.confirm.title", comment: ""),
-                message: NSLocalizedString("details.newGame.confirm.message", comment: ""),
-                actions: [
-                    .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
-                    .init(title: NSLocalizedString("details.newGame", comment: "")) { onPlay(game, nil) },
-                ])
+            LibraryPlayMenu.confirmFreshStart { onPlay(game, nil) }
         }
     }
 
@@ -1811,6 +1746,164 @@ struct LibraryLandscapeView: View {
             LandscapeChrome.circle(systemName: "gearshape")
         }
         .accessibilityLabel(NSLocalizedString("tab.settings", comment: ""))
+    }
+}
+
+// MARK: - The hero
+
+/// The hero of the upright library: the last game played, whatever the sort
+/// (2026-09-07), the way a console home shows the game to continue before
+/// the shelf. A search narrows it to the games found, on purpose. Since
+/// 2026-10-07 it is the first row of the library's List in every look,
+/// Classic included, and scrolls away with the games.
+///
+/// The cover with its ring on the left; on the right the title with the
+/// console tag, "played 2 days ago" and the play time on their own lines as
+/// the rows show them, then Play and (i). Tapping the cover opens the game's
+/// page; a long press offers rename and delete, as the rows do.
+///
+/// `classic` dresses it as the Classic List's own rows: the system's grouped
+/// card, light or dark with the phone, the system's type colours, the
+/// console's lettered tag, and no glow under Play. Otherwise it is the glass
+/// card on the moving ground.
+struct LibraryHeroCard: View {
+    @ObservedObject var game: GameEntity
+    /// Bumped by the parent when a quick-save lands, so the cover re-reads.
+    let saveTick: Int
+    var classic: Bool = false
+    let onOpenDetails: () -> Void
+    let onPlay: () -> Void
+    let onRename: () -> Void
+    let onDelete: () -> Void
+
+    /// The cover side, and the height of the card's content.
+    static let coverSide: CGFloat = 120
+
+    /// The game to put first: the one played LAST, whatever the order of the
+    /// games given; with nothing played yet, the first of them.
+    static func game(in games: [GameEntity]) -> GameEntity? {
+        let played = games.filter { $0.lastPlayedAt != nil }
+        return played.max { ($0.lastPlayedAt ?? .distantPast) < ($1.lastPlayedAt ?? .distantPast) } ?? games.first
+    }
+
+    private var primaryInk: Color { classic ? .primary : .white }
+    private var secondaryInk: Color { classic ? .secondary : .white.opacity(0.85) }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            LibraryLandscapeTile(game: game, side: Self.coverSide, isSelected: true,
+                                 saveTick: saveTick, showsConsoleTag: false)
+                .onTapGesture {
+                    Haptics.tap()
+                    onOpenDetails()
+                }
+                .controllerFocusable(shape: .rounded(Self.coverSide * 0.11)) {
+                    Haptics.tap()
+                    onOpenDetails()
+                }
+                .contextMenu {
+                    Button {
+                        onRename()
+                    } label: {
+                        Label(NSLocalizedString("details.rename", comment: ""), systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
+                    }
+                }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(game.title ?? NSLocalizedString("library.untitled", comment: ""))
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(primaryInk)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    if let system = game.systemType {
+                        ConsoleTagBadge(systemType: system, drawing: !classic)
+                    }
+                }
+                if let ago = LibraryLandscapeView.playedAgoLine(for: game) {
+                    Text(ago)
+                        .font(.caption)
+                        .foregroundStyle(secondaryInk)
+                        .lineLimit(1)
+                }
+                if let time = LibraryLandscapeView.playTimeLine(for: game) {
+                    Text(time)
+                        .font(.caption2)
+                        .foregroundStyle(secondaryInk)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                actions
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: Self.coverSide)
+        .padding(14)
+        .background(cardBackground)
+        .id(game.objectID)
+        .animation(.easeOut(duration: 0.18), value: game.objectID)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if classic {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        } else {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(LandscapeChrome.cardFill))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.white.opacity(LandscapeChrome.cardStroke), lineWidth: 1)
+                )
+        }
+    }
+
+    /// Play and (i) at the hero's size: a shorter capsule and a 40-point circle.
+    private var actions: some View {
+        HStack(spacing: 10) {
+            FocusableButton(shape: .capsule, isDefault: true) {
+                Haptics.tap()
+                onPlay()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.fill")
+                    Text(NSLocalizedString("details.play", comment: ""))
+                        .fontWeight(.semibold)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .frame(height: 40)
+                .background(Capsule().fill(LibraryLandscapePalette.accentGradient))
+                .shadow(color: LibraryLandscapePalette.accent.opacity(classic ? 0 : 0.55), radius: 12, y: 3)
+            }
+            FocusableButton(shape: .capsule) {
+                Haptics.tap()
+                onOpenDetails()
+            } label: {
+                Image(systemName: "info")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(primaryInk)
+                    .frame(width: 40, height: 40)
+                    .background(infoBackground)
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel(game.title ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var infoBackground: some View {
+        if classic {
+            Circle().fill(Color(.tertiarySystemFill))
+        } else {
+            LandscapeChrome.glass(Circle())
+        }
     }
 }
 
@@ -1862,8 +1955,10 @@ struct LibraryLandscapeTile: View {
 
     var body: some View {
         ZStack {
+            // Primary, white on every dark surface, so the empty square
+            // still shows on the Classic hero's light card (2026-10-07).
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(Color.white.opacity(0.07))
+                .fill(Color.primary.opacity(0.07))
             if let image {
                 if isSmallArtwork(image), let backdrop = image.backdrop {
                     // The backdrop was blurred ONCE at load (a tiny
@@ -1891,7 +1986,7 @@ struct LibraryLandscapeTile: View {
             } else {
                 Image(systemName: "gamecontroller")
                     .font(.system(size: side * 0.3, weight: .light))
-                    .foregroundStyle(.white.opacity(0.35))
+                    .foregroundStyle(Color.primary.opacity(0.35))
             }
         }
         .frame(width: side, height: side)
@@ -1901,10 +1996,7 @@ struct LibraryLandscapeTile: View {
             // website use, very small, on a near-opaque dark pill so it reads
             // on any art.
             if showsConsoleTag, let system = game.systemType {
-                Image("console-\(system)")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: side * 0.1, height: side * 0.075)
+                ConsoleMark(systemType: system, width: side * 0.1, height: side * 0.075)
                     .padding(.horizontal, 3)
                     .padding(.vertical, 2)
                     .background(
@@ -2155,6 +2247,40 @@ struct LibraryPlayMenu: View {
     }
 }
 
+extension LibraryPlayMenuModel {
+    /// What Play does for one game (2026-10-07, shared by the line, the
+    /// hero and the Classic hero): start at once with no quick-save to
+    /// offer, open the slot choice with one, nothing for a game with no file.
+    enum Action {
+        case nothing
+        case start
+        case choose(LibraryPlayMenuModel)
+    }
+
+    static func action(for game: GameEntity) -> Action {
+        guard let path = game.romFilePath else { return .nothing }
+        let romName = BatterySaveImporter.romBasename(forStoredFilename: path)
+        guard !romName.isEmpty else { return .start }
+        let model = LibraryPlayMenuModel(game: game, manager: SaveStateManager(romName: romName))
+        return model.rows.isEmpty ? .start : .choose(model)
+    }
+}
+
+extension LibraryPlayMenu {
+    /// Same guard as Game Details: a fresh start with a session to resume
+    /// asks first. A UIKit alert with navigable actions, so a controller can
+    /// answer it too (`ControllerAlert`).
+    static func confirmFreshStart(_ start: @escaping () -> Void) {
+        ControllerAlert.present(
+            title: NSLocalizedString("details.newGame.confirm.title", comment: ""),
+            message: NSLocalizedString("details.newGame.confirm.message", comment: ""),
+            actions: [
+                .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                .init(title: NSLocalizedString("details.newGame", comment: "")) { start() },
+            ])
+    }
+}
+
 // MARK: - The sort panel
 
 /// The sort panel of every library bar (2026-09-07): the three plain
@@ -2162,6 +2288,20 @@ struct LibraryPlayMenu: View {
 /// its drawing before its name. The chosen row is highlighted, no check.
 /// One column upright; two on a phone on its side, orders left and consoles
 /// right, so the panel never outgrows the screen the way the system menu did.
+///
+/// The consoles sit in TWO columns since 2026-10-09: with a game from each of
+/// the eleven consoles, one row per console made the panel taller than the
+/// screen (fifteen 44-point rows upright, eleven beside the orders on its
+/// side), and its bottom rows could not be reached. Two columns halve that,
+/// and the panel scrolls inside the screen if a larger text size or a further
+/// console still outgrows it, rather than shrinking the rows or the names.
+///
+/// The panel is as big as its rows and no bigger (`HugContentLayout`), in
+/// every host, and centred in the HOST's frame. Upright on the List that frame
+/// ends under the search bar: the navigation bar and the search field are
+/// UIKit's, drawn above anything SwiftUI lays over the List, so a panel
+/// measured on the whole window ran under them and the search field kept the
+/// taps (seen on device 2026-10-09).
 struct LibrarySortPicker: View {
     let upright: Bool
     @Binding var sortOrder: LibraryView.SortOrder
@@ -2172,45 +2312,84 @@ struct LibrarySortPicker: View {
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
 
     var body: some View {
+        GeometryReader { geo in
         ZStack {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture(perform: onClose)
                 .accessibilityLabel(NSLocalizedString("common.cancel", comment: ""))
 
-            Group {
-                if upright {
-                    VStack(spacing: 4) {
-                        orders
-                        Divider().overlay(Color.white.opacity(0.12)).padding(.vertical, 4)
-                        consoleRows
-                    }
-                    .frame(width: 280)
-                } else {
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 4) { orders }
-                            .frame(width: 220)
-                        Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1)
-                        VStack(spacing: 4) { consoleRows }
-                            .frame(width: 240)
-                    }
+            // As big as its rows when they fit the host's frame less a margin
+            // (and the panel's own padding), and the same rows in a ScrollView
+            // as tall as that room when they do not. `ViewThatFits` picks the
+            // first that fits, so a short library keeps a panel of its own
+            // height and never a scroll view. The 10-09 caps were `maxWidth` /
+            // `maxHeight` frames, which GROW to their maximum: the panel was
+            // always 70 % of the screen tall and nearly its full width.
+            HugContentLayout(limit: CGSize(width: max(0, geo.size.width - 48 - 20),
+                                           height: max(0, geo.size.height - 48 - 20))) {
+                ViewThatFits(in: .vertical) {
+                    panelContent
+                    ScrollView(showsIndicators: false) { panelContent }
                 }
             }
             .padding(10)
+            // The same panel on every ground: on Classic's pure black the
+            // fill and the shadow vanished and only this edge kept a shape,
+            // so the edge is drawn bright enough to stand on black too.
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(red: 0.07, green: 0.07, blue: 0.10).opacity(0.97))
+                    .fill(Color(red: 0.09, green: 0.09, blue: 0.12).opacity(0.97))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
             // While open, a controller reaches the rows alone; B closes it.
             .controllerBack(onClose)
             .controllerModalGroup("library.sort")
         }
+        .frame(width: geo.size.width, height: geo.size.height)
+        }
         .transition(.opacity)
+    }
+
+    /// Upright, one column: the orders, then the consoles two by two. On its
+    /// side, the orders left at their own width and the consoles two by two at
+    /// the right. Every row spans its column, so the highlights line up.
+    @ViewBuilder
+    private var panelContent: some View {
+        if upright {
+            VStack(spacing: 4) {
+                orders
+                Divider().overlay(Color.white.opacity(0.12)).padding(.vertical, 4)
+                consoleGrid
+            }
+        } else {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 4) { orders }
+                    .fixedSize(horizontal: true, vertical: false)
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1)
+                consoleGrid
+            }
+        }
+    }
+
+    /// The consoles two by two. A `Grid`, so both columns take the width of
+    /// their widest name and every row of a column is as wide as the others;
+    /// when the panel is narrower than that, a long name takes a second line.
+    private var consoleGrid: some View {
+        Grid(horizontalSpacing: 4, verticalSpacing: 4) {
+            ForEach(Array(stride(from: 0, to: consoles.count, by: 2)), id: \.self) { index in
+                GridRow {
+                    consoleRow(consoles[index])
+                    if index + 1 < consoles.count {
+                        consoleRow(consoles[index + 1])
+                    }
+                }
+            }
+        }
     }
 
     /// Last played, A-Z, date added, then every console together.
@@ -2232,22 +2411,20 @@ struct LibrarySortPicker: View {
         }
     }
 
-    /// One row per console in the library, its drawing then its name.
-    @ViewBuilder
-    private var consoleRows: some View {
-        ForEach(consoles, id: \.self) { console in
-            row(selected: sortOrder == .byConsole && consoleFilter == console) {
-                sortOrder = .byConsole
-                consoleFilter = console
-            } label: {
-                HStack(spacing: 10) {
-                    Image("console-\(console)")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 26, height: 18)
-                        .accessibilityHidden(true)
-                    Text(SystemColor.name(console))
-                }
+    /// A console's row, its drawing then its name.
+    private func consoleRow(_ console: String) -> some View {
+        row(selected: sortOrder == .byConsole && consoleFilter == console) {
+            sortOrder = .byConsole
+            consoleFilter = console
+        } label: {
+            HStack(spacing: 10) {
+                ConsoleMark(systemType: console, width: 26, height: 18)
+                    .accessibilityHidden(true)
+                // A long name in a half-width column takes a second line
+                // rather than being cut ("Game Boy Advance" on an SE).
+                Text(SystemColor.name(console))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -2268,7 +2445,9 @@ struct LibrarySortPicker: View {
                 Spacer(minLength: 8)
             }
             .padding(.horizontal, 12)
-            .frame(height: 40)
+            // 40 for a row of one line, taller when a name wraps.
+            .padding(.vertical, 6)
+            .frame(minHeight: 40)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(selected ? Color.white.opacity(LandscapeChrome.cardFill) : Color.clear)
@@ -2279,18 +2458,39 @@ struct LibrarySortPicker: View {
     }
 }
 
+/// Lays its one subview out at the size the subview asks for, never more,
+/// and never more than `limit`: the panel's "wrap content". When the content
+/// is wider than the limit it is laid out at the limit's width (a long name
+/// then wraps), and when it is taller its height is the limit's, which is what
+/// makes a `ViewThatFits` inside pick its scrolling form.
+struct HugContentLayout: Layout {
+    let limit: CGSize
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        let width = min(content.sizeThatFits(.unspecified).width, limit.width)
+        let height = min(content.sizeThatFits(ProposedViewSize(width: width, height: nil)).height,
+                         limit.height)
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
+                              proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
 // MARK: - The theme picker
 
-/// The five looks as rows: a swatch of the look's ground, accent and
-/// highlight, the name, a check on the current one. Tapping a row applies it
-/// at once, everywhere in landscape, and closes the panel.
+/// The looks as rows: a swatch of the look's ground, accent and highlight,
+/// the name, a check on the current one. Tapping a row applies it at once,
+/// in both orientations, and closes the panel.
 ///
-/// On an upright phone (`offersClassic`, 2026-09-07) a "Classic" row leads
-/// the list: the List the library always had. Picking it keeps the landscape
-/// look as it is; picking a look below it turns the upright surface on in
-/// that look, for both orientations.
+/// "Classic" leads the list, in both orientations since 2026-10-07: the List
+/// upright, the flat black ground on its side. Upright (`upright`) the
+/// panel also carries the hero switch.
 struct LandscapeThemePicker: View {
-    var offersClassic: Bool = false
+    var upright: Bool = false
     let onClose: () -> Void
 
     @ObservedObject private var store = LandscapeThemeStore.shared
@@ -2300,9 +2500,7 @@ struct LandscapeThemePicker: View {
     @AppStorage(BoxArtManager.LibraryCoverSource.key)
     private var coverSource: String = BoxArtManager.LibraryCoverSource.boxArt.rawValue
 
-    /// The check sits on Classic while the upright phone shows the List, and
-    /// on the look otherwise; on a phone on its side, always on the look.
-    private var classicChecked: Bool { offersClassic && store.portraitClassic }
+    private var classicChecked: Bool { store.isClassic }
 
     var body: some View {
         ZStack {
@@ -2346,42 +2544,38 @@ struct LandscapeThemePicker: View {
     /// The looks, the hero switch, and the door to the covers page.
     @ViewBuilder
     private var looksPage: some View {
-                if offersClassic {
-                    let name = NSLocalizedString("library.theme.classic", comment: "")
-                    FocusableButton(shape: .rounded(10), isDefault: classicChecked) {
-                        Haptics.tap()
-                        store.portraitClassic = true
-                        onClose()
-                    } label: {
-                        HStack(spacing: 12) {
-                            classicSwatch
-                            Text(name)
-                                .font(.subheadline.weight(.medium))
+                FocusableButton(shape: .rounded(10), isDefault: classicChecked) {
+                    Haptics.tap()
+                    store.theme = .classic
+                    onClose()
+                } label: {
+                    HStack(spacing: 12) {
+                        classicSwatch
+                        Text(LandscapeTheme.classic.name)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                        Spacer(minLength: 8)
+                        if classicChecked {
+                            Image(systemName: "checkmark")
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
-                            Spacer(minLength: 8)
-                            if classicChecked {
-                                Image(systemName: "checkmark")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                            }
                         }
-                        .padding(.horizontal, 14)
-                        .frame(height: 48)
-                        .contentShape(Rectangle())
                     }
-                    .accessibilityLabel(name)
-                    .accessibilityAddTraits(classicChecked ? [.isButton, .isSelected] : .isButton)
-                    Divider().overlay(Color.white.opacity(0.12))
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .contentShape(Rectangle())
                 }
-                ForEach(Array(LandscapeTheme.allCases.enumerated()), id: \.element) { index, theme in
+                .accessibilityLabel(LandscapeTheme.classic.name)
+                .accessibilityAddTraits(classicChecked ? [.isButton, .isSelected] : .isButton)
+                Divider().overlay(Color.white.opacity(0.12))
+                ForEach(Array(LandscapeTheme.looks.enumerated()), id: \.element) { index, theme in
                     if index > 0 {
                         Divider().overlay(Color.white.opacity(0.12))
                     }
-                    let checked = store.theme == theme && !classicChecked
+                    let checked = store.theme == theme
                     FocusableButton(shape: .rounded(10), isDefault: checked) {
                         Haptics.tap()
                         store.theme = theme
-                        if offersClassic { store.portraitClassic = false }
                         onClose()
                     } label: {
                         HStack(spacing: 12) {
@@ -2403,11 +2597,10 @@ struct LandscapeThemePicker: View {
                     .accessibilityLabel(theme.name)
                     .accessibilityAddTraits(checked ? [.isButton, .isSelected] : .isButton)
                 }
-                if offersClassic, !store.portraitClassic {
-                    // The last game played above the List, on or off
+                if upright {
+                    // The last game played at the top of the List, on or off
                     // (2026-09-07); the upright phone only, the rack has no
-                    // hero, and Classic has none either, so the row hides
-                    // with it.
+                    // hero. Classic has one too since 2026-10-07.
                     Divider().overlay(Color.white.opacity(0.12))
                     Toggle(isOn: $store.showsHero) {
                         Text(NSLocalizedString("library.hero.toggle", comment: ""))
@@ -2633,40 +2826,44 @@ struct LibraryLandscapeBackground: View {
             let size = geo.size
             ZStack {
                 theme.ground
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: holdsStill)) { context in
-                    let t = context.date.timeIntervalSinceReferenceDate
-                    // The glows scale with the SHORT side. On a phone this ground
-                    // is only ever drawn on its side, where the short side is the
-                    // height it always scaled with; on an upright iPad the height
-                    // is the long side, and a glow 0.55 of 1376 points is a
-                    // sunrise, not a glow.
-                    let base = min(size.width, size.height)
-                    ForEach(Self.blobs) { blob in
-                        let r = blob.radius * base
-                        let at = blob.position(at: t)
-                        let color = blob.role == .accent ? theme.accent : theme.highlight
-                        let strength = blob.opacity * theme.glow
-                        Circle()
-                            .fill(RadialGradient(
-                                gradient: Gradient(stops: [
-                                    .init(color: color.opacity(strength), location: 0),
-                                    .init(color: color.opacity(strength * 0.55), location: 0.28),
-                                    .init(color: color.opacity(strength * 0.18), location: 0.6),
-                                    .init(color: color.opacity(0), location: 1),
-                                ]),
-                                center: .center, startRadius: 0, endRadius: r))
-                            .frame(width: r * 2, height: r * 2)
-                            .blendMode(.plusLighter)
-                            .position(x: at.x * size.width, y: at.y * size.height)
+                // Classic is the ground alone (2026-10-07): black, no glow, no
+                // dust, no grain, nothing that moves, so nothing ticks either.
+                if !theme.isClassic {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: holdsStill)) { context in
+                        let t = context.date.timeIntervalSinceReferenceDate
+                        // The glows scale with the SHORT side. On a phone this ground
+                        // is only ever drawn on its side, where the short side is the
+                        // height it always scaled with; on an upright iPad the height
+                        // is the long side, and a glow 0.55 of 1376 points is a
+                        // sunrise, not a glow.
+                        let base = min(size.width, size.height)
+                        ForEach(Self.blobs) { blob in
+                            let r = blob.radius * base
+                            let at = blob.position(at: t)
+                            let color = blob.role == .accent ? theme.accent : theme.highlight
+                            let strength = blob.opacity * theme.glow
+                            Circle()
+                                .fill(RadialGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: color.opacity(strength), location: 0),
+                                        .init(color: color.opacity(strength * 0.55), location: 0.28),
+                                        .init(color: color.opacity(strength * 0.18), location: 0.6),
+                                        .init(color: color.opacity(0), location: 1),
+                                    ]),
+                                    center: .center, startRadius: 0, endRadius: r))
+                                .frame(width: r * 2, height: r * 2)
+                                .blendMode(.plusLighter)
+                                .position(x: at.x * size.width, y: at.y * size.height)
+                        }
                     }
-                }
-                Image(uiImage: Self.grain)
-                    .resizable(resizingMode: .tile)
-                    .interpolation(.none)
-                    .opacity(0.05)
-                LibraryLandscapeParticlesView(isPaused: holdsStill, theme: theme)
-                if dimmed {
-                    Color.black.opacity(LandscapeChrome.groundFilm)
+                    Image(uiImage: Self.grain)
+                        .resizable(resizingMode: .tile)
+                        .interpolation(.none)
+                        .opacity(0.05)
+                    LibraryLandscapeParticlesView(isPaused: holdsStill, theme: theme)
+                    if dimmed {
+                        Color.black.opacity(LandscapeChrome.groundFilm)
+                    }
                 }
             }
             .frame(width: size.width, height: size.height)

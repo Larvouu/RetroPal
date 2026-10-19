@@ -353,10 +353,7 @@ struct RetroStoryCardView: View {
     }
 
     private func consoleIcon(_ system: String) -> some View {
-        Image("console-\(system)")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 18, height: 18)
+        ConsoleMark(systemType: system, width: 18, height: 18)
     }
 
     // MARK: - Shared ranking row
@@ -403,6 +400,10 @@ struct RetroStoryCardView: View {
         case "nes": return "NES"
         case "ps1": return "PlayStation"
         case "n64": return "Nintendo 64"
+        case "md": return SystemColor.name("md")
+        case "sms": return SystemColor.name("sms")
+        case "gg": return SystemColor.name("gg")
+        case "psp": return SystemColor.name("psp")
         default: return "Game Boy Advance"
         }
     }

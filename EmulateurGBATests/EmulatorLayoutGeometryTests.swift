@@ -31,6 +31,9 @@ enum ButtonShape {
         // Z is a round face on the Nintendo 64 only; the PlayStation's L2 stays a bar.
         case .btnL2 where system == .n64:
             return .circle(center: CGPoint(x: r.midX, y: r.midY), radius: min(r.width, r.height) / 2)
+        // The Mega Drive's X and Z are round faces in its upper row (`MDTouchControlsView`).
+        case .btnL where system == .md, .btnR where system == .md:
+            return .circle(center: CGPoint(x: r.midX, y: r.midY), radius: min(r.width, r.height) / 2)
         default:
             return .rect(r)
         }
@@ -79,6 +82,10 @@ struct EmulatorLayoutGeometryTests {
         case .nes: return 248.0 / 240.0
         case .ps1: return 4.0 / 3.0
         case .n64: return 4.0 / 3.0
+        case .md: return 4.0 / 3.0
+        case .sms: return 256.0 / 192.0
+        case .gg: return 160.0 / 144.0
+        case .psp: return 480.0 / 272.0
         }
     }
 
@@ -499,7 +506,7 @@ struct EmulatorLayoutGeometryTests {
         let pristine = ControllerLayout()
 
         for (label, size, isLandscape) in devices {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
+            for system in PresetSystem.allCases {
                 let expected = EmulatorLayoutGeometry.screenFrame(
                     deviceSize: size, safeInsets: .zero,
                     hasTouchScreen: system == .nds, isLandscape: isLandscape,
@@ -557,7 +564,8 @@ struct EmulatorLayoutGeometryTests {
             ("Pro Max", CGSize(width: 956, height: 440)),
         ]
         for (label, size) in devices {
-            for system in [PresetSystem.gba, .gbc, .snes, .nes, .ps1, .n64] {
+            // Every console but the DS, whose two screens are checked on their own.
+            for system in PresetSystem.allCases where system != .nds {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: ControllerLayout(), system: system, isLandscape: true,
                     viewSize: size, safeInsets: .zero)
@@ -606,7 +614,7 @@ struct EmulatorLayoutGeometryTests {
 
         for (size, isLandscape) in [(Self.proPortrait, false), (Self.sePortrait, false),
                                     (Self.proLandscape, true), (Self.seLandscape, true)] {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
+            for system in PresetSystem.allCases {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: layout, system: system, isLandscape: isLandscape,
                     viewSize: size, safeInsets: .zero)
@@ -640,7 +648,7 @@ struct EmulatorLayoutGeometryTests {
             (Self.seLandscape, true, Self.sePortrait, Self.seLandscape),
         ]
         for (size, isLandscape, portrait, landscape) in cases {
-            for system in [PresetSystem.gba, .gbc, .nds, .snes, .nes, .ps1, .n64] {
+            for system in PresetSystem.allCases {
                 let seeded = PresetLayoutResolver.seededControllerLayout(
                     system: system,
                     portraitSize: portrait, portraitInsets: .zero,
@@ -1697,8 +1705,13 @@ struct SNESAndNESLayoutTests {
         var rects: [ControlElement: CGRect] = [:]
         for e in ControlElement.elements(for: system) {
             guard let bl = layout.buttons[e.rawValue], !bl.isHidden else { continue }
-            let s = EmulatorLayoutGeometry.buttonSize(e, system: system,
+            var s = EmulatorLayoutGeometry.buttonSize(e, system: system,
                                                       isLandscape: isLandscape, deviceScale: k)
+            // The size the app DRAWS (`applyDefaultLayout`): on an iPhone on its
+            // side the N64's stick is smaller and its right gutter's groups larger.
+            let drawn = ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape,
+                                                            family: .phone, system: system)
+            s = CGSize(width: s.width * drawn, height: s.height * drawn)
             rects[e] = CGRect(x: container.minX + bl.centerX * container.width - s.width / 2,
                               y: container.minY + bl.centerY * container.height - s.height / 2,
                               width: s.width, height: s.height)
@@ -1733,7 +1746,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 440, height: 956), UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
              CGSize(width: 956, height: 440), UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1, .n64] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp] {
             for (name, portrait, pInsets, landscape, lInsets) in devices {
                 for (size, insets, isLandscape) in [(portrait, pInsets, false), (landscape, lInsets, true)] {
                     let rects = realRects(system: system, isLandscape: isLandscape,
@@ -1767,7 +1780,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 956, height: 440),
              UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1, .n64] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp] {
             for (name, size, insets) in devices {
                 let k = EmulatorLayoutGeometry.deviceScale(for: size)
                 let screen = EmulatorLayoutGeometry.screenFrame(

@@ -83,8 +83,9 @@ final class AnalogStickView: UIView {
     var dressed = false {
         didSet { guard dressed != oldValue else { return }; applyResting(); setNeedsLayout() }
     }
-    var dressKind: DressKind = .ps1 { didSet { applyResting() } }
-    var dressVariant: DressVariant = .nostalgia { didSet { applyResting() } }
+    var dressKind: DressKind = .ps1 { didSet { applyResting(); setNeedsLayout() } }
+    // A relayout too: the PSP's nub is drawn smaller (`thumbRadius`).
+    var dressVariant: DressVariant = .nostalgia { didSet { applyResting(); setNeedsLayout() } }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -127,9 +128,14 @@ final class AnalogStickView: UIView {
             // face tint: on this pad the cross, the shoulders and both sticks
             // are one plastic, and giving the thumb its own tone invented a
             // material the console does not have.
-            let face = dressKind == .ps1
+            var face = dressKind == .ps1
                 ? (dressVariant.shoulderFace(dressKind) ?? dressKind.faceFill)
                 : (dressVariant.abFace(dressKind) ?? dressKind.faceFill)
+            // The PSP's nub (2026-10-10): the shell's black on Nostalgia, as on
+            // the PSP-1000; #AFB2B6 on Retro Pal.
+            if dressKind == .ps1, dressVariant.isPSP {
+                face = dressVariant.pspPalette?.stick ?? UIColor(rpHex: 0x1E1E1E)
+            }
             // THE DISH IS GONE. The cap now fills the control, so a dish behind it
             // would never be seen; what reads as the seat is the black hole, which
             // is a real thing on the hardware where the dish never was.
@@ -186,7 +192,14 @@ final class AnalogStickView: UIView {
 
     /// The cap. DRESSED IT IS THE WHOLE CONTROL; undressed it keeps the small
     /// knob-in-a-dish the custom-preset look has always drawn.
-    private var thumbRadius: CGFloat { dressed ? radius : radius * 0.38 }
+    private var thumbRadius: CGFloat {
+        guard dressed else { return radius * 0.38 }
+        // The PSP's nub is drawn smaller than the other consoles' sticks (asked
+        // 2026-10-10); what a thumb can touch, and how far it pushes, is not.
+        return dressKind == .ps1 && dressVariant.isPSP ? radius * Self.pspNubScale : radius
+    }
+    /// How much of the control the PSP's nub draws.
+    static let pspNubScale: CGFloat = 0.72
 
     /// How far the finger may travel, for INPUT. Unchanged by any of the drawing
     /// below: this is what the value is divided by, so touching it would change
@@ -212,7 +225,8 @@ final class AnalogStickView: UIView {
         // The hole does not move with the cap: it is the shell, not the control.
         holeLayer.path = UIBezierPath(
             arcCenter: CGPoint(x: bounds.midX, y: bounds.midY),
-            radius: max(radius * (1 + holeExcess), 1),
+            // Round the cap actually drawn (the PSP's is smaller than the control).
+            radius: max((dressed ? thumbRadius : radius) * (1 + holeExcess), 1),
             startAngle: 0, endAngle: .pi * 2, clockwise: true).cgPath
         drawThumb()
     }

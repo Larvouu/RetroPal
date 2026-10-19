@@ -1,0 +1,98 @@
+#!/bin/sh
+
+set -e
+
+if [ -z "$OS" ]; then
+	OS=`uname -s`
+fi
+SDL="sdl2"
+if [ $OS = "Linux" ]; then
+	rm -rf lib
+	mkdir lib
+	cd sdl
+	if [ -f ./configure ]; then
+		./configure
+		make all
+		cd ..
+		cp sdl/build/.libs/libSDL2-*.so.*.*.* lib
+		sdl=`ls lib`
+		link=`echo $sdl | sed -E 's/(so\.[0-9]*).*/\1/'`
+		cd lib
+		ln -s "$sdl" "$link"
+		ln -s "$sdl" libSDL2.so
+	elif [ -f ./CMakeLists.txt ]; then
+		cmake -S . -B build
+		cmake --build build
+		cp build/libSDL3.so* ../lib
+		SDL="sdl3"
+	else
+		echo "Failed to find SDL build file!";
+		exit 1
+	fi
+	cd ..
+	cd glew
+	make all
+	cd ..
+fi
+echo "Path is: $PATH"
+if [ $OS = "Win64" ]; then
+	make PORTABLE=1 OS=Windows CPU=x86_64 SDL=$SDL clean all
+	SDLDLLPATH=sdl/x86_64-w64-mingw32/bin
+else
+	make PORTABLE=1 SDL=$SDL clean all
+	SDLDLLPATH=sdl/i686-w64-mingw32/bin
+fi
+make menu.bin tmss.md
+if [ $OS = "Windows" -o $OS = "Win64" ]; then
+	binaries="blastem.exe $SDLDLLPATH/SDL2.dll"
+	verstr=`sed -E -n 's/^[^B]+BLASTEM_VERSION "([^"]+)"/blastem \1/p' version.inc`
+	txt=".txt"
+else
+	binaries="dis zdis blastem termhelper"
+	if [ $OS = "Darwin" ]; then
+		binaries="$binaries Frameworks"
+	else
+		binaries="$binaries lib"
+	fi
+	verstr=`./blastem -v`
+	txt=""
+fi
+binaries="$binaries menu.bin tmss.md"
+ver=`echo $verstr | awk '/blastem/ { gsub(/\r/, "", $2); print $2 }'`
+if [ $OS = "Windows" ]; then
+	suffix='-win32'
+elif [ $OS = "Win64" ]; then
+	suffix='-win64'
+elif [ $OS = "Darwin" ]; then
+	suffix='-osx'
+else
+	suffix=`file ./blastem | sed -E 's/^[^:]*: [^ ]* ([0-9]*)-bit .*/\1/'`
+fi
+dir="blastem${suffix}-${ver}"
+echo $dir
+rm -rf "$dir"
+mkdir "$dir"
+cp -r $binaries shaders images default.cfg rom.db gamecontrollerdb.txt systems.cfg "$dir"
+for file in README COPYING CHANGELOG; do
+	cp "$file" "$dir"/"$file$txt"
+done
+if [ $OS = "Darwin" ]; then
+	cp SDL-LICENSE "$dir"
+elif [ $OS = "Windows" -o $OS = "Win64" ]; then
+	cp sdl/COPYING.txt "$dir"/SDL-LICENSE$txt
+else
+	cp sdl/LICENSE.txt "$dir"/SDL-LICENSE$txt
+fi
+cp glew/LICENSE.txt "$dir"/GLEW-LICENSE$txt
+cp zstd/COPYING "$dir"/ZSTD-COPYING$txt
+cp zstd/LICENSE "$dir"/ZSTD-LICENSE$txt
+
+if [ $OS = "Windows" -o $OS = "Win64" ]; then
+	rm -f "${dir}.zip"
+	zip -r "${dir}.zip" "$dir"
+	echo "${dir}.zip"
+else
+	rm -f "${dir}.tar.gz"
+	tar -cvzf "${dir}.tar.gz" "$dir"
+	echo "${dir}.tar.gz"
+fi

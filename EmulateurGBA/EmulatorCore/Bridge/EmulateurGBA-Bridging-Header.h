@@ -17,6 +17,12 @@
 #import "MesenBridge.h"
 #import "PCSXBridge.h"
 #import "N64Bridge.h"
+#import "BlastEmBridge.h"
+#import "PSPBridge.h"
+
+// Whether a file is a PSP game, read from its bytes (`.iso` and `.pbp` are the
+// PlayStation's too). C, so the RetroAchievements client can ask it as well.
+#import "../../Data/ROMParsing/PSPDiscProbe.h"
 
 // RetroAchievements (rc_client) ObjC++ wrapper, exposed to Swift.
 #import "../../Data/RetroAchievements/RAClient.h"

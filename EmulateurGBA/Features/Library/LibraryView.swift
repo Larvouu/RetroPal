@@ -7,6 +7,13 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// The chooser sheet's item: a save the library could not place by name.
+struct SaveTargetRequest: Identifiable {
+    let id = UUID()
+    let save: OpenedSave
+    let candidates: [GameEntity]
+}
+
 struct IdentifiableURL: Identifiable {
     let id: String
     let url: URL
@@ -85,7 +92,8 @@ struct LibraryView: View {
     @LandscapeSurface private var isLandscape
     /// An upright PHONE takes the same surface, the hero and the List on
     /// glass, when the player picks a look from the palette beside the plus
-    /// (2026-09-07); "Classic" in that picker is the List, and the default.
+    /// (2026-09-07); "Classic" in that picker is the List, with its own hero
+    /// (2026-10-07), and a look of its own on its side.
     /// An iPad window narrowed to a phone's width (windowed, Stage Manager)
     /// is an upright phone here too (decided on device, 2026-09-08): it used
     /// to keep the List whatever the look, which read as a forced Classic.
@@ -93,7 +101,7 @@ struct LibraryView: View {
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
 
     private var usesThemedPortrait: Bool {
-        !isLandscape && !themeStore.portraitClassic
+        !isLandscape && !themeStore.isClassic
     }
 
     @State private var showFilePicker = false
@@ -104,6 +112,12 @@ struct LibraryView: View {
     /// menu is visible", once more per switch). The panels are plain views.
     @State private var showSortPicker = false
     @State private var showThemePicker = false
+    /// The Classic hero's slot choice (2026-10-07), the panel the themed
+    /// surfaces open from their Play.
+    @State private var heroPlayMenu: LibraryPlayMenuModel?
+    /// Bumped when a quick-save or a cover lands, so the Classic hero's cover
+    /// re-reads, as the themed surface does for its own.
+    @State private var heroSaveTick = 0
     @State private var launchRequest: LaunchRequest?
     @State private var importError: String?
     @State private var showImportError = false
@@ -184,6 +198,14 @@ struct LibraryView: View {
     /// takes isPresented, not item.
     @State private var navigateToGame: GameEntity?
     @State private var showNavigateDestination = false
+    /// A battery save opened from outside the app, handed to `navigateToGame`'s
+    /// page, which writes it and clears this (`processOpenedSave`).
+    @State private var openedSaveForDetails: OpenedSave?
+    /// A save whose game the library could not tell from its name: the chooser
+    /// sheet is up for it. `chosenSaveTarget` is set by a pick, read once the
+    /// sheet is gone (so the push never runs under a closing sheet).
+    @State private var saveTargetRequest: SaveTargetRequest?
+    @State private var chosenSaveTarget: (game: GameEntity, save: OpenedSave)?
     /// URL queued behind an in-progress game launchRequest. Picked up by
     /// coverDidDismiss once the fullScreenCover dismissal animation finishes.
     @State private var queuedURL: URL?
@@ -216,7 +238,8 @@ struct LibraryView: View {
 
     /// Canonical console ordering, used only as a stable tiebreak when two
     /// consoles have identical play time (e.g. none played yet).
-    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64"]
+    private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md",
+                                               "sms", "gg", "psp"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -480,7 +503,7 @@ struct LibraryView: View {
                     .toolbarColorScheme(.dark, for: .tabBar)
             } else {
                 gameList
-                    .navigationTitle(NSLocalizedString("library.title", comment: ""))
+                    .modifier(ClassicLibraryTitle())
                     .searchable(text: $searchText, prompt: NSLocalizedString("library.search", comment: ""))
             }
         }
@@ -492,7 +515,10 @@ struct LibraryView: View {
                 // wait is never blank. The 0.5s defer below only delays the work
                 // (it lets the picker finish dismissing before any error alert
                 // can present); the skeleton is already on screen by then.
-                let nonROM: Set<String> = ["sav", "srm", "retropalskin"]
+                // The same names `processPickedBatch` routes away from the
+                // importer; `.mcd` was missing, so picking a memory card alone
+                // left the import skeleton on screen with nothing importing.
+                let nonROM: Set<String> = ["sav", "srm", "mcd", "retropalskin"]
                 if urls.contains(where: { !nonROM.contains($0.pathExtension.lowercased()) }) {
                     isImporting = true
                 }
@@ -511,6 +537,11 @@ struct LibraryView: View {
         }
         .fullScreenCover(item: $launchRequest, onDismiss: coverDidDismiss) { request in
             emulatorScreen(for: request)
+        }
+        .sheet(item: $saveTargetRequest, onDismiss: saveTargetSheetDidDismiss) { request in
+            SaveTargetPickerSheet(save: request.save, candidates: request.candidates) { game in
+                chosenSaveTarget = (game, request.save)
+            }
         }
         .alert(NSLocalizedString("library.importError", comment: ""), isPresented: $showImportError) {
             Button(NSLocalizedString("common.ok", comment: "")) { advanceBatchFollowUps() }
@@ -539,7 +570,8 @@ struct LibraryView: View {
             GameDetailsView(
                 game: game,
                 onPlay: { url, slot in playGame(game, url: url, slot: slot) },
-                onDelete: { deleteGame(game) }
+                onDelete: { deleteGame(game) },
+                openedSave: $openedSaveForDetails
             )
         }
     }
@@ -565,14 +597,10 @@ struct LibraryView: View {
         // background is hidden on iOS 26 the way the RetroAchievements pages
         // hide the about button's.
         if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                ControllerStatusBadge(tint: .primary, compact: true)
-            }
+            ToolbarItem(placement: .navigationBarTrailing) { ClassicBarBadge() }
             .sharedBackgroundVisibility(.hidden)
         } else {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                ControllerStatusBadge(tint: .primary, compact: true)
-            }
+            ToolbarItem(placement: .navigationBarTrailing) { ClassicBarBadge() }
         }
         // The look of the library, left of the plus (2026-09-07): the
         // five looks of the themed surface, which turn it on upright, and
@@ -623,9 +651,7 @@ struct LibraryView: View {
         } label: {
             Image(systemName: "paintpalette")
         }
-        .accessibilityLabel(themeStore.portraitClassic
-                            ? NSLocalizedString("library.theme.classic", comment: "")
-                            : themeStore.theme.name)
+        .accessibilityLabel(themeStore.theme.name)
     }
 
     /// The two panels over whichever surface the page shows; only the
@@ -637,7 +663,12 @@ struct LibraryView: View {
                               consoles: consolesInLibrary, onClose: { showSortPicker = false })
         }
         if showThemePicker {
-            LandscapeThemePicker(offersClassic: true, onClose: { showThemePicker = false })
+            LandscapeThemePicker(upright: true, onClose: { showThemePicker = false })
+        }
+        if let menu = heroPlayMenu {
+            LibraryPlayMenu(model: menu,
+                            onPick: { slot in pickHeroSlot(slot, for: menu.game) },
+                            onClose: { heroPlayMenu = nil })
         }
     }
 
@@ -646,9 +677,13 @@ struct LibraryView: View {
     private static func makeBridge(systemType: String?) -> any EmulatorBridge {
         switch systemType {
         case "nds":            return MelonDSBridge()
-        case "snes", "nes":    return MesenBridge()
+        // MesenCE runs four consoles, the Master System and the Game Gear
+        // among them, and chooses which from the file it loads.
+        case "snes", "nes", "sms", "gg": return MesenBridge()
         case "ps1":            return PCSXBridge()
         case "n64":            return N64Bridge()
+        case "md":             return BlastEmBridge()
+        case "psp":            return PSPBridge()
         default:               return MGBABridge()
         }
     }
@@ -699,11 +734,24 @@ struct LibraryView: View {
 
     // MARK: - Empty State
 
+    /// The welcome, upright, on the List. Everything it says fits ONE screen
+    /// (2026-10-09, asked: the last two lines, where to find games and the
+    /// legal note, fell below the fold on smaller phones once the consoles
+    /// took four rows). The consoles are one strip now, and the page takes
+    /// the roomy spacing when it fits and a tighter one when it does not;
+    /// the ScrollView stays as the last resort for the largest text sizes,
+    /// where nothing can fit, rather than clipping.
     private var emptyState: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                Spacer(minLength: 32)
+        ViewThatFits(in: .vertical) {
+            emptyStateContent(gap: 18, top: 32, bottom: 24)
+            emptyStateContent(gap: 10, top: 8, bottom: 8)
+            ScrollView { emptyStateContent(gap: 10, top: 8, bottom: 8) }
+        }
+    }
 
+    private func emptyStateContent(gap: CGFloat, top: CGFloat, bottom: CGFloat) -> some View {
+            VStack(spacing: gap) {
+                Spacer(minLength: top)
                 Text(NSLocalizedString("library.empty.title", comment: ""))
                     .font(.title2.bold())
                     .foregroundColor(.primary)
@@ -716,9 +764,9 @@ struct LibraryView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 32)
 
-                // The four consoles, named — the same colored pixel-art strip
-                // as retropal.fr, so a newcomer sees at a glance what plays here.
-                ConsoleIconRow()
+                // Every console, named, in one scrolling strip, so a newcomer
+                // sees at a glance what plays here.
+                ConsoleIconRow(isActive: isActiveTab)
                     .padding(.horizontal, 24)
                     .padding(.top, 2)
 
@@ -755,9 +803,8 @@ struct LibraryView: View {
                 )
                 .padding(.horizontal, 32)
 
-                Spacer(minLength: 24)
+                Spacer(minLength: bottom)
             }
-        }
     }
 
     private var stepsCard: some View {
@@ -804,6 +851,11 @@ struct LibraryView: View {
             .onAppear { refreshStats() }
             .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
                 refreshStats()
+                heroSaveTick &+= 1
+            }
+            // The library's default cover was switched, or an image it needs landed.
+            .onReceive(NotificationCenter.default.publisher(for: BoxArtManager.LibraryCoverSource.didChange)) { _ in
+                heroSaveTick &+= 1
             }
             .onChange(of: games.count) { _ in refreshStats() }
             .sheet(isPresented: $showStoryShare) {
@@ -841,58 +893,132 @@ struct LibraryView: View {
         }
     }
 
-    /// Portrait: the original single-column List (swipe-to-delete, grouped style).
+    /// Portrait: the original single-column List (swipe-to-delete, grouped
+    /// style), with the hero at its top when it is on (2026-10-07). As in the
+    /// looks, a library of one game shows that game once, as the hero.
     private var portraitGameList: some View {
-        gameList(settlingWith: nil)
+        let heroGame = themeStore.showsHero ? LibraryHeroCard.game(in: filteredGames) : nil
+        let heroIsLibrary = heroGame != nil && !isImporting && displayedGames.count == 1
+        return gameList(settlingWith: nil,
+                        hero: heroGame.map { AnyView(classicHero($0)) },
+                        showsGames: !heroIsLibrary)
     }
+
+    /// The hero in the Classic List's own dress. Borderless buttons: in a List
+    /// row, plain ones answer a tap anywhere in the row.
+    private func classicHero(_ game: GameEntity) -> some View {
+        LibraryHeroCard(
+            game: game,
+            saveTick: heroSaveTick,
+            classic: true,
+            onOpenDetails: {
+                guard !presenting else { return }
+                navigateToGame = game
+                showNavigateDestination = true
+            },
+            onPlay: { heroPlayTapped(game) },
+            onRename: {
+                guard !presenting else { return }
+                renameDraft = game.title ?? ""
+                renamingGame = game
+            },
+            onDelete: { deleteGame(game) }
+        )
+        .buttonStyle(.borderless)
+    }
+
+    /// The Classic hero's Play: the themed hero's rule (start at once, or
+    /// the slot choice when a quick-save exists).
+    private func heroPlayTapped(_ game: GameEntity) {
+        guard !presenting, let filename = game.romFilePath else { return }
+        switch LibraryPlayMenuModel.action(for: game) {
+        case .nothing:
+            break
+        case .start:
+            playGame(game, url: romsDir.appendingPathComponent(filename), slot: nil)
+        case .choose(let model):
+            heroPlayMenu = model
+        }
+    }
+
+    private func pickHeroSlot(_ slot: Int?, for game: GameEntity) {
+        heroPlayMenu = nil
+        guard let filename = game.romFilePath else { return }
+        let url = romsDir.appendingPathComponent(filename)
+        if let slot {
+            playGame(game, url: url, slot: slot)
+        } else {
+            LibraryPlayMenu.confirmFreshStart { playGame(game, url: url, slot: nil) }
+        }
+    }
+
+    /// The identity of the hero's row, which the themed List is seated on.
+    private static let heroRowID = "library.hero"
 
     /// The List itself. `proxy` is the themed surface's: with one, the List
     /// re-seats itself at its top once it is on screen (see
     /// `settleAtTop(_:)`); the Classic List keeps its bar and needs none.
-    private func gameList(settlingWith proxy: ScrollViewProxy?) -> some View {
+    /// `hero`, when given, is the List's first row and scrolls with the games
+    /// (2026-10-07); `showsGames` is false when the hero is the whole library.
+    private func gameList(settlingWith proxy: ScrollViewProxy?, hero: AnyView?,
+                          showsGames: Bool) -> some View {
         List {
+            // The hero in a section of its own, edge to edge of the section's
+            // margins, with no row background: its card carries its own.
+            if let hero {
+                Section {
+                    hero
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .id(Self.heroRowID)
+                }
+            }
+
             // Games in their own section(s) so the group keeps its rounded corners
             // (the stats block below must not join this section, or the last
             // game row loses its rounded bottom). The "Par console" sort yields one
             // section per console — grouped-List section spacing IS the small gap
             // between blocks (no titles); every other sort is a single section.
-            ForEach(Array(gameGroups.enumerated()), id: \.offset) { groupIndex, group in
-                Section {
-                    // While importing, a skeleton row at the top of the first block
-                    // stands in for the game about to appear (the UI stays frozen
-                    // via importingOverlay).
-                    if isImporting && groupIndex == 0 {
-                        LibrarySkeletonRow()
+            if showsGames {
+                ForEach(Array(gameGroups.enumerated()), id: \.offset) { groupIndex, group in
+                    Section {
+                        // While importing, a skeleton row at the top of the first block
+                        // stands in for the game about to appear (the UI stays frozen
+                        // via importingOverlay).
+                        if isImporting && groupIndex == 0 {
+                            LibrarySkeletonRow()
+                        }
+                        ForEach(group, id: \.self) { game in
+                            LibraryRow(
+                                game: game,
+                                // The list's first game is where a controller's
+                                // highlight starts on this page.
+                                isFirst: groupIndex == 0 && game == group.first,
+                                onOpenDetails: {
+                                    // The row's own link cannot be followed from
+                                    // code; a controller's A takes the page's
+                                    // programmatic push to the same page.
+                                    guard !presenting else { return }
+                                    navigateToGame = game
+                                    showNavigateDestination = true
+                                },
+                                onPlay: { url, slot in playGame(game, url: url, slot: slot) },
+                                onDelete: { deleteGame(game) },
+                                onRename: {
+                                    guard !presenting else { return }
+                                    renameDraft = game.title ?? ""
+                                    renamingGame = game
+                                },
+                                detailViewCount: $detailViewCount
+                            )
+                        }
+                        .onDelete { offsets in deleteGames(in: group, at: offsets) }
                     }
-                    ForEach(group, id: \.self) { game in
-                        LibraryRow(
-                            game: game,
-                            // The list's first game is where a controller's
-                            // highlight starts on this page.
-                            isFirst: groupIndex == 0 && game == group.first,
-                            onOpenDetails: {
-                                // The row's own link cannot be followed from
-                                // code; a controller's A takes the page's
-                                // programmatic push to the same page.
-                                guard !presenting else { return }
-                                navigateToGame = game
-                                showNavigateDestination = true
-                            },
-                            onPlay: { url, slot in playGame(game, url: url, slot: slot) },
-                            onDelete: { deleteGame(game) },
-                            onRename: {
-                                guard !presenting else { return }
-                                renameDraft = game.title ?? ""
-                                renamingGame = game
-                            },
-                            detailViewCount: $detailViewCount
-                        )
-                    }
-                    .onDelete { offsets in deleteGames(in: group, at: offsets) }
+                    // Glass under a look (the scaffold's flag), the system row
+                    // background on the List; nothing changes in the rows.
+                    .landscapeGlassRow()
                 }
-                // Glass under a look (the scaffold's flag), the system row
-                // background on the List; nothing changes in the rows.
-                .landscapeGlassRow()
             }
 
             // "Retro story" stats card, anchored at the bottom after the games
@@ -927,7 +1053,7 @@ struct LibraryView: View {
         // Inside the `.id` below on purpose: a rebuilt List is a new view and
         // appears again, so every List this page creates gets seated.
         .onAppear {
-            if let proxy { settleAtTop(proxy) }
+            if let proxy { settleAtTop(proxy, onHero: hero != nil) }
         }
         // A new order or a new console rebuilds the List, so it opens at its
         // top as if the page had been reloaded (2026-09-07), the way the rack
@@ -942,9 +1068,9 @@ struct LibraryView: View {
     /// The List as the upright surface shows it (2026-09-07): the same rows,
     /// the same swipe and links, its scroll background gone so the ground
     /// shows, its sections on glass. The bar above it carries the search.
-    private var themedPortraitList: some View {
+    private func themedPortraitList(_ content: LibraryUprightListContent) -> some View {
         ScrollViewReader { proxy in
-            gameList(settlingWith: proxy)
+            gameList(settlingWith: proxy, hero: content.hero, showsGames: content.showsGames)
                 .scrollContentBackground(.hidden)
                 .environment(\.landscapeGlassRows, true)
                 // The space above the first section is OURS, not UIKit's (device
@@ -974,15 +1100,20 @@ struct LibraryView: View {
     /// it rests where a scroll would have left it. Hero on or off, the same
     /// call; a List with no section (a search with no hit) has nothing to
     /// scroll to and is left alone.
-    private func settleAtTop(_ proxy: ScrollViewProxy) {
+    private func settleAtTop(_ proxy: ScrollViewProxy, onHero: Bool) {
         for delay in [0.0, 0.45] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    // The sections are identified by their offset, so the first
-                    // one is 0 under every sort, headers included.
-                    proxy.scrollTo(0, anchor: .top)
+                    // The hero's row when there is one (2026-10-07); otherwise
+                    // the game sections, identified by their offset, so the
+                    // first one is 0 under every sort, headers included.
+                    if onHero {
+                        proxy.scrollTo(Self.heroRowID, anchor: .top)
+                    } else {
+                        proxy.scrollTo(0, anchor: .top)
+                    }
                 }
             }
         }
@@ -1007,7 +1138,7 @@ struct LibraryView: View {
     private func themedSurface(upright: Bool) -> some View {
         LibraryLandscapeView(
             upright: upright,
-            uprightList: upright ? { AnyView(themedPortraitList) } : nil,
+            uprightList: upright ? { content in AnyView(themedPortraitList(content)) } : nil,
             libraryCount: displayedGames.count,
             games: filteredGames,
             isImporting: isImporting,
@@ -1100,7 +1231,7 @@ struct LibraryView: View {
         var roms: [URL] = []
         for url in urls {
             switch url.pathExtension.lowercased() {
-            case "sav", "srm": pendingSaveRedirectAfterBatch = true
+            case "sav", "srm", "mcd": pendingSaveRedirectAfterBatch = true
             case "retropalskin": pendingSkinImports.append(url)
             default: roms.append(url)
             }
@@ -1120,7 +1251,10 @@ struct LibraryView: View {
         isImporting = true
         let context = PersistenceController.shared.container.newBackgroundContext()
         DispatchQueue.global(qos: .userInitiated).async {
+            SessionLiveness.shared.begin(.importing)
+            defer { SessionLiveness.shared.end(.importing) }
             let importer = ROMImporter(context: context)
+            importer.askConsole = DiscConsoleQuestion.ask
             var failures: [(filename: String, reason: String)] = []
             var duplicates: [String] = []
             var selectionRequests: [ZipSelectionRequest] = []
@@ -1132,7 +1266,8 @@ struct LibraryView: View {
             let (cartridges, discs, gaps) = DiscImportGrouper.group(urls)
 
             for gap in gaps {
-                Analytics.signal("rom_import", ["result": "error", "errorType": "discMissingFiles", "method": "picker"])
+                Analytics.signal("rom_import", ["result": "error", "errorType": "discMissingFiles", "method": "picker",
+                                                "reason": ImportFailureReason.discMissingFiles.rawValue])
                 let error = ROMImportError.discMissingFiles(names: gap.missing)
                 failures.append((gap.boot.lastPathComponent, error.errorDescription ?? ""))
             }
@@ -1140,14 +1275,20 @@ struct LibraryView: View {
             for group in discs {
                 do {
                     let _ = try importer.importDiscGroup(group, method: "picker")
+                } catch ROMImportError.consoleChoiceCancelled {
+                    // The player said Cancel to the console question: nothing
+                    // imported, nothing to report.
+                    continue
                 } catch let error as ROMImportError {
-                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
+                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker",
+                                                    "reason": ErrorTelemetry.importReason(for: error, noted: importer.takeFailureCause()).rawValue])
                     if case .alreadyImported = error {
                         duplicates.append(group.boot.lastPathComponent); continue
                     }
                     failures.append((group.boot.lastPathComponent, error.errorDescription ?? ""))
                 } catch {
-                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
+                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker",
+                                                    "reason": ErrorTelemetry.importReason(for: error, noted: importer.takeFailureCause()).rawValue])
                     failures.append((group.boot.lastPathComponent, error.localizedDescription))
                 }
             }
@@ -1155,20 +1296,25 @@ struct LibraryView: View {
             for url in cartridges {
                 do {
                     let _ = try importer.importROM(from: url, method: "picker")
+                } catch ROMImportError.consoleChoiceCancelled {
+                    continue
                 } catch let error as ROMImportError {
                     // A zip with several games isn't a failure: queue its
                     // selection sheet (no error signal, no summary line).
+                    let cause = importer.takeFailureCause()
                     if case .zipNeedsSelection(let tempZipURL, let entryNames) = error {
                         selectionRequests.append(ZipSelectionRequest(tempZipURL: tempZipURL, entryNames: entryNames))
                         continue
                     }
-                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker"])
+                    Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "picker",
+                                                    "reason": ErrorTelemetry.importReason(for: error, noted: cause).rawValue])
                     if case .alreadyImported = error {
                         duplicates.append(url.lastPathComponent); continue
                     }
                     failures.append((url.lastPathComponent, error.errorDescription ?? ""))
                 } catch {
-                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker"])
+                    Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "picker",
+                                                    "reason": ErrorTelemetry.importReason(for: error, noted: importer.takeFailureCause()).rawValue])
                     failures.append((url.lastPathComponent, error.localizedDescription))
                 }
             }
@@ -1211,11 +1357,15 @@ struct LibraryView: View {
         isImporting = true
         let context = PersistenceController.shared.container.newBackgroundContext()
         DispatchQueue.global(qos: .userInitiated).async {
+            SessionLiveness.shared.begin(.importing)
             let importer = ROMImporter(context: context)
+            importer.askConsole = DiscConsoleQuestion.ask
             let (failures, duplicates) = importer.importZIPSelection(entryNames: names,
                                                                       fromTempZip: request.tempZipURL)
+            SessionLiveness.shared.end(.importing)
             for failure in failures {
-                Analytics.signal("rom_import", ["result": "error", "errorType": failure.analyticsID, "method": "zip"])
+                Analytics.signal("rom_import", ["result": "error", "errorType": failure.analyticsID, "method": "zip",
+                                                "reason": failure.telemetryReason.rawValue])
             }
             DispatchQueue.main.async {
                 isImporting = false
@@ -1312,11 +1462,14 @@ struct LibraryView: View {
     /// Entry point for a URL delivered via the Files / share-sheet / AirDrop
     /// "Open in Retro Pal" flow. If a game is currently running, we queue the
     /// URL and dismiss the cover; coverDidDismiss picks it up once the
-    /// dismissal animation finishes. The auto-save that already ran when the
-    /// user backgrounded to Files preserves their state.
+    /// dismissal animation finishes. The running game ends through its own
+    /// save path first (`EmulatorSession.endForReplacement`): the background
+    /// auto-save covers Files and the share sheet, not AirDrop accepted with
+    /// the game in front, which never backgrounds the app (audit 2026-10-12).
     private func handleOpenedURL(_ url: URL) {
         if launchRequest != nil {
             queuedURL = url
+            launchRequest?.session.endForReplacement?()
             launchRequest = nil
         } else {
             processOpenedURL(url)
@@ -1330,6 +1483,7 @@ struct LibraryView: View {
     private func handlePlayRequest(_ request: WidgetSharing.PlayRequest) {
         if launchRequest != nil {
             queuedPlayRequest = request
+            launchRequest?.session.endForReplacement?()
             launchRequest = nil
         } else {
             processPlayRequest(request)
@@ -1356,6 +1510,7 @@ struct LibraryView: View {
         // its screen never got to appear (a launch replaced at once).
         ControllerNavigator.shared.gameOwnsInput = false
         ControllerNavigator.shared.gameScreenActive = false
+        SessionLiveness.shared.gameScreenDidClose()
         if let request = queuedPlayRequest {
             queuedPlayRequest = nil
             // Still playing, just a different game: publishing stays held.
@@ -1375,12 +1530,20 @@ struct LibraryView: View {
 
     /// Runs the hash-first import via ROMImporter.findOrImport. A duplicate
     /// (already in the library) triggers programmatic navigation to its
-    /// GameDetailsView; a fresh import surfaces via @FetchRequest.
+    /// GameDetailsView; a fresh import surfaces via @FetchRequest. A battery
+    /// save takes its own path (`processOpenedSave`).
     private func processOpenedURL(_ url: URL) {
+        if BatterySaveSystem.from(fileExtension: url.pathExtension) != nil {
+            processOpenedSave(url)
+            return
+        }
         isImporting = true
         let bgContext = PersistenceController.shared.container.newBackgroundContext()
         DispatchQueue.global(qos: .userInitiated).async {
+            SessionLiveness.shared.begin(.importing)
+            defer { SessionLiveness.shared.end(.importing) }
             let importer = ROMImporter(context: bgContext)
+            importer.askConsole = DiscConsoleQuestion.ask
             do {
                 let result = try importer.findOrImport(at: url, method: "url")
                 DispatchQueue.main.async {
@@ -1395,7 +1558,11 @@ struct LibraryView: View {
                         }
                     }
                 }
+            } catch ROMImportError.consoleChoiceCancelled {
+                // The player said Cancel to the console question.
+                DispatchQueue.main.async { isImporting = false }
             } catch let error as ROMImportError {
+                let cause = importer.takeFailureCause()
                 // A zip with several games: same selection sheet as the
                 // picker flow (not an error, no signal).
                 if case .zipNeedsSelection(let tempZipURL, let entryNames) = error {
@@ -1406,14 +1573,16 @@ struct LibraryView: View {
                     }
                     return
                 }
-                Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "url"])
+                Analytics.signal("rom_import", ["result": "error", "errorType": error.analyticsID, "method": "url",
+                                                "reason": ErrorTelemetry.importReason(for: error, noted: cause).rawValue])
                 DispatchQueue.main.async {
                     isImporting = false
                     importError = error.errorDescription
                     showImportError = true
                 }
             } catch {
-                Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "url"])
+                Analytics.signal("rom_import", ["result": "error", "errorType": "unknown", "method": "url",
+                                                "reason": ErrorTelemetry.importReason(for: error, noted: importer.takeFailureCause()).rawValue])
                 DispatchQueue.main.async {
                     isImporting = false
                     importError = error.localizedDescription
@@ -1421,6 +1590,67 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    /// A battery save opened from outside the app (`.sav`, `.srm`, `.mcd`).
+    /// The file names no game, so: read and classify it at once (the same
+    /// gates as Game Details' "Import Save"), then take it to the one game
+    /// whose ROM name it carries, or ask which game it is for. The write
+    /// itself happens on that game's page, with its overwrite confirmation
+    /// and backup.
+    private func processOpenedSave(_ url: URL) {
+        let save: OpenedSave
+        switch BatterySaveImporter.prepare(url: url) {
+        case .failure(let error):
+            Analytics.signalOnce("save_import_fail", ["method": "url",
+                                                      "reason": ErrorTelemetry.saveImportReason(for: error).rawValue])
+            ROMImporter.discardInboxCopy(url)
+            importError = error.errorDescription
+            showImportError = true
+            return
+        case .success(let pending):
+            save = OpenedSave(pending: pending, fileName: url.lastPathComponent)
+        }
+        // The bytes are in memory: an AirDrop or share-sheet copy is not kept.
+        ROMImporter.discardInboxCopy(url)
+
+        switch SaveTargetPickerSheet.destination(for: save, in: Array(games)) {
+        case .noGame:
+            Analytics.signalOnce("save_import_fail", ["method": "url",
+                                                      "reason": SaveImportFailureReason.noMatchingGame.rawValue])
+            importError = NSLocalizedString("saveOpen.noGame", comment: "")
+            showImportError = true
+        case .game(let game):
+            openGame(game, with: save)
+        case .choose(let candidates):
+            saveTargetRequest = SaveTargetRequest(save: save, candidates: candidates)
+        }
+    }
+
+    private func saveTargetSheetDidDismiss() {
+        guard let target = chosenSaveTarget else { return }
+        chosenSaveTarget = nil
+        openGame(target.game, with: target.save)
+    }
+
+    /// Push the game's page with the save for it to write. When the opened-game
+    /// page is already up (the push target is reused), its `onChange` picks the
+    /// save up instead: setting the flag again would not push anything.
+    private func openGame(_ game: GameEntity, with save: OpenedSave) {
+        if showNavigateDestination, navigateToGame?.objectID == game.objectID {
+            openedSaveForDetails = save
+            return
+        }
+        if showNavigateDestination {
+            // Another game's page is up from the same destination: back to the
+            // library first, then push this one once the pop has finished.
+            showNavigateDestination = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { openGame(game, with: save) }
+            return
+        }
+        openedSaveForDetails = save
+        navigateToGame = game
+        showNavigateDestination = true
     }
 
     private func deleteGame(_ game: GameEntity) {
@@ -1451,6 +1681,10 @@ struct LibraryView: View {
                     at: iCloudSaveSync.localSaveStatesRoot()
                         .appendingPathComponent(canonicalRom, isDirectory: true))
                 try? FileManager.default.removeItem(at: SaveStateManager.localAutoSaveDir(romName: canonicalRom))
+                // Its cheats and settings too, or a different game imported
+                // later under the same name would start with them, the cheats
+                // applied at launch (audit 2026-10-12).
+                PerGameSettings.forget(romBasename: canonicalRom)
             }
         }
         viewContext.delete(game)
@@ -1672,6 +1906,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     static let romAndSaveTypes: [UTType] = romTypesWithoutZip + [
         UTType(filenameExtension: "sav") ?? .data,
         UTType(filenameExtension: "srm") ?? .data,
+        UTType(filenameExtension: "mcd") ?? .data,
         UTType(filenameExtension: "retropalskin") ?? .data,   // silently accepted; routed to skin import
         .zip,
     ]
@@ -1703,10 +1938,13 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     }
 
     /// Battery saves only, used by the per-game "Import a save" button where
-    /// the target game is already known.
+    /// the target game is already known. `.mcd` too, the PlayStation memory
+    /// card: the importer has taken it since 1.3.0, but it was missing from
+    /// this list until 2026-10-07, so the picker did not offer it.
     static let saveTypes: [UTType] = [
         UTType(filenameExtension: "sav") ?? .data,
         UTType(filenameExtension: "srm") ?? .data,
+        UTType(filenameExtension: "mcd") ?? .data,
     ]
     /// ROM files only (no saves), used by the per-game "Replace game file"
     /// recovery on the Game Details screen.
@@ -1737,6 +1975,57 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard !urls.isEmpty else { return }
             onPick(urls)
+        }
+    }
+}
+
+// MARK: - The Classic bar's controller badge (2026-10-09)
+
+/// The badge in the Classic List's bar, ONE controller only.
+///
+/// It showed the controller glyph alone there, with no battery, whatever the
+/// pad (device report, 2026-10-09): a bar item is offered almost no width,
+/// and `ControllerStatusBadge` shows the first of its forms that fits the
+/// width it is offered, so it always fell to its last one. The bar's other
+/// items are fixed-size glyphs, so the badge takes its own size as well and
+/// the full form shows. With two or more players the badge leaves the bar for
+/// the title's line (`ClassicLibraryTitle`), where it has the page's width.
+struct ClassicBarBadge: View {
+    @ObservedObject private var controllers = ControllerManager.shared
+
+    var body: some View {
+        if controllers.pads.count <= 1 {
+            ControllerStatusBadge(tint: .primary, compact: true)
+                .fixedSize()
+        }
+    }
+}
+
+/// The Classic List's title line (asked 2026-10-09): "Library" while one
+/// controller or none is connected; with two to four players the line carries
+/// their chips instead, one per player with its battery, as the looks' bars
+/// do. Its own view so a battery reading redraws this line, not the library.
+struct ClassicLibraryTitle: ViewModifier {
+    @ObservedObject private var controllers = ControllerManager.shared
+
+    private var showsPlayers: Bool { controllers.pads.count > 1 }
+
+    func body(content: Content) -> some View {
+        if showsPlayers {
+            content
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    HStack {
+                        ControllerStatusBadge(tint: .primary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 20)
+                    .frame(height: 40)
+                }
+        } else {
+            content
+                .navigationTitle(NSLocalizedString("library.title", comment: ""))
         }
     }
 }

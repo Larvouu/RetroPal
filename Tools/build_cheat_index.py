@@ -5,7 +5,7 @@ build_cheat_index.py - Retro Pal cheat database index.
 Compiles libretro-database's `cht/` folder into the ONE small file the app
 bundles:
 
-    EmulateurGBA/Resources/CheatIndex.json      (eight systems)
+    EmulateurGBA/Resources/CheatIndex.json      (twelve systems)
 
 The index holds no cheat codes at all. It maps a normalised game title to the
 libretro filenames that carry codes for it, so the app can build a URL and
@@ -55,6 +55,34 @@ SYSTEMS = {
     # "(Unreleased)" sit beside it, and they are an arcade board, the Chinese
     # console and prototypes, none of which a player's cartridge dump is.
     "n64": "Nintendo - Nintendo 64",
+    # The ninth, and the first whose folder holds codes the app cannot apply.
+    "md": "Sega - Mega Drive - Genesis",
+    # The tenth (2026-10-10). CWCheat files, named "Title [US] [ULUS-10391]":
+    # the bare title drops the bracketed region and game ID like any tag.
+    # Their codes are "_L 0x... 0x..." pairs joined by spaces on one line,
+    # which CheatLibrary.formatCode splits back into lines.
+    "psp": "Sony - PlayStation Portable",
+    # The Master System and the Game Gear (2026-10-10), one folder each. Every
+    # file is kept: MesenCE reads both formats they hold (MesenBridge), Game
+    # Genie ("XXX-XXX-XXX") and Pro Action Replay, which libretro prints with
+    # a dash ("00C0-0F05"), not the code books' colon. Its "(Action Replay)"
+    # files are not split off as on the Mega Drive, because here the untagged
+    # files hold Pro Action Replay codes too. Measured on the host against the
+    # real converters (every code of both folders, 2026-10-10): Game Genie
+    # 1,205 + 4,103 entries read as they are; the Pro Action Replay ones read
+    # once the bridge drops the dash, as it already drops the colon.
+    "sms": "Sega - Master System - Mark III",
+    "gg": "Sega - Game Gear",
+}
+
+# Which files of a folder hold codes the console's cheats can apply, where
+# that is not all of them. The Mega Drive's cheats are Pro Action Replay RAM
+# writes (BlastEmBridge): libretro tags those files "(Action Replay)" (766 of
+# 2,095 in 2026-10), and its untagged files are Game Genie, ROM patches the
+# core gives no access to. Listing a file whose every code is refused would be
+# a browser full of codes that all fail.
+INCLUDE = {
+    "md": lambda stem: "(Action Replay)" in stem,
 }
 
 FORMAT_VERSION = 1
@@ -99,7 +127,7 @@ def bare_title(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", n)
 
 
-def build(src: str) -> dict:
+def build(src: str, only=None) -> dict:
     index = {
         "v": FORMAT_VERSION,
         "source": "libretro-database",
@@ -108,6 +136,8 @@ def build(src: str) -> dict:
         "systems": {},
     }
     for key, folder in SYSTEMS.items():
+        if only and key not in only:
+            continue
         path = os.path.join(src, folder)
         if not os.path.isdir(path):
             print(f"  ! missing {folder}, skipped")
@@ -121,6 +151,8 @@ def build(src: str) -> dict:
                 skipped += 1
                 continue
             stem = filename[:-4]
+            if key in INCLUDE and not INCLUDE[key](stem):
+                continue
             titles.setdefault(bare_title(stem), []).append(stem)
             kept += 1
         # The retail dumps first (2026-09-10): in plain sorted order a hack's
@@ -138,12 +170,27 @@ def main():
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", required=True, help="libretro-database/cht")
+    ap.add_argument("--only", action="append",
+                    help="rebuild only this system and keep every other "
+                         "system of the existing index as it is (repeatable). "
+                         "A full rebuild reads today's database for every "
+                         "console, which changes consoles nobody asked to "
+                         "change; adding one console should touch only it.")
     ap.add_argument("--out",
                     default=os.path.join(here, "EmulateurGBA", "Resources",
                                          "CheatIndex.json"))
     args = ap.parse_args()
 
-    index = build(args.src)
+    if args.only:
+        unknown = [k for k in args.only if k not in SYSTEMS]
+        if unknown:
+            raise SystemExit(f"unknown system(s): {unknown}")
+        with open(args.out, encoding="utf-8") as f:
+            index = json.load(f)
+        fresh = build(args.src, args.only)
+        index["systems"].update(fresh["systems"])
+    else:
+        index = build(args.src)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  wrote {args.out} "

@@ -174,6 +174,16 @@ NS_ASSUME_NONNULL_BEGIN
 /// 0x6000 cartridge RAM. Every console the app ships serves this.
 - (NSInteger)readMemoryAtAddress:(uint32_t)address into:(uint8_t *)buffer length:(NSInteger)length;
 
+@optional
+/// Whether the console's memory exists yet. Only a core whose machine starts
+/// AFTER its load returns implements it: PPSSPP boots the PSP asynchronously,
+/// inside the first frames, and its memory is not there until that finishes.
+/// RetroAchievements checks every address once, when a game's set loads, and
+/// an address that reads nothing then is disabled for the session, so the
+/// session starts achievements only once this says YES. Absent = YES.
+- (BOOL)isMemoryReadable;
+@required
+
 // MARK: - Speed
 
 - (void)setSpeedMultiplier:(int)multiplier;

@@ -13,6 +13,7 @@
 //
 
 #import "RAClient.h"
+#import "../ROMParsing/PSPDiscProbe.h"
 
 // rcheevos is linked as a SwiftPM package; its public headers (Vendor/rcheevos/
 // include) are on the target's header search path. We include them TEXTUALLY
@@ -33,6 +34,9 @@
 
 #include <time.h>
 #include <vector>
+#include <string>
+#include <cstring>
+#include <strings.h>
 #import <os/log.h>
 
 /// Hands rcheevos the disc reader.
@@ -240,6 +244,12 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     return game ? game->id : 0;
 }
 
+- (uint32_t)currentGameConsoleID {
+    if (!_client) return 0;
+    const rc_client_game_t *game = rc_client_get_game_info(_client);
+    return game ? game->console_id : 0;
+}
+
 - (instancetype)initWithUserAgentProductClause:(NSString *)userAgentProductClause {
     self = [super init];
     if (!self) return nil;
@@ -386,11 +396,18 @@ static void RALogMessage(const char *message, const rc_client_t *client);
     // BOY. A PlayStation disc hashed whole as a Game Boy matches nothing, so
     // the game would import, boot, play, and identify as no game at all with
     // nothing anywhere saying why. For those four our answer is not a worse
-    // guess than rcheevos', it is the only one there is.
+    // guess than rcheevos', it is the only one there is. The Mega Drive's
+    // `.gen` and `.smd` are the same case (it knows `.md` alone), so the rule
+    // is the list's, not the PlayStation's. `.iso` joined it on 2026-10-10:
+    // rcheevos knows the extension but never tries the PlayStation for it.
     uint32_t identifyAs = RC_CONSOLE_UNKNOWN;
-    if (consoleId == RC_CONSOLE_PLAYSTATION && [RAClient rcheevosCannotGuessExtension:path]) {
+    if (consoleId && [RAClient rcheevosCannotGuessExtension:path]) {
         identifyAs = consoleId;
     }
+    // A PSP game is told apart by its FILE (PSPDiscProbe), never its extension:
+    // rcheevos would hash a `.cso` as nothing it knows, and try an `.iso` as a
+    // PlayStation 2 disc first. The file has already answered, so say so.
+    if (consoleId == RC_CONSOLE_PSP) identifyAs = RC_CONSOLE_PSP;
     RADebugLog("[RA] identify+load: console=%u as=%u %{public}s",
                consoleId, identifyAs, path.UTF8String);
     _loadInFlight = YES;
@@ -499,14 +516,42 @@ static void RALogMessage(const char *message, const rc_client_t *client);
 /// a change in this repository, and it stays correct if rcheevos adds
 /// extensions upstream. The cost of being wrong is one redundant hint, not a
 /// broken identification.
+///
+/// `.iso` belongs here although rcheevos lists it: its `.iso` iterator
+/// (`rc_hash_initialize_iterator_iso`, hash.c) tries the PlayStation 2, the PSP,
+/// the 3DO, the Sega CD, the GameCube and the Wii, and NEVER the PlayStation.
+/// Measured on the host 2026-10-10 with Tomb Raider (USA) (Rev 1), its track 1
+/// cut to an ISO: told UNKNOWN, no hash at all; told PLAYSTATION,
+/// 5f84ecb0ec9450fc681e443516805286, which RetroAchievements resolves (game
+/// 11342), the same hash as its `.cue`. So a PlayStation `.iso` showed its set
+/// in the library (`hashForROMAtPath:` passes our answer) and identified as no
+/// game once played. Our answer for an `.iso` is read from the FILE
+/// (PSPDiscProbe), so it is the right one for the PSP as well.
 + (BOOL)rcheevosCannotGuessExtension:(NSString *)path {
     NSString *ext = path.pathExtension.lowercaseString;
-    return [ext isEqualToString:@"img"] || [ext isEqualToString:@"mdf"]
-        || [ext isEqualToString:@"toc"] || [ext isEqualToString:@"cbn"];
+    return [ext isEqualToString:@"iso"]
+        || [ext isEqualToString:@"img"] || [ext isEqualToString:@"mdf"]
+        || [ext isEqualToString:@"toc"] || [ext isEqualToString:@"cbn"]
+        || [ext isEqualToString:@"gen"] || [ext isEqualToString:@"smd"];
 }
 
 + (uint32_t)consoleIdForROMPath:(NSString *)path {
     NSString *ext = path.pathExtension.lowercaseString;
+    // A PSP game first: its `.iso`, `.pbp` and `.chd` are PlayStation
+    // extensions below, and only the file says which console it is
+    // (PSPDiscProbe, which also reads the player's choice recorded at import
+    // when the bytes could not say). rcheevos hashes all four containers: an
+    // ISO by PSP_GAME/PARAM.SFO and the boot executable, a `.pbp` whole, and a
+    // `.cso` or a `.chd` (which it cannot open) through RADiscFileReader, which
+    // presents each as the ISO it holds (the same hash as the ISO, proved by
+    // Tools/disc-reader-test). A bare filename (no file on disk) cannot be
+    // read, so it answers as an `.iso` / `.pbp` / `.chd` of nothing; a game
+    // already loaded is asked with `currentGameConsoleID` instead.
+    if ([ext isEqualToString:@"cso"]) return RC_CONSOLE_PSP;
+    if (([ext isEqualToString:@"iso"] || [ext isEqualToString:@"pbp"] || [ext isEqualToString:@"chd"])
+        && PSPDiscProbeIsPSPGame(path.fileSystemRepresentation)) {
+        return RC_CONSOLE_PSP;
+    }
     if ([ext isEqualToString:@"gba"]) return RC_CONSOLE_GAMEBOY_ADVANCE;
     if ([ext isEqualToString:@"gbc"]) return RC_CONSOLE_GAMEBOY_COLOR;
     if ([ext isEqualToString:@"gb"])  return RC_CONSOLE_GAMEBOY;
@@ -527,6 +572,22 @@ static void RALogMessage(const char *message, const rc_client_t *client);
         || [ext isEqualToString:@"v64"]) {
         return RC_CONSOLE_NINTENDO_64;
     }
+    // The Mega Drive hashes the whole file (`hash.c`, RC_CONSOLE_MEGA_DRIVE),
+    // so a `.gen` resolves exactly as the same dump named `.md`. An `.smd`
+    // copier dump is interleaved and carries a header, so its bytes are not
+    // the cartridge's and it matches no set: it still loads and plays, it just
+    // earns nothing, which is also what RetroArch does with one.
+    if ([ext isEqualToString:@"md"] || [ext isEqualToString:@"gen"]
+        || [ext isEqualToString:@"smd"]) {
+        return RC_CONSOLE_MEGA_DRIVE;
+    }
+    // The Master System and the Game Gear: two consoles to RetroAchievements,
+    // told apart by the extension exactly as MesenCE tells them apart, and
+    // each hashed whole (`hash.c`). rcheevos knows both extensions. A dump
+    // that still carries a 512-byte copier header plays (the core drops the
+    // header) and earns nothing, as on the Mega Drive's `.smd`.
+    if ([ext isEqualToString:@"sms"]) return RC_CONSOLE_MASTER_SYSTEM;
+    if ([ext isEqualToString:@"gg"]) return RC_CONSOLE_GAME_GEAR;
     // Every PlayStation container is the same console, and they hash the same
     // way: rc_hash reads the boot executable named by SYSTEM.CNF off track 1
     // and hashes its header plus its bytes, so a `.chd` and the `.cue` + `.bin`
@@ -564,6 +625,100 @@ static void RALogMessage(const char *message, const rc_client_t *client);
         return RC_CONSOLE_PLAYSTATION;
     }
     return 0;  // everything else has no RA support here.
+}
+
+/// The first disc a playlist names, resolved beside it; the path itself for
+/// anything that is not a playlist.
+static std::string RAFirstDiscOf(const char *path) {
+    const char *dot = strrchr(path, '.');
+    if (!dot || strcasecmp(dot, ".m3u") != 0) return path;
+    FILE *f = fopen(path, "rb");
+    if (!f) return path;
+    char line[1024];
+    std::string first;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strcspn(line, "\r\n");
+        line[n] = 0;
+        if (n == 0 || line[0] == '#') continue;
+        first = line;
+        break;
+    }
+    fclose(f);
+    if (first.empty()) return path;
+    if (first[0] == '/') return first;
+    std::string dir(path);
+    size_t slash = dir.rfind('/');
+    return slash == std::string::npos ? first : dir.substr(0, slash + 1) + first;
+}
+
++ (BOOL)isOtherConsolesDiscAtPath:(NSString *)path {
+    if (path.length == 0) return NO;
+    std::string disc = RAFirstDiscOf(path.fileSystemRepresentation);
+
+    rc_hash_iterator_t iterator;
+    rc_hash_initialize_iterator(&iterator, disc.c_str(), NULL, 0);
+    RAInstallDiscFileReader(&iterator.callbacks.filereader);
+    rc_hash_cdreader_t *cd = &iterator.callbacks.cdreader;
+    void *track = cd->open_track_iterator ? cd->open_track_iterator(disc.c_str(), 1, &iterator) : NULL;
+    if (!track) {
+        rc_hash_destroy_iterator(&iterator);
+        return NO;
+    }
+    const uint32_t first = cd->first_track_sector ? cd->first_track_sector(track) : 0;
+    BOOL other = NO;
+    uint8_t sector[2048];
+
+    // A Sega CD or Saturn disc opens its first sector with its boot header
+    // (BlastEm's own test, `detect_system_type`; the Saturn's is "SEGA
+    // SEGASATURN"); sector 0 of a PlayStation disc is its system area.
+    if (cd->read_sector(track, first, sector, 16) == 16 && memcmp(sector, "SEGA", 4) == 0) {
+        other = YES;
+    } else if (cd->read_sector(track, first + 16, sector, sizeof sector) == sizeof sector
+               && memcmp(sector + 1, "CD001", 5) == 0) {
+        // The volume: its system name, then the root directory's first sector.
+        if (memcmp(sector + 8, "SEGA", 4) == 0) {
+            other = YES;
+        } else {
+            const uint32_t root = (uint32_t)sector[158] | (uint32_t)sector[159] << 8 | (uint32_t)sector[160] << 16;
+            uint8_t dir[2048];
+            uint32_t cnfSector = 0;
+            if (root && cd->read_sector(track, root, dir, sizeof dir) == sizeof dir) {
+                for (size_t at = 0; at + 33 < sizeof dir && dir[at];) {
+                    const uint8_t length = dir[at], nameLength = dir[at + 32];
+                    if (length < 33 || at + length > sizeof dir) break;
+                    const char *name = (const char *)dir + at + 33;
+                    if (nameLength == 8 && strncasecmp(name, "PSP_GAME", 8) == 0) other = YES;
+                    if (nameLength >= 10 && strncasecmp(name, "SYSTEM.CNF", 10) == 0) {
+                        cnfSector = (uint32_t)dir[at + 2] | (uint32_t)dir[at + 3] << 8 | (uint32_t)dir[at + 4] << 16;
+                    }
+                    at += length;
+                }
+            }
+            // A PlayStation 2 disc: its SYSTEM.CNF boots with BOOT2, and the
+            // PlayStation's core looks only for "BOOT = cdrom:" (PCSX
+            // `CheckCdrom`), so it could never start. A file that has BOTH (a
+            // few discs boot on both machines) stays the PlayStation's.
+            uint8_t cnf[2049] = {0};
+            if (!other && cnfSector && cd->read_sector(track, cnfSector, cnf, 2048) > 0) {
+                bool boot2 = false, boot = false;
+                for (const char *line = (const char *)cnf; line && *line;) {
+                    while (*line == ' ' || *line == '\t') line++;
+                    if (strncasecmp(line, "BOOT2", 5) == 0) boot2 = true;
+                    else if (strncasecmp(line, "BOOT", 4) == 0) {
+                        const char *rest = line + 4;
+                        while (*rest == ' ' || *rest == '\t') rest++;
+                        if (*rest == '=') boot = true;
+                    }
+                    line = strchr(line, '\n');
+                    if (line) line++;
+                }
+                other = boot2 && !boot;
+            }
+        }
+    }
+    cd->close_track(track);
+    rc_hash_destroy_iterator(&iterator);
+    return other;
 }
 
 + (NSString *)hashForROMAtPath:(NSString *)path {

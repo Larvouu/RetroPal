@@ -1,0 +1,38 @@
+Cancel a pending soft reset when a save state is loaded
+
+The Mega Drive's soft reset is not immediate. `soft_reset` (genesis.c) picks a
+random moment within the next frame, stores it in `gen->reset_cycle` as a 68000
+cycle count, and the reset happens when the CPU reaches that cycle. That field
+is not part of a save state, and `genesis_deserialize` leaves it alone.
+
+So a state loaded while a reset is pending is reset a moment later: the state
+restores the 68000's cycle counter, the pending reset cycle (a count of the
+timeline the state replaces) is already behind it or close ahead, and the first
+frame after the load runs the reset vector. The player sees the game reboot
+instead of the moment they saved.
+
+Retro Pal meets this on every launch from a save: the app resets each core right
+after loading a game (that is what reads the battery save on the other cores),
+runs one frame, then loads the "Resume" or slot state. Measured with the 1.3.4
+fixture (KłełeAtoms, Tools/md-bench path): load, reset, one frame, state load,
+then 600 frames compared with the shipped core's own replay of that state:
+0 of 600 pictures matched, and the frames were the game's boot screens. Without
+the reset, 600 of 600. With this patch, the app's sequence matches too.
+
+A reset requested before a load belongs to the timeline the load replaces, so
+the load cancels it. RetroArch's frontend never resets just before loading a
+state, which is why upstream does not meet this.
+
+--- a/genesis.c
++++ b/genesis.c
+@@ -257,6 +257,10 @@
+ 	uint8_t tmss_old = gen->tmss;
+ 	uint8_t old_z80_clock_bit = gen->vdp->test_regs[1] & 1;
+ 	gen->tmss = 0xFF;
++	//a reset requested before the load belongs to the timeline the state replaces:
++	//reset_cycle is not part of the state, and it is a cycle count of that timeline
++	gen->reset_cycle = CYCLE_NEVER;
++	gen->reset_requested = 0;
+ 	while (buf->cur_pos < buf->size)
+ 	{
+ 		load_section(buf);

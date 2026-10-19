@@ -46,8 +46,17 @@ enum RAConsoleCardRenderer {
         // PlayStation it is the console's real shape, which it varies its pixel
         // aspect per video mode to hit. The two reasons land on the same number,
         // and without this the PlayStation fell through to the GBA's 3:2 and its
-        // achievement cards showed the game squeezed.
-        case .snes, .nes, .ps1: native = CGSize(width: 4, height: 3)
+        // achievement cards showed the game squeezed. The Nintendo 64 had the
+        // same fall-through until 2026-10-08 (found adding the Mega Drive);
+        // both are 4:3 consoles.
+        case .snes, .nes, .ps1, .n64, .md: native = CGSize(width: 4, height: 3)
+        // The Master System's 256x192 is 4:3 as it stands; the Game Gear's
+        // screen is the Game Boy's 10:9, so its card is the Game Boy's.
+        case .sms: native = CGSize(width: 4, height: 3)
+        case .gg: native = CGSize(width: 160, height: 144)
+        // The PSP's own 480x272: on the GBA's 3:2 below it would be squeezed,
+        // as the PlayStation's and the N64's once were.
+        case .psp: native = CGSize(width: 480, height: 272)
         default:   native = CGSize(width: 240, height: 160)
         }
         let aspect = CGSize(width: native.width / native.height, height: 1)

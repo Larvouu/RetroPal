@@ -62,6 +62,8 @@ struct GameDetailsLandscapeView: View {
     let raState: RADetailsState
     let slot2Game: GameEntity?
     let iCloudUnavailable: Bool
+    /// "Play as Player 2" (`PlayAsPlayerTwo`); nil on a one-player console.
+    let playsAsPlayerTwo: Binding<Bool>?
     @Binding var ndsSwapScreens: Bool
     @Binding var ndsClockManual: Bool
     let ndsManualDate: Binding<Date>
@@ -85,6 +87,10 @@ struct GameDetailsLandscapeView: View {
     @State private var previews: [Int: UIImage] = [:]
 
     private var isNDS: Bool { game.systemType == "nds" }
+    /// A PSP game's saves are a folder the game writes (its memory stick), not
+    /// one battery file, so the import and export of one file do not apply
+    /// (`GameDetailsView.hasBatterySaveFile`).
+    private var hasBatterySaveFile: Bool { game.systemType != ROMSystemType.psp.rawValue }
 
     private var existingSlots: [SaveSlotInfo] { slots.filter { $0.exists } }
 
@@ -252,9 +258,11 @@ struct GameDetailsLandscapeView: View {
 
     /// The file actions, in the order the system menu had them, delete last.
     private var fileActionEntries: [GameFileActionsPanel.Entry] {
-        var entries: [GameFileActionsPanel.Entry] = [
+        var entries: [GameFileActionsPanel.Entry] = hasBatterySaveFile ? [
             .init(titleKey: "saveImport.title", systemImage: "square.and.arrow.down", action: actions.importSave),
             .init(titleKey: "saveExport.title", systemImage: "square.and.arrow.up", action: actions.exportSave),
+        ] : []
+        entries += [
             .init(titleKey: "details.replaceROM", systemImage: "arrow.triangle.2.circlepath", action: actions.replaceROM),
             .init(titleKey: "details.rename", systemImage: "pencil", action: actions.rename),
             .init(titleKey: "details.cover.choose", systemImage: "photo", action: actions.chooseCover),
@@ -276,6 +284,9 @@ struct GameDetailsLandscapeView: View {
             playCard
             slotsCard
             achievementsCard
+            if let playsAsPlayerTwo {
+                playerTwoCard(playsAsPlayerTwo)
+            }
             if isNDS {
                 slot2Card
                 ndsSettingsCard
@@ -316,7 +327,8 @@ struct GameDetailsLandscapeView: View {
                 RoundedRectangle(cornerRadius: side * 0.11, style: .continuous)
                     .fill(LibraryLandscapePalette.accentGradient)
                     .blur(radius: 22)
-                    .opacity(0.55)
+                    // No glow under Classic, the ring stays (2026-10-07).
+                    .opacity(themeStore.theme.isClassic ? 0 : 0.55)
             )
             .accessibilityHidden(true)
 
@@ -588,6 +600,21 @@ struct GameDetailsLandscapeView: View {
 
     /// The three DS settings, the same three app-wide defaults portrait
     /// shows, with the language footer under the picker.
+    /// "Play as Player 2" and the line that says what it does, in the cards'
+    /// own look (the NDS card's toggles).
+    private func playerTwoCard(_ isOn: Binding<Bool>) -> some View {
+        LandscapeChrome.card(NSLocalizedString("settings.players.header", comment: "")) {
+            Toggle(NSLocalizedString("details.playAsP2", comment: ""), isOn: isOn)
+                .tint(LibraryLandscapePalette.accent)
+                .controllerToggle(isOn, shape: .rounded(8))
+            Text(NSLocalizedString("details.playAsP2.caption", comment: ""))
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(.white)
+    }
+
     private var ndsSettingsCard: some View {
         LandscapeChrome.card("Nintendo DS") {
             Toggle(NSLocalizedString("settings.nds.swapScreens", comment: ""), isOn: $ndsSwapScreens)

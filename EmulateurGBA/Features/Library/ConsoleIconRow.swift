@@ -2,8 +2,8 @@
 //  ConsoleIconRow.swift
 //  EmulateurGBA
 //
-//  The eight supported consoles as small pixel-art icons with their names,
-//  shown in the empty-library onboarding. The first four are ported 1:1 —
+//  Every supported console as a small pixel-art icon with its name, shown in
+//  the empty-library onboarding. The first four are ported 1:1 —
 //  coordinates AND palette — from the website's ConsoleIcon.astro (the systems
 //  strip on retropal.fr), so the onboarding and the site read as one family:
 //  the grey DMG, the purple GBC, the indigo GBA with its shoulders, and the
@@ -22,55 +22,42 @@
 
 import SwiftUI
 
-/// Four then four: the handhelds, then the home consoles, which is the split
-/// that means something. Columns take their LABEL's natural width (equal-width
-/// columns truncated "GAME BOY ADVANCE"); the spacers distribute what's left,
-/// and `fixedSize` makes truncation impossible: every name renders whole, all
-/// at one size.
-///
-/// Rows rather than one of eight: at that many columns the labels either wrap
-/// or shrink, and the icon size is what makes these read as consoles.
-///
-/// WHY `ViewThatFits`. The four handhelds' row measures 296 design points with
-/// the export tool's text metrics, and the narrowest phone offers 327 after
-/// this view's padding. That is the same margin the seven-console layout was
-/// rejected at (2026-08), because the measurement is taken with Liberation Sans
-/// and not the SF Pro the app draws: if SF Pro runs 10% wider, the names spill.
-/// So the layout is not a bet on a font. 4 + 4 when it fits, and otherwise
-/// 3 + 3 + 2 (230, 204 and 123 points), which fits any phone with room to
-/// spare. The last row's two are a PAIR, the two newest machines, not one
-/// console left over, which is what a lone seventh on a row of its own read as.
+/// Every console the app runs, each drawing over its name, on a frieze of two
+/// lines that slides past as one block (`ConsoleStrip`). Names render whole at
+/// one size (`fixedSize`): the strip scrolls, so no label is ever squeezed.
 struct ConsoleIconRow: View {
+    /// Every console the app runs, in the order the rows used to read.
+    static let all: [PixelConsole] = [.gb, .gbc, .gba, .nds, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp]
+
+    /// The handhelds and the two Nintendo home machines on top, the
+    /// PlayStation, the Nintendo 64, the three Segas and the PSP below.
+    static let lines: [[PixelConsole]] = [Array(all.prefix(6)), Array(all.dropFirst(6))]
+
+    /// Every drawing is this tall, whatever its shape.
+    static let iconHeight: CGFloat = 36
+
+    /// False while the page is not the one on screen (another tab): the strip
+    /// then stops redrawing.
+    var isActive: Bool = true
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            rows([[.gb, .gbc, .gba, .nds], [.nes, .snes, .ps1, .n64]])
-            rows([[.gb, .gbc, .gba], [.nds, .nes, .snes], [.ps1, .n64]])
-        }
-        .frame(maxWidth: .infinity)
+        // TWO LINES THAT SCROLL AS ONE BLOCK, since 2026-10-09 (asked the
+        // same day): one line showed four or five consoles at a time; two show
+        // twice as many and still leave the whole welcome, the legal note
+        // included, on the first screen.
+        ConsoleStrip(lines: Self.lines, isActive: isActive, item: { item($0) })
     }
 
-    private func rows(_ layout: [[PixelConsole]]) -> some View {
-        VStack(spacing: 14) {
-            ForEach(Array(layout.enumerated()), id: \.offset) { _, consoles in
-                row(consoles)
-            }
-        }
-    }
-
-    private func row(_ consoles: [PixelConsole]) -> some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            ForEach(Array(consoles.enumerated()), id: \.offset) { index, console in
-                if index > 0 { Spacer(minLength: 8) }
-                item(console)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func item(_ console: PixelConsole) -> some View {
+    fileprivate func item(_ console: PixelConsole) -> some View {
         VStack(spacing: 5) {
+            // A size of its own, never the one the strip proposes: the strip
+            // is `fixedSize`, which proposes no width at all, and a Canvas
+            // offered none falls back to a default of its own, every drawing
+            // was squeezed into it and the widest (the NES) came out smallest.
+            // Width from the drawing's own box, so each is 36 points tall.
             PixelConsoleIcon(console: console)
-                .frame(height: 36)
+                .frame(width: Self.iconHeight * console.viewBox.width / console.viewBox.height,
+                       height: Self.iconHeight)
             Text(console.label.uppercased())
                 .font(.system(size: 8, weight: .semibold))
                 .kerning(0.3)
@@ -81,8 +68,127 @@ struct ConsoleIconRow: View {
     }
 }
 
+/// The consoles on lines that slide slowly to the left and come round again,
+/// the way a frieze does. Each line is its consoles with the SAME gap after
+/// every one, the last included, repeated side by side; its position is
+/// computed from the clock (time x speed, wrapped by that line's own length),
+/// so the strip is full from the first frame, never stops and never shows a
+/// seam, and both lines, moving at one speed, read as one block.
+///
+/// Why a timeline and not a repeating Core Animation offset (the first two
+/// versions, 2026-10-09): that animation could only start once each copy had
+/// measured itself, so the strip arrived empty and filled in, and stretching
+/// the lines to one width to share one animation made their gaps differ (seen
+/// on device). A position read off the clock has no such state. The cost is a
+/// redraw of this strip each frame, on the welcome page only: no game can be
+/// running while the library is empty (a timeline behind a running game is
+/// what made 1.3.1 stutter), and it stops while another tab is shown.
+///
+/// With Reduce Motion it stands still and scrolls by hand. VoiceOver reads it as
+/// one element naming every console, rather than each one, several times.
+private struct ConsoleStrip<Item: View>: View {
+    let lines: [[PixelConsole]]
+    let isActive: Bool
+    let item: (PixelConsole) -> Item
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Each line's length (its consoles and their gaps), measured once laid out.
+    @State private var lengths: [Int: CGFloat] = [:]
+    @State private var visibleWidth: CGFloat = 0
+    /// When the motion starts: reset as the first line is measured, so the
+    /// strip shows its first consoles in place before it begins to move.
+    @State private var start = Date()
+
+    /// Points a second: slow enough to read every name as it passes.
+    private static var speed: CGFloat { 22 }
+    /// The room after every console, on both lines.
+    private static var gap: CGFloat { 22 }
+    private static var lineGap: CGFloat { 12 }
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: Self.lineGap) {
+                        ForEach(lines.indices, id: \.self) { index in segment(index) }
+                    }
+                }
+                // As tall as the two lines, not as tall as it is offered.
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isActive)) { context in
+                    let elapsed = CGFloat(max(0, context.date.timeIntervalSince(start)))
+                    VStack(alignment: .leading, spacing: Self.lineGap) {
+                        ForEach(lines.indices, id: \.self) { index in
+                            line(index, elapsed: elapsed)
+                        }
+                    }
+                    // As wide as the page offers and no wider, the copies
+                    // running off its right edge; as tall as the two lines.
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                }
+                .background(GeometryReader { g in
+                    Color.clear
+                        .onAppear { visibleWidth = g.size.width }
+                        .onChange(of: g.size.width) { width in visibleWidth = width }
+                })
+                .clipped()
+            }
+        }
+        // Soft edges, so a console arrives and leaves rather than being cut.
+        .mask(LinearGradient(stops: [.init(color: .clear, location: 0),
+                                     .init(color: .black, location: 0.08),
+                                     .init(color: .black, location: 0.92),
+                                     .init(color: .clear, location: 1)],
+                             startPoint: .leading, endPoint: .trailing))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(lines.joined().map(\.label).joined(separator: ", "))
+    }
+
+    /// A line in motion: enough copies of its segment that it is still full
+    /// when the first copy has slid out (three before it is measured, which
+    /// covers an iPad's column), shifted by the distance travelled modulo its
+    /// length.
+    private func line(_ index: Int, elapsed: CGFloat) -> some View {
+        let length = lengths[index] ?? 0
+        let copies = length > 0 ? max(3, Int((visibleWidth / length).rounded(.up)) + 1) : 3
+        let shift = length > 0 ? (elapsed * Self.speed).truncatingRemainder(dividingBy: length) : 0
+        return HStack(spacing: 0) {
+            segment(index).background(lengthReader(index))
+            ForEach(1..<copies, id: \.self) { _ in segment(index) }
+        }
+        .fixedSize()
+        .offset(x: -shift)
+    }
+
+    /// One line's consoles, each followed by the same gap.
+    private func segment(_ index: Int) -> some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            ForEach(lines[index], id: \.self) { console in
+                item(console)
+                Color.clear.frame(width: Self.gap, height: 1)
+            }
+        }
+        .fixedSize()
+    }
+
+    private func lengthReader(_ index: Int) -> some View {
+        GeometryReader { g in
+            Color.clear
+                .onAppear { record(index, g.size.width) }
+                .onChange(of: g.size.width) { width in record(index, width) }
+        }
+    }
+
+    private func record(_ index: Int, _ length: CGFloat) {
+        guard length > 0 else { return }
+        if index == 0 && lengths[0] == nil { start = Date() }
+        lengths[index] = length
+    }
+}
+
 enum PixelConsole {
-    case gb, gbc, gba, nds, nes, snes, ps1, n64
+    case gb, gbc, gba, nds, nes, snes, ps1, n64, md, sms, gg, psp
 
     /// The drawing for a LAYOUT family. GB and GBC share one layout and one
     /// `PresetSystem`, so that family wears the Game Boy Color's machine: it is
@@ -91,7 +197,6 @@ enum PixelConsole {
     ///
     /// nil for a console whose drawing does not exist yet: `PresetConsoleIcon`
     /// then keeps the icon's room empty rather than borrowing another machine.
-    /// Every console has one today; the optional is where the next one starts.
     init?(_ system: PresetSystem) {
         switch system {
         case .gba:  self = .gba
@@ -101,6 +206,10 @@ enum PixelConsole {
         case .nes:  self = .nes
         case .ps1:  self = .ps1
         case .n64:  self = .n64
+        case .md:   self = .md
+        case .sms:  self = .sms
+        case .gg:   self = .gg
+        case .psp:  self = .psp
         }
     }
 
@@ -114,6 +223,11 @@ enum PixelConsole {
         case .snes: return "Super Nintendo"
         case .ps1:  return "PlayStation"
         case .n64:  return "Nintendo 64"
+        // The one name that differs by market (Genesis in the Americas).
+        case .md:   return SystemColor.name("md")
+        case .sms:  return SystemColor.name("sms")
+        case .gg:   return SystemColor.name("gg")
+        case .psp:  return SystemColor.name("psp")
         }
     }
 
@@ -132,6 +246,14 @@ enum PixelConsole {
         case .ps1:      return CGSize(width: 92, height: 70)
         // The same height, for the same reason: its pad's prongs hang low.
         case .n64:      return CGSize(width: 92, height: 70)
+        // The Nintendo 64's box, which its drawing was made in.
+        case .md:       return CGSize(width: 92, height: 70)
+        // The Master System in the same box as the other two Segas' set; the
+        // Game Gear, a landscape handheld, in the Game Boy Advance's.
+        case .sms:      return CGSize(width: 92, height: 70)
+        case .gg:       return CGSize(width: 90, height: 64)
+        // The PSP, the set's third landscape handheld, in the same box.
+        case .psp:      return CGSize(width: 90, height: 64)
         }
     }
 }
@@ -217,6 +339,36 @@ struct PixelConsoleIcon: View {
     private static let n64A = Color(red: 0x40 / 255, green: 0x70 / 255, blue: 0xFF / 255)
     private static let n64B = Color(red: 0x60 / 255, green: 0xC9 / 255, blue: 0x75 / 255)
     private static let n64C = Color(red: 0xFF / 255, green: 0xCC / 255, blue: 0x4A / 255)
+    // The Mega Drive, from `console-md.svg`: a lifted charcoal machine and pad,
+    // its controls the dress's control plastic, lifted the same way.
+    private static let mdBody = Color(red: 0x44 / 255, green: 0x46 / 255, blue: 0x4D / 255)
+    private static let mdTop = Color(red: 0x52 / 255, green: 0x54 / 255, blue: 0x5B / 255)
+    private static let mdDeck = Color(red: 0x56 / 255, green: 0x58 / 255, blue: 0x5F / 255)
+    private static let mdDark = Color(red: 0x2A / 255, green: 0x2B / 255, blue: 0x30 / 255)
+    // The Master System and the Game Gear, from `console-sms.svg` and
+    // `console-gg.svg`: the same lifted charcoals as the Mega Drive, the red of
+    // the Master System's trim on both machines' buttons, and the Game Gear's
+    // lit colour screen.
+    private static let smsBody = Color(red: 0x3E / 255, green: 0x40 / 255, blue: 0x47 / 255)
+    private static let smsTop = Color(red: 0x4C / 255, green: 0x4E / 255, blue: 0x56 / 255)
+    private static let segaRed = Color(red: 0xD9 / 255, green: 0x41 / 255, blue: 0x2B / 255)
+    // The Game Gear's and the PSP's screens, drawn switched off: a neutral dark
+    // glass a step lighter than the bezel ink (2026-10-10; the lit sky and
+    // ground read as a game's picture rather than the machine).
+    // The Game Gear, in its dress's colours (`DressKind.gg*`, 2026-10-11).
+    private static let ggBody = Color(red: 0x4D / 255, green: 0x57 / 255, blue: 0x63 / 255)
+    private static let ggTop = Color(red: 0x5C / 255, green: 0x66 / 255, blue: 0x72 / 255)
+    private static let ggSurround = Color(red: 0x10 / 255, green: 0x17 / 255, blue: 0x1A / 255)
+    private static let ggButton = Color(red: 0x2A / 255, green: 0x34 / 255, blue: 0x3C / 255)
+    private static let ggCross = Color(red: 0x56 / 255, green: 0x61 / 255, blue: 0x6B / 255)
+    private static let ggStart = Color(red: 0x69 / 255, green: 0x93 / 255, blue: 0xD7 / 255)
+    private static let ggPillRed = Color(red: 0xD9 / 255, green: 0x57 / 255, blue: 0x4E / 255)
+    private static let ggPillGreen = Color(red: 0x60 / 255, green: 0xAF / 255, blue: 0xAA / 255)
+    private static let ggPillBlue = Color(red: 0x44 / 255, green: 0x74 / 255, blue: 0xBD / 255)
+    private static let screenOff = Color(red: 0x2B / 255, green: 0x2D / 255, blue: 0x33 / 255)
+    // The PSP, from `console-psp.svg`: the Game Gear's charcoals and dark screen,
+    // its shoulder tabs a step lighter, its four buttons the PlayStation's.
+    private static let pspTab = Color(red: 0x5A / 255, green: 0x5C / 255, blue: 0x63 / 255)
 
     var body: some View {
         Canvas { ctx, size in
@@ -238,7 +390,7 @@ struct PixelConsoleIcon: View {
             /// body draws a bottom edge straight across the tops of its grips and
             /// the whole thing reads as a bar standing on legs. One outline has no
             /// inside edges to draw.
-            func poly(_ points: [(CGFloat, CGFloat)], _ color: Color) {
+            func poly(_ points: [(CGFloat, CGFloat)], _ color: Color, bevel: Bool = false) {
                 var path = Path()
                 for (index, p) in points.enumerated() {
                     let q = CGPoint(x: ox + p.0 * s, y: oy + p.1 * s)
@@ -246,7 +398,23 @@ struct PixelConsoleIcon: View {
                 }
                 path.closeSubpath()
                 ctx.fill(path, with: .color(color))
-                ctx.stroke(path, with: .color(Self.ink), lineWidth: 2 * s)
+                // Bevelled where a shape meets itself at a sharp angle (the
+                // Master System's lid), so the join cannot spike past it.
+                ctx.stroke(path, with: .color(Self.ink),
+                           style: StrokeStyle(lineWidth: 2 * s, lineJoin: bevel ? .bevel : .miter))
+            }
+            /// A rounded body, filled, its lit top band cut to the same outline,
+            /// then stroked. The Game Gear's, whose ends are round.
+            func roundedBody(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, radius: CGFloat,
+                             _ color: Color, band: CGFloat, _ bandColor: Color) {
+                let outline = Path(roundedRect: CGRect(x: ox + x * s, y: oy + y * s, width: w * s, height: h * s),
+                                   cornerRadius: radius * s)
+                ctx.fill(outline, with: .color(color))
+                var top = ctx
+                top.clip(to: outline)
+                top.fill(Path(CGRect(x: ox + x * s, y: oy + y * s, width: w * s, height: band * s)),
+                         with: .color(bandColor))
+                ctx.stroke(outline, with: .color(Self.ink), lineWidth: 2 * s)
             }
             func dot(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat, _ color: Color) {
                 ctx.fill(Path(ellipseIn: CGRect(x: ox + (cx - r) * s, y: oy + (cy - r) * s,
@@ -436,6 +604,80 @@ struct PixelConsoleIcon: View {
                 dot(66, 39.7, 1.3, Self.n64C); dot(66, 45.3, 1.3, Self.n64C)
                 dot(63.2, 42.5, 1.3, Self.n64C); dot(68.8, 42.5, 1.3, Self.n64C)
                 dot(57, 46, 2, Self.n64B); dot(61, 49, 2.2, Self.n64A)
+
+            case .md:
+                // Machine, SEEN FROM ABOVE like the PlayStation and the Nintendo
+                // 64: the round raised deck with the cartridge slot across it,
+                // power and reset either side, the volume slider and the lamp.
+                // Coordinates are `console-md.svg`'s; a stroked circle there is
+                // an ink disc one unit larger here with its fill one unit smaller.
+                rect(8, 2, 76, 28, Self.mdBody); rect(8, 2, 76, 5, Self.mdTop)
+                frame(8, 2, 76, 28)
+                dot(46, 16, 12, Self.ink); dot(46, 16, 10, Self.mdDeck)
+                rect(36, 13, 20, 6, Self.mdDark); frame(36, 13, 20, 6)
+                rect(15, 9, 8, 3, Self.n64Grey); rect(69, 9, 6, 3, Self.n64Grey)
+                rect(66, 22, 10, 2, Self.n64Grey)
+                dot(14, 23, 1.4, Self.n64Lamp)
+                // The six-button pad, one outline: the body and its two grips.
+                poly([(20, 37), (72, 37), (76, 41), (76, 54), (71, 63), (57, 63),
+                      (53, 59), (39, 59), (35, 63), (21, 63), (16, 54), (16, 41)],
+                     Self.mdDeck)
+                rect(23.5, 47.75, 9, 2.5, Self.mdDark); rect(26.75, 44.5, 2.5, 9, Self.mdDark)
+                rect(43, 41, 6, 2, Self.mdDark)
+                // A B C below, X Y Z above, each row rising to the right.
+                dot(57, 53, 2, Self.mdDark); dot(62.5, 51.5, 2, Self.mdDark)
+                dot(68, 50, 2, Self.mdDark)
+                dot(57, 47, 1.5, Self.mdDark); dot(62.5, 45.5, 1.5, Self.mdDark)
+                dot(68, 44, 1.5, Self.mdDark)
+
+            case .sms:
+                // Machine FROM THE FRONT, like the NES and the Super Nintendo:
+                // the wedge whose top falls toward the player, the slot on the
+                // raised back, two ribs, the red trim along the lower edge with
+                // the lamp in it. Coordinates are `console-sms.svg`'s.
+                poly([(8, 30), (8, 14), (22, 6), (70, 6), (84, 14), (84, 30)], Self.smsBody)
+                poly([(8, 14), (22, 6), (70, 6), (84, 14)], Self.smsTop, bevel: true)
+                rect(34, 8, 24, 3, Self.ink)
+                rect(12, 17, 68, 1.5, Self.mdDark); rect(12, 20.5, 68, 1.5, Self.mdDark)
+                rect(9, 24, 74, 4, Self.segaRed)
+                rect(14, 25, 6, 2, Self.n64Grey)
+                // Its pad: a plain rectangle, the cross, 1 and 2.
+                rect(24, 38, 44, 22, Self.mdDeck); frame(24, 38, 44, 22)
+                rect(29, 47.75, 9, 2.5, Self.mdDark); rect(32.25, 44.5, 2.5, 9, Self.mdDark)
+                dot(55.5, 49, 2.6, Self.segaRed); dot(62.5, 49, 2.6, Self.segaRed)
+
+            case .gg:
+                // A landscape handheld with both ends rounded, in its dress's
+                // colours (2026-10-11): the grey shell, the black surround with
+                // its three pills, the screen dark (switched off), the cross a
+                // dark disc with the cross on it, 1 and 2 dark, START blue.
+                // Coordinates are `console-gg.svg`'s.
+                roundedBody(3, 10, 84, 44, radius: 16, Self.ggBody, band: 8, Self.ggTop)
+                rect(22, 15, 46, 34, Self.ggSurround)
+                rect(29, 19, 32, 26, Self.screenOff)
+                dot(24, 20, 1.1, Self.ggPillRed); dot(25.5, 22, 1.1, Self.ggPillGreen)
+                dot(27, 24, 1.1, Self.ggPillBlue)
+                dot(13, 32, 6, Self.ggButton)
+                rect(8.5, 30.75, 9, 2.5, Self.ggCross); rect(11.75, 27.5, 2.5, 9, Self.ggCross)
+                dot(74, 21.5, 1.6, Self.ggStart)
+                dot(72, 35, 2.6, Self.ggButton); dot(79.5, 31, 2.6, Self.ggButton)
+            case .psp:
+                // Long with rounded ends, the shoulder tabs outlined behind its top
+                // edge as the Game Boy Advance's are, the wide screen, the cross
+                // over the nub on the left (the nub an ink ring round a light cap,
+                // the Nintendo 64's stick), the four symbols in a diamond on the
+                // right, SELECT and START below them. Redrawn 2026-10-10 to sit
+                // with the set. Coordinates are `console-psp.svg`'s.
+                rect(12, 10, 12, 6, Self.pspTab); frame(12, 10, 12, 6)
+                rect(66, 10, 12, 6, Self.pspTab); frame(66, 10, 12, 6)
+                roundedBody(2, 14, 86, 38, radius: 14, Self.mdBody, band: 6, Self.mdTop)
+                rect(24, 20, 42, 26, Self.ink)
+                rect(26, 22, 38, 22, Self.screenOff)
+                rect(8, 26.5, 10, 3, Self.ink); rect(11.5, 23, 3, 10, Self.ink)
+                dot(13, 41, 3.4, Self.ink); dot(13, 41, 2.6, Self.n64Grey)
+                dot(77, 24, 1.9, Self.psTriangle); dot(81, 28, 1.9, Self.psCircle)
+                dot(77, 32, 1.9, Self.psCross); dot(73, 28, 1.9, Self.psSquare)
+                rect(71, 40, 5, 2, Self.ink); rect(78, 40, 5, 2, Self.ink)
             }
         }
     }

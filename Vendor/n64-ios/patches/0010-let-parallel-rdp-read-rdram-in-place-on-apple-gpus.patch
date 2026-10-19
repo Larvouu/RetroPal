@@ -1,0 +1,86 @@
+Let parallel-RDP read the console's RAM in place on Apple GPUs
+
+parallel-RDP can import the core's RDRAM as a GPU buffer
+(VK_EXT_external_memory_host), so the GPU reads and writes the console's 8 MB
+of RAM where it lies. Without it, it keeps a GPU-side copy and copies RDRAM
+across, both ways, around every RDP sync ("falling back to a slower path" in
+the log). Granite enabled the import only when the POSIX/Win32 handle-sharing
+extensions were also present (`supports_external`), which have nothing to do
+with host pointers and which MoltenVK does not have; MoltenVK does implement
+the import itself (newBufferWithBytesNoCopy, page-aligned). On an iPhone, where
+the CPU and the GPU share one memory, every one of those copies was wasted.
+
+Two changes: the import is enabled whenever the extension is offered; and a
+misaligned RDRAM (possible only in the core's fallback "compressed mem base"
+mode, a plain malloc) now uses the copying path with a warning, instead of
+failing the renderer, so the worst case is the old behaviour, never a black
+screen. The core's normal allocation is 64 KiB-aligned (memory.c), above the
+16 KiB page an iPhone needs.
+
+Measured with Tools/n64-bench (lavapipe, which took the copying path too
+before this): picture and sound identical on every frame of seven homebrew
+games over 1,800 frames, krom's RDP test included; the frame 3 to 6 % shorter
+on the two homebrew games, and 24.3 to 15.6 ms on the RDP test, which syncs
+the RDP the most. Commercial games sync every frame; the phone is the measure.
+
+Applied at build time by Vendor/n64-ios/build.sh, after 0009.
+
+diff --git a/mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.cpp b/mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.cpp
+index 6e9c78b..0fa1a70 100644
+--- a/mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.cpp
++++ b/mupen64plus-video-paraLLEl/parallel-rdp/parallel-rdp/rdp_device.cpp
+@@ -78,10 +78,11 @@ CommandProcessor::CommandProcessor(Vulkan::Device &device_, void *rdram_ptr,
+ 		if (const char *env = getenv("PARALLEL_RDP_ALLOW_EXTERNAL_HOST"))
+ 			allow_memory_host = strtol(env, nullptr, 0) > 0;
+ 
+-		if (allow_memory_host && device.get_device_features().supports_external_memory_host)
++		size_t align = device.get_device_features().host_memory_properties.minImportedHostPointerAlignment;
++		if (allow_memory_host && device.get_device_features().supports_external_memory_host &&
++		    align != 0 && (reinterpret_cast<uintptr_t>(rdram_ptr) & (align - 1)) == 0)
+ 		{
+ 			size_t import_size = rdram_size + rdram_offset;
+-			size_t align = device.get_device_features().host_memory_properties.minImportedHostPointerAlignment;
+ 			import_size = (import_size + align - 1) & ~(align - 1);
+ 			info.size = import_size;
+ 			rdram = device.create_imported_host_buffer(info, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, rdram_ptr);
+diff --git a/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/context.cpp b/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/context.cpp
+index e16a421..f944de9 100644
+--- a/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/context.cpp
++++ b/mupen64plus-video-paraLLEl/parallel-rdp/vulkan/context.cpp
+@@ -1116,7 +1116,11 @@ bool Context::create_device(VkPhysicalDevice gpu_, VkSurfaceKHR surface, const c
+ 
+ 	device_info.pNext = &features;
+ 
+-	if (ext.supports_external && has_extension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
++	// Host-pointer import needs only this extension (and Vulkan 1.1's external
++	// memory core), not the POSIX/Win32 handle-sharing ones `supports_external`
++	// stands for. Tying it to those left it off on Apple GPUs, which have no FD
++	// handles but import host memory fine.
++	if (has_extension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
+ 	{
+ 		ext.supports_external_memory_host = true;
+ 		enabled_extensions.push_back(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+diff --git a/mupen64plus-video-paraLLEl/rdp.cpp b/mupen64plus-video-paraLLEl/rdp.cpp
+index 0131759..9f844a2 100644
+--- a/mupen64plus-video-paraLLEl/rdp.cpp
++++ b/mupen64plus-video-paraLLEl/rdp.cpp
+@@ -199,13 +199,15 @@ bool init()
+ 		size_t align = device->get_device_features().host_memory_properties.minImportedHostPointerAlignment;
+ 		offset = aligned_rdram & (align - 1);
+ 
+-		// Mupen64Plus allocates RDRAM on the heap, so this can be guaranteed to be 0.
++		// Mupen64Plus allocates RDRAM 64 KiB-aligned in its full mem-base mode.
++		// Its fallback (compressed mode, plain malloc) promises no alignment:
++		// then RDRAM is not imported and the copying path is used, rather than
++		// failing the renderer. The CommandProcessor makes the same check.
+ 		if (offset)
+ 		{
+-			log_cb(RETRO_LOG_ERROR, "Host RDRAM is not aligned properly! Make sure to use align RDRAM to 64 KiB!\n");
+-			return false;
++			log_cb(RETRO_LOG_WARN, "Host RDRAM is not aligned for import; using the slower copying path.\n");
++			offset = 0;
+ 		}
+-		aligned_rdram -= offset;
+ 	}
+ 	else
+ 		log_cb(RETRO_LOG_WARN, "VK_EXT_external_memory_host is not supported by this device. Application might run slower because of this.\n");
