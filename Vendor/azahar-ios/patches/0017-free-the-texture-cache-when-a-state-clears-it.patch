@@ -1,0 +1,71 @@
+Free the texture cache's surfaces when a state save or load clears it
+
+RasterizerCache::ClearAll, run by every state save and load
+(System::serialize), emptied the page table, the cached pages and the dirty
+regions, but never unregistered the surfaces they held: they stayed in
+slot_surfaces with their images, reachable by nothing, never sentenced, so the
+garbage collector never freed them. Upstream a load destroyed the whole GPU
+right after, which bounded the leak to the saves; with the GPU kept across a
+load (0016) and a rewind snapshot every few seconds (0014, 0015), the cache
+grew by a texture cache's worth at each one, for the whole session: Majora's
+Mask 3D on the host, 75 -> 1546 live surfaces over 17 snapshots.
+
+Now ClearAll unregisters each surface it drops, as UnregisterAll does (each one
+sentenced, freed by the per-frame garbage collector once the GPU is done with
+it), and sentences the cubes left in the texture cube cache, whose faces it
+dropped. Not from the destructor, where the surfaces go with the cache.
+
+Measured (Tools/3ds-bench rewind, Majora's Mask 3D, 17 snapshots): live
+surfaces stay between 80 and 132, the scene's own. roundtrip (Craftus, MM3D)
+and rewindbridge (Craftus, MM3D) give the same results as before.
+
+--- a/src/video_core/rasterizer_cache/rasterizer_cache_base.h
++++ b/src/video_core/rasterizer_cache/rasterizer_cache_base.h
+@@ -217,6 +217,8 @@
+     Pica::RegsInternal& regs;
+     RendererBase& renderer;
+     std::unordered_map<TextureCubeConfig, TextureCube> texture_cube_cache;
++    /// Set by the destructor: ClearAll then leaves the surfaces to die with the cache.
++    bool destroying = false;
+     tsl::robin_pg_map<u64, std::vector<SurfaceId>, Common::IdentityHash<u64>> page_table;
+     std::unordered_map<FramebufferParams, FramebufferId> framebuffers;
+     std::unordered_map<SamplerParams, SamplerId> samplers;
+--- a/src/video_core/rasterizer_cache/rasterizer_cache.h
++++ b/src/video_core/rasterizer_cache/rasterizer_cache.h
+@@ -97,6 +97,7 @@
+ 
+ template <class T>
+ RasterizerCache<T>::~RasterizerCache() {
++    destroying = true;
+     ClearAll(false);
+ }
+ 
+@@ -1246,6 +1247,28 @@
+     if (flush) {
+         FlushRegion(0x0, 0xFFFFFFFF);
+     }
++    // The surfaces the page table holds are dropped with it: sentenced, so the
++    // garbage collector (every frame, TickFrame) frees them once the GPU is done
++    // with them. Clearing the table alone left them in slot_surfaces with their
++    // images, unreachable, for the life of the cache: a state save runs this
++    // (System::serialize), and with the GPU kept across a load (Retro Pal's
++    // keep-video, a rewind snapshot every few seconds) the cache lived on and
++    // grew by a texture cache's worth each time. Not when the cache itself goes.
++    if (!destroying) {
++        for (auto& [page, surfaces] : page_table) {
++            while (!surfaces.empty()) {
++                UnregisterSurface(surfaces.back());
++            }
++        }
++        // A cube whose faces were not all tracked surfaces outlives them in
++        // the map: its own surface is sentenced too.
++        for (auto& [config, cube] : texture_cube_cache) {
++            if (cube.surface_id) {
++                sentenced.emplace_back(cube.surface_id, runtime.GetResourceTick());
++            }
++        }
++        texture_cube_cache.clear();
++    }
+     // Unmark all of the marked pages
+     for (auto& pair : RangeFromInterval(cached_pages, flush_interval)) {
+         const auto interval = pair.first & flush_interval;

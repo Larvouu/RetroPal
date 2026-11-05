@@ -48,7 +48,7 @@ struct TabletPreviewDevice: Identifiable {
 enum TabletPreviewPage: String, CaseIterable, Identifiable {
     case library, libraryEmpty, gameDetails, settings, raDashboard, raGame
     case controllerRemap, listPage, pauseMenu
-    case gameBoy, gba, nds, snes, nes, ps1, n64, md, sms, gg, psp
+    case gameBoy, gba, nds, snes, nes, ps1, n64, md, sms, gg, psp, n3ds
 
     var id: String { rawValue }
 
@@ -74,10 +74,11 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .sms: return "In game: Master System"
         case .gg: return "In game: Game Gear"
         case .psp: return "In game: PSP"
+        case .n3ds: return "In game: Nintendo 3DS"
         }
     }
 
-    /// The in-game family, for the eleven console rows.
+    /// The in-game family, for the twelve console rows.
     var previewSystem: PreviewSystem? {
         switch self {
         case .gameBoy: return .gbc
@@ -91,6 +92,7 @@ enum TabletPreviewPage: String, CaseIterable, Identifiable {
         case .sms: return .sms
         case .gg: return .gg
         case .psp: return .psp
+        case .n3ds: return .n3ds
         default: return nil
         }
     }
@@ -248,7 +250,7 @@ struct TabletPreviewGallery: View {
             }
         case .pauseMenu:
             OverlayMenuPreviewRepresentable(isNDS: false, safeInsets: TabletPreviewDevice.insets)
-        case .gameBoy, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp:
+        case .gameBoy, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp, .n3ds:
             InGameLayoutPreviewRepresentable(system: page.previewSystem ?? .gba,
                                              isLandscape: landscape,
                                              safeInsets: TabletPreviewDevice.insets,
@@ -266,6 +268,77 @@ struct TabletPreviewGallery: View {
                 .multilineTextAlignment(.center)
                 .padding(40)
         }
+    }
+}
+
+// MARK: - A game page for store screenshots
+
+/// One console, in game, filling the real window (Settings ▸ Debug, at its
+/// foot, 2026-10-31): the store screenshots are taken on the device itself,
+/// iPhone or iPad, with no game on it. The controls, the dress and the screen's frame are the
+/// game's own (`InGameLayoutPreviewView`, the code the galleries above draw
+/// with, on the game's geometry and the game's factories); the screen is plain
+/// black, to be replaced by the picture afterwards. It turns with the iPad.
+///
+/// A UIKit controller presented over everything, as the game is, so that the
+/// system asks IT about the bars: they follow the game's rule
+/// (`EmulatorViewController.updateSystemChrome`), shown upright on a device
+/// with a home indicator, hidden on its side, the status bar's text white on
+/// the black. MENU closes it.
+final class StoreScreenshotGameController: UIViewController {
+    private let system: PreviewSystem
+    private let look: PreviewLook
+    private var chromeHidden = true
+
+    init(system: PreviewSystem, look: PreviewLook) {
+        self.system = system
+        self.look = look
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .fullScreen
+        modalPresentationCapturesStatusBarAppearance = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func loadView() {
+        let page = InGameLayoutPreviewView(system: system, isLandscape: false, safeInsets: .zero,
+                                           look: look, screenshot: true)
+        page.onMenuTap = { [weak self] in self?.dismiss(animated: true) }
+        view = page
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateChrome(for: view.bounds.size)
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: { [weak self] _ in self?.updateChrome(for: size) })
+    }
+
+    private func updateChrome(for size: CGSize) {
+        let reservesTopBand = (view.window ?? Self.keyWindow)?.safeAreaInsets.bottom ?? 0 > 0
+        let hidden = !(size.height >= size.width && reservesTopBand)
+        guard hidden != chromeHidden else { return }
+        chromeHidden = hidden
+        setNeedsStatusBarAppearanceUpdate()
+        setNeedsUpdateOfHomeIndicatorAutoHidden()
+    }
+
+    override var prefersStatusBarHidden: Bool { chromeHidden }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var prefersHomeIndicatorAutoHidden: Bool { chromeHidden }
+
+    private static var keyWindow: UIWindow? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?.keyWindow
+    }
+
+    /// Presents the page over whatever is on screen.
+    static func present(system: PreviewSystem, look: PreviewLook) {
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        top?.present(StoreScreenshotGameController(system: system, look: look), animated: true)
     }
 }
 #endif

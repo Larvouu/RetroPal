@@ -5,13 +5,12 @@
 "tab.settings" = "Inställningar";
 
 /* Library */
-"library.title" = "Bibliotek";
 "library.empty.title" = "Välkommen till Retro Pal";
 "library.empty.subtitle" = "Spela dina retrospel på iPhone. Inga annonser, ingen personlig spårning.";
 "library.empty.subtitle.ipad" = "Spela dina retrospel på iPad. Inga annonser, ingen personlig spårning.";
 "library.empty.button" = "Lägg till ett spel";
-"library.empty.step1" = "Få in ett spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso eller .pbp) på din iPhone via Safari, AirDrop eller iCloud Drive.";
-"library.empty.step1.ipad" = "Få in ett spel (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso eller .pbp) på din iPad via Safari, AirDrop eller iCloud Drive.";
+"library.empty.step1" = "Få in ett spel på din iPhone via Safari, AirDrop eller iCloud Drive.";
+"library.empty.step1.ipad" = "Få in ett spel på din iPad via Safari, AirDrop eller iCloud Drive.";
 "library.empty.step2" = "Tryck på %@ och välj filen i Filer-appen.";
 "library.empty.step3" = "Spela. Dina framsteg sparas automatiskt";
 "library.empty.romHint" = "Inga spel än? Det finns många gratis, lagliga. Sök \"GBA homebrew\" online.";
@@ -27,14 +26,10 @@
 "library.played.ago" = "Spelat %@";
 "library.playTime" = "%@t %@m spelat";
 "library.playTime.minutes" = "%@m spelat";
-"library.stats.title" = "Statistik";
 "library.stats.topGames" = "Mest spelade";
 "library.stats.totalTime" = "Total tid";
 "library.stats.gamesPlayed" = "Spelade spel";
 "library.stats.sessions" = "Sessioner";
-"library.stats.favoriteConsole" = "Favoritkonsol";
-"library.stats.duration" = "%@t %@m";
-"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Fortsätt senaste sessionen";
@@ -124,7 +119,7 @@
 "settings.core" = "Emulatorkärna";
 "settings.engines.footer" = "Licens: %@.";
 "settings.engines.footer.patched" = "Licens: %@. Används med en liten ändring som publiceras som en patchfil tillsammans med källkoden.";
-"settings.engines.footer.patches" = "Licens: %@. Används med några ändringar som publiceras som patchfiler tillsammans med källkoden.";
+"settings.engines.footer.patches" = "Licens: %@. Används med egna ändringar som publiceras som patchfiler tillsammans med källkoden.";
 "settings.rateApp" = "Betygsätt Retro Pal";
 "review.headline" = "Betygsätt Retro Pal";
 "review.body" = "Varje recension betyder mycket för oss. Det är det som håller projektet vid liv. 🙂";
@@ -229,7 +224,7 @@
 "legal.melonds" = "melonDS-licens";
 "legal.importantNotice.title" = "Viktigt meddelande";
 "legal.aboutApp.title" = "Om denna app";
-"legal.aboutApp.description1" = "Retro Pal är ett lokalt emulator-gränssnitt för Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES-, PlayStation-, Nintendo 64-, Mega Drive-, Master System-, Game Gear- och PSP-spel. Appen laddar inte ner, distribuerar eller ger åtkomst till något spelinnehåll. Alla ROM-filer måste importeras av användaren från den egna enhetens lagring via Filer-appen.";
+"legal.aboutApp.description1" = "Retro Pal är ett lokalt emulator-gränssnitt för Game Boy Advance-, Game Boy-, Game Boy Color-, Nintendo DS-, Super Nintendo-, NES-, PlayStation-, Nintendo 64-, Mega Drive-, Master System-, Game Gear-, PSP- och Nintendo 3DS-spel. Appen laddar inte ner, distribuerar eller ger åtkomst till något spelinnehåll. Alla ROM-filer måste importeras av användaren från den egna enhetens lagring via Filer-appen.";
 "legal.aboutApp.description2" = "Den här appen tillhandahåller ingen spelkatalog, distribuerar inget spelinnehåll och underlättar inte nedladdning av upphovsrättsskyddat material.";
 "legal.privacy.title" = "Integritet";
 "legal.privacy.description" = "Dina spel och sparfiler stannar på din enhet. För att förbättra appen skickar Retro Pal endast anonym användningsstatistik, utan personuppgifter och utan annons-id:n.";
@@ -253,6 +248,9 @@
 "legal.ppsspp" = "PPSSPP-licens";
 "legal.ppsspp.licenseLine" = "Licensierad under GNU General Public License v2.0 eller senare (GPL-2.0-or-later)";
 "legal.ppsspp.description" = "PPSSPP är en PSP-emulator som används som emuleringsmotor för PSP-spel i den här appen. Källkoden till PPSSPP finns på [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp)";
+"legal.azahar" = "Azahar-licens";
+"legal.azahar.licenseLine" = "Licensierad under GNU General Public License v3.0 eller senare (GPL-3.0-or-later)";
+"legal.azahar.description" = "Azahar är en Nintendo 3DS-emulator som används som emuleringsmotor för Nintendo 3DS-spel i den här appen. Den används med ett antal ändringar som publiceras som patchfiler tillsammans med källkoden. Källkoden till Azahar finns på [https://github.com/azahar-emu/azahar](https://github.com/azahar-emu/azahar)";
 "legal.parallelrdp" = "ParaLLEl-RDP-licens";
 "legal.parallelrdp.licenseLine" = "Licensierad under MIT-licensen";
 "legal.parallelrdp.description" = "ParaLLEl-RDP ritar Nintendo 64:ans bild på grafikprocessorn i den här appen. Källkoden till ParaLLEl-RDP finns på [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
@@ -262,7 +260,7 @@
 "legal.retropal" = "Retro Pal-licens";
 "legal.retropal.licenseLine" = "Licensierad under GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "Den fullständiga källkoden för Retro Pal finns tillgänglig på [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). Programvaran tillhandahålls utan någon garanti.";
-"legal.compliance" = "Retro Pal distribueras under GNU General Public License v3.0. Den bygger på mGBA (Mozilla Public License 2.0) och PCSX-ReARMed (GPL-2.0 eller senare), som används utan ändringar, på MesenCE (GPL-3.0) och PPSSPP (GPL-2.0 eller senare), som används med en liten ändring vardera, på melonDS (GPL-3.0) och BlastEm (GPL-3.0 eller senare), som används med två små ändringar vardera, och på Mupen64Plus-Next (GPL-2.0 eller senare), som används med några ändringar, tillsammans med ParaLLEl-RDP (MIT), signalprocessorn cxd4 (CC0) och MoltenVK (Apache License 2.0). Varje ändring publiceras som en patchfil tillsammans med källkoden. Den fullständiga motsvarande källkoden finns tillgänglig i förvaret som länkas ovan, och programvaran tillhandahålls utan någon garanti.";
+"legal.compliance" = "Retro Pal distribueras under GNU General Public License v3.0. Den bygger på mGBA (Mozilla Public License 2.0) och PCSX-ReARMed (GPL-2.0 eller senare), som används utan ändringar, på MesenCE (GPL-3.0), som används med en liten ändring, på melonDS (GPL-3.0), BlastEm (GPL-3.0 eller senare) och PPSSPP (GPL-2.0 eller senare), som används med två små ändringar vardera, och på Mupen64Plus-Next (GPL-2.0 eller senare), som används med några ändringar, tillsammans med ParaLLEl-RDP (MIT), signalprocessorn cxd4 (CC0) och MoltenVK (Apache License 2.0), samt på Azahar (GPL-3.0 eller senare), som används med ett antal ändringar. Varje ändring publiceras som en patchfil tillsammans med källkoden. Den fullständiga motsvarande källkoden finns tillgänglig i förvaret som länkas ovan, och programvaran tillhandahålls utan någon garanti.";
 "legal.thirdParty.title" = "Tredjepartslicenser";
 "legal.thirdParty.caption" = "Den fullständiga texten till varje licens som programvaran i Retro Pal distribueras under, med komponenterna som använder den.";
 "legal.thirdParty.usedBy" = "Används av";
@@ -284,6 +282,8 @@
 "overlay.overwrite.message" = "Det befintliga sparade tillståndet ersätts.";
 "overlay.save.failed.title" = "Kunde inte spara på plats %@";
 "overlay.save.failed.message" = "Platsen har kvar sitt tidigare sparade tillstånd. Försök igen. Om det fortsätter att misslyckas, frigör lagringsutrymme eller stäng andra appar.";
+"overlay.load.failed.title" = "Kunde inte läsa in plats %@";
+"overlay.load.failed.message" = "Det här sparade tillståndet kan komma från en äldre version av appen, eller vara skadat. Din sparning i själva spelet påverkas inte. Om spelet sedan beter sig konstigt, avsluta och öppna det igen.";
 "overlay.overwrite" = "Skriv över";
 "overlay.load.confirm.title" = "Ladda plats %@?";
 "overlay.load.confirm.message" = "Osparad framgång går förlorad.";
@@ -291,6 +291,7 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark-, CodeBreaker- eller Action Replay-format";
 "cheats.hint.nds" = "Action Replay DS-format (XXXXXXXX YYYYYYYY)";
+"cheats.hint.n3ds" = "Gateway-format (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Pro Action Replay- eller Game Genie-format (XXXX-XXXX)";
 "cheats.hint.nes" = "Pro Action Rocky- eller Game Genie-format (bokstäver)";
 "cheats.hint.ps1" = "GameShark- eller Action Replay-format (XXXXXXXX YYYY)";
@@ -303,6 +304,7 @@
 "cheats.add" = "Lägg till kod";
 "cheats.invalid.gba" = "Koden kändes inte igen. Förväntat format: GameShark, CodeBreaker eller Action Replay.";
 "cheats.invalid.nds" = "Koden kändes inte igen. Förväntat format: Action Replay DS (XXXXXXXX YYYYYYYY, ett par per rad).";
+"cheats.invalid.n3ds" = "Koden kändes inte igen. Förväntat format: Gateway (XXXXXXXX YYYYYYYY, ett par per rad).";
 "cheats.invalid.snes" = "Koden känns inte igen. Förväntat: Game Genie (XXXX-XXXX) eller Pro Action Replay (åtta tecken).";
 "cheats.invalid.nes" = "Koden känns inte igen. Förväntat: Game Genie (sex eller åtta bokstäver) eller Pro Action Rocky (åtta tecken).";
 "cheats.invalid.ps1" = "Koden kändes inte igen. Förväntat format: GameShark eller Action Replay (XXXXXXXX YYYY, ett par per rad).";
@@ -319,6 +321,13 @@
 /* Emulator */
 "emulator.loading" = "Laddar ROM...";
 "emulator.loadFailed" = "Kunde inte ladda %@.\nSpelfilen verkar skadad. Ersätt den via spelets detaljer för att reparera den utan att förlora dina sparfiler.";
+"emulator.loadingGame" = "Laddar spelet…";
+"emulator.resumeFailed.title" = "Din senaste session kunde inte återställas";
+"emulator.resumeFailed.message" = "Spelet startade på titelskärmen. Din senaste session sparas tills du väljer: avsluta för att försöka igen senare, eller fortsätt från titelskärmen, vilket ersätter den.";
+"emulator.resumeFailed.loadSlot" = "Ladda plats %@ (%@)";
+"emulator.resumeFailed.titleScreen" = "Fortsätt från titelskärmen";
+"emulator.resumeFailed.quit" = "Avsluta och behåll sessionen";
+"emulator.resumeFailed.slotFailed" = "Inte heller den platsen kunde laddas. Din senaste session finns fortfarande kvar: avsluta för att försöka igen senare, eller fortsätt från titelskärmen, vilket ersätter den.";
 
 /* Common */
 "common.cancel" = "Avbryt";
@@ -423,6 +432,7 @@
 "saveImport.overwrite.confirm" = "Ersätt";
 "saveImport.error.invalidFormat" = "Filen är inte en igenkänd sparfil. Importera en .sav-, .srm- eller .mcd-fil exporterad från en annan emulator.";
 "saveImport.error.wrongSystem" = "Den här sparfilen är inte kompatibel med det här spelet.";
+"saveImport.error.ctrNotASave" = "Den här filen är ingen 3DS-sparfil. Välj en .zip som exporterats från Retro Pal eller en annan 3DS-emulator och som innehåller spelets sparmapp.";
 "saveImport.error.duplicateExists" = "Det finns redan en sparfil för det här spelet.";
 "saveImport.error.fileAccessDenied" = "Den valda filen kunde inte läsas.";
 "saveImport.error.writeFailed" = "Sparfilen kunde inte sparas.";
@@ -431,13 +441,19 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Lägg till ett spel";
 "guide.importRom.intro" = "Retro Pal innehåller inga spel. Du tillhandahåller dina egna ROM-filer, som du äger rättigheterna till (dina egna kassetter eller gratis, lagliga homebrew-spel).";
-"guide.importRom.step1" = "Få spelfilen (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, eller en PlayStation-skiva som .chd, eller .cue med tillhörande .bin, eller ett PSP-spel som .iso, .cso, .chd eller .pbp) till din iPhone: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
-"guide.importRom.step1.ipad" = "Få spelfilen (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, eller en PlayStation-skiva som .chd, eller .cue med tillhörande .bin, eller ett PSP-spel som .iso, .cso, .chd eller .pbp) till din iPad: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
+"guide.importRom.step1" = "Få spelfilen till din iPhone: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
+"guide.importRom.step1.ipad" = "Få spelfilen till din iPad: ladda ner den i Safari, skicka den med AirDrop från en dator eller hämta den från iCloud Drive.";
 "guide.importRom.step2" = "Kontrollera att den syns i Filer-appen (under Nedladdningar, På min iPhone eller iCloud Drive).";
 "guide.importRom.step2.ipad" = "Kontrollera att den syns i Filer-appen (under Nedladdningar, På min iPad eller iCloud Drive).";
 "guide.importRom.step3" = "Tryck på +-knappen högst upp i biblioteket i Retro Pal.";
 "guide.importRom.step4" = "Välj filen. Spelet dyker genast upp i ditt bibliotek, redo att spelas.";
-"guide.importRom.footer" = "Format som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, plus PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, och PSP-spel som .iso, .cso, .chd eller .pbp. En .zip fungerar också, oavsett om den innehåller ett spel, alla filer från en skiva eller flera spel att välja bland. .7z stöds inte. Importera bara filer som du äger rättigheterna till.";
+"formats.link" = "Se spelformat och konsoler som stöds";
+"formats.title" = "Spelformat";
+"formats.intro" = "Varje konsol har sina egna filformat. Importera filen som den är: Retro Pal känner själv igen konsolen.";
+"formats.archives.header" = "Arkiv";
+"formats.archives.footer" = "Om filerna nedan ligger i något av de här arkiven känns de igen automatiskt, oavsett om arkivet innehåller ett spel, alla filer från en skiva eller flera spel att välja bland.";
+"formats.note.ps1" = "En skiva kan också bestå av flera filer: en .cue, .toc eller .ccd med filerna den hänvisar till, och en .m3u för ett spel på flera skivor. Markera alla spelets filer samtidigt.";
+"formats.note.n3ds" = "Endast dekrypterade spel.";
 "settings.guides.section" = "Guider";
 "settings.controller.row" = "Handkontroll";
 "common.done" = "Klar";
@@ -573,6 +589,7 @@
 "skin.editor.menuButtons" = "Menyknappar";
 "skin.editor.shoulders" = "L/R-knappar";
 "skin.editor.stick" = "Joystick";
+"skin.editor.sticks" = "Joystickar";
 "skin.editor.stickSurround" = "Joystickens ram";
 "skin.editor.dpadMarks" = "Styrkorsets pilar";
 "skin.editor.faceZ" = "Z-knapp";
@@ -596,6 +613,7 @@
 "ra.login.createAccount" = "Skapa ett RetroAchievements-konto";
 "ra.error.login" = "Inloggningen misslyckades. Kontrollera användarnamn och lösenord.";
 "ra.error.server" = "RetroAchievements-begäran misslyckades.";
+"ra.error.unreachable" = "RetroAchievements svarar inte just nu. Felet ligger hos dem, inte i ditt konto. Försök igen om några minuter.";
 "ra.hud.unlocked" = "Prestation upplåst";
 "ra.dashboard.title" = "Prestationer";
 "ra.dashboard.unlocked" = "Upplåsta";
@@ -617,13 +635,11 @@
 "ra.details.invite.headline" = "Lås upp prestationer i det här spelet";
 "ra.details.invite.caption" = "Det här spelet har RetroAchievements-prestationer: utmaningar att klara medan du spelar, sparade med ett gratis konto.";
 "ra.details.unavailable" = "RetroAchievements är inte tillgängligt för det här spelet.";
+"ra.details.unavailable.console" = "RetroAchievements stöder inga spel för Nintendo 3DS.";
 "ra.details.unavailable.pbp" = "RetroAchievements kan inte läsa en .pbp-fil. Samma spel som .chd, eller som .cue med tillhörande .bin, tjänar prestationer som vanligt.";
-"ra.library.invite.caption" = "Dina spel har RetroAchievements-prestationer. Anslut ett gratis konto för att låsa upp dem medan du spelar.";
 "ra.library.recent" = "Senast upplåsta";
 "ra.library.noUnlocks" = "Dina senaste prestationer visas här.";
 "ra.profile.games" = "Spel med prestationer";
-"ra.profile.openGame" = "Öppna spelsidan";
-"ra.profile.expandHint" = "Öppna för att se prestationerna";
 "ra.card.game" = "PRESTATIONER";
 "ra.session.offline" = "Prestationer pausade offline. De återupptas automatiskt.";
 "ra.session.resumed" = "Prestationer aktiva";
@@ -635,19 +651,27 @@
 "ra.retry" = "Försök igen";
 "ra.profile.unsupported" = "Inte på RetroAchievements";
 "ra.profile.unsupported.footer" = "De här spelen har inga prestationer på RetroAchievements. Ibland täcks bara den engelska versionen av ett spel.";
+"ra.profile.unsupported.footer.n3ds" = "De här spelen har inga prestationer på RetroAchievements. Ibland täcks bara den engelska versionen av ett spel. RetroAchievements stöder inga 3DS-spel.";
+"ra.profile.unsupported.n3ds" = "3DS-spel";
 "ra.layout.toggle" = "Byt vy för prestationer";
 
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Det går inte att komma åt den valda filen. Prova att importera den via appen Filer.";
 "import.error.copyFailed" = "Spelet kunde inte kopieras till Retro Pal. Frigör lagringsutrymme och försök igen.";
-"import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms och .gg, samt PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, och PSP-spel som .iso, .cso, .chd eller .pbp.";
+"import.error.invalidROM" = "Den här filen är inte ett spel som Retro Pal kan läsa. Spel som stöds: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms och .gg, samt PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, PSP-spel som .iso, .cso, .chd eller .pbp, och Nintendo 3DS-spel som .3ds, .cci, .cxi eller .3dsx.";
 "import.error.discMissingFiles" = "Den här skivan saknar filer som inte valdes: %@. Välj .cue-filen och alla dess .bin-filer tillsammans, i ett svep.";
 "import.console.title" = "Vilken konsol är spelet till?";
 "import.console.message" = "Retro Pal kan inte avgöra utifrån filen om ”%@” är ett PlayStation- eller ett PSP-spel. Välj dess konsol så att det startar på rätt.";
-"import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms och .gg, samt PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, och PSP-spel som .iso, .cso, .chd eller .pbp; andra konsoler stöds inte.";
+"import.error.zipNoROM" = "Ingen spelfil hittades i den här ZIP-filen. Retro Pal läser spel i .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms och .gg, samt PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, PSP-spel som .iso, .cso, .chd eller .pbp, och Nintendo 3DS-spel som .3ds, .cci, .cxi eller .3dsx; andra konsoler stöds inte.";
 "import.error.zipExtractionFailed" = "Den här ZIP-filen kunde inte öppnas. Packa upp den i appen Filer och importera spelfilen direkt.";
 "import.error.zipUnsupportedCompression" = "Den här ZIP-filen använder en komprimeringsmetod som Retro Pal inte kan läsa, till exempel LZMA eller BZIP2. Filen är inte skadad. Packa upp den i Filer-appen och importera spelet direkt, eller skapa ZIP-filen på nytt med standardkomprimering.";
 "import.error.zipEncrypted" = "Den här ZIP-filen är lösenordsskyddad. Packa upp den i Filer-appen och importera sedan spelfilen direkt.";
+"import.error.archiveNoGame" = "Ingen spelfil hittades i det här arkivet. Retro Pal läser spel i .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms och .gg, samt PlayStation-skivor som .chd, .cue med tillhörande .bin, eller .m3u, PSP-spel som .iso, .cso, .chd eller .pbp, och Nintendo 3DS-spel som .3ds, .cci, .cxi eller .3dsx; andra konsoler stöds inte.";
+"import.error.archiveExtractionFailed" = "Det här arkivet kunde inte öppnas. Det kan vara skadat eller ofullständigt: ladda ner det igen, eller packa upp det på en dator och importera spelfilen direkt.";
+"import.error.archiveUnsupportedCompression" = "Det här arkivet använder en komprimeringsmetod som Retro Pal inte kan läsa. Filen är inte skadad. Packa upp det på en dator och importera spelfilen direkt.";
+"import.error.archiveEncrypted" = "Det här arkivet är lösenordsskyddat. Packa upp det på en dator och importera sedan spelfilen direkt.";
+"import.error.archiveSplit" = "Det här spelet är uppdelat i flera arkivfiler (.part1.rar, .part2.rar…). Retro Pal läser ett arkiv i taget: slå ihop delarna eller packa upp dem på en dator och importera sedan spelet.";
+"import.error.ctrEncrypted" = "Det här Nintendo 3DS-spelet är krypterat, och Retro Pal kan bara spela dekrypterade 3DS-spel. Importera en dekrypterad kopia av spelet.";
 "import.error.alreadyImported" = "Det här spelet finns redan i ditt bibliotek.";
 "import.duplicate.title" = "Redan i biblioteket";
 "import.duplicate.bodySeveral" = "De här spelen finns redan i ditt bibliotek:";
@@ -657,7 +681,7 @@
 "import.error.batchLine" = "• %1$@: %2$@";
 
 // Multi-ROM ZIP selection sheet
-"zipPicker.title" = "Spel i den här ZIP-filen";
+"zipPicker.title" = "Spel i det här arkivet";
 "zipPicker.caption" = "Välj vilka spel du vill lägga till i biblioteket.";
 "zipPicker.add" = "Lägg till (%d)";
 
@@ -716,14 +740,25 @@
 "cheats.invalid.characters.psp" = "Den här koden innehåller tecken som inte hör hemma. Fuskkoder för PSP använder bara _L, 0x, siffrorna 0-9, bokstäverna A-F och mellanslag.";
 "cheats.invalid.characters.nes" = "Den här koden innehåller tecken som inte hör hemma. NES-koder använder Game Genie-bokstäverna A P Z L G I T Y E O X U K S V N, eller 0-9 och A-F, plus mellanslag och bindestreck.";
 "cheats.invalid.pairs" = "Action Replay DS-koder kommer parvis: varje rad behöver två block med åtta tecken, till exempel 94000130 FCFF0000.";
+"cheats.invalid.pairs.n3ds" = "Gateway-koder kommer parvis: varje rad behöver två block med åtta tecken, till exempel 0012A3F4 0000270F.";
 "cheats.invalid.pairs.psp" = "CWCheat-koder kommer parvis: varje rad behöver två tal efter _L, till exempel _L 0x20123456 0x0000270F.";
 "cheats.invalid.placeholder" = "Med den här koden väljer du själv ett värde. Byt ut varje X eller ? mot en hexadecimal siffra (0-9 eller A-F), till exempel XXXX mot 0063.";
 "n64.displayLost.title" = "Bilden uppdateras inte längre";
 "n64.displayLost.message" = "Grafikprocessorn svarar inte längre, så spelets bild kan inte visas. Avsluta för att spara dina framsteg och öppna sedan spelet igen för att spela vidare.";
 "n64.displayLost.quit" = "Spara och avsluta";
+"n3ds.cameraDenied.title" = "Kameran är inte tillåten";
+"n3ds.cameraDenied.message" = "Det här spelet använder konsolens kamera och Retro Pal får inte använda din, så spelet ser svart. Du kan tillåta kameran för Retro Pal i Inställningar.";
+"n3ds.cameraDenied.settings" = "Öppna Inställningar";
+"n3ds.cameraDenied.ok" = "OK";
 "psp.bootFailed.title" = "Det här spelet kunde inte startas";
 "psp.bootFailed.message" = "PSP-emulatorn kunde inte starta den här filen. Om spelet har fungerat förut, stäng Retro Pal helt, öppna appen igen och försök en gång till. Annars kan den vara skadad eller ofullständig, eller vara en kopia som emulatorn inte kan läsa, till exempel en krypterad avbild. Dina sparade spel och dina andra spel påverkas inte.";
 "psp.bootFailed.quit" = "Avsluta";
+"n3ds.gameEnded.title" = "Spelet har stannat";
+"n3ds.gameEnded.message" = "Spelet stängde sig självt, eller kunde inte starta igen efter en omstart. Från och med nu sparas ingenting, så din senaste sparning är kvar som den var. Avsluta och öppna spelet igen för att fortsätta spela.";
+"psp.gameHalted.title" = "Spelet har stannat";
+"psp.gameHalted.message" = "PSP-emulatorn stötte på ett fel i det här spelet som den inte kan fortsätta efter. Från och med nu sparas ingenting, så din senaste sparning är kvar som den var. Avsluta och öppna spelet igen för att fortsätta spela.";
+"n3ds.rewindUnavailable.title" = "Inget att spola tillbaka till än";
+"n3ds.rewindUnavailable.message" = "3DS sparar en punkt att gå tillbaka till var femte sekund. Direkt efter att spelet startat eller ett sparat spel laddats finns det ingen än, eller så behövde telefonen det minnet en stund. Spela några sekunder och försök sedan igen.";
 "n64.libdragonUnsupported" = "Det här Nintendo 64-spelet är gjort med ett nyare homebrew-verktyg (libdragon) som Retro Pal inte kan köra än. Nintendo 64-spel på kassett påverkas inte.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -770,26 +805,28 @@
 "externalDisplay.idle.hint.ipad" = "Starta ett spel på din iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "Fyra nya konsoler";
-"whatsnew.s1.b1" = "Spel till Mega Drive, Master System, Game Gear och PSP går nu att spela i Retro Pal, och alla fyra är gratis för alla.";
-"whatsnew.s1.b2" = "Sparfiler, sparlägen, prestationer och officiella omslag fungerar på alla fyra från första dagen, och med {PRO} även fuskkoder.";
-"whatsnew.s1.b3" = "Två spelare på Mega Drive och Master System. Mega Drive har sin handkontroll med sex knappar på skärmen.";
-"whatsnew.s1.b4" = "Deras skärmbilds- och klippkort visar själva konsolen, och med {PRO} kan du skapa egna skins till alla fyra.";
-"whatsnew.s2.title" = "Nintendo 64";
-"whatsnew.s2.b1" = "Med {PRO} spolar du nu tillbaka upp till 30 sekunder på Nintendo 64, där det förut stannade vid 5.";
-"whatsnew.s2.b2" = "Spel till Nintendo 64 kräver mindre av telefonen: upp till 18 % mindre arbete per bildruta i strömsparläge.";
-"whatsnew.s2.b3" = "Sparlägen för Nintendo 64 är nu ungefär tio gånger mindre än förut.";
-"whatsnew.s3.title" = "Klassisk";
-"whatsnew.s3.b1" = "Klassisk är nu ett eget utseende, även liggande: en enfärgat svart bakgrund, under palettknappen {PALETTE}.";
+"whatsnew.s1.title" = "Nintendo 3DS";
+"whatsnew.s1.b1" = "Nintendo 3DS-spel går nu att spela i Retro Pal, gratis för alla: båda skärmarna, pekskärmen, Circle Pad och C-spaken från New 3DS på en handkontrolls högra spak.";
+"whatsnew.s1.b2" = "Sparfiler, sparlägen, tillbakaspolning och officiella omslag fungerar från första dagen. Spel som använder kameran, mikrofonen eller rörelse använder din iPhones.";
+"whatsnew.s1.b3" = "Fuskkoder och egna skins för 3DS med {PRO}, som på alla konsoler.";
+"whatsnew.s1.b4" = "RetroAchievements stöder inte ett enda 3DS-spel, så 3DS-spel har inga prestationer.";
+"whatsnew.s2.title" = "Retro story";
+"whatsnew.s2.b1" = "Din historia som spelare på en sida: din speltid, dina mest spelade spel, dina konsoler i en ring och dina speldagar. Historiken sparas på varje enhet och följer med dig via iCloud.";
+"whatsnew.s2.b2" = "Märken markerar stegen i din historia, från ditt första spel till tusen timmar. När du får ett visas det överst på skärmen, med ett eget ljud.";
+"whatsnew.s2.b3" = "Varje december din årssammanfattning: några skärmar att svepa igenom, var och en redo att dela som bild.";
+"whatsnew.s3.title" = "Utseende och kontroller";
+"whatsnew.s3.b1" = "Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS, Super Nintendo och NES har nu ett riktigt gjutet styrkors, format som konsolens eget.";
+"whatsnew.s3.b2" = "Klassisk har nu samma bibliotek som de andra utseendena, på sin enfärgat svarta bakgrund.";
+"whatsnew.s3.b3" = "RetroAchievements-sidan är tydligare: först din profil och dina senaste prestationer, sedan dina spel, och ett tryck öppnar ett spels sida.";
+"whatsnew.s3.b4" = "På iPad sitter varje konsols styrkors och knappar nu längst ner vid kanterna, där tummarna vilar.";
 "whatsnew.s4.title" = "Dessutom";
-"whatsnew.s4.b1" = "Öppna ett spel eller en sparfil direkt från appen Filer eller via AirDrop, så lägger Retro Pal det på rätt plats.";
-"whatsnew.s4.b2" = "Håll ned Retro Pal-symbolen på hemskärmen för att berätta för oss när något är fel.";
-"whatsnew.s4.b3" = "När ett sparläge inte kan skrivas säger Retro Pal nu det, i stället för att misslyckas i tysthet. Och innan ett sparläge laddas sparas en kopia av spelets egen sparfil i appen Filer: ett äldre sparläge kan aldrig ta en nyare sparfil ifrån dig för gott.";
-"whatsnew.s4.b4" = "Knapparna på varje konsol har nu relief, med en kant av ljus och skugga.";
-"whatsnew.s4.b5" = "Master System, Game Gear och PSP har var och en sin egen konsols utseende, ända ner till knapparna.";
-"whatsnew.s4.b6" = "Med {PRO} spolar ett tryck på Spola tillbaka 10 sekunder bakåt på alla konsoler; håll in för att välja upp till 30.";
-"whatsnew.s4.b7" = "Utseende i pausmenyn fungerar med handkontroll: skal, skärmfilter och alla knappar.";
-"whatsnew.s4.b8" = "Välj Spela som Spelare 2 på ett spels sida på konsoler för två eller fler spelare: du spelar Spelare 2, med pekkontroller eller en handkontroll, och tränar mot datorn från andra sidan.";
+"whatsnew.s4.b1" = "Importera spel från .7z-, .rar-, .tar-, .gz- och .xz-arkiv, inte bara från .zip.";
+"whatsnew.s4.b2" = "PlayStation- och PSP-spel importeras säkrare: skivfiler med olika versaler, ZIP-arkiv över 4 GB och det riktiga namnet på ett PSP-spel, läst från dess EBOOT.";
+"whatsnew.s4.b3" = "Ett PSP-spel som kraschar i emulatorn säger det nu, i stället för att frysa.";
+"whatsnew.s4.b4" = "Spelläget i iOS slås på när du spelar, för mindre fördröjning med Bluetooth-kontroller och AirPods.";
+"whatsnew.s4.b5" = "Retro Pal frågar innan ett spel raderas från biblioteket.";
+"whatsnew.s4.b6" = "På ett tangentbord trycker 1 och 2 på det andra paret axelknappar: ZL och ZR på 3DS, L2 och R2 på PlayStation, Z på Nintendo 64.";
+"whatsnew.s4.b7" = "Super Nintendo-, NES-, Master System- och Game Gear-spel med accenter eller japanska tecken i namnet behåller nu sina sparningar i spelet.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Inga prestationer från den här serien är inlästa.";
@@ -798,8 +835,8 @@
 "cheats.browse.noResults" = "Inget spel hittades med det namnet. Databasen listar spel under deras engelska titel.";
 "cheats.placeholderPrefix" = "t.ex.";
 "library.untitled" = "Spel utan titel";
-"guide.controller.keyboard" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet. På iPhone döljs pekkontrollerna så länge ett tangentbord är anslutet.";
-"guide.controller.keyboard.ipad" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet.";
+"guide.controller.keyboard" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, 1 = L2 / ZL, 2 = R2 / ZR, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet. På iPhone döljs pekkontrollerna så länge ett tangentbord är anslutet.";
+"guide.controller.keyboard.ipad" = "Fysiskt tangentbord: piltangenterna flyttar, X = A, Z = B, S = X, A = Y, Q = L, W = R, 1 = L2 / ZL, 2 = R2 / ZR, Retur = Start, Skift = Select. Tangenterna läses av efter sin placering, så bokstäverna ovan gäller ett QWERTY-tangentbord. Bluetooth-handkontroller som iOS ser som ett tangentbord, till exempel 8BitDo Zero i tangentbordsläge, fungerar också. Varje tangent kan mappas om under Inställningar, Handkontroll, så länge tangentbordet är anslutet.";
 
 /* The Mega Drive's name as sold in this market (Genesis in the Americas) */
 "console.name.md" = "Mega Drive";
@@ -807,3 +844,88 @@
 /* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
 "feedback.mail.subject" = "Feedback om Retro Pal";
 "feedback.mail.body" = "Berätta vad som inte fungerar, och med vilket spel om det gäller ett:\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";
+
+/* Retro story */
+"story.title" = "Retro story";
+"story.consolesPlayed" = "Spelade konsoler";
+"story.longestSession" = "Längsta session";
+"story.consoles" = "Dina konsoler";
+"story.consoles.tried" = "Testade konsoler";
+"story.timeline" = "Din historia";
+"story.milestone.firstGame" = "Din historia börjar: %@";
+"story.milestone.hours" = "%@ timmar spelade totalt";
+"story.totalPlayed" = "%@ spelat";
+"story.milestone.gameHours" = "%1$@ timmar i %2$@";
+"story.milestone.gamesPlayed" = "Spelade spel: %@";
+"story.milestone.consoles" = "Testade konsoler: %@";
+"story.milestone.allConsoles" = "Alla tretton konsoler testade";
+"story.milestone.longSession" = "En session på %@ timmar";
+"story.milestone.secondDevice" = "Din historia följde med dig till en annan enhet";
+"story.milestone.anniversary1" = "Ett år med Retro Pal";
+"story.milestone.anniversary" = "%@ år med Retro Pal";
+"story.kept" = "Sparat åt dig";
+"story.kept.footer" = "Din historik finns kvar på den här enheten och kopieras till iCloud med dina sparfiler, så en ny iPhone fortsätter där du slutade.";
+"story.saves.states" = "Snabbsparningar";
+"story.saves.battery" = "Sparningar i spelet";
+"story.saves.icloudOn" = "Kopierade till iCloud";
+"story.saves.icloudOff" = "iCloud-kopian är avstängd i Inställningar";
+"story.since" = "Sedan %@";
+"story.game.removed" = "Borttaget från biblioteket";
+"story.empty" = "Starta ett spel så börjar din historia här: din tid, dina spel, dina konsoler.";
+"story.duration.hours" = "%@ h";
+"story.duration.hoursMinutes" = "%1$@ h %2$@ min";
+"story.duration.minutes" = "%@ min";
+
+"story.activity" = "Aktivitet";
+"story.activity.daysThisMonth" = "Speldagar den här månaden";
+"story.activity.bestMonth" = "Bästa månaden";
+"story.activity.since" = "Din kalender fylls på sedan %@, dagen då Retro Pal började föra den.";
+"story.time.morning" = "Du spelar mest på morgonen";
+"story.time.afternoon" = "Du spelar mest på eftermiddagen";
+"story.time.evening" = "Du spelar mest på kvällen";
+"story.time.night" = "Nattuggla: du spelar mest på natten";
+
+"story.share.game" = "Dela det här spelet";
+
+"story.activity.daysPlayed" = "Speldagar";
+"story.year.cardTitle" = "Min Retro Pal-sammanfattning %@";
+"story.year.row" = "Ditt år på några skärmar, med bilder att dela.";
+"story.year.intro" = "Vilket spelår %@ var. Här är ditt.";
+"story.year.recordedFrom" = "Din historia började den %@";
+"story.year.total" = "I år spelade du";
+"story.year.topGame" = "Årets spel";
+"story.year.topGames" = "Din topp 5";
+"story.year.newGames" = "Nya spel i år";
+"story.year.consoles" = "Dina konsoler";
+"story.year.months" = "Ditt år, månad för månad";
+"story.year.peakMonth" = "Din mest spelade månad: %@";
+"story.year.bestDay" = "Din största speldag";
+"story.year.next" = "Nästa";
+
+"story.time.morning.short" = "Morgonspelare";
+"story.time.afternoon.short" = "Eftermiddagsspelare";
+"story.time.evening.short" = "Kvällsspelare";
+"story.time.night.short" = "Nattuggla";
+
+"story.year.profile" = "Din spelarprofil";
+"story.year.shareSlide" = "Dela";
+"story.year.shareSummary" = "Dela mitt år";
+"story.profile.loyal" = "Den trogna";
+"story.profile.loyal.line" = "Mer än halva ditt år gick till %@.";
+"story.profile.explorer" = "Upptäckaren";
+"story.profile.explorer.line" = "Konsol efter konsol letade du efter nya spel.";
+"story.profile.nightOwl" = "Nattugglan";
+"story.profile.nightOwl.line" = "Dina bästa sessioner börjar när det blir tyst hemma.";
+"story.profile.regular" = "Stamspelaren";
+"story.profile.regular.line" = "Spel var en del av de flesta av dina dagar.";
+"story.profile.enthusiast" = "Entusiasten";
+"story.profile.enthusiast.line" = "Ett år av spel, spelade på ditt sätt.";
+
+"story.year.spotlight" = "Din Retro Pal-sammanfattning %@ är här!";
+"story.year.open" = "Visa";
+
+"story.consoles.others" = "Övriga";
+
+"story.year.daysSince" = "%1$@ speldagar sedan %2$@";
+
+"story.badge.new" = "Nytt märke";

@@ -1,0 +1,311 @@
+Rewind states without the emulated memories, and a compact page table
+
+A raw state (patch 0014) still copies the 296 MB of a New 3DS game's memories
+through the archive at every snapshot: 136 ms on the host, a visible stop in
+play every few seconds. Those memories are four flat arrays (VRAM, FCRAM, the
+New 3DS's extra RAM, the DSP's RAM), and a rewind can keep its own copy of
+them and compare it with the live arrays away from the emulation thread.
+
+This adds MemorySystem::GetRegions (where the four live) and
+SetRegionsOutsideArchive (while set, the memory archive writes and reads each
+of them as empty), and a `memory_outside` flag and a `regions` out-parameter to
+retro_ctr_rewind_capture / _restore: the state is taken and loaded without the
+four, and the frontend learns where they are (after a restore, the new ones),
+writes its copy back into them before the next frame, and so restores the
+whole console. The load-time hooks that look at guest memory only take
+pointers into it (PicaCore::CommandList, the page tables), which stay valid
+when the bytes are written afterwards.
+
+Without the memories a state still cost 130 ms, nearly all of it the first CPU
+core archiving the page table: one MemoryRef per page, 1 << 20 of them, each a
+tracked shared_ptr. In the same rewind mode (PageTable::SetCompactArchive) a
+page table is archived as runs of pages with one attribute that point into one
+backing at consecutive offsets (or into none): 23 runs for a homebrew, each
+backing still archived through the archive, so its identity is kept. Save
+states keep the format every build reads.
+
+Measured on the host (Tools/3ds-bench rewind, Craftus Reloaded): the core's
+part of a snapshot 130 ms, then 12.4 ms; a snapshot restored and played 300
+frames sounds identical to the full state of the same moment restored the
+usual way (one picture frame differs, the first after the renderer is rebuilt,
+as after any load).
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -749,28 +749,66 @@
+ // libretro API; a frontend that knows them calls them by name. The capture
+ // writes into the frontend's own buffer, whose capacity is kept between calls.
+ // Not a format to store: valid only for this build and the running title.
+-extern "C" RETRO_API bool retro_ctr_rewind_capture(std::vector<u8>* buffer) {
++//
++// With `memory_outside`, the four emulated memories (VRAM, FCRAM, the New 3DS's
++// extra RAM, the DSP's RAM: nearly all of a state) are left out of the archive,
++// and `regions` (four entries) receives where they live: the frontend keeps its
++// own copy of them, and after a restore writes them back before the next frame.
++struct RetroCtrRegion {
++    void* data;
++    size_t size;
++};
++
++extern "C" RETRO_API bool retro_ctr_rewind_capture(std::vector<u8>* buffer, bool memory_outside,
++                                                   RetroCtrRegion* regions) {
+     auto& system = Core::System::GetInstance();
+     if (!buffer || !system.IsPoweredOn() || !DrainAsyncOperations(system)) {
+         return false;
+     }
+     try {
++        Memory::MemorySystem::SetRegionsOutsideArchive(memory_outside);
++        Memory::PageTable::SetCompactArchive(memory_outside);
+         system.SaveStateRaw(*buffer);
++        Memory::MemorySystem::SetRegionsOutsideArchive(false);
++        Memory::PageTable::SetCompactArchive(false);
++        if (regions) {
++            const auto live = system.Memory().GetRegions();
++            for (std::size_t i = 0; i < live.size(); i++) {
++                regions[i] = {live[i].data, live[i].size};
++            }
++        }
+         return !buffer->empty();
+     } catch (const std::exception& e) {
++        Memory::MemorySystem::SetRegionsOutsideArchive(false);
++        Memory::PageTable::SetCompactArchive(false);
+         LOG_ERROR(Frontend, "Error taking a rewind state: {}", e.what());
+         return false;
+     }
+ }
+ 
+-extern "C" RETRO_API bool retro_ctr_rewind_restore(const void* data, size_t size) {
++extern "C" RETRO_API bool retro_ctr_rewind_restore(const void* data, size_t size,
++                                                   bool memory_outside, RetroCtrRegion* regions) {
+     auto& system = Core::System::GetInstance();
+     if (!data || !size || !system.IsPoweredOn() || !DrainAsyncOperations(system)) {
+         return false;
+     }
+     try {
+-        return system.LoadStateRaw({static_cast<const u8*>(data), size});
++        Memory::MemorySystem::SetRegionsOutsideArchive(memory_outside);
++        Memory::PageTable::SetCompactArchive(memory_outside);
++        const bool loaded = system.LoadStateRaw({static_cast<const u8*>(data), size});
++        Memory::MemorySystem::SetRegionsOutsideArchive(false);
++        Memory::PageTable::SetCompactArchive(false);
++        // The load built a new memory system: tell the frontend where it is.
++        if (regions) {
++            const auto live = system.Memory().GetRegions();
++            for (std::size_t i = 0; i < live.size(); i++) {
++                regions[i] = {live[i].data, live[i].size};
++            }
++        }
++        return loaded;
+     } catch (const std::exception& e) {
++        Memory::MemorySystem::SetRegionsOutsideArchive(false);
++        Memory::PageTable::SetCompactArchive(false);
+         LOG_ERROR(Frontend, "Error restoring a rewind state: {}", e.what());
+         return false;
+     }
+--- a/src/common/memory_ref.h
++++ b/src/common/memory_ref.h
+@@ -132,6 +132,15 @@
+         return MemoryRef(backing_mem, offset + offset_by);
+     }
+ 
++    /// What the reference points into and where (a rewind's compact page
++    /// table, Memory::PageTable::serialize).
++    const std::shared_ptr<BackingMem>& Backing() const {
++        return backing_mem;
++    }
++    u64 Offset() const {
++        return offset;
++    }
++
+ private:
+     std::shared_ptr<BackingMem> backing_mem{};
+     u64 offset{};
+--- a/src/core/memory.cpp
++++ b/src/core/memory.cpp
+@@ -98,6 +98,21 @@
+     }
+ };
+ 
++namespace {
++/// MemorySystem::SetRegionsOutsideArchive. One emulated console at a time.
++bool regions_outside_archive = false;
++/// PageTable::SetCompactArchive.
++bool compact_page_tables = false;
++} // namespace
++
++void PageTable::SetCompactArchive(bool compact) {
++    compact_page_tables = compact;
++}
++
++bool PageTable::CompactArchive() {
++    return compact_page_tables;
++}
++
+ class MemorySystem::Impl {
+ public:
+     // Visual Studio would try to allocate these on compile time
+@@ -349,12 +364,17 @@
+     void serialize(Archive& ar, const unsigned int file_version) {
+         bool save_n3ds_ram = Settings::values.is_new_3ds.GetValue();
+         ar & save_n3ds_ram;
+-        ar& boost::serialization::make_binary_object(vram.get(), Memory::VRAM_SIZE);
++        // A rewind holds these four itself (MemorySystem::GetRegions) and
++        // writes them back after the load: the archive skips them.
++        const bool outside = regions_outside_archive;
++        ar& boost::serialization::make_binary_object(vram.get(), outside ? 0 : Memory::VRAM_SIZE);
+         ar& boost::serialization::make_binary_object(
+-            fcram.get(), save_n3ds_ram ? Memory::FCRAM_N3DS_SIZE : Memory::FCRAM_SIZE);
++            fcram.get(),
++            outside ? 0 : save_n3ds_ram ? Memory::FCRAM_N3DS_SIZE : Memory::FCRAM_SIZE);
+         ar& boost::serialization::make_binary_object(
+-            n3ds_extra_ram.get(), save_n3ds_ram ? Memory::N3DS_EXTRA_RAM_SIZE : 0);
+-        ar& boost::serialization::make_binary_object(dsp_ram.get(), Memory::DSP_RAM_SIZE);
++            n3ds_extra_ram.get(), outside || !save_n3ds_ram ? 0 : Memory::N3DS_EXTRA_RAM_SIZE);
++        ar& boost::serialization::make_binary_object(dsp_ram.get(),
++                                                     outside ? 0 : Memory::DSP_RAM_SIZE);
+         ar & cache_marker;
+         ar & page_table_list;
+         // dsp is set from Core::System at startup
+@@ -1292,4 +1312,18 @@
+     return impl->dsp_ram.get() + offset;
+ }
+ 
++std::array<MemorySystem::RawRegion, 4> MemorySystem::GetRegions() const {
++    const bool n3ds = Settings::values.is_new_3ds.GetValue();
++    return {{
++        {impl->vram.get(), Memory::VRAM_SIZE},
++        {impl->fcram.get(), n3ds ? Memory::FCRAM_N3DS_SIZE : Memory::FCRAM_SIZE},
++        {impl->n3ds_extra_ram.get(), n3ds ? Memory::N3DS_EXTRA_RAM_SIZE : 0},
++        {impl->dsp_ram.get(), Memory::DSP_RAM_SIZE},
++    }};
++}
++
++void MemorySystem::SetRegionsOutsideArchive(bool outside) {
++    regions_outside_archive = outside;
++}
++
+ } // namespace Memory
+--- a/src/core/memory.h
++++ b/src/core/memory.h
+@@ -6,6 +6,7 @@
+ #include <array>
+ #include <cstddef>
+ #include <optional>
++#include <stdexcept>
+ #include <string>
+ #include <boost/serialization/array.hpp>
+ #include <boost/serialization/vector.hpp>
+@@ -130,17 +131,91 @@
+ 
+     void Clear();
+ 
++    /// While set, a page table is archived as runs of pages that point into
++    /// one backing memory at consecutive offsets, rather than one reference
++    /// per page (1 << 20 of them, ~125 ms of the ~130 a rewind state costs on
++    /// the host). Only for a rewind's states, which never reach a file: a save
++    /// state keeps the format every other build reads.
++    static void SetCompactArchive(bool compact);
++    static bool CompactArchive();
++
+ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+-        ar & pointers.refs;
+-        ar & attributes;
++        if (CompactArchive()) {
++            SerializeCompact(ar);
++        } else {
++            ar & pointers.refs;
++            ar & attributes;
++        }
+         ar & watchpoint_pages_map;
+         for (std::size_t i = 0; i < PAGE_TABLE_NUM_ENTRIES; i++) {
+             pointers.raw[i] = pointers.refs[i].GetPtr();
+         }
+     }
+     friend class boost::serialization::access;
++
++    /// Whether the page `n` after `start` continues its run: the same
++    /// attribute, and the same backing at the next page's offset or no
++    /// backing at all for either.
++    bool SameRun(std::size_t start, std::size_t n) const {
++        const MemoryRef& first = pointers.refs[start];
++        const MemoryRef& next = pointers.refs[start + n];
++        if (next.Backing() != first.Backing() || attributes[start + n] != attributes[start]) {
++            return false;
++        }
++        return !first.Backing() || next.Offset() == first.Offset() + n * CITRA_PAGE_SIZE;
++    }
++
++    /// Runs of (first page, page count, backing, offset of the first page),
++    /// each backing archived once per run, so the archive's object tracking
++    /// still keeps every backing's identity.
++    template <class Archive>
++    void SerializeCompact(Archive& ar) {
++        if constexpr (Archive::is_saving::value) {
++            u32 runs = 0;
++            for (std::size_t i = 0; i < PAGE_TABLE_NUM_ENTRIES;) {
++                std::size_t n = 1;
++                while (i + n < PAGE_TABLE_NUM_ENTRIES && SameRun(i, n)) {
++                    n++;
++                }
++                i += n;
++                runs++;
++            }
++            ar << runs;
++            for (std::size_t i = 0; i < PAGE_TABLE_NUM_ENTRIES;) {
++                std::size_t n = 1;
++                while (i + n < PAGE_TABLE_NUM_ENTRIES && SameRun(i, n)) {
++                    n++;
++                }
++                const u32 start = static_cast<u32>(i), count = static_cast<u32>(n);
++                const MemoryRef& first = pointers.refs[i];
++                const u64 offset = first.Offset();
++                const PageType type = attributes[i];
++                ar << start << count << first.Backing() << offset << type;
++                i += n;
++            }
++        } else {
++            u32 runs = 0;
++            ar >> runs;
++            for (u32 r = 0; r < runs; r++) {
++                u32 start = 0, count = 0;
++                std::shared_ptr<BackingMem> backing;
++                u64 offset = 0;
++                PageType type{};
++                ar >> start >> count >> backing >> offset >> type;
++                if (u64{start} + count > PAGE_TABLE_NUM_ENTRIES) {
++                    throw std::runtime_error("rewind page table run out of range");
++                }
++                for (u32 k = 0; k < count; k++) {
++                    pointers.refs[start + k] =
++                        backing ? MemoryRef(backing, offset + u64{k} * CITRA_PAGE_SIZE)
++                                : MemoryRef{};
++                    attributes[start + k] = type;
++                }
++            }
++        }
++    }
+ };
+ 
+ /// Physical memory regions as seen from the ARM11
+@@ -696,6 +771,19 @@
+     /// Gets pointer to DSP shared memory with given offset
+     u8* GetDspMemory(std::size_t offset) const;
+ 
++    /// The emulated memories as they are, for a rewind that keeps its own copy
++    /// of them (System::SaveStateRaw with `memory_outside`): VRAM, FCRAM, the
++    /// New 3DS's extra RAM and the DSP's RAM, each as the archive writes it.
++    struct RawRegion {
++        u8* data;
++        std::size_t size;
++    };
++    std::array<RawRegion, 4> GetRegions() const;
++
++    /// While set, the archive writes and reads the four regions as empty, so a
++    /// state is taken and loaded without them (the caller holds them).
++    static void SetRegionsOutsideArchive(bool outside);
++
+     void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode);
+ 
+     /// Returns a reference to the framebuffer address of the currently loaded 3GX plugin.

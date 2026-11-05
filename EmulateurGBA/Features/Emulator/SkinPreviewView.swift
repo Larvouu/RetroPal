@@ -39,7 +39,11 @@ final class SkinPreviewView: UIView {
         let look: DressVariant = skin == .retroPal ? .retroPal : .nostalgia
         // The PSP's looks are the PlayStation's dress in its own colours,
         // resolved as the game screen resolves them, shell and controls alike.
-        return system == .psp ? ConsoleSkinView.pspVariant(look) : look
+        switch system {
+        case .psp: return ConsoleSkinView.pspVariant(look)
+        case .n3ds: return ConsoleSkinView.ctrVariant(look)
+        default: return look
+        }
     }
 
     init(system: PresetSystem, skin: GameSkin, isLandscape: Bool,
@@ -83,6 +87,16 @@ final class SkinPreviewView: UIView {
         return cg.cropping(to: rect).map { UIImage(cgImage: $0) }
     }
 
+    /// One of the 3DS's screens cut from a picture of the whole (400x480: the top screen over
+    /// the bottom one, which spans columns 40 to 360, `CTRBottomScreenRect`).
+    private func ctrScreenImage(top: Bool) -> UIImage? {
+        guard let cg = gameImage?.cgImage else { return nil }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height) / 2
+        let rect = top ? CGRect(x: 0, y: 0, width: w, height: h)
+                       : CGRect(x: w / 10, y: h, width: w * 0.8, height: h)
+        return cg.cropping(to: rect.integral).map { UIImage(cgImage: $0) }
+    }
+
     /// Rendered game aspect (width / height), matching EmulatorSession / the layout engine.
     /// The one table lives in `PresetLayoutResolver`, because a preview drawing a different
     /// shape from the game is a preview that lies.
@@ -101,7 +115,7 @@ final class SkinPreviewView: UIView {
             controllerConnected: false, deviceScale: k)
         let containerFrame = EmulatorLayoutGeometry.controlsFrame(
             deviceSize: size, screenFrame: metalFrame,
-            hasTouchScreen: isNDS, isLandscape: isLandscape)
+            hasTouchScreen: isNDS, isLandscape: isLandscape, system: system)
 
         // A custom palette always dresses the console (it IS a dressed skin); otherwise track the skin.
         let dressed = (paletteOverride != nil || skin.isDressed)
@@ -142,6 +156,17 @@ final class SkinPreviewView: UIView {
             for v in [screen, screen2] { v.layer.cornerRadius = 2 * k; v.layer.masksToBounds = true }
             screen.image = ndsHalf(top: true)
             screen2.image = ndsHalf(top: false)
+        } else if system == .n3ds {
+            // Its two screens as the game draws them (`ConsoleSkinView.ctrScreens`), each with
+            // its half of the picture.
+            let pair = ConsoleSkinView.ctrScreens(in: metalFrame, sideBySide: isLandscape)
+            screen.frame = pair[0]
+            screen2.frame = pair[1]
+            screen2.isHidden = false
+            consoleSkin.ndsScreens = pair
+            for v in [screen, screen2] { v.layer.cornerRadius = 2 * k; v.layer.masksToBounds = true }
+            screen.image = ctrScreenImage(top: true)
+            screen2.image = ctrScreenImage(top: false)
         } else {
             screen.frame = metalFrame
             screen2.isHidden = true
@@ -154,7 +179,7 @@ final class SkinPreviewView: UIView {
         controls.layoutIfNeeded()
         controls.applyDefaultLayout(isLandscape: isLandscape, system: system,
                                     deviceScale: k, safeLeftInset: insets.left,
-                                    safeRightInset: insets.right)
+                                    safeRightInset: insets.right, deviceSize: size)
         controls.setDressed(dressed, isLandscape: isLandscape, system: system, variant: variant)
         controls.layoutIfNeeded()
         consoleSkin.buttonFrames = controls.visibleButtonFrames(in: consoleSkin)

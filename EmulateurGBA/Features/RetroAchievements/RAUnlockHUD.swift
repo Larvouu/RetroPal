@@ -48,7 +48,8 @@ struct RAUnlockHUD: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: unlock.id) {
                         try? await Task.sleep(nanoseconds: 4_200_000_000)
-                        withAnimation { ra.lastUnlock = nil }
+                        // The next one in line follows (`bannerFinished`).
+                        ra.bannerFinished(unlock: unlock)
                     }
             }
             // Mastery waits for the unlock banner to clear rather than shouting
@@ -65,7 +66,7 @@ struct RAUnlockHUD: View {
                         // Longer than an unlock's 4.2s: it is the rarer moment
                         // and there is no next banner queued behind it.
                         try? await Task.sleep(nanoseconds: 6_000_000_000)
-                        withAnimation { ra.lastMastery = nil }
+                        ra.bannerFinished(mastery: mastery)
                     }
             }
             Spacer(minLength: 0)
@@ -156,7 +157,10 @@ struct RAUnlockHUD: View {
     @ViewBuilder
     private func badge(_ unlock: RAUnlock) -> some View {
         Group {
-            if let url = unlock.badgeURL {
+            if let badge = unlock.badge {
+                // Fetched before the banner showed (`RetroAchievements`).
+                Image(uiImage: badge).resizable().scaledToFill()
+            } else if let url = unlock.badgeURL {
                 AsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {

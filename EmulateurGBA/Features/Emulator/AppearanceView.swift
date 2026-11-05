@@ -89,7 +89,8 @@ struct AppearanceView: View {
                                     gameScreenPixelSize: gameScreenPixelSize,
                                     initialPaletteID: initialPaletteID,
                                     onSelect: onSelectPalette,
-                                    isDualScreen: system == .nds,
+                                    filterScreenCount: system == .nds ? 2
+                                        : system == .n3ds ? Int(FilterScreens.ctr) : 1,
                                     initialFilterID: initialFilterID,
                                     onSelectFilter: onSelectFilter)
             } else {
@@ -121,8 +122,10 @@ private struct ScreenAppearanceTab: View {
     let gameScreenPixelSize: CGSize
     let initialPaletteID: String
     let onSelect: (GBPalette) -> Void
-    /// NDS: the captured frame is the stacked dual-screen image (per-screen CRT).
-    let isDualScreen: Bool
+    /// The CRT's `screenCount` for the captured frame, as the live view sends
+    /// it: 2 for the DS's stacked screens, the 3DS's own value for its stacked
+    /// picture (each screen curved on its own width), 1 otherwise.
+    let filterScreenCount: Int
     let initialFilterID: String
     let onSelectFilter: (VideoFilter) -> Void
 
@@ -464,7 +467,7 @@ private struct ScreenAppearanceTab: View {
         let source = openPalette
         let wantPalettes = showPaletteSection && paletteApplicable && previews.isEmpty
         let wantFilters = filterPreviews.isEmpty
-        let screens = isDualScreen ? 2 : 1
+        let screens = filterScreenCount
         let grid = gamePixelGrid
         // Never larger than the showcase can show: a pattern rendered finer
         // than it is displayed is scaled down on screen into moiré.

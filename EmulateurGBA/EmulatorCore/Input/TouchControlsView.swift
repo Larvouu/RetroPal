@@ -170,6 +170,9 @@ class TouchControlsView: UIView {
     private(set) var dpad: UIView  // Either DPadView (joystick) or CrossDPadView (d-pad)
     private var joystickDPad: DPadView?
     private var crossDPad: CrossDPadView?
+    /// The cross wears the faces' rim relief (`CrossDPadView.moulded`; the 3DS).
+    /// Reset by every `setDressed`, so a console that does not ask for it never keeps it.
+    func setCrossMoulded(_ on: Bool) { crossDPad?.moulded = on }
     let btnA = ActionButton(label: "A")
     let btnB = ActionButton(label: "B")
     let btnL = ShoulderButton(label: "L")
@@ -383,7 +386,9 @@ class TouchControlsView: UIView {
         // The PSP's pad is the PlayStation's without six controls; its layout
         // carries none of those six, and the control view hides every element
         // a layout does not carry.
-        case .ps1, .psp: return PS1TouchControlsView(system: system)
+        // The 3DS (phase 1) is on the PlayStation's page too, with its own
+        // marks (A B X Y, ZL ZR) and the circle pad as the left stick.
+        case .ps1, .psp, .n3ds: return PS1TouchControlsView(system: system)
         case .n64:  return N64TouchControlsView()
         case .md:   return MDTouchControlsView()
         case .sms, .gg: return SegaEightBitTouchControlsView(system: system)
@@ -408,6 +413,10 @@ class TouchControlsView: UIView {
         // without six controls, and every shape and mark of the dress is keyed
         // on `.ps1` (2026-10-10). Its colours come in through the variant.
         case .psp:  return .ps1
+        // The DS's dress kind (2026-10-20, asked: "the NDS look"): its controls
+        // take the DS's shapes and tokens, its colours coming in through the
+        // variant (`ConsoleSkinView.ctrVariant`), as the PSP's do on `.ps1`.
+        case .n3ds: return .nds
         case .gbc:  return .gbc
         }
     }
@@ -435,6 +444,7 @@ class TouchControlsView: UIView {
         btnClip.dressStyle = on ? .circle : .none
         btnMenu.dressStyle = on ? .circle : .none
         crossDPad?.dressVariant = variant; crossDPad?.dressKind = kind; crossDPad?.dressed = on
+        crossDPad?.moulded = false
         joystickDPad?.dressVariant = variant; joystickDPad?.dressKind = kind; joystickDPad?.dressed = on
     }
 
@@ -452,7 +462,8 @@ class TouchControlsView: UIView {
                      deviceScale: CGFloat, opacity: CGFloat, scale: CGFloat, useJoystick: Bool,
                      wideSelectStart: Bool = false, wideShoulders: Bool = false,
                      ndsBigSelectStart: Bool = false,
-                     drawnScale: (ControlElement) -> CGFloat = { _ in 1 }) {
+                     drawnScale: (ControlElement) -> CGFloat = { _ in 1 },
+                     drawnSize: (ControlElement, CGSize) -> CGSize = { $1 }) {
         // Resolve the directional control type (cross D-pad vs joystick) for this
         // layout first, so the swapped-in view gets positioned in the pass below.
         setUsesJoystick(useJoystick)
@@ -463,6 +474,13 @@ class TouchControlsView: UIView {
         // NDS landscape lets the L/R bars extend up into the screen area; every
         // other case keeps controls inside their own bounds.
         clipsToBounds = isNDS && !isLandscape
+        // The 3DS's bars upright, beside its touch screen (`ShoulderButton.hitsAlongOnly`).
+        for (element, view) in allButtonViews() {
+            guard let bar = view as? ShoulderButton else { continue }
+            bar.hitsAlongOnly = system == .n3ds && !isLandscape
+                && [.btnL, .btnR, .btnL2, .btnR2].contains(element)
+        }
+        menuClipBesideTouchScreen = system == .n3ds && !isLandscape
 
         let containerW = bounds.width
         let containerH = bounds.height
@@ -515,32 +533,20 @@ class TouchControlsView: UIView {
             if drawn != 1 {
                 finalSize = CGSize(width: finalSize.width * drawn, height: finalSize.height * drawn)
             }
+            // A page that draws a control at a size the table cannot give (the
+            // 3DS on its side: bars as tall as half their screen, the circle pad
+            // grown to its band, `ControlLayoutDefaults.n3dsLandscapeDrawnSize`).
+            finalSize = drawnSize(element, finalSize)
             // NDS default: SELECT/START mirror the GBA component SIZE; CLIP/MIC reflow so every
             // gap in the bottom row stays the same. Portrait grows symmetric about centre;
             // landscape grows the SELECT·CLIP·START bloc leftward (its right end stays put).
             if ndsBigSelectStart {
-                let k = deviceScale
-                if element == .btnSelect || element == .btnStart {
-                    let ref = isLandscape ? ControlElement.btnSelect.defaultLandscapeSize
-                                          : ControlElement.btnSelect.defaultSize
-                    finalSize = CGSize(width: ref.width * k, height: ref.height * k)
-                }
-                if isLandscape {
-                    switch element {
-                    case .btnSelect: finalCenter.x -= 6 * k
-                    case .btnStart:  finalCenter.x -= 2 * k
-                    case .btnClip:   finalCenter.x -= 4 * k
-                    default: break
-                    }
-                } else {
-                    switch element {
-                    case .btnSelect: finalCenter.x -= 6 * k
-                    case .btnStart:  finalCenter.x += 6 * k
-                    case .btnClip:   finalCenter.x -= 12 * k
-                    case .btnMic:    finalCenter.x += 12 * k
-                    default: break
-                    }
-                }
+                // One rule with the layout's own reading of it
+                // (`ControlLayoutDefaults.ndsBottomRow`).
+                let row = ControlLayoutDefaults.ndsBottomRow(element, isLandscape: isLandscape,
+                                                             deviceScale: deviceScale)
+                if let size = row.size { finalSize = size }
+                finalCenter.x += row.dx
             }
 
             NSLayoutConstraint.activate([
@@ -579,6 +585,10 @@ class TouchControlsView: UIView {
 
         // Full-view container: components can live anywhere in it, nothing to clip.
         clipsToBounds = false
+        // The bars are wherever the player put them, not beside the touch
+        // screen: the usual box, not what the last default page left.
+        for (_, view) in allButtonViews() { (view as? ShoulderButton)?.hitsAlongOnly = false }
+        menuClipBesideTouchScreen = false
 
         for (element, view) in allButtonViews() {
             guard let rc = buttons[element] else {
@@ -623,12 +633,13 @@ class TouchControlsView: UIView {
     /// (`controllerPortraitMenuCenter`). Both are no-ops where MENU is clear.
     func applyDefaultLayout(isLandscape: Bool, system: PresetSystem, deviceScale: CGFloat,
                             safeLeftInset: CGFloat = 0, safeRightInset: CGFloat = 0,
-                            family: LayoutFamily = .phone, controllerScreen: CGRect? = nil) {
+                            family: LayoutFamily = .phone, controllerScreen: CGRect? = nil,
+                            deviceSize: CGSize? = nil) {
         let isNDS = (system == .nds)
         var layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: bounds.size,
             scale: deviceScale, safeLeftInset: safeLeftInset, safeRightInset: safeRightInset,
-            family: family)
+            family: family, deviceSize: deviceSize)
         if let screen = controllerScreen, var menu = layout.buttons[ControlElement.btnMenu.rawValue],
            bounds.width > 0, bounds.height > 0 {
             let size = EmulatorLayoutGeometry.buttonSize(.btnMenu, system: system,
@@ -659,7 +670,14 @@ class TouchControlsView: UIView {
                     useJoystick: useJoystick, wideSelectStart: system == .gba,
                     wideShoulders: isNDS && !isLandscape, ndsBigSelectStart: isNDS,
                     drawnScale: { ControlLayoutDefaults.n64PhoneScale($0, isLandscape: isLandscape,
-                                                                      family: family, system: system) })
+                                                                      family: family, system: system) },
+                    drawnSize: { element, size in
+                        guard system == .n3ds, isLandscape, controllerScreen == nil,
+                              let deviceSize else { return size }
+                        return ControlLayoutDefaults.n3dsLandscapeDrawnSize(
+                            element, size: size, deviceSize: deviceSize, scale: deviceScale,
+                            safeLeftInset: safeLeftInset, safeRightInset: safeRightInset, family: family)
+                    })
     }
 
     /// Swap the directional control between the cross D-pad and the joystick to
@@ -763,12 +781,24 @@ class TouchControlsView: UIView {
     /// differ is that margin, and there a real button must win: a touch claimed by the pad is
     /// excluded from every button test for as long as it lasts, so the margin swallowing a
     /// corner of MENU does not merely add a direction, it makes MENU stop responding.
+    /// MENU's or CLIP's forgiving box, in its own coordinates: ten points round
+    /// it, but only up and down where it stands beside the 3DS's touch screen
+    /// upright (`menuClipBesideTouchScreen`). There, the sideways ten points
+    /// reached six into that screen, and a tap at its edge opened the menu
+    /// instead of touching the game (audit, 2026-10-21) -- the shoulder bars'
+    /// rule (`ShoulderButton.hitsAlongOnly`).
+    func menuClipTapBox(_ trigger: SmallButton) -> CGRect {
+        trigger.bounds.insetBy(dx: menuClipBesideTouchScreen ? 0 : -10, dy: -10)
+    }
+    /// Set by `applyLayout` for the 3DS upright on its default page.
+    var menuClipBesideTouchScreen = false
+
     private func anotherControlClaims(_ point: CGPoint) -> Bool {
         for (view, _) in buttonMap where !view.isHidden && view.alpha > 0.01 {
             if touchHits(convert(point, to: view), in: view) { return true }
         }
         for trigger in [btnMenu, btnClip] where !trigger.isHidden && trigger.alpha > 0.01 {
-            if trigger.bounds.insetBy(dx: -10, dy: -10).contains(convert(point, to: trigger)) {
+            if menuClipTapBox(trigger).contains(convert(point, to: trigger)) {
                 return true
             }
         }
@@ -1187,6 +1217,14 @@ class TouchControlsView: UIView {
             let r = min(view.bounds.width, view.bounds.height) / 2
             return hypot(local.x - view.bounds.midX, local.y - view.bounds.midY) <= r
         }
+        if let bar = view as? ShoulderButton, bar.hitsAlongOnly {
+            // Along the bar, under half the 8-point gap to the bar stacked
+            // with it (`ControlLayoutDefaults.n3dsPortrait`: 74.6 high since
+            // 2026-10-21, 8 apart, both times the page's scale, so 4 / 74.6 of
+            // the bar). The usual fifth reached 13 points into the other bar:
+            // L pressed ZL, ZL pressed L (audit, 2026-10-20).
+            return view.bounds.insetBy(dx: 0, dy: -view.bounds.height * ShoulderButton.alongOnlyGrowth).contains(local)
+        }
         return view.bounds.insetBy(dx: -view.bounds.width * 0.2, dy: -view.bounds.height * 0.2).contains(local)
     }
 
@@ -1227,6 +1265,15 @@ class TouchControlsView: UIView {
             // The pad's claimed finger only steers; never let it press a button
             // or the menu (it may have been dragged far across the screen).
             if touch === dpadTouch { continue }
+            // Nor a finger another view owns: `allTouches` is every finger on
+            // the screen, so each press elsewhere tested them all again. A
+            // stick keeps its finger for its whole life (`AnalogStickView`),
+            // and one moving a character over CLIP or MENU opened them the
+            // moment the other thumb pressed A (his report, 2026-10-21; the
+            // 3DS's C-stick sits 10 points under B). A finger on the DS's or
+            // the 3DS's touch screen likewise. The buttons have no interaction
+            // of their own: every finger meant for them is this view's.
+            if touch.view !== self { continue }
             let point = touch.location(in: self)
 
             // Check action buttons
@@ -1238,8 +1285,7 @@ class TouchControlsView: UIView {
 
             // Check menu button
             let menuLocal = convert(point, to: btnMenu)
-            let menuExpanded = btnMenu.bounds.insetBy(dx: -10, dy: -10)
-            if menuExpanded.contains(menuLocal) {
+            if menuClipTapBox(btnMenu).contains(menuLocal) {
                 if touch.phase == .began { fireHaptic() }
                 btnMenu.flashPress()
                 onMenuTap?()
@@ -1264,8 +1310,7 @@ class TouchControlsView: UIView {
             // finger here can't fire it. Skip when hidden (controller mode / preset).
             if !btnClip.isHidden {
                 let clipLocal = convert(point, to: btnClip)
-                let clipExpanded = btnClip.bounds.insetBy(dx: -10, dy: -10)
-                if clipExpanded.contains(clipLocal) {
+                if menuClipTapBox(btnClip).contains(clipLocal) {
                     if touch.phase == .began { fireHaptic() }
                     btnClip.flashPress()
                     onClipTap?()
@@ -1276,7 +1321,7 @@ class TouchControlsView: UIView {
         // Check mic/blow button (NDS only)
         if let mic = micButton {
             var micTouched = false
-            for touch in allTouches where touch !== dpadTouch
+            for touch in allTouches where touch !== dpadTouch && touch.view === self
                 && [.began, .moved, .stationary].contains(touch.phase) {
                 let local = convert(touch.location(in: self), to: mic)
                 let expanded = mic.bounds.insetBy(dx: -mic.bounds.width * 0.2, dy: -mic.bounds.height * 0.2)
@@ -2511,7 +2556,8 @@ final class ActionButton: UIView, HighlightableButton {
             let labelInk: UIColor
             // The Nintendo 64's A and B are the SNES's case: a coloured button
             // with its letter set into it in a darker shade of the same colour.
-            if dressKind == .snes || dressKind == .n64, let perButton = dressFaceLabel {
+            // The 3DS's four faces are the SNES's case too, on the DS's dress.
+            if dressKind == .snes || dressKind == .n64 || dressKind == .nds, let perButton = dressFaceLabel {
                 labelInk = perButton
             } else if dressKind == .nes {
                 // One face colour, so the ink derives from it here rather than per button — and
@@ -2838,6 +2884,15 @@ final class ActionButton: UIView, HighlightableButton {
 // MARK: - Shoulder Button (L, R)
 
 final class ShoulderButton: UIView, HighlightableButton {
+    /// The touch box grows along the bar only, never across it: the 3DS's
+    /// bars upright stand a few points beside the touch screen, and the usual
+    /// fifth more each side reached into it, so a tap at that screen's edge
+    /// pressed a shoulder (audit, 2026-10-20). Set by `applyLayout`.
+    var hitsAlongOnly = false
+    /// How far, as a fraction of its height, such a bar's touch box grows
+    /// along it: less than half the gap to the bar stacked with it
+    /// (`TouchControlsView.touchHits`).
+    static let alongOnlyGrowth: CGFloat = 0.035
     /// NDS L/R corner radius as a fraction of the short side — a rounded square, not a pill.
     /// The skin's L/R creusé seat mirrors this so the two stay concentric.
     /// The PlayStation's shoulder corner, in POINTS rather than a fraction, and
@@ -3046,17 +3101,53 @@ final class ShoulderButton: UIView, HighlightableButton {
                                    : min(bounds.height * 0.5, bounds.width * 0.5))
             : 8
         layer.cornerRadius = radius
+        // Flush with the phone's edge (the 3DS upright): only the inner corners
+        // are round, and one shape serves every layer that follows it.
+        let corners = flushEdge.roundedCorners
+        layer.maskedCorners = flushEdge.maskedCorners
+        let shape = UIBezierPath(roundedRect: bounds, byRoundingCorners: corners,
+                                 cornerRadii: CGSize(width: radius, height: radius)).cgPath
         sheen.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.55)
         sheen.cornerRadius = radius
+        sheen.maskedCorners = flushEdge.maskedCorners
         sheen.masksToBounds = true
-        Bombe.fit(dome, to: bounds, corner: radius)
-        Bombe.fitCore(core, over: bounds,
-                      clippedTo: UIBezierPath(roundedRect: bounds,
-                                              cornerRadius: radius).cgPath)
+        if flushEdge == .none {
+            Bombe.fit(dome, to: bounds, corner: radius)
+        } else {
+            Bombe.fit(dome, over: bounds, clippedTo: shape)
+        }
+        Bombe.fitCore(core, over: bounds, clippedTo: shape)
         // Same reason as ActionButton's: a shadow with no path is an offscreen render pass, and
         // this one is redone every time the dress toggles it. The radius is the one computed
         // just above, so the path is the shape that is actually drawn.
-        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+        layer.shadowPath = shape
+    }
+
+    /// Which of the phone's edges this bar runs into: that side is the phone's,
+    /// so its two corners there are square (the 3DS upright, his design,
+    /// 2026-10-21). `.none` everywhere else.
+    var flushEdge: FlushEdge = .none {
+        didSet { guard flushEdge != oldValue else { return }; setNeedsLayout() }
+    }
+}
+
+/// A control set against one of the phone's edges (`ShoulderButton.flushEdge`,
+/// `SmallButton.flushEdge`): the corners on that side square, the others round.
+enum FlushEdge {
+    case none, left, right
+    var roundedCorners: UIRectCorner {
+        switch self {
+        case .none: return .allCorners
+        case .left: return [.topRight, .bottomRight]
+        case .right: return [.topLeft, .bottomLeft]
+        }
+    }
+    var maskedCorners: CACornerMask {
+        switch self {
+        case .none: return [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        case .left: return [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        case .right: return [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        }
     }
 }
 
@@ -3265,6 +3356,20 @@ final class SmallButton: UIView, HighlightableButton {
         didSet { guard dressStyle != oldValue else { return }; applyResting(); setNeedsLayout() }
     }
 
+    /// The `.circle` style drawn as a ROUNDED SQUARE instead, corners this
+    /// fraction of its side: the 3DS's MENU and CLIP upright, in the band
+    /// beside the lower screen above the shoulder bars (his design,
+    /// 2026-10-21), whose corners they take (`ShoulderButton.ndsCornerFactor`).
+    /// nil, the default, is the circle every console draws.
+    var squareCornerFraction: CGFloat? {
+        didSet { guard squareCornerFraction != oldValue else { return }; setNeedsLayout() }
+    }
+    /// The rounded square set against the phone's edge: that side's corners
+    /// square (`FlushEdge`; the 3DS's MENU and CLIP upright).
+    var flushEdge: FlushEdge = .none {
+        didSet { guard flushEdge != oldValue else { return }; setNeedsLayout() }
+    }
+
     // Icon-variant pieces (nil on the label variant). `iconHighlight` (light, up-left) and
     // `iconShadow` (dark, down-right) are the two-sided emboss copies behind the icon, shown
     // only in `.iconOnly`; the icon grows (iconSmall -> iconBig) in `.iconOnly` to fill its
@@ -3305,11 +3410,18 @@ final class SmallButton: UIView, HighlightableButton {
     /// just a tiny "clip-like" circle — at the RIGHT of the pill on GBA, mirrored to the LEFT on
     /// NDS. Ratio must match the skins' `selectPillRatio`.
     static let selectPillRatio: CGFloat = 3.4
+    /// The tiny circle at the RIGHT end even in the DS's dress: the 3DS upright
+    /// prints SELECT and START as their word, then the button (his design,
+    /// 2026-10-21). False for every other case.
+    var selectCircleOnRight = false {
+        didSet { guard selectCircleOnRight != oldValue else { return }; setNeedsLayout() }
+    }
+
     private func selectCircleRect() -> CGRect {
         let pillH = bounds.width / Self.selectPillRatio
         let d = pillH * 0.7
         let pad = pillH * 0.25
-        let x = (dressKind == .nds) ? bounds.minX + pad : bounds.maxX - pad - d
+        let x = (dressKind == .nds && !selectCircleOnRight) ? bounds.minX + pad : bounds.maxX - pad - d
         return CGRect(x: x, y: bounds.midY - d / 2, width: d, height: d)
     }
 
@@ -3620,7 +3732,10 @@ final class SmallButton: UIView, HighlightableButton {
         case .circle:
             let d = min(bounds.width, bounds.height)
             let rect = CGRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
-            let circle = UIBezierPath(ovalIn: rect)
+            let circle = squareCornerFraction.map {
+                UIBezierPath(roundedRect: rect, byRoundingCorners: flushEdge.roundedCorners,
+                             cornerRadii: CGSize(width: d * $0, height: d * $0))
+            } ?? UIBezierPath(ovalIn: rect)
             circleBg.path = circle.cgPath
             Bombe.fit(dome, over: bounds, clippedTo: circle.cgPath)
             Bombe.fitCore(core, over: bounds, clippedTo: circle.cgPath)

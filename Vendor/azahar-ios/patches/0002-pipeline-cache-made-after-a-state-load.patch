@@ -1,0 +1,38 @@
+Make the shader disk cache after a state load when the title ID is unchanged
+
+Loading a save state rebuilds the whole emulated system, GPU and renderer
+included (System::serialize, input archive: Shutdown then Init). The new
+renderer's PipelineCache starts with program ID 0 and NO shader disk cache:
+LoadDefaultDiskResources, which makes it, is called by the frontends only when
+a game boots. Upstream then calls SwitchDiskResources with the running title's
+ID, and SwitchDiskCache is written to make the cache when there is none ("NOTE:
+curr_disk_cache can be null if emulation restarted without calling
+LoadDefaultDiskResources").
+
+SwitchCache never reaches it when the title ID is 0, the ID of any homebrew
+without one: 0 equals the new cache's default, so it returns early ("already
+using cache for title_id") with no disk cache, and the next draw dereferences
+it (PipelineCache::UseProgrammableVertexShader -> ShaderDiskCache, this=0x0).
+Seen in Retro Pal's host harness (Tools/3ds-bench roundtrip) on 2026-10-16:
+every state load of such a program crashed. A game with a real title ID
+differs from 0 and goes through SwitchDiskCache, which is why commercial games
+do not meet it.
+
+The early return now also requires a disk cache to exist, so SwitchCache goes
+on to SwitchDiskCache, which makes one. After it, the same harness loads the
+state and replays 300 frames: sound identical in all of them, picture identical
+in all but the first (the rebuilt renderer's first frame).
+
+diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+index f49da12..8b97381 100644
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -160,7 +160,7 @@ void PipelineCache::LoadCache(const std::atomic_bool& stop_loading,
+ 
+ void PipelineCache::SwitchCache(u64 title_id, const std::atomic_bool& stop_loading,
+                                 const VideoCore::DiskResourceLoadCallback& callback) {
+-    if (GetProgramID() == title_id) {
++    if (GetProgramID() == title_id && curr_disk_cache) {
+         LOG_DEBUG(Render_Vulkan,
+                   "Skipping pipeline cache switch - already using cache for title_id={:016X}",
+                   title_id);

@@ -32,7 +32,7 @@ import SwiftUI
 /// touch layout exactly — there is no per-console button gating in the app — so
 /// they differ from GBA only in screen aspect (160×144 vs 240×160).
 enum PreviewSystem: String {
-    case gba, gbc, nds, snes, nes, ps1, n64, md, sms, gg, psp   // gbc = GB + GBC (identical controls + screen)
+    case gba, gbc, nds, snes, nes, ps1, n64, md, sms, gg, psp, n3ds   // gbc = GB + GBC (identical controls + screen)
 
     var isNDS: Bool { self == .nds }
 
@@ -50,6 +50,7 @@ enum PreviewSystem: String {
         case .sms: return .sms
         case .gg: return .gg
         case .psp: return .psp
+        case .n3ds: return .n3ds
         }
     }
 
@@ -61,13 +62,13 @@ enum PreviewSystem: String {
         case .nds: return 256.0 / 384.0   // both screens stacked
         // Straight from the layout engine's own table, so this gallery cannot
         // show a shape the game does not draw.
-        case .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp:
+        case .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp, .n3ds:
             return PresetLayoutResolver.displayAspect(layoutSystem)
         }
     }
 
     /// The Debug iPhone rows, in the order of the Debug iPad ones.
-    static let galleryOrder: [PreviewSystem] = [.gbc, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp]
+    static let galleryOrder: [PreviewSystem] = [.gbc, .gba, .nds, .snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp, .n3ds]
 
     var consoleName: String {
         switch self {
@@ -82,6 +83,7 @@ enum PreviewSystem: String {
         case .sms: return "Master System"
         case .gg: return "Game Gear"
         case .psp: return "PSP"
+        case .n3ds: return "Nintendo 3DS"
         }
     }
 
@@ -98,6 +100,7 @@ enum PreviewSystem: String {
         case .sms: return "Master System screen"
         case .gg: return "Game Gear screen"
         case .psp: return "PSP screen"
+        case .n3ds: return "3DS screens"
         }
     }
 }
@@ -152,11 +155,22 @@ final class InGameLayoutPreviewView: UIView {
     /// own palettes, not the PlayStation's.
     private var previewVariant: DressVariant {
         let variant: DressVariant = look == .retroPal ? .retroPal : .nostalgia
-        return system.layoutSystem == .psp ? ConsoleSkinView.pspVariant(variant) : variant
+        switch system.layoutSystem {
+        case .psp: return ConsoleSkinView.pspVariant(variant)
+        case .n3ds: return ConsoleSkinView.ctrVariant(variant)
+        default: return variant
+        }
     }
     private let isNDS: Bool
-    private let isLandscape: Bool
-    private let insets: UIEdgeInsets
+    /// The store screenshot page (Settings ▸ Debug iPad, 2026-10-31): the
+    /// page fills the real window, so its orientation and insets are the
+    /// window's, read at every layout the way the game reads its own view's.
+    /// The galleries pass both instead.
+    private let followsWindow: Bool
+    private let fixedLandscape: Bool
+    private let fixedInsets: UIEdgeInsets
+    private var isLandscape: Bool { followsWindow ? bounds.width > bounds.height : fixedLandscape }
+    private var insets: UIEdgeInsets { followsWindow ? safeAreaInsets : fixedInsets }
     private let consoleSkin = ConsoleSkinView()
     private let screen = UIView()
     private let screen2 = UIView()   // NDS-landscape right (touch) screen
@@ -168,13 +182,15 @@ final class InGameLayoutPreviewView: UIView {
     private let lidMessage: NDSLidMessageView?
 
     init(system: PreviewSystem, isLandscape: Bool, safeInsets: UIEdgeInsets,
-         look: PreviewLook = .nostalgia, showsLidMessage: Bool = false) {
+         look: PreviewLook = .nostalgia, showsLidMessage: Bool = false,
+         screenshot: Bool = false) {
         self.lidMessage = (showsLidMessage && system.isNDS) ? NDSLidMessageView() : nil
         self.system = system
         self.look = look
         self.isNDS = system.isNDS
-        self.isLandscape = isLandscape
-        self.insets = safeInsets
+        self.followsWindow = screenshot
+        self.fixedLandscape = isLandscape
+        self.fixedInsets = safeInsets
         // The same choice EmulatorViewController makes, from the same factory: the
         // X and Y views exist only on the subclasses that have those buttons.
         self.controls = TouchControlsView.make(for: system.layoutSystem)
@@ -226,9 +242,32 @@ final class InGameLayoutPreviewView: UIView {
         // wells, labels) can be checked against the real touch rectangles.
         addSubview(hitboxOverlay)
         if let lidMessage { addSubview(lidMessage) }
+
+        // The screenshot page: the screen is plain black, as a game is before
+        // its first frame, with nothing of the debug look on it (no tint, no
+        // outline, no label, no hitboxes), so a picture can be laid over it.
+        if screenshot {
+            for v in [screen, screen2] {
+                v.backgroundColor = .black
+                v.layer.borderWidth = 0
+            }
+            screenLabel.isHidden = true
+            hitboxOverlay.alpha = 0
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    /// MENU on the screenshot page: the way out, since nothing plays.
+    var onMenuTap: (() -> Void)? {
+        get { controls.onMenuTap }
+        set { controls.onMenuTap = newValue }
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        if followsWindow { setNeedsLayout() }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -244,7 +283,7 @@ final class InGameLayoutPreviewView: UIView {
             controllerConnected: controllerConnected, deviceScale: k)
         let containerFrame = EmulatorLayoutGeometry.controlsFrame(
             deviceSize: size, screenFrame: metalFrame,
-            hasTouchScreen: isNDS, isLandscape: isLandscape)
+            hasTouchScreen: isNDS, isLandscape: isLandscape, system: system.layoutSystem)
 
         // Console dress behind the placeholder screen + controls (GB/GBC only).
         consoleSkin.frame = bounds
@@ -269,6 +308,14 @@ final class InGameLayoutPreviewView: UIView {
             screen.frame = rects.top
             screen2.frame = rects.bottom
             screen2.isHidden = false
+        } else if system == .n3ds {
+            // The 3DS's two screens as the game draws them: side by side on its
+            // side (`EmulatorMetalView.ctrSideBySide`), the bottom one narrower
+            // under the top one upright (`ConsoleSkinView.ctrScreens`).
+            let pair = ConsoleSkinView.ctrScreens(in: metalFrame, sideBySide: isLandscape)
+            screen.frame = pair[0]
+            screen2.frame = pair[1]
+            screen2.isHidden = false
         } else {
             screen.frame = metalFrame
             screen2.isHidden = true
@@ -277,7 +324,8 @@ final class InGameLayoutPreviewView: UIView {
         // Hand the NDS dress its two screen sub-frames (for the outlines + speakers + light), and
         // round the placeholder corners to match the skin's rim (Invisible keeps them square,
         // as the game does without the dress).
-        if isNDS {
+        // The 3DS wears the DS's dress, on its own two screens.
+        if isNDS || system == .n3ds {
             consoleSkin.ndsScreens = [screen.frame, screen2.frame]
             let corner = consoleSkin.isHidden ? 0 : 2 * k
             for v in [screen, screen2] { v.layer.cornerRadius = corner; v.layer.masksToBounds = true }
@@ -296,7 +344,8 @@ final class InGameLayoutPreviewView: UIView {
                                     deviceScale: k, safeLeftInset: insets.left,
                                     safeRightInset: insets.right,
                                     family: LayoutFamily.of(bounds.size),
-                                    controllerScreen: controllerScreen)
+                                    controllerScreen: controllerScreen,
+                                    deviceSize: bounds.size)
         // Dress the buttons for the systems whose buttons have a dress, matching the skin.
         // NDS shows its body/screen dress before its buttons are dressed (later slice).
         controls.setDressed(look != .invisible && ConsoleSkinView.hasDressedControls(for: system.layoutSystem),
@@ -321,7 +370,7 @@ final class InGameLayoutPreviewView: UIView {
         // PlayStation arrived to make it matter twice.
         // The Nintendo 64 rounds A, B, Z and its four C buttons instead, and
         // the Mega Drive its six faces.
-        let hasDiamond: Set<PreviewSystem> = [.nds, .snes, .ps1, .psp]
+        let hasDiamond: Set<PreviewSystem> = [.nds, .snes, .ps1, .psp, .n3ds]
         let round: Set<ControlElement> = hasDiamond.contains(system)
             ? [.btnA, .btnB, .btnX, .btnY]
             : system == .n64 ? [.btnA, .btnB, .btnL2, .btnCUp, .btnCDown, .btnCLeft, .btnCRight]

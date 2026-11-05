@@ -23,7 +23,18 @@ extension DressVariant {
     /// console's views read its own struct (GB/GBC splits its controls; GBA/NDS unify them).
     var gbcPalette: GBCSkinPalette? { if case .custom(.gbc(let p)) = self { return p }; return nil }
     var gbaPalette: GBASkinPalette? { if case .custom(.gba(let p)) = self { return p }; return nil }
-    var ndsPalette: NDSSkinPalette? { if case .custom(.nds(let p)) = self { return p }; return nil }
+    /// The DS's palette, or a 3DS's seen as one: the 3DS wears the DS's
+    /// dress shapes, and that dress code reads these slots.
+    var ndsPalette: NDSSkinPalette? {
+        if case .custom(.nds(let p)) = self { return p }
+        if case .custom(.n3ds(let p)) = self { return p.asNDS }
+        return nil
+    }
+    var ctrPalette: N3DSSkinPalette? { if case .custom(.n3ds(let p)) = self { return p }; return nil }
+    /// Whether this is one of the 3DS's looks: what is its own (four coloured
+    /// faces, two sticks, four shoulders) asks this. Asks the palette's TYPE,
+    /// so a custom 3DS skin is a 3DS too.
+    var isCTR: Bool { ctrPalette != nil }
     var snesPalette: SNESSkinPalette? { if case .custom(.snes(let p)) = self { return p }; return nil }
     var nesPalette: NESSkinPalette? { if case .custom(.nes(let p)) = self { return p }; return nil }
     /// The PlayStation's palette, or a PSP's seen as one: the PSP wears the
@@ -129,6 +140,9 @@ extension DressVariant {
         case .custom(.gg(let p)): return p.buttons
         //The PSP answers as the PlayStation does, from its PlayStation view.
         case .custom(.psp(let p)): return ps1(p.asPS1)
+        //The 3DS answers as the DS does, one control colour; its four faces are
+        //per button (`PS1TouchControlsView`) and its sticks their own slot.
+        case .custom(.n3ds(let p)): return p.buttons
         }
     }
     /// The D-pad cross face (+ its under-discs).

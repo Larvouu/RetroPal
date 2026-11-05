@@ -1,0 +1,45 @@
+Read a non-blocking frontend's microphone for the whole frame
+
+LibRetroInput::PollMicrophone reads 128 samples once per retro_run, a size
+chosen so RetroArch's blocking CoreAudio read returns in one pass. The 3DS mic
+service consumes the samples at the game's rate, which from a 48 kHz frontend
+is about 800 a frame: with one read per frame the game received a sixth of its
+signal, and between reads its buffer did not advance.
+
+This keeps reading while each read comes back full, up to the sample ring's
+4096-sample capacity. A frontend that has fewer samples returns a short read
+and the loop ends, so RetroArch sees the one read it saw before. A frontend
+whose read never blocks and always has a frame's worth (the iOS host's
+simulated blow) now hands the game a frame's worth per frame.
+
+--- a/src/audio_core/libretro_input.cpp
++++ b/src/audio_core/libretro_input.cpp
+@@ -229,12 +229,25 @@
+     // without an explicit barrier.
+     std::atomic_thread_fence(std::memory_order_acquire);
+ 
+-    int samples_read = impl->mic_interface->read_mic(impl->mic_handle, impl->read_buffer.data(),
+-                                                     static_cast<size_t>(impl->read_buffer.size()));
++    // One read per frame brings 128 samples, while the game consumes about 800
++    // a frame (48 kHz). Keep reading while the frontend fills the whole buffer,
++    // up to the ring's capacity: a frontend whose read never blocks (an iOS
++    // host's) hands over a frame's worth this way. A frontend that has less
++    // returns a short read and ends the loop, so one read stays one read there.
++    for (std::size_t total = 0; total < 4096;) {
++        int samples_read = impl->mic_interface->read_mic(
++            impl->mic_handle, impl->read_buffer.data(),
++            static_cast<size_t>(impl->read_buffer.size()));
+ 
+-    if (samples_read > 0) {
++        if (samples_read <= 0) {
++            break;
++        }
+         impl->sample_buffer.Push(
+             std::span<const s16>(impl->read_buffer.data(), static_cast<size_t>(samples_read)));
++        total += static_cast<std::size_t>(samples_read);
++        if (static_cast<std::size_t>(samples_read) < impl->read_buffer.size()) {
++            break;
++        }
+     }
+ }
+ 

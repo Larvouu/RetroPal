@@ -1,0 +1,26 @@
+A rewind state leaves the next save's reservation alone
+
+System::SaveStateRaw (0014) recorded its size in last_state_size, the figure
+the next real save reserves its buffer with (SaveState, SaveStateBuffer, 0004).
+A rewind state is taken without the emulated memories (0015): 12 to 16 MB,
+where a save of a New 3DS game is about 296 MB. So after the first rewind
+snapshot every save state, the auto-save on going to the background among
+them, reserved 12 MB and grew its buffer as FCRAM was written, a doubling
+holding the old block beside the new: the 768 MB peak 0004 removed, back
+through the rewind, at the moment iOS gives the app the least time and memory.
+
+SaveStateRaw no longer touches last_state_size; the raw state keeps its own
+buffer between calls, which is all it needs.
+
+--- a/src/core/savestate.cpp
++++ b/src/core/savestate.cpp
+@@ -382,7 +382,8 @@
+         oarchive oa{stream};
+         oa&* this;
+     }
+-    last_state_size = sink.bytes.size();
++    // Not last_state_size: that is what the next real save reserves, and a
++    // raw rewind state (without the memories, 0015) is a twentieth of one.
+     sink.bytes.swap(buffer);
+ }
+ 

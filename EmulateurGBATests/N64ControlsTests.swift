@@ -409,7 +409,7 @@ struct N64ControlsTests {
             let w = container.width, h = container.height
             let layout = ControlLayoutDefaults.defaultLayout(
                 system: .n64, isLandscape: isLandscape, containerSize: container.size, scale: k,
-                family: .tablet)
+                family: .tablet, deviceSize: device)
             func c(_ e: ControlElement) -> CGPoint {
                 guard let b = layout.buttons[e.rawValue] else { return CGPoint(x: -999, y: -999) }
                 return CGPoint(x: b.centerX * w, y: container.minY + b.centerY * h)

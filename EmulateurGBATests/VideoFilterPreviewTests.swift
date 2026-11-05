@@ -123,6 +123,65 @@ struct VideoFilterPreviewTests {
         #expect(lit >= 4, "CRT centre is black at \(size.0)x\(size.1)")
     }
 
+    // MARK: - CRT on the 3DS (2026-10-27)
+
+    /// The 3DS's picture is its two screens stacked, the lower one 320 of the
+    /// 400 columns with black bands beside it. With the 3DS's `screenCount`
+    /// each screen curves on its own: (1) the rows either side of the seam are
+    /// the EDGES of two screens and darken toward the corners, where one barrel
+    /// over the whole picture left them near its centre; (2) the lower screen's
+    /// corner darkens as much as the upper's, curved on its own 320 columns.
+    /// Thresholds from the shader's arithmetic run on the host (2026-10-27):
+    /// seam 0.66 per screen against 0.87 with one barrel; corners 0.670 and
+    /// 0.664 (0.006 apart), where the lower screen normalised to 400 columns
+    /// gave 0.725 (0.061 apart).
+    @Test func crtCurvesEach3DSScreenOnItsOwn() throws {
+        try #require(Self.hasMetal, "no Metal device")
+        let image = try #require(Self.ctrPicture())
+        let target = CGSize(width: 1600, height: 1920)       // ×4
+        let perScreen = try #require(VideoFilterRenderer.apply(
+            .crt, to: image, targetSize: target, screenCount: Int(FilterScreens.ctr)))
+        let oneBarrel = try #require(VideoFilterRenderer.apply(
+            .crt, to: image, targetSize: target, screenCount: 1))
+        // Brightness of a 16x16 patch, so the triad mask and the scanlines average out.
+        func patch(_ img: CGImage, _ x: Int, _ y: Int) -> Double {
+            let p = Self.pixels(img), w = img.width
+            var sum = 0
+            for yy in y..<(y + 16) { for xx in x..<(x + 16) { sum += Int(p[(yy * w + xx) * 4 + 1]) } }
+            return Double(sum) / 256
+        }
+        // (1) Just above the seam (output row 960), near the left edge, against the
+        // top screen's own centre.
+        let seam = { (img: CGImage) in patch(img, 24, 930) / patch(img, 792, 472) }
+        #expect(seam(perScreen) < 0.75, "the seam rows are not a screen's edge: \(seam(perScreen))")
+        #expect(seam(oneBarrel) > 0.8, "control: one barrel leaves the seam bright: \(seam(oneBarrel))")
+        // (2) The lower screen's top-right corner (its own columns end at 1440 in the
+        // output) against its centre, beside the upper screen's top-left corner against
+        // its centre: the same vignette.
+        let lower = patch(perScreen, 1408, 976) / patch(perScreen, 792, 1432)
+        let upper = patch(perScreen, 24, 16) / patch(perScreen, 792, 472)
+        #expect(abs(lower - upper) < 0.03, "lower corner \(lower), upper corner \(upper)")
+    }
+
+    /// The 3DS's composed picture: mid-grey screens, black bands beside the lower one.
+    private static func ctrPicture() -> CGImage? {
+        let w = 400, h = 480
+        var bytes = [UInt8](repeating: 160, count: w * h * 4)
+        for y in 240..<h { for x in 0..<w where x < 40 || x >= 360 {
+            let i = (y * w + x) * 4
+            bytes[i] = 0; bytes[i + 1] = 0; bytes[i + 2] = 0
+        } }
+        for i in stride(from: 3, to: bytes.count, by: 4) { bytes[i] = 255 }
+        return bytes.withUnsafeMutableBytes { raw -> CGImage? in
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h,
+                                      bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return nil }
+            return ctx.makeImage()
+        }
+    }
+
     // MARK: - The pixel grid (PlayStation, Nintendo 64)
 
     /// The scanlines follow the GAME's rows, not the stretched still's. An

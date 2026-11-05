@@ -30,10 +30,20 @@ import GameController
 struct ProGatesPerConsoleTests {
 
     /// The reference consoles (GBA, Game Boy and Game Boy Color as one layout
-    /// family, DS, Super Nintendo, NES), and the six added since the
+    /// family, DS, Super Nintendo, NES), and the seven added since the
     /// PlayStation. Together they must be every console the app plays.
     private static let reference: [PresetSystem] = [.gba, .gbc, .nds, .snes, .nes]
-    private static let added: [PresetSystem] = [.ps1, .n64, .md, .sms, .gg, .psp]
+    private static let added: [PresetSystem] = [.ps1, .n64, .md, .sms, .gg, .psp, .n3ds]
+
+    /// Consoles without a console share card yet: none since the 3DS's card
+    /// (2026-10-21). A console added later goes here until its card is drawn.
+    private static let phaseOne: Set<PresetSystem> = []
+
+    /// Consoles whose cheats are typed or pasted only: libretro-database, the
+    /// browser's source, has no folder for them (its `cht` listing checked
+    /// 2026-10-20: no Nintendo 3DS). The browser answers "No codes known for
+    /// this game" there, which is true.
+    private static let noCheatDatabase: Set<PresetSystem> = [.n3ds]
 
     /// Runs `body` with the Pro flag at `pro`, then restores what was stored.
     private func withPro(_ pro: Bool, _ body: () throws -> Void) rethrows {
@@ -184,9 +194,9 @@ struct ProGatesPerConsoleTests {
 
     // MARK: - Cheats
 
-    /// The cheat browser has a database folder for every console, so the Pro
-    /// cheats screen is never an empty promise on one of them.
-    @Test(arguments: PresetSystem.allCases)
+    /// The cheat browser has a database folder for every console that has one
+    /// upstream, so the Pro cheats screen is never an empty promise there.
+    @Test(arguments: PresetSystem.allCases.filter { !noCheatDatabase.contains($0) })
     func everyConsoleHasACheatDatabase(_ system: PresetSystem) {
         // The cheat screen keys GB and GBC apart; the layout family is one.
         let keys = system == .gbc ? ["gb", "gbc"] : [system.rawValue]
@@ -198,22 +208,25 @@ struct ProGatesPerConsoleTests {
 
     // MARK: - What deliberately differs
 
-    /// Custom skins: built for every console since 2026-10-11 (the Master
-    /// System, the Game Gear and the PSP last). A console without them would
+    /// Custom skins: built for every dressed console since 2026-10-11 (the
+    /// Master System, the Game Gear and the PSP), and every console is dressed
+    /// since the 3DS's dress (2026-10-20). A console without them would
     /// show neither Create nor Import (`SkinPickerView.supportsCustom`) and
     /// refuse an imported file (`SkinSharing.importSkin`).
     @Test func customSkinsAreOfferedExactlyWhereTheyExist() {
         for system in PresetSystem.allCases {
-            #expect(system.supportsCustomSkins, "\(system) custom skins: \(system.supportsCustomSkins)")
+            #expect(system.supportsCustomSkins,
+                    "\(system) custom skins: \(system.supportsCustomSkins)")
         }
     }
 
-    /// The console share card: every console has one since 2026-10-11. The
+    /// The console share card: every dressed console has one since 2026-10-11,
+    /// and a console in `phaseOne` none. The
     /// card-style picker is free on every console, so nothing Pro is offered
     /// there either way.
     @Test func consoleShareCardsExistExactlyWhereBuilt() {
         for system in PresetSystem.allCases {
-            #expect(ScreenshotCardRenderer.hasConsoleCard(system),
+            #expect(ScreenshotCardRenderer.hasConsoleCard(system) == !Self.phaseOne.contains(system),
                     "\(system) console card: \(ScreenshotCardRenderer.hasConsoleCard(system))")
         }
     }

@@ -34,16 +34,21 @@ import glob
 
 # enum -> (members that existed before the console being added, members added)
 ENUMS = {
-    "ROMSystemType":   (["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md"], ["sms", "gg", "psp"]),
+    "ROMSystemType":   (["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp"], ["n3ds"]),
     # The Mega Drive, the Master System and the Game Gear all ship in 1.3.4.
     # The Mega Drive was built first (2026-10-08) and is counted with what
     # existed when the two 8-bit Segas were added (2026-10-09); `SMSSkinPalette`
     # and `GGSkinPalette` exist from the start, as `MDSkinPalette` did.
-    "PresetSystem":    (["gba", "gbc", "nds", "snes", "nes", "ps1", "n64", "md"], ["sms", "gg", "psp"]),
+    # The 3DS (phase 1, 2026-10-19) is added to these two only: it has no
+    # dress, skin palette or preview of its own yet (it borrows the Super
+    # Nintendo's page and the DS's dress), so the other enums are unchanged.
+    # 1.3.4 is live, so its three consoles count with what existed.
+    "PresetSystem":    (["gba", "gbc", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp"], ["n3ds"]),
     "DressKind":       (["gbc", "gba", "nds", "snes", "nes", "ps1", "n64", "md"], ["sms", "gg"]),  # the PSP wears .ps1 (2026-10-10)
     # SkinPalette gained `sms`, `gg` and `psp` 2026-10-11, once their dresses
     # were approved (custom skins for the three).
-    "SkinPalette":     (["gbc", "gba", "nds", "snes", "nes", "ps1", "n64", "md"], ["sms", "gg", "psp"]),
+    # The 3DS's palette (2026-10-20, its dress: the DS's, in its own colours).
+    "SkinPalette":     (["gbc", "gba", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp"], ["n3ds"]),
     "PreviewSystem":   (["gba", "gbc", "nds", "snes", "nes", "ps1", "n64", "md"], ["sms", "gg", "psp"]),
     # No element, input or bit is added for the Mega Drive (its six faces are
     # elements and bits the app already had; ControlLayoutModels.mdElements),

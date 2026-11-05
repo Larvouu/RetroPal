@@ -111,6 +111,13 @@ enum ControlElement: String, Codable, CaseIterable {
         ![.btnL2, .btnR2, .stickRight, .btnL3, .btnR3, .btnMode].contains($0)
     }
 
+    /// Elements present on the 3DS (on the PlayStation's page): that page
+    /// without the two stick clicks and ANALOG. The right stick is the New
+    /// 3DS's C-stick. MIC is the DS's: a recorded blow while it is held.
+    static let n3dsElements: [ControlElement] = ps1Elements.filter {
+        ![.btnL3, .btnR3, .btnMode].contains($0)
+    } + [.btnMic]
+
     /// The C buttons, in one list because the layout, the sizes and the
     /// control view all have to agree about which four they are.
     static let n64CButtons: [ControlElement] = [.btnCUp, .btnCDown, .btnCLeft, .btnCRight]
@@ -136,6 +143,12 @@ enum ControlElement: String, Codable, CaseIterable {
         case .psp: return pspElements
         case .n64: return n64Elements
         case .md: return mdElements
+        // The 3DS's pad on the PlayStation's page (`layoutPage`): the cross,
+        // the circle pad (the left stick), A B X Y in the same diamond, L and
+        // R, ZL and ZR (the second shoulder pair, `btnL2` / `btnR2`), SELECT
+        // and START, the New 3DS's C-stick as the right stick, and MIC (the
+        // DS's recorded blow). No stick clicks and no ANALOG switch.
+        case .n3ds: return n3dsElements
         }
     }
 
@@ -215,6 +228,17 @@ enum ControlElement: String, Codable, CaseIterable {
             switch self {
             case .btnL2: return "Z"
             case .stickLeft: return "Control Stick"
+            default: return displayName
+            }
+        }
+        // The 3DS (phase 1, on the PlayStation's page) prints ZL and ZR on the
+        // second shoulder pair, and its stick is the circle pad.
+        if system == .n3ds {
+            switch self {
+            case .btnL2: return "ZL"
+            case .btnR2: return "ZR"
+            case .stickLeft: return "Circle Pad"
+            case .stickRight: return "C-Stick"
             default: return displayName
             }
         }
@@ -420,15 +444,17 @@ struct ButtonLayout: Codable, Equatable {
 }
 
 /// Identifies a game screen as a movable/resizable layout component.
-/// GBA + GB/GBC have one (`main`); NDS has two (`top`, `bottom` — in landscape
+/// GBA + GB/GBC have one (`main`); NDS and 3DS have two (`top`, `bottom` — in landscape
 /// they render left/right but keep their physical identity).
 enum ScreenComponent: String, Codable, CaseIterable {
     case main, top, bottom
 
     /// The screen set for a system — single source of truth, like
-    /// `ControlElement.elements(for:)`.
+    /// `ControlElement.elements(for:)`. The 3DS is one composed picture in its
+    /// core but two screens to the player, so a layout moves and sizes each
+    /// on its own, as on the DS (his report 2026-10-27: one block before).
     static func components(for system: PresetSystem) -> [ScreenComponent] {
-        system == .nds ? [.top, .bottom] : [.main]
+        system == .nds || system == .n3ds ? [.top, .bottom] : [.main]
     }
 }
 
@@ -550,6 +576,7 @@ enum PresetSystem: String, Codable, Equatable, CaseIterable {
     case sms   // Master System
     case gg    // Game Gear
     case psp   // PSP
+    case n3ds  // Nintendo 3DS
 
     /// The page whose geometry this console's layout is built on.
     ///
@@ -577,9 +604,16 @@ enum PresetSystem: String, Codable, Equatable, CaseIterable {
     /// two. Its picture is its own, nearly 16:9 (`displayAspect`): on its side
     /// it takes the PlayStation's WIDTH, so the gutters and every control in
     /// them are where they are on that console, and it is only shorter.
+    ///
+    /// The 3DS is laid out on the PlayStation's (phase 1, 2026-10-19): the
+    /// only page with a cross AND a stick (the circle pad) AND a second
+    /// shoulder pair (ZL, ZR). Its picture is its own, the two screens stacked,
+    /// 400:480 (`displayAspect`), so on its side it is much narrower than the
+    /// PlayStation's and the gutters wider. Its own page, with both screens
+    /// side by side and the C-stick, replaces this.
     var layoutPage: PresetSystem {
         switch self {
-        case .n64, .psp: return .ps1
+        case .n64, .psp, .n3ds: return .ps1
         case .md:  return .snes
         case .sms: return .nes
         case .gg:  return .gbc
@@ -603,10 +637,12 @@ struct SystemApplicability: Codable, Equatable {
     var sms: Bool
     var gg: Bool
     var psp: Bool
+    var n3ds: Bool
 
     init(gba: Bool = false, gbc: Bool = false, nds: Bool = false,
          snes: Bool = false, nes: Bool = false, ps1: Bool = false, n64: Bool = false,
-         md: Bool = false, sms: Bool = false, gg: Bool = false, psp: Bool = false) {
+         md: Bool = false, sms: Bool = false, gg: Bool = false, psp: Bool = false,
+         n3ds: Bool = false) {
         self.gba = gba
         self.gbc = gbc
         self.nds = nds
@@ -618,6 +654,7 @@ struct SystemApplicability: Codable, Equatable {
         self.sms = sms
         self.gg = gg
         self.psp = psp
+        self.n3ds = n3ds
     }
 
     init(system: PresetSystem) {
@@ -632,12 +669,14 @@ struct SystemApplicability: Codable, Equatable {
         self.sms = (system == .sms)
         self.gg = (system == .gg)
         self.psp = (system == .psp)
+        self.n3ds = (system == .n3ds)
     }
 
-    /// Resolution order is PSP, GG, SMS, MD, N64, PS1, NES, SNES, NDS, then
+    /// Resolution order is N3DS, PSP, GG, SMS, MD, N64, PS1, NES, SNES, NDS, then
     /// GBC, then GBA (the default). A preset saved before a flag existed simply
     /// does not carry it, so it keeps resolving exactly where it did before.
     var system: PresetSystem {
+        if n3ds { return .n3ds }
         if psp { return .psp }
         if gg { return .gg }
         if sms { return .sms }
@@ -651,7 +690,7 @@ struct SystemApplicability: Codable, Equatable {
         return .gba
     }
 
-    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1, n64, md, sms, gg, psp }
+    private enum CodingKeys: String, CodingKey { case gba, gbc, nds, snes, nes, ps1, n64, md, sms, gg, psp, n3ds }
 
     /// Decode each flag independently so a preset stored before `gbc`, `snes` or
     /// `nes` existed still loads instead of failing the whole array decode, which
@@ -669,6 +708,7 @@ struct SystemApplicability: Codable, Equatable {
         sms = try c.decodeIfPresent(Bool.self, forKey: .sms) ?? false
         gg = try c.decodeIfPresent(Bool.self, forKey: .gg) ?? false
         psp = try c.decodeIfPresent(Bool.self, forKey: .psp) ?? false
+        n3ds = try c.decodeIfPresent(Bool.self, forKey: .n3ds) ?? false
     }
 }
 

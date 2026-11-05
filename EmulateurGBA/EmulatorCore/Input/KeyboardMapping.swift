@@ -124,7 +124,8 @@ enum KeyboardInput: String, Codable, CaseIterable {
     /// The pad input this row shares its mark with, on the consoles whose
     /// rows read the pad page's marks; nil elsewhere and for a direction.
     private func padInput(on system: PresetSystem) -> RemappableInput? {
-        guard system == .n64 || system == .md || system == .sms || system == .gg || system == .psp,
+        guard system == .n64 || system == .md || system == .sms || system == .gg || system == .psp
+                || system == .n3ds,
               !isDirection else { return nil }
         return RemappableInput(rawValue: rawValue)
     }
@@ -188,12 +189,20 @@ struct KeyboardMapping: Codable, Equatable {
     /// p q r a b s t u v w x y, five of which ARE classic keys, so it is left
     /// out; two players is not something the single-port bridge can carry
     /// yet in any case.
+    ///
+    /// The second shoulder pair on 1 and 2 (1.3.5): the 3DS's ZL and ZR, the
+    /// PlayStation's L2 and R2 and the Nintendo 64's Z are those two bits, and
+    /// a keyboard had no key for them until remapped. 1 and 2 are Azahar's
+    /// own desktop defaults for ZL and ZR, sit just above Q and W (L and R),
+    /// and are the same keys on QWERTY, QWERTZ and AZERTY; the 8BitDo letters
+    /// use no digit.
     static let builtIn: KeyboardMapping = {
         var mapping = KeyboardMapping()
         let layout: [(GCKeyCode, KeyboardInput)] = [
             (.upArrow, .up), (.downArrow, .down), (.leftArrow, .left), (.rightArrow, .right),
             (.keyX, .a), (.keyZ, .b), (.keyS, .x), (.keyA, .y),
             (.keyQ, .l), (.keyW, .r),
+            (.one, .l2), (.two, .r2),
             (.returnOrEnter, .start), (.leftShift, .select), (.rightShift, .select),
             // 8BitDo keyboard mode.
             (.keyC, .up), (.keyD, .down), (.keyE, .left), (.keyF, .right),

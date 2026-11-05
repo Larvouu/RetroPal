@@ -20,3 +20,13 @@
 	path = Vendor/ppsspp
 	url = https://github.com/hrydgard/ppsspp.git
 	shallow = true
+[submodule "Vendor/azahar"]
+	path = Vendor/azahar
+	url = https://github.com/azahar-emu/azahar.git
+	shallow = true
+[submodule "Vendor/libarchive"]
+	path = Vendor/libarchive
+	url = https://github.com/libarchive/libarchive.git
+[submodule "Vendor/xz"]
+	path = Vendor/xz
+	url = https://github.com/tukaani-project/xz.git

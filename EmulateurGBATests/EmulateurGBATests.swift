@@ -172,6 +172,8 @@ struct ControllerManagerTests {
         let idle = source([])
         #expect(idle.hasOptions, "the pad has an Options button, released")
         #expect(!idle.hasAnalogInput, "no sticks, so no analog input")
+        // No left stick: the 3DS drives its circle pad from this pad's cross.
+        #expect(!idle.hasLeftStick)
     }
 
     /// Options is present only when the pad has one (the PlayStation's Select
@@ -196,6 +198,7 @@ struct ControllerManagerTests {
         let s = ControllerInputSource(
             buttons: [:],
             dpads: [GCInputLeftThumbstick: .init(x: 0, y: 1)])
+        #expect(s.hasLeftStick)
         #expect(ControllerManager.buttonMask(from: s) == GBAInput.up.rawValue)
         #expect(s.leftStickY == 1)
     }
@@ -244,8 +247,9 @@ struct ControllerManagerTests {
 @Suite("KeyboardMapping", .serialized)
 struct KeyboardMappingTests {
 
-    /// The built-in layout is the 1.2.4 keyboard key for key, plus the twelve
-    /// 8BitDo keyboard-mode letters, and nothing else.
+    /// The built-in layout is the 1.2.4 keyboard key for key, plus 1 and 2 for
+    /// the second shoulder pair (1.3.5), plus the twelve 8BitDo keyboard-mode
+    /// letters, and nothing else.
     @Test
     func test_builtIn_classicKeysAndEightBitDoLetters() {
         let m = KeyboardMapping.builtIn
@@ -260,6 +264,9 @@ struct KeyboardMappingTests {
         #expect(m.input(for: .keyA) == .y)
         #expect(m.input(for: .keyQ) == .l)
         #expect(m.input(for: .keyW) == .r)
+        // The second shoulder pair (ZL ZR, L2 R2, the N64's Z), 1.3.5.
+        #expect(m.input(for: .one) == .l2)
+        #expect(m.input(for: .two) == .r2)
         #expect(m.input(for: .returnOrEnter) == .start)
         #expect(m.input(for: .leftShift) == .select)
         #expect(m.input(for: .rightShift) == .select)
@@ -276,8 +283,8 @@ struct KeyboardMappingTests {
         #expect(m.input(for: .keyM) == .r)
         #expect(m.input(for: .keyN) == .select)
         #expect(m.input(for: .keyO) == .start)
-        // Thirteen plus twelve, so the two layouts never collided.
-        #expect(m.keys.count == 25)
+        // Fifteen plus twelve, so the two layouts never collided.
+        #expect(m.keys.count == 27)
         #expect(m.input(for: .spacebar) == nil)
     }
 
@@ -315,7 +322,7 @@ struct KeyboardMappingTests {
         #expect(m.input(for: .keyZ) == nil)
         #expect(m.input(for: .keyJ) == nil)
         #expect(m.input(for: .keyG) == .a, "clearing B must not touch A")
-        #expect(m.keys.count == 22)
+        #expect(m.keys.count == 24)
     }
 
     /// The keys of an input come back in a stable order, so a row reads the

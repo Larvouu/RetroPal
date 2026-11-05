@@ -108,7 +108,7 @@ struct ControllerLayoutView: View {
     private static func name(_ system: PresetSystem) -> String { ConsoleChoiceList.name(system) }
 
     private static func icon(_ system: PresetSystem) -> String {
-        system == .nds ? "rectangle.split.1x2" : "rectangle"
+        system == .nds || system == .n3ds ? "rectangle.split.1x2" : "rectangle"
     }
 }
 

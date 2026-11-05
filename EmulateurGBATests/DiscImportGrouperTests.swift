@@ -178,6 +178,74 @@ struct DiscImportGrouperTests {
         #expect(discs.allSatisfy { $0.members.count == 2 })
     }
 
+    // MARK: - A descriptor in whatever encoding its tool wrote
+
+    /// A `.cue` written by a Windows tool is in the ANSI codepage (CP1252 in
+    /// France, CP1250 in Poland, CP1251 in Russia), not the OEM one a zip
+    /// name uses: read as OEM, "Pokémon (Track 1).bin" became "PokÚmon" and
+    /// its track was missing (audit, 2026-10-29). A UTF-16 one (Notepad's
+    /// "Unicode") was read as no tracks at all. Each must give one whole disc,
+    /// on the phone of the language that writes it; and a DOS, UTF-8 or
+    /// Japanese one as before.
+    @Test("A .cue in a Windows codepage, UTF-16, DOS, UTF-8 or Shift-JIS finds its tracks",
+          arguments: [
+            ("fr-FR", "Pokémon (Track 1).bin", String.Encoding.windowsCP1252),
+            ("pl-PL", "Gra żółw (Track 1).bin", String.Encoding.windowsCP1250),
+            ("ru-RU", "Игра (Track 1).bin", String.Encoding.windowsCP1251),
+            ("fr-FR", "Pokémon (Track 1).bin", String.Encoding.utf8),
+            ("ja-JP", "ポケモン (Track 1).bin", String.Encoding.shiftJIS),
+            ("en-US", "ポケモン (Track 1).bin", String.Encoding.utf16),
+          ])
+    func descriptorEncodings(_ language: String, _ track: String, _ encoding: String.Encoding) throws {
+        let cue = "FILE \"\(track)\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n"
+        let data = try #require(cue.data(using: encoding), "the cue cannot be written in that encoding")
+        let names = ["Game.cue", track]
+        let (_, discs, gaps) = LegacyTextEncoding.$preferredLanguagesOverride.withValue([language]) {
+            DiscImportGrouper.groupNames(names) { name in
+                name == "Game.cue" ? DiscImportGrouper.decodeDescriptor(data, ext: "cue", among: names) : nil
+            }
+        }
+        #expect(gaps.isEmpty, "tracks reported missing: \(gaps.map(\.missing))")
+        #expect(discs.count == 1)
+        #expect(discs.first?.members.count == 2)
+    }
+
+    @Test("A .cue from a DOS tool (OEM codepage) still finds its track on a French phone")
+    func dosDescriptor() {
+        // "é" is 0x82 in CP850, the OEM codepage of a French Windows.
+        var bytes = Array("FILE \"Pok".utf8)
+        bytes.append(0x82)
+        bytes += Array("mon (Track 1).bin\" BINARY\n".utf8)
+        let names = ["Game.cue", "Pokémon (Track 1).bin"]
+        let (_, discs, gaps) = LegacyTextEncoding.$preferredLanguagesOverride.withValue(["fr-FR"]) {
+            DiscImportGrouper.groupNames(names) { name in
+                name == "Game.cue" ? DiscImportGrouper.decodeDescriptor(Data(bytes), ext: "cue", among: names) : nil
+            }
+        }
+        #expect(gaps.isEmpty)
+        #expect(discs.count == 1)
+    }
+
+    /// PCSX-ReARMed reads a cue line into 256 bytes: a track named in about
+    /// 80 Japanese characters was cut there and the game booted to nothing
+    /// (audit, 2026-10-29). Such a track is renamed to fit, uniquely, and the
+    /// cue points at the new name, its line endings kept.
+    @Test("A track name too long for the core's cue line is shortened to fit, and the cue follows")
+    func trackNameFitsTheCoreLine() throws {
+        let long = String(repeating: "ポケモンスタジアム", count: 10) + " (Japan) (Track 1).bin"
+        #expect(long.utf8.count > DiscImportGrouper.coreCueNameMaxBytes)
+        let short = try #require(DiscImportGrouper.coreFittingName(long, taken: ["game.cue"]))
+        #expect(("FILE \"" + short + "\" BINARY").utf8.count <= 255)
+        #expect(short.hasSuffix(".bin"))
+        #expect(DiscImportGrouper.coreFittingName("Game (Track 1).bin", taken: []) == nil)
+        let other = try #require(DiscImportGrouper.coreFittingName(long, taken: ["game.cue", short.lowercased()]))
+        #expect(other != short)
+        let cue = "FILE \"\(long)\" BINARY\r\n  TRACK 01 MODE2/2352\r\n"
+        let rewritten = try #require(DiscImportGrouper.descriptorPointingAt(
+            storedNames: ["Game.cue", short], text: cue, ext: "cue", renamed: [long: short]))
+        #expect(rewritten == "FILE \"\(short)\" BINARY\r\n  TRACK 01 MODE2/2352\r\n")
+    }
+
     // MARK: - The cases that must not silently half-work
 
     @Test("A .cue without its .bin is a gap that names the missing file")
@@ -483,6 +551,60 @@ struct DiscImportGrouperTests {
                 "the game is all three files, not the 6822 bytes of text")
     }
 
+    @Test("What a game or iOS writes beside a disc game is not the game")
+    func installedSizeIgnoresFilesAddedBesideTheGame() throws {
+        // His log, 2026-10-21: `size=168091 expected=168079 file=2048psp.pbp`.
+        // The PSP homebrew 2048 saves `score.dat` (12 bytes) in its own
+        // folder, which PPSSPP mounts writable, and from then on the launch
+        // preflight called the game damaged. A missing or shortened game file
+        // must still show.
+        let root = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let roms = root.appendingPathComponent("ROMs", isDirectory: true)
+        let game = roms.appendingPathComponent("2048psp", isDirectory: true)
+        try FileManager.default.createDirectory(at: game, withIntermediateDirectories: true)
+        let boot = try write("2048psp.pbp", in: game, bytes: 168_079)
+        let recorded = DiscStorage.installedSize(ofROMAt: boot)
+        #expect(recorded == 168_079)
+
+        try write("score.dat", in: game, bytes: 12)
+        try write(".DS_Store", in: game, bytes: 6148)
+        #expect(DiscStorage.installedSize(ofROMAt: boot) == recorded,
+                "a save the game wrote, or a file iOS left, is not part of the game")
+
+        // The console choice the importer writes is part of what it recorded.
+        try write(ROMSystemType.consoleChoiceFileName, in: game, bytes: 3)
+        #expect(DiscStorage.installedSize(ofROMAt: boot) == 168_082)
+
+        // A game file that shrank still reads as damage.
+        try write("2048psp.pbp", in: game, bytes: 100)
+        #expect(DiscStorage.installedSize(ofROMAt: boot) == 103)
+    }
+
+    @Test("A PSP homebrew writing a disc-named file beside itself is not damaged")
+    func pspHomebrewWritingABinIsNotDamage() throws {
+        // Audit 2026-10-27: PPSSPP mounts a homebrew's folder as its writable
+        // umd0:, and a save named `save.bin` or `data.img` has a disc extension,
+        // so the extension filter counted it and the preflight called the game
+        // damaged. A PSP game is one file: only it and the console choice count.
+        let root = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let game = root.appendingPathComponent("ROMs/Homebrew", isDirectory: true)
+        try FileManager.default.createDirectory(at: game, withIntermediateDirectories: true)
+        let boot = try write("EBOOT.PBP", in: game, bytes: 50_000)
+        try write(ROMSystemType.consoleChoiceFileName, in: game, bytes: 3)
+        let recorded = DiscStorage.installedSize(ofROMAt: boot, system: .psp)
+        #expect(recorded == 50_003)
+
+        try write("save.bin", in: game, bytes: 2048)
+        try write("data.img", in: game, bytes: 4096)
+        #expect(DiscStorage.installedSize(ofROMAt: boot, system: .psp) == recorded)
+
+        // The game file itself shrinking still reads as damage.
+        try write("EBOOT.PBP", in: game, bytes: 10)
+        #expect(DiscStorage.installedSize(ofROMAt: boot, system: .psp) == 13)
+    }
+
     @Test("A cartridge has no folder and keeps its own size")
     func cartridgeSizeIsUnchanged() throws {
         let root = try makeDirectory()
@@ -534,5 +656,48 @@ struct DiscImportGrouperTests {
                             text: "# a comment\n\nDisc 1.cue\n   Disc 2.cue   \n\n")
 
         #expect(DiscImportGrouper.readPlaylist(m3u) == ["Disc 1.cue", "Disc 2.cue"])
+    }
+}
+
+/// An import interrupted mid-copy (audit 2026-10-27): its folder is swept at
+/// the next launch only when it still carries the importer's marker, the
+/// marker is old, and no game points into it. `ROMs/` is visible in Files, so
+/// a folder without the marker is never touched.
+struct AbandonedImportSweepTests {
+    @Test func onlyAnOldMarkedUnreferencedFolderIsSwept() throws {
+        let fm = FileManager.default
+        let roms = fm.temporaryDirectory.appendingPathComponent("sweep-\(UUID().uuidString)/ROMs", isDirectory: true)
+        defer { try? fm.removeItem(at: roms.deletingLastPathComponent()) }
+        try fm.createDirectory(at: roms, withIntermediateDirectories: true)
+        func folder(_ name: String, markerAge: TimeInterval?) throws {
+            let f = roms.appendingPathComponent(name, isDirectory: true)
+            try fm.createDirectory(at: f, withIntermediateDirectories: true)
+            try Data(count: 10).write(to: f.appendingPathComponent("game.iso"))
+            guard let age = markerAge else { return }
+            let marker = f.appendingPathComponent(ROMImporter.importInProgressFileName)
+            try Data().write(to: marker)
+            try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-age)], ofItemAtPath: marker.path)
+        }
+        try folder("Abandoned", markerAge: 3600)
+        try folder("Live import", markerAge: 5)
+        try folder("Players own", markerAge: nil)
+        try folder("Imported", markerAge: 3600)
+        try Data(count: 4).write(to: roms.appendingPathComponent("Abandoned.gba"))
+        let swept = ROMImporter.abandonedFolders(in: roms, romFilePaths: ["Imported/game.iso", "Tetris.gb"],
+                                                 now: Date())
+        #expect(swept.map(\.lastPathComponent) == ["Abandoned"])
+    }
+
+    @Test func theMarkerIsNeverPartOfAGamesSize() throws {
+        let fm = FileManager.default
+        let game = fm.temporaryDirectory.appendingPathComponent("marker-\(UUID().uuidString)/ROMs/Game", isDirectory: true)
+        defer { try? fm.removeItem(at: game.deletingLastPathComponent().deletingLastPathComponent()) }
+        try fm.createDirectory(at: game, withIntermediateDirectories: true)
+        let boot = game.appendingPathComponent("Game.iso")
+        try Data(count: 2048).write(to: boot)
+        let before = DiscStorage.installedSize(ofROMAt: boot)
+        try Data().write(to: game.appendingPathComponent(ROMImporter.importInProgressFileName))
+        #expect(DiscStorage.installedSize(ofROMAt: boot) == before)
+        #expect(DiscStorage.installedSize(ofROMAt: boot, system: .psp) == before)
     }
 }

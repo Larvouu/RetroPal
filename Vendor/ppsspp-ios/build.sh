@@ -64,7 +64,9 @@
 #
 # PATCHES: Vendor/ppsspp-ios/patches/*.patch, applied in name order to the
 # submodule (reverted state checked first), as for the other cores. 0001 lets
-# the PSP's memory sit outside the 4-6 GB band when the band is full.
+# the PSP's memory sit outside the 4-6 GB band when the band is full; 0002 asks
+# the frontend to shut down when a booted game stops for good (a CPU exception)
+# instead of returning frozen frames forever.
 
 set -euo pipefail
 

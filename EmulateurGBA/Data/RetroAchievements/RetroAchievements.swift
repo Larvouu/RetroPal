@@ -30,6 +30,11 @@ struct RAUnlock: Identifiable, Equatable {
     let rarity: Double
     let gameTitle: String
     let boxArtURL: URL?
+    /// The badge's picture, fetched before the banner shows (audit of
+    /// 2026-10-30: it was fetched by the banner itself, so every unlock slid
+    /// in with an empty square). nil when the fetch failed or timed out; the
+    /// banner then falls back to the URL.
+    var badge: UIImage? = nil
 }
 
 /// A set finished completely: either the whole game, or one set inside a game
@@ -92,6 +97,30 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// from rc_client, so two independent banners would race for the same
     /// position on screen.
     @Published var lastMastery: RAMastery?
+    /// The banners waiting their turn, in the order rc_client sent them
+    /// (audit of 2026-10-30): two achievements earned in the same frame used
+    /// to replace each other, the first one never seen. Each unlock carries
+    /// whether its sound may play, decided when it was earned.
+    private var pendingUnlocks: [(unlock: RAUnlock, sound: Bool)] = []
+    /// The completions waiting, in order: a set's last achievement can
+    /// complete a subset and the game's set at once, and a single slot kept
+    /// only the second (audit, 2026-10-29).
+    private var pendingMasteries: [RAMastery] = []
+    /// Keeps the banners in rc_client's order while each unlock's badge is
+    /// fetched, and `bannerEpoch` drops what was in flight when the game ended.
+    private var bannerChain: Task<Void, Never>?
+    private var bannerEpoch = 0
+    /// Banners queued or in their breath between two: other banners that
+    /// share the band (the Retro story's) wait for this too, or they slip
+    /// into the gap between two RA banners for a moment.
+    private var bannersInFlight = 0
+    private var bannerBreath = false
+    @Published private(set) var holdsBannerBand = false
+
+    private func refreshBannerBand() {
+        let holds = bannersInFlight > 0 || bannerBreath || lastUnlock != nil || lastMastery != nil
+        if holdsBannerBand != holds { holdsBannerBand = holds }
+    }
     /// Progress on the game currently loaded in the active session.
     @Published private(set) var currentGame: RAGameProgress?
     /// The measured achievement currently progressing, for the in-game pill.
@@ -108,6 +137,11 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// Live connectivity (NWPathMonitor). RA surfaces use it to fail fast into
     /// an explicit offline state instead of loading into the void.
     @Published private(set) var isOnline = true
+    /// The silent sign-in from the stored token is running. A sign-in from the
+    /// sheet meanwhile is refused by rcheevos ("login already in progress"),
+    /// which the sheet read as RetroAchievements not answering (audit,
+    /// 2026-10-30): it waits instead (`RALoginView`).
+    @Published private(set) var isRestoringSession = false
 
     /// The loaded game's achievements for the dashboard (empty if none).
     ///
@@ -239,6 +273,8 @@ final class RetroAchievements: NSObject, ObservableObject {
         client = RAClient(userAgentProductClause: Self.userAgentProductClause())
         super.init()
         client.delegate = self
+        // The two sounds and the audio session, ready before the first unlock.
+        RASounds.prepare()
         pathMonitor.pathUpdateHandler = { [weak self] path in
             let online = path.status == .satisfied
             DispatchQueue.main.async {
@@ -283,6 +319,11 @@ final class RetroAchievements: NSObject, ObservableObject {
     /// server rejection deletes it (one subway launch used to silently sign
     /// the user out of RA for good).
     private func restoreSessionIfPossible() {
+        // Not while the app hosts the unit tests: no test signs in, and the
+        // silent login over a network that times out held the test run before
+        // its first test (⌘U 2026-10-30, every stalled run stopped on the RA
+        // login, the green ones started right after it).
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         guard isEnabled,
               let username = KeychainStore.get(Self.keychainUsername),
               let token = KeychainStore.get(Self.keychainToken) else {
@@ -290,8 +331,10 @@ final class RetroAchievements: NSObject, ObservableObject {
             return
         }
         pendingSessionRestore = false
+        publishOnMain { if !self.isRestoringSession { self.isRestoringSession = true } }
         client.login(withUsername: username, token: token) { [weak self] success, _, _, rejected in
             guard let self else { return }
+            self.publishOnMain { if self.isRestoringSession { self.isRestoringSession = false } }
             if success {
                 // Returning RA user this session — counts toward the adoption %
                 // (unique users on ra_active / all users). Anonymous, no identity.
@@ -625,7 +668,10 @@ final class RetroAchievements: NSObject, ObservableObject {
         currentROMPath = nil
         client.setMemoryReader(nil)
         client.unloadGame()
-        publishOnMain { self.sessionNotice = nil }
+        publishOnMain {
+            self.sessionNotice = nil
+            self.clearBanners()
+        }
         // A display load still waiting must not outlive the game it was for.
         displayLoadTimeout?.cancel()
         displayLoadTimeout = nil
@@ -653,14 +699,16 @@ final class RetroAchievements: NSObject, ObservableObject {
         ]
         let pick = samples.randomElement() ?? samples[0]
         publishOnMain {
-            self.lastUnlock = RAUnlock(title: pick.0, detail: pick.1, badgeURL: nil,
-                                       points: pick.2, rarity: 12.5,
-                                       gameTitle: "Sample Game", boxArtURL: nil)
+            // Through the same line as a real unlock, so a burst of taps shows
+            // one banner after the other, as a burst of real unlocks does.
             // Preview tool: bypass the in-game sound gate on purpose — the
             // persisted audioMuted key is often true (fast-forward auto-mute
             // persists it), which would make this button silently "broken".
             // REAL unlocks keep the gate.
-            RASounds.playUnlock(gameSoundOn: true)
+            self.queueUnlock(RAUnlock(title: pick.0, detail: pick.1, badgeURL: nil,
+                                      points: pick.2, rarity: 12.5,
+                                      gameTitle: "Sample Game", boxArtURL: nil),
+                             sound: true)
         }
     }
 
@@ -713,9 +761,10 @@ final class RetroAchievements: NSObject, ObservableObject {
                          : "Pokémon FireRed Version"
         }
         publishOnMain {
-            self.lastUnlock = nil
+            self.clearBanners()
             self.lastMastery = RAMastery(title: title, isSubset: subset,
                                          points: subset ? 120 : 465)
+            self.refreshBannerBand()
         }
     }
     #endif
@@ -766,9 +815,9 @@ extension RetroAchievements: RAClientDelegate {
                                         boxArtURL: client.currentGameBoxArtURL())
         let soundOn = isGameSoundOn
         publishOnMain {
-            self.lastUnlock = unlock
+            // The sound plays with the banner, once its badge is fetched.
+            self.queueUnlock(unlock, sound: soundOn)
             RAGameIndex.shared.logUnlock(logEntry)
-            RASounds.playUnlock(gameSoundOn: soundOn)
             // Opens the celebration window for the review prompt's ra_unlock
             // arm (the card itself still only shows at the pause overlay).
             PromptTracker.shared.recordAchievementUnlocked()
@@ -803,7 +852,126 @@ extension RetroAchievements: RAClientDelegate {
             // here is one event announced twice. The HUD already sequences the
             // two cards for the same reason; the sound needed the same
             // treatment and was the half I missed.
-            self.lastMastery = mastery
+            self.queueMastery(mastery)
+        }
+    }
+
+    // MARK: - The banners' order (main thread)
+
+    /// An unlock joins the line once its badge is fetched (at most two
+    /// seconds; RA's images are served from a CDN with a year of cache), in
+    /// the order rc_client sent it.
+    private func queueUnlock(_ unlock: RAUnlock, sound: Bool) {
+        let epoch = bannerEpoch
+        let previous = bannerChain
+        bannersInFlight += 1
+        refreshBannerBand()
+        bannerChain = Task { @MainActor [weak self] in
+            await previous?.value
+            var ready = unlock
+            ready.badge = await Self.fetchBadge(unlock.badgeURL)
+            guard let self, self.bannerEpoch == epoch else { return }
+            self.bannersInFlight -= 1
+            self.pendingUnlocks.append((ready, sound))
+            self.showNextBanner()
+        }
+    }
+
+    /// A completion follows the unlocks sent before it (the final
+    /// achievement's banner first, always).
+    private func queueMastery(_ mastery: RAMastery) {
+        let epoch = bannerEpoch
+        let previous = bannerChain
+        bannersInFlight += 1
+        refreshBannerBand()
+        bannerChain = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self, self.bannerEpoch == epoch else { return }
+            self.bannersInFlight -= 1
+            self.pendingMasteries.append(mastery)
+            self.showNextBanner()
+        }
+    }
+
+    /// The next banner when the band is free: the unlocks first, then the
+    /// completion. The unlock's sound plays as its banner shows.
+    private func showNextBanner() {
+        defer { refreshBannerBand() }
+        guard lastUnlock == nil, lastMastery == nil, !bannerBreath else { return }
+        if !pendingUnlocks.isEmpty {
+            let next = pendingUnlocks.removeFirst()
+            lastUnlock = next.unlock
+            RASounds.playUnlock(gameSoundOn: next.sound)
+        } else if !pendingMasteries.isEmpty {
+            lastMastery = pendingMasteries.removeFirst()
+        }
+    }
+
+    /// The breath between two banners, then the next one.
+    private func breatheThenShowNext() {
+        bannerBreath = true
+        refreshBannerBand()
+        let epoch = bannerEpoch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, self.bannerEpoch == epoch else { return }
+            self.bannerBreath = false
+            self.showNextBanner()
+        }
+    }
+
+    /// The HUD has shown a banner its time (or its host left): the band
+    /// frees, and the next one follows after a breath.
+    func bannerFinished(unlock: RAUnlock) {
+        guard lastUnlock == unlock else { return }
+        lastUnlock = nil
+        breatheThenShowNext()
+    }
+
+    func bannerFinished(mastery: RAMastery) {
+        guard lastMastery == mastery else { return }
+        lastMastery = nil
+        breatheThenShowNext()
+    }
+
+    /// The game has ended: nothing of it is announced afterwards. A
+    /// completion waiting behind an unlock used to stay pending, held the
+    /// band (the Retro story's badge banner waits for RA's) and surfaced at
+    /// the start of the next game.
+    private func clearBanners() {
+        bannerEpoch &+= 1
+        bannerChain?.cancel()
+        bannerChain = nil
+        pendingUnlocks.removeAll()
+        pendingMasteries.removeAll()
+        bannersInFlight = 0
+        bannerBreath = false
+        lastUnlock = nil
+        lastMastery = nil
+        refreshBannerBand()
+    }
+
+    /// The badge's picture, decoded off the main thread, or nil past two
+    /// seconds (offline, a slow network): the banner does not wait longer.
+    /// Two seconds IN ALL: the request's own timeout is per idle gap, so a
+    /// trickling connection held the banner, and its sound, well past the
+    /// unlock (audit, 2026-10-29). The fetch races a two-second sleep and the
+    /// first to finish is the answer; the other is cancelled.
+    private static func fetchBadge(_ url: URL?) async -> UIImage? {
+        guard let url else { return nil }
+        return await withTaskGroup(of: UIImage?.self) { group in
+            group.addTask(priority: .userInitiated) {
+                let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 2)
+                guard let (data, _) = try? await URLSession.shared.data(for: request),
+                      let image = UIImage(data: data) else { return nil }
+                return image.preparingForDisplay() ?? image
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
         }
     }
 

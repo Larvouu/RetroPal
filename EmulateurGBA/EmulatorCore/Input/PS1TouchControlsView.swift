@@ -48,6 +48,9 @@ final class PS1TouchControlsView: TouchControlsView {
     // click every time. They sit beside their stick and answer only to a hold.
     private let btnL3 = SmallButton(label: "L3")
     private let btnR3 = SmallButton(label: "R3")
+    /// The 3DS's microphone, the DS's control: a recorded blow while held
+    /// (CTRBridge). Only the 3DS's layout carries it, so it is hidden elsewhere.
+    private let btnMic = SmallButton(label: "MIC")
 
     /// Pressing the pad's ANALOG switch is not an emulated BUTTON, it is a
     /// message to the controller, so it does not travel in the input bitmask
@@ -69,7 +72,8 @@ final class PS1TouchControlsView: TouchControlsView {
     /// drew on both consoles (found 2026-10-09). The same glyphs as the remap
     /// screen's (`RemappableInput.displayName(for: .ps1)`), read from there.
     override var lockableLetters: [String] {
-        [RemappableInput.a, .b, .x, .y].map { $0.displayName(for: .ps1) }
+        // The 3DS on this view prints letters, its own.
+        [RemappableInput.a, .b, .x, .y].map { $0.displayName(for: system == .n3ds ? .n3ds : .ps1) }
     }
 
     /// The console this pad is drawn for: the PlayStation, or the PSP, which
@@ -155,6 +159,33 @@ final class PS1TouchControlsView: TouchControlsView {
             btnR.setTitle("R1")
         }
 
+        // THE 3DS borrows this view and prints its own marks: letters
+        // in the same diamond (A right, B bottom, X top, Y left, the bits the
+        // bridge maps as the 3DS's own), and ZL and ZR on the second shoulder
+        // pair, which is where a New 3DS has them, inward of L and R.
+        if system == .n3ds {
+            btnA.setTitle("A")
+            btnB.setTitle("B")
+            btnX.setTitle("X")
+            btnY.setTitle("Y")
+            btnL2.setTitle("ZL")
+            btnR2.setTitle("ZR")
+            btnX.accessibilityLabel = "X button"
+            btnY.accessibilityLabel = "Y button"
+            btnA.accessibilityLabel = "A button"
+            btnB.accessibilityLabel = "B button"
+            btnL2.accessibilityLabel = "ZL button"
+            btnR2.accessibilityLabel = "ZR button"
+            stickLeft.accessibilityLabel = "Circle pad"
+            stickRight.accessibilityLabel = "C-Stick"
+            btnMic.translatesAutoresizingMaskIntoConstraints = false
+            btnMic.isUserInteractionEnabled = false
+            btnMic.accessibilityLabel = "Microphone blow button"
+            addSubview(btnMic)
+            // Not a key in the bitmask: the base class reports it as the blow.
+            micButton = btnMic
+        }
+
         // Round hit-tests for the diamond so the four buttons do not steal each
         // other's corners, exactly as the DS and the SNES do.
         for b in [btnA, btnB, btnX, btnY] { b.roundHitbox = true }
@@ -211,6 +242,10 @@ final class PS1TouchControlsView: TouchControlsView {
     override func setDressed(_ on: Bool, isLandscape: Bool, system: PresetSystem,
                              variant: DressVariant = .nostalgia) {
         super.setDressed(on, isLandscape: isLandscape, system: system, variant: variant)
+        if system == .n3ds {
+            setCTRDressed(on, isLandscape: isLandscape, variant: variant)
+            return
+        }
         let kind = TouchControlsView.dressKind(for: system)
         for b in [btnX, btnY] {
             b.dressVariant = variant
@@ -263,6 +298,10 @@ final class PS1TouchControlsView: TouchControlsView {
             stick.dressKind = kind
             stick.dressed = on
         }
+        // MIC dresses like SELECT and START, a pill in the console's colour.
+        btnMic.dressVariant = variant
+        btnMic.dressKind = kind
+        btnMic.dressStyle = btnSelect.dressStyle
 
         // One plastic, four inks. `dressFace` is the same value for all four on
         // purpose: it is the Super Nintendo that is the exception here, not this.
@@ -298,6 +337,105 @@ final class PS1TouchControlsView: TouchControlsView {
         }
     }
 
+    /// THE 3DS wears the DS's dress (2026-10-20, `TouchControlsView.dressKind`),
+    /// which the base class has applied to the cross, A, B, L, R, SELECT, START,
+    /// MENU and CLIP. Here: the controls this view adds (X, Y, ZL, ZR, the two
+    /// sticks), MIC as the DS's decal, and the four faces in ONE colour with
+    /// their letters in one ink, as on a 3DS (his ask, 2026-10-21).
+    ///
+    /// Both ways up (his design, 2026-10-21): MENU and CLIP are rounded squares
+    /// in the shoulders' corners; SELECT and START print their word, then the
+    /// button; the circle pad glides in a still surround. Upright alone, the
+    /// columns beside the lower screen are set into the phone's edges.
+    /// The 3DS share card (`GBConsoleCardView`): its shoulders stand against its lower screen, not
+    /// the phone's edges, upright as it is (`GBCardLayout.n3ds`).
+    var shouldersAgainstScreens = false
+
+    /// The edge each 3DS column control is drawn against, as the dress sets
+    /// it (`setCTRDressed`), and whether it is the PHONE's edges (upright, not
+    /// the share card's). Held apart from the controls' own `flushEdge`
+    /// because a control drawn against an edge must stand at it: where a
+    /// small iPad window moves CLIP and MENU off the columns, or the bars off
+    /// the edge (`ControlLayoutDefaults.n3dsTablet`, audit 2026-10-30), its
+    /// square side would face the middle of the page.
+    private var ctrIntendedFlush: [ObjectIdentifier: FlushEdge] = [:]
+    private var ctrFlushApplies = false
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyCTRFlushEdges()
+    }
+
+    /// Each control's intended edge, kept only while it stands at that edge
+    /// of this view (within a point); against the screens (on its side, the
+    /// share card) the dress's edge stands as set.
+    private func applyCTRFlushEdges() {
+        let columns: [UIView] = [btnClip, btnMenu, btnL, btnL2, btnR, btnR2]
+        for view in columns {
+            guard let intended = ctrIntendedFlush[ObjectIdentifier(view)] else { continue }
+            var edge = intended
+            if ctrFlushApplies, bounds.width > 0 {
+                let f = view.frame
+                if (intended == .left && f.minX > 1) || (intended == .right && f.maxX < bounds.width - 1) {
+                    edge = .none
+                }
+            }
+            if let b = view as? SmallButton { b.flushEdge = edge }
+            if let b = view as? ShoulderButton { b.flushEdge = edge }
+        }
+    }
+
+    private func setCTRDressed(_ on: Bool, isLandscape: Bool, variant: DressVariant) {
+        let kind = TouchControlsView.dressKind(for: .n3ds)
+        for b in [btnX, btnY] {
+            b.dressVariant = variant; b.dressKind = kind; b.dressed = on
+        }
+        for b in [btnL2, btnR2] {
+            b.dressVariant = variant; b.dressKind = kind; b.dressed = on
+        }
+        for stick in [stickLeft, stickRight] {
+            stick.dressVariant = variant; stick.dressKind = kind; stick.dressed = on
+        }
+        btnMic.dressVariant = variant
+        btnMic.dressKind = kind
+        btnMic.dressStyle = on ? .decal : .none
+        let palette = variant.ctrPalette ?? .nostalgia
+        let faces: [(ActionButton, UIColor)] = [
+            (btnA, palette.faceA), (btnB, palette.faceB), (btnX, palette.faceX), (btnY, palette.faceY),
+        ]
+        // One ink for the four letters, the palette's letters slot, as on a
+        // 3DS (his ask, 2026-10-21: one colour for the faces, one for the marks).
+        for (button, colour) in faces {
+            button.dressFace = on ? colour : nil
+            button.dressFaceLabel = on ? palette.letters : nil
+            button.ps1Symbol = nil
+        }
+        // The controls' LOOK is the same both ways up (his design, 2026-10-21:
+        // on its side, each takes its upright look); only the columns set into
+        // the phone's edges are upright alone, where they stand against them.
+        let upright = on && !isLandscape
+        for b in [btnMenu, btnClip] {
+            b.squareCornerFraction = on ? ShoulderButton.ndsCornerFactor : nil
+        }
+        // Each column set into the phone's edge (`FlushEdge`): CLIP, ZL, L on
+        // the left, MENU, ZR, R on the right (`ControlLayoutDefaults.n3dsPortrait`).
+        ctrIntendedFlush[ObjectIdentifier(btnClip)] = upright ? .left : FlushEdge.none
+        ctrIntendedFlush[ObjectIdentifier(btnMenu)] = upright ? .right : FlushEdge.none
+        // On its side the columns stand against the SCREENS instead (his design,
+        // 2026-10-21), ZL and L left of the top one, ZR and R right of the bottom
+        // one: their inner side is the screen's.
+        // The share card sets them against its lower screen the same way (`shouldersAgainstScreens`).
+        let againstPhoneEdge = upright && !shouldersAgainstScreens
+        for b in [btnL, btnL2] { ctrIntendedFlush[ObjectIdentifier(b)] = !on ? FlushEdge.none : (againstPhoneEdge ? .left : .right) }
+        for b in [btnR, btnR2] { ctrIntendedFlush[ObjectIdentifier(b)] = !on ? FlushEdge.none : (againstPhoneEdge ? .right : .left) }
+        ctrFlushApplies = againstPhoneEdge
+        applyCTRFlushEdges()
+        for b in [btnSelect, btnStart] { b.selectCircleOnRight = on }
+        // The cross moulded like A B X Y (his ask, 2026-10-21).
+        setCrossMoulded(on)
+        stickLeft.ctrLook = on ? .circlePad : .none
+    }
+
     /// Extend the base set so the shared layout path positions and sizes the
     /// four buttons the base class does not know about.
     override func allButtonViews() -> [(ControlElement, UIView)] {
@@ -307,6 +445,7 @@ final class PS1TouchControlsView: TouchControlsView {
                                   (.btnMode, btnMode),
                                   (.stickLeft, stickLeft), (.stickRight, stickRight),
                                   (.btnL3, btnL3), (.btnR3, btnR3)])
+        if system == .n3ds { views.append((.btnMic, btnMic)) }
         return views
     }
 }

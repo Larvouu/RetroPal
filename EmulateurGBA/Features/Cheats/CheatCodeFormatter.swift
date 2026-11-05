@@ -134,12 +134,13 @@ enum CheatCodeFormatter {
         case 16:
             // Action Replay DS, GameShark GBA v3, Action Replay GBA.
             return split(compact, at: 8)
-        case 12 where !isNDS && system != "psp":
+        case 12 where !isNDS && system != "psp" && system != "n3ds":
             // CodeBreaker GBA, and the PlayStation's GameShark / Action Replay,
             // which share the shape: eight digits of address then four of
             // value. The DS is excluded because its codes come in 8+8 pairs and
-            // a 12-digit run there is a half-typed one, not a whole code; so is
-            // the PSP, whose CWCheat lines are 8+8 as well.
+            // a 12-digit run there is a half-typed one, not a whole code; so are
+            // the PSP, whose CWCheat lines are 8+8 as well, and the 3DS, whose
+            // Gateway lines are the DS's shape.
             return split(compact, at: 8)
         default:
             return line
@@ -156,7 +157,7 @@ enum CheatCodeFormatter {
     /// The shape problem, if there is one we can name. `nil` means "hand it to
     /// the core", not "this code is valid".
     /// - Parameter system: the real console key, `"gb"` / `"gbc"` / `"gba"` /
-    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"` / `"n64"` / `"md"` / `"sms"` / `"gg"` / `"psp"`, for the same reason `advisory`
+    ///   `"nds"` / `"snes"` / `"nes"` / `"ps1"` / `"n64"` / `"md"` / `"sms"` / `"gg"` / `"psp"` / `"n3ds"`, for the same reason `advisory`
     ///   takes one:
     ///   the alphabet a code may use is a fact about the console, and the view's
     ///   `isNDS` flag describes a keyboard layout.
@@ -180,10 +181,12 @@ enum CheatCodeFormatter {
             : system == "md" || system == "sms" || system == "gg" ? allowed.union([":"]) : allowed
         if code.contains(where: { !permitted.contains($0) }) { return .invalidCharacter }
 
-        // Only the DS format is unambiguous enough to check block by block. GBA
-        // and Game Boy accept several shapes (GameShark, CodeBreaker, Action
-        // Replay, Game Genie), so their block lengths are left to the core.
-        guard isNDS else { return nil }
+        // Only the DS format is unambiguous enough to check block by block, and
+        // the 3DS's Gateway format, which is the same shape (CTRBridge reads
+        // nothing else). GBA and Game Boy accept several shapes (GameShark,
+        // CodeBreaker, Action Replay, Game Genie), so their block lengths are
+        // left to the core.
+        guard isNDS || system == "n3ds" else { return nil }
         for line in code.components(separatedBy: "\n") {
             let blocks = line.split(separator: " ").map(String.init)
             if blocks.isEmpty { continue }   // blank lines are fine

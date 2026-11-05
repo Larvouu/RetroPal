@@ -24,6 +24,7 @@ final class ControlLayoutStore {
     private let activeSMSKey = "activePresetSMS"
     private let activeGGKey = "activePresetGG"
     private let activePSPKey = "activePresetPSP"
+    private let activeN3DSKey = "activePresetN3DS"
 
     private init() {}
 
@@ -41,6 +42,7 @@ final class ControlLayoutStore {
         case .sms: return activeSMSKey
         case .gg: return activeGGKey
         case .psp: return activePSPKey
+        case .n3ds: return activeN3DSKey
         }
     }
 

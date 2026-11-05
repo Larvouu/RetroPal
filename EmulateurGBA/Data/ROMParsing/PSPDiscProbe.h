@@ -26,6 +26,7 @@
 #define PSPDiscProbe_h
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,6 +66,22 @@ PSPDiscProbeAnswer PSPDiscProbeRead(const char *path);
 /// THIS is what every part of the app asks (the importer, the session, the
 /// pad, the achievements), so all of them agree on the console.
 bool PSPDiscProbeIsPSPGame(const char *path);
+
+/// What an `.iso` or flat `.chd` volume is, for telling apart the discs the
+/// importer refuses (`RAClient.isOtherConsolesDisc`): a PlayStation 3 disc, a
+/// UMD film or album with no game on it, or anything else. Telemetry only.
+typedef enum {
+    PSPDiscProbeVolumeOther = 0,
+    PSPDiscProbeVolumePS3 = 1,
+    PSPDiscProbeVolumeUMDMedia = 2,
+} PSPDiscProbeVolume;
+PSPDiscProbeVolume PSPDiscProbeReadVolume(const char *path);
+
+/// The TITLE of a PBP's PARAM.SFO (an EBOOT: a PSP game sold on the store, or
+/// a PSP program), UTF-8, into `out` (NUL-terminated, at most `outSize - 1`
+/// bytes). False when the file is not a PBP or carries no title. Every EBOOT
+/// is named `EBOOT.PBP`, so this is the only place its real name is written.
+bool PSPDiscProbeReadPBPTitle(const char *path, char *out, size_t outSize);
 
 #ifdef __cplusplus
 }

@@ -29,7 +29,7 @@ import UIKit
 
 struct NewConsoleControlsAuditTests {
 
-    static let newConsoles: [PresetSystem] = [.md, .sms, .gg, .psp]
+    static let newConsoles: [PresetSystem] = [.md, .sms, .gg, .psp, .n3ds]
 
     /// Phones and iPads with the safe areas they really have, both ways up
     /// (portrait, landscape). The zero-inset sweeps miss what these catch.
@@ -229,7 +229,7 @@ struct NewConsoleControlsAuditTests {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: ControllerLayout(), system: system, isLandscape: w.isLandscape,
                     viewSize: w.size, safeInsets: w.insets)
-                guard let menu = scene.buttons[.btnMenu], let picture = scene.screens[.main]?.frame else {
+                guard let menu = scene.buttons[.btnMenu], let picture = scene.picture else {
                     Issue.record("\(label): no MENU or no picture")
                     continue
                 }
@@ -289,7 +289,7 @@ struct NewConsoleControlsAuditTests {
                     let ma = a.buttons[.btnMenu]?.center ?? .zero, mb = b.buttons[.btnMenu]?.center ?? .zero
                     #expect(hypot(ma.x - mb.x, ma.y - mb.y) < 0.5,
                             "\(system) \(d.name) \(isLandscape ? "landscape" : "portrait"): MENU \(ma) vs \(mb)")
-                    let sa = a.screens[.main]?.frame ?? .null, sb = b.screens[.main]?.frame ?? .null
+                    let sa = a.picture ?? .null, sb = b.picture ?? .null
                     #expect(abs(sa.midX - sb.midX) < 0.5 && abs(sa.midY - sb.midY) < 0.5,
                             "\(system) \(d.name): picture \(sa) vs \(sb)")
                 }
@@ -371,5 +371,16 @@ struct NewConsoleControlsAuditTests {
         for input in RemappableInput.available(on: .md) {
             #expect(reached & input.gbaInput.rawValue != 0, "\(input.displayName(for: .md)) is unreachable")
         }
+    }
+}
+
+extension PresetLayoutResolver.ResolvedScene {
+    /// The whole game picture: the one screen, or the union of a two-screen
+    /// console's screens (the 3DS since 2026-10-27), for checks that care only
+    /// about what a control must not cover.
+    var picture: CGRect? {
+        let frames = screens.values.map(\.frame)
+        guard let first = frames.first else { return nil }
+        return frames.dropFirst().reduce(first) { $0.union($1) }
     }
 }

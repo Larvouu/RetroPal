@@ -39,6 +39,13 @@ FOUNDATION_EXPORT NSNotificationName const PSPBridgeDisplayLostNotification;
 /// screen can say so instead of showing a black picture.
 FOUNDATION_EXPORT NSNotificationName const PSPBridgeBootFailedNotification;
 
+/// Posted on the main queue, once, when a game that had booted stops for good:
+/// an emulated CPU exception (a jump to a bad address, a bad memory access)
+/// leaves the core with nothing to run, and patch 0002 makes it ask to shut
+/// down instead of freezing the picture in silence. The bridge then stops
+/// running the core, as after a failed boot.
+FOUNDATION_EXPORT NSNotificationName const PSPBridgeGameHaltedNotification;
+
 @interface PSPBridge : NSObject <EmulatorBridge>
 
 // MARK: - PSP-specific surface

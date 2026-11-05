@@ -1,0 +1,91 @@
+Faster state loads: drop queued pipeline builds, no empty cache saved, a smaller upload ring
+
+On an iPhone 14 Pro (Majora's Mask 3D, 2026-10-19) a state load took 4.3 s,
+more than the boot (3.4 s). Three costs of the load, which shuts the renderer
+down and builds it again (System::serialize):
+
+- ~PipelineCache waited for every request queued on its workers. A boot
+  queues a build of every pipeline in the disk shader cache
+  (ShaderDiskCache::InitPLCache), each a whole Metal compile on MoltenVK, so a
+  state load soon after a boot (what "Resume" does) waited for all of them
+  before the new renderer could start. StatefulThreadWorker gains
+  CancelPending(), which drops the tasks no worker has started; the
+  destructor cancels, then waits only for the running ones. A dropped build
+  belongs to the cache being destroyed.
+- PipelineCache::SwitchCache saved the current driver pipeline cache before
+  switching even when there was no current cache (just created after a state
+  load, program ID still 0): it overwrote the title-0 file with an empty cache,
+  which a homebrew program (title 0) then lost on every state load.
+- The texture runtime's upload ring was 512 MiB, allocated and mapped at every
+  boot and state load (0.23 s on the phone). It is a ring: one upload must fit,
+  and the size bounds what is in flight. The largest single upload measured in
+  play was 512 KiB (Tools/3ds-bench, Majora's Mask, 3000 frames); a 1024x1024
+  RGBA8 texture is 4 MiB, 36 MiB at a resolution factor of 3. Now 64 MiB.
+  Custom texture packs, which can upload more at once, are not used by the
+  frontend this is built for.
+
+--- a/src/common/thread_worker.h
++++ b/src/common/thread_worker.h
+@@ -102,6 +102,17 @@
+         });
+     }
+ 
++    /// Drops the tasks no worker has started (they count as done), so that a following
++    /// WaitForRequests waits only for the ones running.
++    void CancelPending() {
++        {
++            std::unique_lock lock{queue_mutex};
++            work_done += requests.size();
++            std::queue<Task>{}.swap(requests);
++        }
++        wait_condition.notify_all();
++    }
++
+     const std::size_t NumWorkers() const noexcept {
+         return threads.size();
+     }
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -147,6 +147,12 @@
+ }
+ 
+ PipelineCache::~PipelineCache() {
++    // The cache is going away (a shutdown, or a state load, which rebuilds the renderer):
++    // builds no worker has started are dropped instead of waited for. A state load right
++    // after a boot otherwise waited for every pipeline the boot had queued from the disk
++    // cache, each a whole Metal compile on MoltenVK (seconds on a phone).
++    pipeline_workers.CancelPending();
++    shader_workers.CancelPending();
+     pipeline_workers.WaitForRequests();
+     shader_workers.WaitForRequests();
+     SaveDriverPipelineDiskCache();
+@@ -180,8 +186,12 @@
+ 
+     LOG_INFO(Render_Vulkan, "Switching pipeline cache to title_id={:016X}", title_id);
+ 
+-    // Save current driver cache, update program ID and load the new driver cache
+-    SaveDriverPipelineDiskCache();
++    // Save current driver cache, update program ID and load the new driver cache. Not when
++    // there is no current one yet (the cache was just made, after a state load): saving it
++    // would overwrite the title-0 file with an empty cache.
++    if (curr_disk_cache) {
++        SaveDriverPipelineDiskCache();
++    }
+     SetProgramID(title_id);
+     LoadDriverPipelineDiskCache(stop_loading, nullptr);
+ 
+--- a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
++++ b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
+@@ -158,7 +158,11 @@
+     };
+ }
+ 
+-constexpr u64 UPLOAD_BUFFER_SIZE = 512_MiB;
++// A ring: one upload must fit, and its size bounds what is in flight before it waits.
++// 512 MiB was allocated (and mapped) at every boot and every state load. The largest single
++// upload measured in play was 512 KiB; a 1024x1024 RGBA8 texture is 4 MiB, 36 MiB at a
++// resolution factor of 3. 64 MiB covers that with room to spare.
++constexpr u64 UPLOAD_BUFFER_SIZE = 64_MiB;
+ constexpr u64 DOWNLOAD_BUFFER_SIZE = 16_MiB;
+ 
+ } // Anonymous namespace

@@ -1,0 +1,21 @@
+Copy the pre-commit hook only when .git is a directory
+
+Azahar's CMakeLists copies hooks/pre-commit into <source>/.git/hooks at every
+configure. In Retro Pal, Azahar is a git submodule, so <source>/.git is a FILE
+(a "gitdir:" pointer) and file(COPY) stops the configure with "Not a
+directory". The hook is a developer convenience for Azahar's own contributors
+and plays no part in the build, so it is skipped when .git is not a directory.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4a9dac5..ed82a1f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -230,7 +230,7 @@ if (CITRA_USE_PRECOMPILED_HEADERS)
+     endif()
+ endif()
+ 
+-if(NOT EXISTS ${PROJECT_SOURCE_DIR}/.git/hooks/pre-commit)
++if(IS_DIRECTORY ${PROJECT_SOURCE_DIR}/.git AND NOT EXISTS ${PROJECT_SOURCE_DIR}/.git/hooks/pre-commit)
+     message(STATUS "Copying pre-commit hook")
+     file(COPY hooks/pre-commit
+         DESTINATION ${PROJECT_SOURCE_DIR}/.git/hooks)

@@ -172,6 +172,9 @@ static const uint32_t kGgOverscan = 48;
 /// The Master System's and the Game Gear's cartridge RAM as Mesen holds it
 /// (`SmsMemoryManager::CartRamMaxSize`): the largest battery save they have.
 static const uint32_t kSmsCartRamBytes = 0x8000;
+//How many copies of Mesen's own file `keepShadowIfUnique` keeps per game, as
+//the state-load backups keep five (`BatterySaveImporter.stateLoadBackupsKept`).
+static const NSUInteger kMesenSeedBackupsKept = 5;
 
 const NSInteger SNESBufferWidth  = 512;
 const NSInteger SNESBufferHeight = 448;
@@ -1008,8 +1011,28 @@ private:
 
 - (NSString *)shadowPrimaryPath {
 	//`SmsMemoryManager` names its file `.sav` too (`LoadBattery(".sav", ...)`).
-	NSString *name = [NSString stringWithFormat:@"%s%s", _romBasename.c_str(),
-	                  _kind == MesenKind::Snes ? ".srm" : ".sav"];
+	//The name decoded as UTF-8, as Mesen builds its own (`FolderUtilities::
+	//GetFilename`, u8path / u8string): `%s` reads a C string in the system's
+	//encoding, MacRoman on iOS, so for "Pokémon" this was "Pok√©mon.srm", a
+	//file Mesen never reads or writes. A game with an accented or Japanese
+	//name got no save seeded and never had its saves copied out (audit,
+	//2026-10-29; since 1.2.5).
+	NSString *name = [@(_romBasename.c_str()) stringByAppendingString:
+	                  _kind == MesenKind::Snes ? @".srm" : @".sav"];
+	return [@(_shadowFolder.c_str()) stringByAppendingPathComponent:name];
+}
+
+/// The name the bridge gave Mesen's file before the UTF-8 fix (1.2.5 to
+/// 1.3.4): `%s`, which reads the UTF-8 bytes in the system's C-string encoding
+/// (MacRoman on iOS). Nil when that reading is the same name (a plain ASCII
+/// name, which the old code got right) or cannot be made.
+- (nullable NSString *)legacyShadowPath {
+	NSString *utf8 = @(_romBasename.c_str());
+	NSString *legacyBase = [[NSString alloc] initWithBytes:_romBasename.data()
+	                                                 length:_romBasename.size()
+	                                               encoding:[NSString defaultCStringEncoding]];
+	if(!legacyBase || [legacyBase isEqualToString:utf8]) return nil;
+	NSString *name = [legacyBase stringByAppendingString:_kind == MesenKind::Snes ? @".srm" : @".sav"];
 	return [@(_shadowFolder.c_str()) stringByAppendingPathComponent:name];
 }
 
@@ -1022,6 +1045,43 @@ private:
 	NSString *canonical = @(_canonicalSavePath.c_str());
 	NSString *shadow = [self shadowPrimaryPath];
 	if(![fm fileExistsAtPath:canonical]) return;
+	//THE GAMES THE OLD NAME BROKE (1.2.5 to 1.3.4, `shadowPrimaryPath`): their
+	//real saves are in Mesen's own file alone, never copied out, and the
+	//canonical file holds whatever was imported or pulled, older. Seeding
+	//would put that over the play. The proof is the file the old name wrote,
+	//which only such a game has, still EQUAL to the canonical one: the old
+	//build copied the canonical file to that name at every launch and back at
+	//every flush, so the two match until something replaces the canonical file
+	//(a save imported, an iCloud pull, a backup restored). Then, once, the
+	//canonical file is backed up and the core's copied over it, and the old
+	//file goes. When they differ the player's newer choice wins, and the old
+	//file, a copy of a save kept elsewhere, goes (audit, 2026-10-30: any old
+	//file triggered it, over a save imported since). Not by comparing dates:
+	//every quit rewrites Mesen's file after the canonical copy
+	//(`Emulator::Release` saves the battery), and a backup restored in Files
+	//keeps its old date, so a date rule let a stale file win (re-audit,
+	//2026-10-29). Without that proof the canonical one wins, as it always has,
+	//and Mesen's file is kept in Backups first when it differs.
+	NSString *legacy = [self legacyShadowPath];
+	if(legacy && [fm fileExistsAtPath:legacy]) {
+		if([fm fileExistsAtPath:shadow] && [fm contentsEqualAtPath:legacy andPath:canonical]) {
+			NSString *base = [canonical.lastPathComponent stringByDeletingPathExtension];
+			if(![self keepInBackups:canonical named:[base stringByAppendingString:@"-before-name-fix-"] keep:0]) {
+				//The backup could not be written: nothing is touched, Mesen plays
+				//its own file, nothing is written over the canonical one this
+				//session, and the rescue is tried again next launch. Falling
+				//through to the seed deleted Mesen's file, the one copy of the
+				//play (audit, 2026-10-30).
+				_saveWritesBlocked = YES;
+				return;
+			}
+			[self copyShadowToCanonical];
+			[fm removeItemAtPath:legacy error:nil];
+			NSLog(@"MesenBridge: a save kept only by the core (the old file name) copied out; the previous one backed up");
+			return;
+		}
+		[fm removeItemAtPath:legacy error:nil];
+	}
 	//A Master System or Game Gear save LARGER than the cartridge's 32 KB of RAM
 	//is never handed to Mesen. `SmsMemoryManager::SaveBattery` writes as many
 	//bytes as the file on disk holds, from its 32 KB buffer: a 64 KB file there
@@ -1035,6 +1095,7 @@ private:
 	if(_kind == MesenKind::Sms || _kind == MesenKind::Gg) {
 		NSNumber *size = [fm attributesOfItemAtPath:canonical error:nil][NSFileSize];
 		if(size && size.unsignedLongLongValue > kSmsCartRamBytes) {
+			if(![self keepShadowIfUnique:shadow beside:canonical]) { _saveWritesBlocked = YES; return; }
 			[fm removeItemAtPath:shadow error:nil];
 			NSString *aside = [NSString stringWithFormat:@"%@.unread-%lld", canonical,
 			                   (long long)[NSDate date].timeIntervalSince1970];
@@ -1050,11 +1111,60 @@ private:
 			return;
 		}
 	}
+	if(![self keepShadowIfUnique:shadow beside:canonical]) { _saveWritesBlocked = YES; return; }
 	[fm removeItemAtPath:shadow error:nil];
 	NSError *error = nil;
 	if(![fm copyItemAtPath:canonical toPath:shadow error:&error]) {
 		NSLog(@"MesenBridge: could not seed battery save: %@", error);
 	}
+}
+
+/// Before a seed replaces Mesen's own file: when it holds bytes the canonical
+/// file does not, they are kept in Backups first. A game played under the old
+/// name with no canonical file yet had its play there alone, and a save then
+/// pulled or imported deleted it with no copy (audit, 2026-10-30). The usual
+/// case, the two files equal after a flush, keeps nothing. NO when it could not
+/// be kept: the caller then leaves it as it is.
+- (BOOL)keepShadowIfUnique:(NSString *)shadow beside:(NSString *)canonical {
+	NSFileManager *fm = NSFileManager.defaultManager;
+	if(![fm fileExistsAtPath:shadow] || [fm contentsEqualAtPath:shadow andPath:canonical]) return YES;
+	NSString *base = [canonical.lastPathComponent stringByDeletingPathExtension];
+	return [self keepInBackups:shadow named:[base stringByAppendingString:@"-core-before-seed-"]
+	                      keep:kMesenSeedBackupsKept];
+}
+
+/// A copy of `file` in the canonical file's `Backups` folder (the one the
+/// battery-save sync skips, `BatterySaveImporter.backupsDir`), named
+/// `<prefix><stamp>.sav`; the newest `keep` of that prefix stay when `keep` is
+/// above zero. NO when the copy could not be written.
+- (BOOL)keepInBackups:(NSString *)file named:(NSString *)prefix keep:(NSUInteger)keep {
+	NSFileManager *fm = NSFileManager.defaultManager;
+	NSString *backups = [@(_canonicalSavePath.c_str()).stringByDeletingLastPathComponent
+	                     stringByAppendingPathComponent:@"Backups"];
+	[fm createDirectoryAtPath:backups withIntermediateDirectories:YES attributes:nil error:nil];
+	NSDateFormatter *stamp = [NSDateFormatter new];
+	stamp.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+	stamp.dateFormat = @"yyyyMMdd-HHmmss";
+	NSString *kept = [backups stringByAppendingPathComponent:
+	                  [NSString stringWithFormat:@"%@%@.sav", prefix, [stamp stringFromDate:[NSDate date]]]];
+	[fm removeItemAtPath:kept error:nil];
+	NSError *copyError = nil;
+	if(![fm copyItemAtPath:file toPath:kept error:&copyError]) {
+		NSLog(@"MesenBridge: could not keep %@ in the backups: %@", file.lastPathComponent, copyError);
+		return NO;
+	}
+	if(keep > 0) {
+		NSArray<NSString *> *names = [[[fm contentsOfDirectoryAtPath:backups error:nil]
+			filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
+				return [name hasPrefix:prefix] && [name hasSuffix:@".sav"];
+			}]] sortedArrayUsingSelector:@selector(compare:)];
+		if(names.count > keep) {
+			for(NSString *name in [names subarrayWithRange:NSMakeRange(0, names.count - keep)]) {
+				[fm removeItemAtPath:[backups stringByAppendingPathComponent:name] error:nil];
+			}
+		}
+	}
+	return YES;
 }
 
 - (void)flushSaveData {

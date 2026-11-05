@@ -133,6 +133,7 @@ static os_log_t PSPLog(void) {
 
 NSNotificationName const PSPBridgeDisplayLostNotification = @"PSPBridgeDisplayLostNotification";
 NSNotificationName const PSPBridgeBootFailedNotification = @"PSPBridgeBootFailedNotification";
+NSNotificationName const PSPBridgeGameHaltedNotification = @"PSPBridgeGameHaltedNotification";
 
 #pragma mark - Core options
 
@@ -559,6 +560,9 @@ static int16_t PSPClampAxis(float v) {
     /// PPSSPP asserts on that (`PSP_InitStart`: !g_loadingThread.joinable()),
     /// which ended the app on the first device run (2026-10-09).
     std::atomic<bool> _bootComplete;
+    /// Inside `retro_reset` (`-reset`), where a SHUTDOWN means the reboot
+    /// failed, which is reported as a failed boot and not as a halt.
+    bool _rebooting;
     BOOL _bootFailedReported;
     BOOL _displayLostReported;
     std::string _romPath;
@@ -838,19 +842,29 @@ static int16_t PSPClampAxis(float v) {
         return true;
 
     case RETRO_ENVIRONMENT_SHUTDOWN:
-        // The boot (or a reboot) failed. Never call the core again for this
-        // game, and say so once. See the file header.
+        // The boot (or a reboot) failed, or, since patch 0002, a booted game
+        // stopped for good (an emulated CPU exception: nothing will ever run
+        // it again). Never call the core again for this game, and say so once,
+        // in the words that fit: a game that was playing did not "fail to
+        // start". See the file header.
         _shutdownRequested = true;
         if (!_bootFailedReported) {
             _bootFailedReported = YES;
-            os_log_error(PSPLog(), "the core could not start %{public}s",
-                         [@(_romPath.c_str()) lastPathComponent].UTF8String);
+            const bool halted = _bootComplete && !_rebooting;
+            // Two calls: os_log's format must be a string literal, not a choice.
+            const char *romName = [@(_romPath.c_str()) lastPathComponent].UTF8String;
+            if (halted) {
+                os_log_error(PSPLog(), "the core stopped %{public}s while it was running", romName);
+            } else {
+                os_log_error(PSPLog(), "the core could not start %{public}s", romName);
+            }
 #if DEBUG
-            PSPLogMemoryWindow(_bootComplete ? "reboot failed" : "boot failed");
+            PSPLogMemoryWindow(halted ? "halted" : "boot failed");
 #endif
+            NSNotificationName name = halted ? PSPBridgeGameHaltedNotification
+                                             : PSPBridgeBootFailedNotification;
             dispatch_async(dispatch_get_main_queue(), ^{
-                [[NSNotificationCenter defaultCenter] postNotificationName:PSPBridgeBootFailedNotification
-                                                                    object:self];
+                [[NSNotificationCenter defaultCenter] postNotificationName:name object:self];
             });
         }
         return true;
@@ -996,7 +1010,9 @@ static int16_t PSPClampAxis(float v) {
     // the port (`PSP_Init` polls the loader to the end), so the next frame
     // runs a booted game.
     _vulkan.beginFrame();
+    _rebooting = true;     // a SHUTDOWN in here is a failed boot, not a halt
     retro_reset();
+    _rebooting = false;
     [self invalidateRewind];
     _audio.Clear();
 }

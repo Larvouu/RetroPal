@@ -92,8 +92,9 @@ final class OverlayMenuView: UIView {
     /// Set to true to hide the rewind button.
     ///
     /// Nothing sets it any more: rewind covers every console since 1.2.5, the DS
-    /// included. Kept as the one switch that would hide the button if a console
-    /// ever arrives without rewind, rather than deleted and reinvented.
+    /// included (the 3DS since 2026-10-20). Kept as the one switch that would
+    /// hide the button if a console ever arrives without rewind, rather than
+    /// deleted and reinvented.
     var rewindHidden = false {
         didSet { rewindButton.isHidden = rewindHidden }
     }

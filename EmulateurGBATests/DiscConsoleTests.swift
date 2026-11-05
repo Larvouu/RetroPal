@@ -259,7 +259,7 @@ struct DiscConsoleTests {
             #expect(ROMSystemType.resolve(url: installed) == answer, "the installed game reads another console")
             // The folder's recorded size includes the answer, so the launch
             // preflight does not call the game damaged.
-            #expect(DiscStorage.installedSize(ofROMAt: installed) == game.value(forKey: "romSize") as? Int64)
+            #expect(DiscStorage.installedSize(ofROMAt: installed, system: answer) == game.value(forKey: "romSize") as? Int64)
         }
     }
 

@@ -1,0 +1,278 @@
+The module linker invalidates the code cache once per call, not per relocation
+
+The RO service's CRO linker (ldr_ro, cro_helper) invalidates the CPU's code
+cache for every 4-byte relocation it writes: System::InvalidateCacheRange,
+on every core. FastInterp's InvalidateRange walks its whole block cache (16,384
+blocks, 10 MB) each time, because its sets are hashed and an address range
+does not map to a set range. Pokemon Sun links 11,065 relocations when it
+loads FieldRo (leaving a battle, entering the field) and 10,967 for Battle:
+measured on an iPhone 14 Pro in Low Power Mode, 554 and 527 ms inside the
+linker, a frozen game and frozen controls. Measured on the host, the walk is
+24 us per relocation per core.
+
+An RO call (LoadCRO, UnloadCRO, LinkCRO, UnlinkCRO) now holds its
+invalidations back (System::BeginDeferredCacheInvalidation) and applies them
+when it returns, sorted and merged, through ARM_Interface::InvalidateCacheRanges:
+FastInterp walks its cache once, testing each live block against the ranges by
+binary search (0.09 ms for FieldRo's 11,065 on the host); the other backends
+keep their per-range invalidation through the default. The call runs to
+completion before any guest instruction executes (no async work, no thread
+sleep in these handlers), so invalidating at its end is as safe as at each
+write. Checked against the per-range walk on 20 random sets of up to 3,000
+ranges: the same blocks survive.
+
+diff --git a/src/core/arm/arm_interface.h b/src/core/arm/arm_interface.h
+index 9445e7d..77a99f9 100644
+--- a/src/core/arm/arm_interface.h
++++ b/src/core/arm/arm_interface.h
+@@ -6,6 +6,8 @@
+ 
+ #include <cstddef>
+ #include <memory>
++#include <utility>
++#include <vector>
+ #include <boost/serialization/shared_ptr.hpp>
+ #include <boost/serialization/split_member.hpp>
+ #include <boost/serialization/version.hpp>
+@@ -85,6 +87,17 @@ public:
+      */
+     virtual void InvalidateCacheRange(u32 start_address, std::size_t length) = 0;
+ 
++    /**
++     * Invalidate the code cache at several ranges at once ([start, end) pairs,
++     * sorted, not overlapping). A backend whose single-range invalidation walks
++     * its whole cache overrides this to walk it once for all of them.
++     */
++    virtual void InvalidateCacheRanges(const std::vector<std::pair<u32, u32>>& ranges) {
++        for (const auto& [start, end] : ranges) {
++            InvalidateCacheRange(start, end - start);
++        }
++    }
++
+     /// Clears the exclusive monitor's state.
+     virtual void ClearExclusiveState() = 0;
+ 
+diff --git a/src/core/arm/fastinterp/fastinterp.cpp b/src/core/arm/fastinterp/fastinterp.cpp
+index cd24691..d885138 100644
+--- a/src/core/arm/fastinterp/fastinterp.cpp
++++ b/src/core/arm/fastinterp/fastinterp.cpp
+@@ -1014,6 +1014,10 @@ void ARM_FastInterp::InvalidateCacheRange(u32 start_address, std::size_t length)
+     cache_.InvalidateRange(start_address, static_cast<u32>(length));
+ }
+ 
++void ARM_FastInterp::InvalidateCacheRanges(const std::vector<std::pair<u32, u32>>& ranges) {
++    cache_.InvalidateRanges(ranges);
++}
++
+ void ARM_FastInterp::ClearExclusiveState() {
+     exclusive_.valid = false;
+ }
+diff --git a/src/core/arm/fastinterp/fastinterp.h b/src/core/arm/fastinterp/fastinterp.h
+index bb1d464..c39dfd4 100644
+--- a/src/core/arm/fastinterp/fastinterp.h
++++ b/src/core/arm/fastinterp/fastinterp.h
+@@ -33,6 +33,7 @@ public:
+     void Step() override;
+     void ClearInstructionCache() override;
+     void InvalidateCacheRange(u32 start_address, std::size_t length) override;
++    void InvalidateCacheRanges(const std::vector<std::pair<u32, u32>>& ranges) override;
+     void ClearExclusiveState() override;
+     void SetPageTable(const std::shared_ptr<Memory::PageTable>& page_table) override;
+ 
+diff --git a/src/core/arm/fastinterp/fastinterp_cache.h b/src/core/arm/fastinterp/fastinterp_cache.h
+index de26f90..63f8529 100644
+--- a/src/core/arm/fastinterp/fastinterp_cache.h
++++ b/src/core/arm/fastinterp/fastinterp_cache.h
+@@ -4,8 +4,11 @@
+ 
+ #pragma once
+ 
++#include <algorithm>
+ #include <array>
+ #include <cstring>
++#include <utility>
++#include <vector>
+ #include "core/arm/fastinterp/fastinterp_types.h"
+ 
+ namespace Core::FastInterp {
+@@ -65,6 +68,30 @@ public:
+         }
+     }
+ 
++    /// The same for several ranges ([start, end), sorted, not overlapping) in ONE
++    /// walk of the cache: each live block is tested against the first range
++    /// that ends after its start (a binary search).
++    void InvalidateRanges(const std::vector<std::pair<u32, u32>>& ranges) {
++        if (ranges.empty()) {
++            return;
++        }
++        for (size_t i = 0; i < CACHE_SIZE; ++i) {
++            if (tags_[i] == INVALID_TAG) {
++                continue;
++            }
++            const u32 start_pc = blocks_[i].start_pc;
++            const u32 end_pc = blocks_[i].end_pc;
++            const auto it = std::upper_bound(
++                ranges.begin(), ranges.end(), start_pc,
++                [](u32 pc, const std::pair<u32, u32>& range) { return pc < range.second; });
++            if (it != ranges.end() && it->first < end_pc) {
++                tags_[i] = INVALID_TAG;
++                blocks_[i].inst_count = 0;
++                blocks_[i].chain_target = nullptr;
++            }
++        }
++    }
++
+     /// Look up a block by PC (returns nullptr if not found)
+     BasicBlock* Lookup(u32 pc) {
+         u32 set_idx = GetSetIndex(pc);
+diff --git a/src/core/core.cpp b/src/core/core.cpp
+index 9fbee74..b9a5c11 100644
+--- a/src/core/core.cpp
++++ b/src/core/core.cpp
+@@ -2,6 +2,7 @@
+ // Licensed under GPLv3 or any later version
+ // Refer to the LICENSE.txt file included.
+ 
++#include <algorithm>
+ #include <stdexcept>
+ #include <utility>
+ #include <boost/serialization/array.hpp>
+@@ -796,6 +797,29 @@ void System::RegisterImageInterface(std::shared_ptr<Frontend::ImageInterface> im
+     registered_image_interface = std::move(image_interface);
+ }
+ 
++void System::EndDeferredCacheInvalidation() {
++    ASSERT(deferred_invalidation_depth > 0);
++    if (--deferred_invalidation_depth > 0 || deferred_invalidations.empty()) {
++        return;
++    }
++    // Sorted and merged, so each backend sees each byte once.
++    auto& ranges = deferred_invalidations;
++    std::sort(ranges.begin(), ranges.end());
++    std::size_t merged = 0;
++    for (std::size_t i = 1; i < ranges.size(); ++i) {
++        if (ranges[i].first <= ranges[merged].second) {
++            ranges[merged].second = std::max(ranges[merged].second, ranges[i].second);
++        } else {
++            ranges[++merged] = ranges[i];
++        }
++    }
++    ranges.resize(merged + 1);
++    for (const auto& cpu : cpu_cores) {
++        cpu->InvalidateCacheRanges(ranges);
++    }
++    ranges.clear();
++}
++
+ void System::Shutdown(bool is_deserializing) {
+ 
+ #ifdef ENABLE_SCRIPTING
+diff --git a/src/core/core.h b/src/core/core.h
+index 2de6c4c..1f3fc0f 100644
+--- a/src/core/core.h
++++ b/src/core/core.h
+@@ -252,11 +252,28 @@ public:
+     }
+ 
+     void InvalidateCacheRange(u32 start_address, std::size_t length) {
++        if (deferred_invalidation_depth > 0) {
++            deferred_invalidations.emplace_back(start_address,
++                                                start_address + static_cast<u32>(length));
++            return;
++        }
+         for (const auto& cpu : cpu_cores) {
+             cpu->InvalidateCacheRange(start_address, length);
+         }
+     }
+ 
++    /**
++     * Collects the code-cache invalidations made until the matching
++     * EndDeferredCacheInvalidation, which applies them all at once. For HLE work
++     * that writes guest code word by word and runs to completion before any
++     * guest instruction executes (the RO service's CRO linker: thousands of
++     * relocations per module, each one a walk of FastInterp's whole block cache).
++     */
++    void BeginDeferredCacheInvalidation() {
++        deferred_invalidation_depth++;
++    }
++    void EndDeferredCacheInvalidation();
++
+     /**
+      * Gets a reference to the emulated DSP.
+      * @returns A reference to the emulated DSP.
+@@ -504,6 +521,10 @@ private:
+ 
+     /// ARM11 CPU core
+     std::vector<std::shared_ptr<ARM_Interface>> cpu_cores;
++
++    /// Code-cache invalidations held back (BeginDeferredCacheInvalidation).
++    u32 deferred_invalidation_depth = 0;
++    std::vector<std::pair<u32, u32>> deferred_invalidations;
+     ARM_Interface* running_core = nullptr;
+ 
+     /// DSP core
+diff --git a/src/core/hle/service/ldr_ro/ldr_ro.cpp b/src/core/hle/service/ldr_ro/ldr_ro.cpp
+index 88a2cd7..f754b45 100644
+--- a/src/core/hle/service/ldr_ro/ldr_ro.cpp
++++ b/src/core/hle/service/ldr_ro/ldr_ro.cpp
+@@ -44,6 +44,27 @@ static const Result ERROR_NOT_LOADED = // 0xD8A12C0D
+     Result(static_cast<ErrorDescription>(13), ErrorModule::RO, ErrorSummary::InvalidState,
+            ErrorLevel::Permanent);
+ 
++/// Holds the code-cache invalidations of one RO call back until it returns: the
++/// CRO linker invalidates every 4-byte relocation it writes, thousands per
++/// module (Pokemon Sun's FieldRo: 11,000), and on FastInterp each one walked the
++/// whole block cache on every core (0.5 s of frozen game at a field load on an
++/// A16). The call runs to completion before any guest instruction executes, so
++/// invalidating at its end is as safe as invalidating at each write.
++class DeferredCacheInvalidation {
++public:
++    explicit DeferredCacheInvalidation(Core::System& system) : system(system) {
++        system.BeginDeferredCacheInvalidation();
++    }
++    ~DeferredCacheInvalidation() {
++        system.EndDeferredCacheInvalidation();
++    }
++    DeferredCacheInvalidation(const DeferredCacheInvalidation&) = delete;
++    DeferredCacheInvalidation& operator=(const DeferredCacheInvalidation&) = delete;
++
++private:
++    Core::System& system;
++};
++
+ static bool VerifyBufferState(Kernel::Process& process, VAddr buffer_ptr, u32 size) {
+     auto vma = process.vm_manager.FindVMA(buffer_ptr);
+     while (vma != process.vm_manager.vma_map.end()) {
+@@ -167,6 +188,7 @@ void RO::UnloadCRR(Kernel::HLERequestContext& ctx) {
+ }
+ 
+ void RO::LoadCRO(Kernel::HLERequestContext& ctx, bool link_on_load_bug_fix) {
++    DeferredCacheInvalidation deferred_invalidation(system);
+     IPC::RequestParser rp(ctx);
+     VAddr cro_buffer_ptr = rp.Pop<u32>();
+     VAddr cro_address = rp.Pop<u32>();
+@@ -334,6 +356,7 @@ void RO::LoadCRO(Kernel::HLERequestContext& ctx, bool link_on_load_bug_fix) {
+ }
+ 
+ void RO::UnloadCRO(Kernel::HLERequestContext& ctx) {
++    DeferredCacheInvalidation deferred_invalidation(system);
+     IPC::RequestParser rp(ctx);
+     VAddr cro_address = rp.Pop<u32>();
+     u32 zero = rp.Pop<u32>();
+@@ -404,6 +427,7 @@ void RO::UnloadCRO(Kernel::HLERequestContext& ctx) {
+ }
+ 
+ void RO::LinkCRO(Kernel::HLERequestContext& ctx) {
++    DeferredCacheInvalidation deferred_invalidation(system);
+     IPC::RequestParser rp(ctx);
+     VAddr cro_address = rp.Pop<u32>();
+     auto process = rp.PopObject<Kernel::Process>();
+@@ -444,6 +468,7 @@ void RO::LinkCRO(Kernel::HLERequestContext& ctx) {
+ }
+ 
+ void RO::UnlinkCRO(Kernel::HLERequestContext& ctx) {
++    DeferredCacheInvalidation deferred_invalidation(system);
+     IPC::RequestParser rp(ctx);
+     VAddr cro_address = rp.Pop<u32>();
+     auto process = rp.PopObject<Kernel::Process>();

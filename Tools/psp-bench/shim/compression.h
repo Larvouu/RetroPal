@@ -9,7 +9,10 @@
 #include <stdint.h>
 #include "lzfse.h"
 
-typedef enum { COMPRESSION_LZFSE = 0x801 } compression_algorithm;
+// COMPRESSION_LZ4 (CTRBridge's rewind steps) packs with LZFSE here: the
+// harness checks that a step comes back whole, which any lossless round trip
+// shows; the phone uses Apple's LZ4.
+typedef enum { COMPRESSION_LZFSE = 0x801, COMPRESSION_LZ4 = 0x100 } compression_algorithm;
 
 static inline size_t compression_encode_buffer(uint8_t *dst, size_t dstSize, const uint8_t *src,
                                                size_t srcSize, void *scratch, compression_algorithm) {

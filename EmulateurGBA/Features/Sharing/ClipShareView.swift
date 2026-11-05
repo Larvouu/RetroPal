@@ -538,8 +538,11 @@ struct ClipCardView: View {
                     let layout = chrome.layout
                     if layout.ndsScreens.count == 2 {
                         // NDS separated: the stacked clip split into the upper + lower screen rects.
+                        // The 3DS's lower screen is the middle four fifths of its half
+                        // (`ScreenshotCardRenderer.n3dsScreenCrops`).
                         clipScreen(layout.ndsScreens[0], half: .top, k: k)
-                        clipScreen(layout.ndsScreens[1], half: .bottom, k: k)
+                        clipScreen(layout.ndsScreens[1], half: .bottom, k: k,
+                                   widthShare: system == .n3ds ? 320.0 / 400.0 : 1)
                     } else {
                         Group {
                             if let videoURL { LoopingClipView(url: videoURL) }
@@ -592,22 +595,26 @@ struct ClipCardView: View {
     /// (so the matching half exactly fills it), windowed to the top or bottom half, clipped to the
     /// screen rect, and offset into place. The export composites the split frames perfectly in sync;
     /// the two preview players can drift slightly over long playback (preview only).
+    /// `widthShare`: how much of the video's width this screen is, centred (the 3DS's lower
+    /// screen, 320 of 400): the video is sized so that share fills the rect, and the rest is clipped.
     @ViewBuilder
-    private func clipScreen(_ rect: CGRect, half: ScreenHalf, k: CGFloat) -> some View {
+    private func clipScreen(_ rect: CGRect, half: ScreenHalf, k: CGFloat, widthShare: CGFloat = 1,
+                            cornerRadius: CGFloat = 6) -> some View {
         Group {
             if let videoURL {
+                let videoW = rect.width / widthShare
                 LoopingClipView(url: videoURL)
-                    // Full stacked video at this screen's width: its half == the screen's height.
-                    .frame(width: rect.width * k, height: rect.width * k / max(frameAspect, 0.01))
+                    // Full stacked video, sized so this screen's share of its width fills the rect.
+                    .frame(width: videoW * k, height: videoW * k / max(frameAspect, 0.01))
                     // Window to the matching half (the taller video overflows and is clipped below).
                     .frame(width: rect.width * k, height: rect.height * k,
                            alignment: half == .top ? .top : .bottom)
             } else {
-                SkeletonBox(cornerRadius: 6 * k)
+                SkeletonBox(cornerRadius: cornerRadius * k)
                     .frame(width: rect.width * k, height: rect.height * k)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 6 * k, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius * k, style: .continuous))
         .offset(x: rect.minX * k, y: rect.minY * k)
     }
 
@@ -635,20 +642,24 @@ struct ClipCardView: View {
                     .frame(width: 56 * k, height: 56 * k)
                     .offset(x: (1080 - 56) / 2 * k, y: 64 * k)
 
-                // Neon bezel around the game.
-                RoundedRectangle(cornerRadius: 16 * k, style: .continuous)
-                    .fill(Color(red: 0.08, green: 0.06, blue: 0.12))
-                    .overlay(RoundedRectangle(cornerRadius: 16 * k, style: .continuous)
-                        .strokeBorder(purple.opacity(0.6), lineWidth: 1.5 * k))
-                    .shadow(color: purple.opacity(0.4), radius: 14 * k)
-                    .frame(width: bezel.width * k, height: bezel.height * k)
-                    .offset(x: bezel.minX * k, y: bezel.minY * k)
+                if system == .n3ds {
+                    // The 3DS: its two screens apart, each in its own frame, at the rects the
+                    // export and the screenshot card use (`classicN3DSScreens`).
+                    let ctr = ScreenshotCardRenderer.classicN3DSScreens(side: 1080, frameAspect: frameAspect,
+                                                                        bezelPadding: bezelPad)
+                    neonBezel(ctr.top.insetBy(dx: -bezelPad, dy: -bezelPad), k: k)
+                    neonBezel(ctr.bottom.insetBy(dx: -bezelPad, dy: -bezelPad), k: k)
+                    clipScreen(ctr.top, half: .top, k: k, cornerRadius: 12)
+                    clipScreen(ctr.bottom, half: .bottom, k: k, widthShare: 320.0 / 400.0, cornerRadius: 12)
+                } else {
+                    neonBezel(bezel, k: k)
 
-                // The looping clip (or the loading skeleton) in the screen rect.
-                gameArea(k: k)
-                    .frame(width: screen.width * k, height: screen.height * k)
-                    .clipShape(RoundedRectangle(cornerRadius: 12 * k, style: .continuous))
-                    .offset(x: screen.minX * k, y: screen.minY * k)
+                    // The looping clip (or the loading skeleton) in the screen rect.
+                    gameArea(k: k)
+                        .frame(width: screen.width * k, height: screen.height * k)
+                        .clipShape(RoundedRectangle(cornerRadius: 12 * k, style: .continuous))
+                        .offset(x: screen.minX * k, y: screen.minY * k)
+                }
 
                 // Game name + play-time / crown / Pro-member row. Rendered through the SAME CG path
                 // (ScreenshotCardRenderer.classicInfoImage -> drawGBInfoBlock) as the screenshot
@@ -681,6 +692,17 @@ struct ClipCardView: View {
             .background(cardBackground)
             .overlay { if isNostalgiaStyle { proEdge } }
         }
+    }
+
+    /// The neon bezel around a game screen, in card points.
+    private func neonBezel(_ rect: CGRect, k: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 16 * k, style: .continuous)
+            .fill(Color(red: 0.08, green: 0.06, blue: 0.12))
+            .overlay(RoundedRectangle(cornerRadius: 16 * k, style: .continuous)
+                .strokeBorder(purple.opacity(0.6), lineWidth: 1.5 * k))
+            .shadow(color: purple.opacity(0.4), radius: 14 * k)
+            .frame(width: rect.width * k, height: rect.height * k)
+            .offset(x: rect.minX * k, y: rect.minY * k)
     }
 
     /// The game area: the looping gameplay video when ready, else the loading box.

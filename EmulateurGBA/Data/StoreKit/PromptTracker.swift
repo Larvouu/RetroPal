@@ -122,12 +122,23 @@ final class PromptTracker {
         return !Calendar.current.isDate(firstDay, inSameDayAs: Date())
     }
 
+    /// The first day anything was played, recorded since 1.2.5 (nil before).
+    var firstPlayDay: Date? {
+        defaults.object(forKey: kFirstPlayDay) as? Date
+    }
+
     var totalPlaySeconds: TimeInterval {
         defaults.double(forKey: kTotalPlaySeconds)
     }
 
     var sessionCount: Int {
         defaults.integer(forKey: kSessionCount)
+    }
+
+    /// When play was last banked: the moment these totals stand at
+    /// (`PlayHistoryFile.baselineSource`).
+    var lastBankDate: Date? {
+        defaults.object(forKey: kLastPlayBankDate) as? Date
     }
 
     // MARK: - Anti-Annoyance

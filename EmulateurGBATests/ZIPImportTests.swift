@@ -375,14 +375,25 @@ struct ZIPExtractorTests {
         print("[zip] Unicode Path field on a ja-JP phone → \(names)")
     }
 
-    @Test("An LZMA entry is reported as unsupported, not as a broken archive, and is still listed")
+    /// Unsupported from the LISTING on (audit, 2026-10-29): the rules read some
+    /// entries' bytes while listing, and this reader cannot give them, so the
+    /// whole zip goes to libarchive (`GameArchive`), which lists and extracts it
+    /// (a real LZMA zip: `ArchiveImportTests`). Was: listed here, refused only
+    /// at extraction, and a `.md` or `.cue` in such a zip was judged without
+    /// its bytes.
+    @Test("An LZMA entry is reported as unsupported, not as a broken archive, from the listing on")
     func lzmaEntryIsUnsupportedNotBroken() throws {
         let dir = try ImportFixtures.makeDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         var entry = ArchiveBuilder.Entry(name: "Game.gba", content: ImportFixtures.gbaROM(), method: 14)
         entry.rawPayload = ImportFixtures.patterned(300, seed: 9)
         let zip = try write(ArchiveBuilder.build([entry]), in: dir)
-        #expect(try ZIPExtractor.romEntryNames(in: zip) == ["Game.gba"])
+        #expect(throws: ZIPExtractorError.unsupportedCompression) {
+            _ = try ZIPExtractor.romEntryNames(in: zip)
+        }
+        #expect(throws: ZIPExtractorError.unsupportedCompression) {
+            _ = try ZIPExtractor.gameEntries(in: zip)
+        }
         #expect(throws: ZIPExtractorError.unsupportedCompression) {
             _ = try ZIPExtractor.extractROM(named: "Game.gba", from: zip)
         }
@@ -522,6 +533,74 @@ struct ZIPExtractorTests {
         let names = try ZIPExtractor.romEntryNames(in: zip)
         #expect(names == ["First.gba", "Third.gba"])
         print("[zip] corrupt middle entry → \(names)")
+    }
+
+    /// ZIP64 fields are 64 bits and come from the file: 2^63 and up trapped
+    /// `Int(_:)`, a value near `Int.max` trapped the additions after it, and a
+    /// crafted zip ended the app (audit, 2026-10-29; on the host the old reader
+    /// crashed at the third case below, "Not enough bits"). Each must answer
+    /// without trapping; a valid ZIP64 entry still extracts.
+    @Test("Malformed ZIP64 values never crash the reader, and a valid ZIP64 entry still extracts")
+    func zip64ValuesNeverTrap() throws {
+        let dir = try ImportFixtures.makeDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func u16(_ v: Int) -> [UInt8] { [UInt8(v & 0xFF), UInt8(v >> 8 & 0xFF)] }
+        func u32(_ v: UInt32) -> [UInt8] { u16(Int(v & 0xFFFF)) + u16(Int(v >> 16)) }
+        func u64(_ v: UInt64) -> [UInt8] { u32(UInt32(v & 0xFFFF_FFFF)) + u32(UInt32(v >> 32)) }
+        let content = [UInt8](repeating: 7, count: 100)
+        let name = Array("Game.gba".utf8)
+        /// One stored entry; its central header saturates the chosen fields and
+        /// carries `values` in its ZIP64 extra; `end64` adds a ZIP64 end record
+        /// (locator target, entry count, directory offset; 0 = the real one).
+        func zip(u: Bool = false, c: Bool = false, off: Bool = false, values: [UInt64] = [],
+                 end64: (UInt64, UInt64, UInt64)? = nil) -> Data {
+            var out: [UInt8] = u32(0x04034b50) + u16(20) + u16(0) + u16(0) + u16(0) + u16(0) + u32(0)
+                + u32(UInt32(content.count)) + u32(UInt32(content.count)) + u16(name.count) + u16(0) + name + content
+            let cd = out.count
+            let extra: [UInt8] = values.isEmpty ? [] : u16(1) + u16(values.count * 8) + values.flatMap(u64)
+            out += u32(0x02014b50) + u16(45) + u16(45) + u16(0) + u16(0) + u16(0) + u16(0) + u32(0)
+            out += u32(c ? 0xFFFF_FFFF : UInt32(content.count)) + u32(u ? 0xFFFF_FFFF : UInt32(content.count))
+            out += u16(name.count) + u16(extra.count) + u16(0) + u16(0) + u16(0) + u32(0)
+            out += u32(off ? 0xFFFF_FFFF : 0) + name + extra
+            let cdSize = out.count - cd
+            if let (at, entries, offset) = end64 {
+                let record = out.count
+                out += u32(0x06064b50) + u64(44) + u16(45) + u16(45) + u32(0) + u32(0)
+                out += u64(entries) + u64(entries) + u64(UInt64(cdSize)) + u64(offset)
+                out += u32(0x07064b50) + u32(0) + u64(at == 0 ? UInt64(record) : at) + u32(1)
+                out += u32(0x06054b50) + u16(0) + u16(0) + u16(0xFFFF) + u16(0xFFFF)
+                out += u32(UInt32(cdSize)) + u32(0xFFFF_FFFF) + u16(0)
+            } else {
+                out += u32(0x06054b50) + u16(0) + u16(0) + u16(1) + u16(1) + u32(UInt32(cdSize)) + u32(UInt32(cd)) + u16(0)
+            }
+            return Data(out)
+        }
+        let cases: [(String, Data)] = [
+            ("sizes 100", zip(u: true, c: true, values: [100, 100])),
+            ("uncompressed 2^63", zip(u: true, values: [1 << 63])),
+            ("uncompressed max", zip(u: true, values: [UInt64.max])),
+            ("compressed Int.max", zip(c: true, values: [UInt64(Int.max)])),
+            ("offset 2^63", zip(off: true, values: [1 << 63])),
+            ("offset Int.max - 10", zip(off: true, values: [UInt64(Int.max - 10)])),
+            ("end record at 2^63", zip(end64: (1 << 63, 1, 0))),
+            ("entry count max", zip(end64: (0, UInt64.max, 0))),
+            ("directory at Int.max", zip(end64: (0, 1, UInt64(Int.max)))),
+        ]
+        for (label, data) in cases {
+            let url = try write(data, in: dir, name: "\(UUID().uuidString).zip")
+            let names = (try? ZIPExtractor.romEntryNames(in: url)) ?? []
+            for entry in names {
+                if let out = try? ZIPExtractor.extractROM(named: entry, from: url) {
+                    try? FileManager.default.removeItem(at: out.deletingLastPathComponent())
+                }
+            }
+            print("[zip] ZIP64 '\(label)': listed \(names.count), no trap")
+        }
+        // The valid one still comes out whole.
+        let valid = try write(cases[0].1, in: dir, name: "valid64.zip")
+        let out = try ZIPExtractor.extractROM(named: "Game.gba", from: valid)
+        defer { try? FileManager.default.removeItem(at: out.deletingLastPathComponent()) }
+        #expect(try Data(contentsOf: out) == Data(content))
     }
 
     @Test("Malformed archives fail with an error or an empty list, never a crash")
@@ -718,14 +797,21 @@ struct ZIPImportThroughImporterTests {
         let dir = try ImportFixtures.makeDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        var lzma = ArchiveBuilder.Entry(name: "Game.gba", content: ImportFixtures.gbaROM(), method: 14)
-        lzma.rawPayload = ImportFixtures.patterned(200, seed: 8)
-        let lzmaZip = try writeZip(ArchiveBuilder.build([lzma]), in: dir)
+        // A method NEITHER reader has: Zstandard (93). Until 1.3.5 this was an
+        // LZMA entry (14), but since then a zip the app's own reader cannot
+        // read goes to libarchive (`GameArchive`), which reads LZMA, BZIP2, XZ
+        // and Deflate64: a fake LZMA payload there is a damaged file, rightly
+        // `zipExtractionFailed`. Zstandard is not built in, and libarchive
+        // names it "Unsupported ZIP compression method (93: zstd)" (measured
+        // on the host, 2026-10-28), so the sentence is still the right one.
+        var zstd = ArchiveBuilder.Entry(name: "Game.gba", content: ImportFixtures.gbaROM(), method: 93)
+        zstd.rawPayload = ImportFixtures.patterned(200, seed: 8)
+        let zstdZip = try writeZip(ArchiveBuilder.build([zstd]), in: dir)
         do {
-            _ = try importer.importROM(from: lzmaZip, method: "picker")
-            Issue.record("an LZMA archive must not import")
+            _ = try importer.importROM(from: zstdZip, method: "picker")
+            Issue.record("a Zstandard archive must not import")
         } catch ROMImportError.zipUnsupportedCompression {
-            print("[import] LZMA → zipUnsupportedCompression")
+            print("[import] Zstandard → zipUnsupportedCompression")
         }
 
         let encryptedZip = try writeZip(ArchiveBuilder.build([

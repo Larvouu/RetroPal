@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "DocIconN3DS.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "DocIconN3DS@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "DocIconN3DS@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

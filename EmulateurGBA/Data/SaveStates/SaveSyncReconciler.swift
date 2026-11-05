@@ -98,19 +98,28 @@ struct SaveSyncReconciler {
     /// untouched in BOTH directions and reconcile once the session has ended.
     @discardableResult
     func reconcileBatterySaves(skipping skips: Set<String> = []) -> Result {
+        reconcileFlatFiles(withExtension: "sav", skipping: skips).result
+    }
+
+    /// The same flat mirror for files of another extension, with the names it
+    /// PULLED (cloud copy made the local active one): the 3DS's save-folder
+    /// snapshots, `<title id>.zip` (`CTRSaveSync`), which its caller then unpacks.
+    func reconcileFlatFiles(withExtension ext: String,
+                            skipping skips: Set<String> = []) -> (result: Result, pulled: [String]) {
         ensureDir(localRoot)
         ensureDir(cloudRoot)
         var result = Result()
-        let skipNames = Set(skips.map { $0 + ".sav" })
-        let cloudNames = savNames(in: cloudRoot)
+        var pulled: [String] = []
+        let skipNames = Set(skips.map { $0 + "." + ext })
+        let cloudNames = flatNames(in: cloudRoot, ext: ext)
         result.cloudHadFiles = !cloudNames.isEmpty
-        for name in savNames(in: localRoot).union(cloudNames) {
+        for name in flatNames(in: localRoot, ext: ext).union(cloudNames) {
             if skipNames.contains(name) { continue }
             let outcome = reconcileBatteryFile(name)
-            if outcome.localChanged { result.localChanged = true }
+            if outcome.localChanged { result.localChanged = true; pulled.append(name) }
             if outcome.conflict { result.conflicts += 1 }
         }
-        return result
+        return (result, pulled)
     }
 
     /// One `.sav`: the save-state slot logic without the `.png` companion,
@@ -154,10 +163,10 @@ struct SaveSyncReconciler {
         }
     }
 
-    /// `.sav` file names in the flat battery dir, with evicted placeholders
-    /// normalized. Subdirectories (`Backups`, `_Conflicts`) don't end in `.sav`
-    /// and are naturally excluded, as is any non-save stray file.
-    private func savNames(in dir: URL) -> Set<String> {
+    /// File names of one extension (`.sav`) in a flat dir, with evicted
+    /// placeholders normalized. Subdirectories (`Backups`, `_Conflicts`, `3DS`)
+    /// don't end in it and are naturally excluded, as is any stray file.
+    private func flatNames(in dir: URL, ext: String) -> Set<String> {
         let items = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
         var names = Set<String>()
         for item in items {
@@ -165,7 +174,7 @@ struct SaveSyncReconciler {
             if name.hasPrefix("."), name.hasSuffix(".icloud") {
                 name = String(name.dropFirst().dropLast(".icloud".count))
             }
-            if name.hasSuffix(".sav") { names.insert(name) }
+            if name.hasSuffix("." + ext) { names.insert(name) }
         }
         return names
     }

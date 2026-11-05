@@ -12,6 +12,7 @@
 
 import Foundation
 import CoreData
+import os
 
 /// Outcome of `findOrImport(at:method:)`. Lets the caller distinguish a freshly
 /// copied ROM from one that was already in the library — used by the
@@ -22,16 +23,33 @@ enum ROMImportResult {
     case existed(NSManagedObjectID)
 }
 
-/// Carry the ZIP reader's REASON out to the person instead of flattening every
-/// failure into "couldn't be opened". A valid archive we cannot read is a
+/// Carry the archive reader's REASON out to the person instead of flattening
+/// every failure into "couldn't be opened". A valid archive we cannot read is a
 /// different sentence from a broken one, and the 2026-09-02 Japanese 1-star
 /// review is what made that distinction worth the code.
-private func importError(for error: Error) -> ROMImportError {
+///
+/// A zip keeps its own sentences; every other archive (7z, rar, tar, gz, xz,
+/// since 1.3.5) has its own, because the zip's advice is to extract it in the
+/// Files app, which opens a zip and nothing else.
+/// Internal, not private, so a test can call it (`ErrorTelemetryTests`).
+func importError(for error: Error, archive: URL) -> ROMImportError {
+    let zip = archive.pathExtension.lowercased() == "zip"
     switch error {
-    case ZIPExtractorError.unsupportedCompression: return .zipUnsupportedCompression
-    case ZIPExtractorError.encryptedArchive: return .zipEncrypted
-    default: return .zipExtractionFailed
+    case ZIPExtractorError.unsupportedCompression:
+        return zip ? .zipUnsupportedCompression : .archiveUnsupportedCompression
+    case ZIPExtractorError.encryptedArchive: return zip ? .zipEncrypted : .archiveEncrypted
+    // A full phone while the game was being written out (since 1.3.5 a 3DS
+    // game streams gigabytes to the file): "free up storage", the copy's own
+    // sentence, and not "this ZIP couldn't be opened, extract it in Files",
+    // which needs the same space again (audit, 2026-10-29).
+    case _ where ErrorTelemetry.copyCause(of: error) == .diskFull: return .copyFailed
+    default: return zip ? .zipExtractionFailed : .archiveExtractionFailed
     }
+}
+
+/// No game in the archive, in the zip's words or the other archives'.
+private func noGameError(archive: URL) -> ROMImportError {
+    archive.pathExtension.lowercased() == "zip" ? .zipNoGBA : .archiveNoGame
 }
 
 enum ROMImportError: LocalizedError {
@@ -51,6 +69,17 @@ enum ROMImportError: LocalizedError {
     case zipUnsupportedCompression
     /// Password-protected archive.
     case zipEncrypted
+    /// The same four for every archive that is not a zip (.7z, .rar, .tar,
+    /// .gz, .xz; 1.3.5). Their own sentences: the zip's tell the player to
+    /// extract it in the Files app, which cannot open these.
+    case archiveNoGame
+    case archiveExtractionFailed
+    case archiveUnsupportedCompression
+    case archiveEncrypted
+    /// One volume of an archive split in several (`.part1.rar`, `.r00`,
+    /// `.7z.001`, 2026-10-30): a game inside runs on into the next volume,
+    /// which the reader is never given, so it read as damaged.
+    case archiveSplit
     /// The player was asked which console a disc image belongs to (its bytes
     /// could not say) and chose Cancel. Not a failure: nothing is imported and
     /// nothing is said, as when a zip's picker is cancelled.
@@ -66,6 +95,12 @@ enum ROMImportError: LocalizedError {
     /// 01).bin is missing" is. iOS grants access per picked file, so there is
     /// no way to reach a sibling the person did not select.
     case discMissingFiles(names: [String])
+    /// A Nintendo 3DS game that is ENCRYPTED (its own header says so,
+    /// `CTRGameProbe`). Separate from `invalidROM` because the file IS a game
+    /// and the fix is specific: Azahar reads decrypted games only, and Retro
+    /// Pal ships no console keys (decided 2026-10-16), so the player needs a
+    /// decrypted copy. Telemetry: `reason = ctr_encrypted` (since 2026-10-27).
+    case ctrEncrypted
 
     var errorDescription: String? {
         switch self {
@@ -77,6 +112,12 @@ enum ROMImportError: LocalizedError {
         case .zipExtractionFailed: return NSLocalizedString("import.error.zipExtractionFailed", comment: "")
         case .zipUnsupportedCompression: return NSLocalizedString("import.error.zipUnsupportedCompression", comment: "")
         case .zipEncrypted: return NSLocalizedString("import.error.zipEncrypted", comment: "")
+        case .archiveNoGame: return NSLocalizedString("import.error.archiveNoGame", comment: "")
+        case .archiveExtractionFailed: return NSLocalizedString("import.error.archiveExtractionFailed", comment: "")
+        case .archiveUnsupportedCompression:
+            return NSLocalizedString("import.error.archiveUnsupportedCompression", comment: "")
+        case .archiveEncrypted: return NSLocalizedString("import.error.archiveEncrypted", comment: "")
+        case .archiveSplit: return NSLocalizedString("import.error.archiveSplit", comment: "")
         case .consoleChoiceCancelled: return nil   // never shown; the player cancelled
         case .alreadyImported: return NSLocalizedString("import.error.alreadyImported", comment: "")
         case .saveFailed: return NSLocalizedString("import.error.saveFailed", comment: "")
@@ -84,6 +125,7 @@ enum ROMImportError: LocalizedError {
         case .discMissingFiles(let names):
             return String(format: NSLocalizedString("import.error.discMissingFiles", comment: ""),
                           names.joined(separator: ", "))
+        case .ctrEncrypted: return NSLocalizedString("import.error.ctrEncrypted", comment: "")
         }
     }
 
@@ -98,11 +140,17 @@ enum ROMImportError: LocalizedError {
         case .zipExtractionFailed: return "zipExtractionFailed"
         case .zipUnsupportedCompression: return "zipUnsupportedCompression"
         case .zipEncrypted: return "zipEncrypted"
+        case .archiveNoGame: return "archiveNoGame"
+        case .archiveExtractionFailed: return "archiveExtractionFailed"
+        case .archiveUnsupportedCompression: return "archiveUnsupportedCompression"
+        case .archiveEncrypted: return "archiveEncrypted"
+        case .archiveSplit: return "archiveSplit"
         case .consoleChoiceCancelled: return "consoleChoiceCancelled"   // never signaled
         case .alreadyImported: return "alreadyImported"
         case .saveFailed: return "saveFailed"
         case .differentGame: return "differentGame"
         case .discMissingFiles: return "discMissingFiles"
+        case .ctrEncrypted: return "ctrEncrypted"
         }
     }
 }
@@ -192,15 +240,24 @@ final class ROMImporter {
         let didStartScope = sourceURL.startAccessingSecurityScopedResource()
         defer { if didStartScope { sourceURL.stopAccessingSecurityScopedResource() } }
 
-        // For ZIP we have to extract before we can hash the inner ROM, so
-        // fall straight through to the normal import path (it surfaces
-        // .alreadyImported as a regular throw; the caller can re-fetch by
-        // hash if it wants the existing entity, but in practice the URL
-        // handler ignores .zip via the no-zip-claim decision).
+        // For an archive (zip, 7z, rar, tar, gz, xz: `GameArchive`) we have to
+        // extract before we can hash the inner ROM, so fall straight through to
+        // the normal import path (it surfaces .alreadyImported as a regular
+        // throw; the caller can re-fetch by hash if it wants the existing
+        // entity, but in practice the URL handler ignores .zip via the
+        // no-zip-claim decision).
         let ext = sourceURL.pathExtension.lowercased()
-        if ext == "zip" {
+        if GameArchive.isArchive(sourceURL) {
             let id = try importROM(from: sourceURL, method: method)
             return .imported(id)
+        }
+
+        // An encrypted 3DS game is said to be, by name, as `importROM` says
+        // it: the check below refuses it first, and from Files or AirDrop the
+        // player was told only that the file is not a game (audit, 2026-10-20).
+        if ROMSystemType.from(fileExtension: ext)?.isCTR == true,
+           CTRGameProbeRead(sourceURL.path) == CTRGameProbeEncrypted {
+            throw ROMImportError.ctrEncrypted
         }
 
         // Cheap probe: read the file once, hash it, look the hash up in
@@ -246,7 +303,8 @@ final class ROMImporter {
 
         let ext = sourceURL.pathExtension.lowercased()
 
-        if ext == "zip" {
+        // Every archive format takes the zip's path (`GameArchive` chooses the reader).
+        if GameArchive.isArchive(sourceURL) {
             return try importZIP(from: sourceURL)
         }
 
@@ -266,6 +324,13 @@ final class ROMImporter {
             if let gap = gaps.first { throw ROMImportError.discMissingFiles(names: gap.missing) }
             guard let group = discs.first else { throw ROMImportError.invalidROM }
             return try importDiscGroup(group, method: method)
+        }
+
+        // A 3DS game that is encrypted is said to be, by name: it is a game,
+        // but not one the core can read (see `ctrEncrypted`).
+        if ROMSystemType.from(fileExtension: ext)?.isCTR == true,
+           CTRGameProbeRead(sourceURL.path) == CTRGameProbeEncrypted {
+            throw ROMImportError.ctrEncrypted
         }
 
         // Validate ROM header (GBA, GB, or GBC)
@@ -364,7 +429,13 @@ final class ROMImporter {
         // keeps it.
         if ROMSystemType.resolve(url: group.boot) != .psp,
            RAClient.isOtherConsolesDisc(atPath: group.boot.path) {
-            failureCause = .otherConsoleDisc
+            // What it is, for the report: a PS3 disc and a UMD film are not
+            // demand for a console the way a PS2 or Saturn disc is.
+            switch PSPDiscProbeReadVolume(group.boot.path) {
+            case PSPDiscProbeVolumePS3: failureCause = .ps3Disc
+            case PSPDiscProbeVolumeUMDMedia: failureCause = .umdMedia
+            default: failureCause = .otherConsoleDisc
+            }
             throw ROMImportError.invalidROM
         }
         let system: ROMSystemType
@@ -397,6 +468,16 @@ final class ROMImporter {
                 guard GBAROMParser.isBootableDiscImage(url: member) else {
                     failureCause = .discNotBootable
                     throw ROMImportError.invalidROM
+                }
+                // A `.mdf` with subchannel data boots only through its `.mds`.
+                if GBAROMParser.mdfNeedsItsDescriptor(url: member),
+                   !group.members.contains(where: {
+                       $0.pathExtension.lowercased() == "mds"
+                           && $0.deletingPathExtension().lastPathComponent.lowercased()
+                              == member.deletingPathExtension().lastPathComponent.lowercased()
+                   }) {
+                    failureCause = .discMissingFiles
+                    throw ROMImportError.discMissingFiles(names: ["\(member.deletingPathExtension().lastPathComponent).mds"])
                 }
             }
         }
@@ -454,8 +535,13 @@ final class ROMImporter {
         let folder = romsDir.appendingPathComponent(folderName, isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            // Marks the folder as an import in progress until its library entry
+            // is saved (`sweepAbandonedImports`). Not a disc file, so no size
+            // ever counts it (`DiscStorage.installedSize`).
+            try Data().write(to: folder.appendingPathComponent(Self.importInProgressFileName))
         } catch {
             failureCause = ErrorTelemetry.copyCause(of: error)
+            try? FileManager.default.removeItem(at: folder)
             throw ROMImportError.copyFailed
         }
 
@@ -496,8 +582,12 @@ final class ROMImporter {
                let bytes = try? Data(contentsOf: dest),
                !LegacyTextEncoding.isUTF8(bytes) {
                 do {
-                    try LegacyTextEncoding.decodeLegacy(bytes)
-                        .write(to: dest, atomically: true, encoding: .utf8)
+                    // The reading the grouper chose, under which its files are
+                    // found (`decodeDescriptor`), not the zip names' chain alone.
+                    let text = DiscImportGrouper.decodeDescriptor(
+                        bytes, ext: dest.pathExtension,
+                        among: group.members.map(\.lastPathComponent)) ?? LegacyTextEncoding.decodeLegacy(bytes)
+                    try text.write(to: dest, atomically: true, encoding: .utf8)
                 } catch {
                     failureCause = ErrorTelemetry.copyCause(of: error)
                     abandon()
@@ -505,6 +595,56 @@ final class ROMImporter {
                 }
             }
             if member.path == group.boot.path { bootDestination = dest }
+        }
+
+        // Every descriptor names its files exactly as they now are on disk, in
+        // UTF-8 without a byte-order mark. The core opens each reference by its
+        // bytes on a case-sensitive volume and skips one it cannot open without
+        // a word, so a `.cue` saying `GAME.BIN` beside `Game.bin`, a Windows
+        // path, or a UTF-8 file starting with a BOM (which hides its first
+        // `FILE` keyword from the core) imported fine and booted to nothing
+        // (audit 2026-10-27). Written only when something has to change.
+        var storedNames = group.members.map(\.lastPathComponent)
+        // A track named a `.cue` cannot hold for the core (`coreCueNameMaxBytes`,
+        // about 80 Japanese characters) is renamed shorter, and its descriptor
+        // pointed at the new name below: it was cut on the cue's line and the
+        // game booted to nothing (audit, 2026-10-29). Only a file a `.cue`
+        // names; the boot file keeps its name, which is the game's.
+        var renamed: [String: String] = [:]
+        if group.members.contains(where: { $0.pathExtension.lowercased() == "cue" }) {
+            var taken = Set(storedNames.map { $0.lowercased() })
+            for (i, name) in storedNames.enumerated() where name != group.boot.lastPathComponent {
+                guard !Self.isDescriptor(URL(fileURLWithPath: name)),
+                      let short = DiscImportGrouper.coreFittingName(name, taken: taken) else { continue }
+                do {
+                    try FileManager.default.moveItem(at: folder.appendingPathComponent(name),
+                                                     to: folder.appendingPathComponent(short))
+                } catch {
+                    failureCause = ErrorTelemetry.copyCause(of: error)
+                    abandon()
+                    throw ROMImportError.copyFailed
+                }
+                renamed[name] = short
+                storedNames[i] = short
+                taken.insert(short.lowercased())
+            }
+        }
+        for member in group.members {
+            let dest = folder.appendingPathComponent(member.lastPathComponent)
+            guard Self.isDescriptor(dest), let bytes = try? Data(contentsOf: dest) else { continue }
+            let hasBOM = bytes.starts(with: [0xEF, 0xBB, 0xBF])
+            var text = LegacyTextEncoding.decode(bytes)
+            if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
+            let pointed = DiscImportGrouper.descriptorPointingAt(storedNames: storedNames, text: text,
+                                                                 ext: dest.pathExtension, renamed: renamed)
+            guard pointed != nil || hasBOM else { continue }
+            do {
+                try Data((pointed ?? text).utf8).write(to: dest, options: .atomic)
+            } catch {
+                failureCause = ErrorTelemetry.copyCause(of: error)
+                abandon()
+                throw ROMImportError.copyFailed
+            }
         }
         guard var boot = bootDestination else {
             abandon()
@@ -560,19 +700,92 @@ final class ROMImporter {
             // launch preflight will measure too. Recording the identity file's
             // size here (the data track) while pointing `romFilePath` at the
             // `.cue` is what made a good game report itself damaged.
-            let installed = DiscStorage.installedSize(ofROMAt: boot) ?? info.fileSize
+            let installed = DiscStorage.installedSize(ofROMAt: boot, system: system) ?? info.fileSize
             let id = try createDiscEntry(boot: boot,
                                          relativePath: "\(folderName)/\(boot.lastPathComponent)",
                                          system: system,
                                          info: info,
                                          installedSize: installed,
                                          method: method)
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(Self.importInProgressFileName))
             group.members.forEach { cleanupInboxFile($0) }
             return id
         } catch {
             abandon()
             throw error
         }
+    }
+
+    private static let log = Logger(subsystem: "com.retropal", category: "import")
+
+    /// The file that marks a disc game's folder while its import is running.
+    static let importInProgressFileName = ".retropal-importing"
+
+    /// How old a marker must be before its folder counts as abandoned.
+    static let abandonedAfter: TimeInterval = 10 * 60
+
+    /// Removes the folders of disc imports that never finished: the app was
+    /// killed or suspended in the middle of a copy (a PSP game is 1 to 2 GB),
+    /// and the half-copied folder stayed in `ROMs/`, out of sight in the app,
+    /// with no library entry, and its name then made the re-import "Game 2"
+    /// (audit 2026-10-27). A folder is removed only when it still carries the
+    /// marker this importer writes (`importInProgressFileName`) AND no game in
+    /// the library points into it: `ROMs/` is visible in the Files app, so a
+    /// folder a player put there themselves, which has no marker, is never
+    /// touched. Folders abandoned before the marker existed are left alone for
+    /// the same reason. Run once at launch, off the main thread. An import
+    /// that started in this launch (a game opened from Files as the app came
+    /// up) has a marker written moments ago and an entry not saved yet: only a
+    /// marker older than `abandonedAfter` counts, so it is never mistaken for
+    /// an abandoned one.
+    static func sweepAbandonedImports(context: NSManagedObjectContext, now: Date = Date()) {
+        let fm = FileManager.default
+        guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let roms = docs.appendingPathComponent(DiscStorage.romsFolderName, isDirectory: true)
+        guard !markedFolders(in: roms, now: now).isEmpty else { return }
+        context.performAndWait {
+            let request = NSFetchRequest<NSDictionary>(entityName: "GameEntity")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = ["romFilePath"]
+            // A library that cannot be read says nothing about which folders are
+            // games: nothing is removed then, rather than everything marked.
+            guard let rows = try? context.fetch(request) else {
+                ROMImporter.log.error("unfinished imports not swept: the library could not be read")
+                return
+            }
+            let paths = rows.compactMap { $0["romFilePath"] as? String }
+            for folder in abandonedFolders(in: roms, romFilePaths: paths, now: now) {
+                do {
+                    try fm.removeItem(at: folder)
+                    ROMImporter.log.info("removed an import that never finished: \(folder.lastPathComponent, privacy: .public)")
+                } catch {
+                    ROMImporter.log.error("could not remove an unfinished import: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+    }
+
+    /// The folders of `roms` whose import marker is older than `abandonedAfter`.
+    static func markedFolders(in roms: URL, now: Date) -> [URL] {
+        let fm = FileManager.default
+        let entries = (try? fm.contentsOfDirectory(at: roms, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        return entries.filter { folder in
+            guard (try? folder.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
+                  let written = (try? fm.attributesOfItem(
+                      atPath: folder.appendingPathComponent(importInProgressFileName).path))?[.modificationDate] as? Date
+            else { return false }
+            return now.timeIntervalSince(written) > abandonedAfter
+        }
+    }
+
+    /// The marked folders no library entry points into (`romFilePath` is
+    /// `<folder>/<boot>` for a disc game, a bare name for a cartridge).
+    static func abandonedFolders(in roms: URL, romFilePaths: [String], now: Date) -> [URL] {
+        let used = Set(romFilePaths.compactMap { path -> String? in
+            let parts = path.split(separator: "/", maxSplits: 1)
+            return parts.count == 2 ? String(parts[0]) : nil
+        })
+        return markedFolders(in: roms, now: now).filter { !used.contains($0.lastPathComponent) }
     }
 
     /// The text descriptors a disc game can carry.
@@ -621,36 +834,59 @@ final class ROMImporter {
         var cleanup: [URL] = []
         defer { cleanup.forEach { try? FileManager.default.removeItem(at: $0) } }
         let romFileURL: URL
-        if sourceURL.pathExtension.lowercased() == "zip" {
-            let tempZip = FileManager.default.temporaryDirectory.appendingPathComponent(sourceURL.lastPathComponent)
-            try? FileManager.default.removeItem(at: tempZip)
-            try FileManager.default.copyItem(at: sourceURL, to: tempZip)
-            cleanup.append(tempZip)
+        if GameArchive.isArchive(sourceURL) {
+            // Its own folder under the import scratch (`GameArchive.stagedCopyURL`).
+            let tempZip: URL
+            do { tempZip = try GameArchive.stagedCopyURL(for: sourceURL) } catch {
+                failureCause = ErrorTelemetry.copyCause(of: error)
+                throw ROMImportError.copyFailed
+            }
+            cleanup.append(tempZip.deletingLastPathComponent())
+            // The app's words on a full phone, not the system's (audit 2026-10-27).
+            do { try FileManager.default.copyItem(at: sourceURL, to: tempZip) } catch {
+                failureCause = ErrorTelemetry.copyCause(of: error)
+                throw ROMImportError.copyFailed
+            }
 
             let entryNames: [String]
             do {
-                entryNames = try ZIPExtractor.romEntryNames(in: tempZip)
+                entryNames = try GameArchive.romEntryNames(in: tempZip)
             } catch {
-                throw importError(for: error)
+                throw archiveError(error, archive: tempZip)
             }
-            guard !entryNames.isEmpty else { throw ROMImportError.zipNoGBA }
+            guard !entryNames.isEmpty else { throw noGameError(archive: tempZip) }
 
             // The target game is known here, so a multi-ROM zip needs no
             // picker: auto-select the entry whose hash matches the game
             // being repaired. No match at all = every entry is some other
             // game, the same situation .differentGame already describes.
+            // Each entry that is not the game is removed before the next is
+            // written, and a full phone is said as such: before, every entry
+            // tried stayed in tmp until the end (the space needed was their
+            // sum) and an extraction that failed for want of space was skipped,
+            // so the repair ended on "a different game" (audit, 2026-10-30).
             var matched: URL?
             for name in entryNames {
-                guard let extracted = try? ZIPExtractor.extractROM(named: name, from: tempZip) else { continue }
-                cleanup.append(extracted.deletingLastPathComponent())
+                let extracted: URL
+                do {
+                    extracted = try GameArchive.extractROM(named: name, from: tempZip)
+                } catch where ErrorTelemetry.copyCause(of: error) == .diskFull {
+                    failureCause = .diskFull
+                    throw ROMImportError.copyFailed
+                } catch {
+                    continue
+                }
+                let folder = extracted.deletingLastPathComponent()
                 // A Mega Drive `.bin` hashes as the cartridge it is, as at
                 // import; without the hint it hashed as a PlayStation disc and
                 // never matched, so the repair said "a different game".
                 let hint: ROMSystemType? = GBAROMParser.isMegaDriveBin(url: extracted) ? .md : nil
                 if GBAROMParser.parse(fileURL: extracted, systemHint: hint)?.sha256 == storedHash {
+                    cleanup.append(folder)
                     matched = extracted
                     break
                 }
+                try? FileManager.default.removeItem(at: folder)
             }
             guard let matched else { throw ROMImportError.differentGame }
             romFileURL = matched
@@ -675,7 +911,11 @@ final class ROMImporter {
         let destURL = romsDir.appendingPathComponent(storedFilename)
         let tmp = destURL.appendingPathExtension("replacing")
         try? FileManager.default.removeItem(at: tmp)
-        try FileManager.default.copyItem(at: romFileURL, to: tmp)
+        do { try FileManager.default.copyItem(at: romFileURL, to: tmp) } catch {
+            failureCause = ErrorTelemetry.copyCause(of: error)
+            try? FileManager.default.removeItem(at: tmp)
+            throw ROMImportError.copyFailed
+        }
         try verifyCopyComplete(source: romFileURL, dest: tmp)
         try? FileManager.default.removeItem(at: destURL)
         try FileManager.default.moveItem(at: tmp, to: destURL)
@@ -704,11 +944,61 @@ final class ROMImporter {
 
     // MARK: - ZIP Import
 
+    /// `importError`, with a full phone also recorded as the telemetry cause:
+    /// without it the alert said "free up storage" and TelemetryDeck counted
+    /// `copy_failed` (audit, 2026-10-30).
+    private func archiveError(_ error: Error, archive: URL) -> ROMImportError {
+        if ErrorTelemetry.copyCause(of: error) == .diskFull { failureCause = .diskFull }
+        return importError(for: error, archive: archive)
+    }
+
     private func importZIP(from sourceURL: URL) throws -> NSManagedObjectID {
-        // Copy ZIP to temp for extraction
-        let tempZip = FileManager.default.temporaryDirectory.appendingPathComponent(sourceURL.lastPathComponent)
-        try? FileManager.default.removeItem(at: tempZip)
-        try FileManager.default.copyItem(at: sourceURL, to: tempZip)
+        // WHERE THE ARCHIVE IS READ FROM. A copy in its own scratch folder
+        // (`GameArchive.stagedCopyURL`: never shared with another archive of
+        // the same name, and swept at launch if the app is killed meanwhile),
+        // except where that copy is needless weight (audit, 2026-10-30: an
+        // archive needed twice its size free before a byte was extracted, three
+        // times from AirDrop):
+        //   - a file iOS delivered into our Inbox (AirDrop, Share, Open in) is
+        //     ours already: MOVED into the scratch folder, a rename;
+        //   - a .7z, .rar or tar on this device's own storage, picked in Files,
+        //     is read where it is: libarchive streams it, and the security
+        //     scope `importROM` holds lasts the whole import;
+        //   - a .zip keeps its copy: its reader maps the file, and a mapped
+        //     file someone else can change or delete meanwhile can crash the
+        //     app; so does anything on an external drive or a server.
+        // The selection sheet needs the archive after this returns, when the
+        // scope is gone: one read in place is copied then, for that case only.
+        // One volume of a split archive: said as such, before any copy.
+        if GameArchive.isSplitVolume(sourceURL) { throw ROMImportError.archiveSplit }
+        let fm = FileManager.default
+        let inInbox = Self.isInboxCopy(sourceURL)
+        let readsInPlace = !inInbox && !GameArchive.isMappedWhenRead(sourceURL)
+            && Self.isOnLocalStorage(sourceURL)
+        var tempZip = sourceURL
+        var staged = false
+        /// Removes the archive's scratch copy; never the player's own file.
+        func releaseArchive() { if staged { GameArchive.discardStagedCopy(tempZip) } }
+        func stage() throws {
+            let copy: URL
+            do { copy = try GameArchive.stagedCopyURL(for: sourceURL) } catch {
+                failureCause = ErrorTelemetry.copyCause(of: error)
+                throw ROMImportError.copyFailed
+            }
+            do {
+                if inInbox { try fm.moveItem(at: sourceURL, to: copy) } else { try fm.copyItem(at: sourceURL, to: copy) }
+            } catch {
+                // A full phone, the commonest reason with a 1-2 GB archive: said in
+                // the app's words ("free up storage"), not the system's raw error in
+                // English (audit 2026-10-27), as every other copy here already is.
+                failureCause = ErrorTelemetry.copyCause(of: error)
+                GameArchive.discardStagedCopy(copy)
+                throw ROMImportError.copyFailed
+            }
+            tempZip = copy
+            staged = true
+        }
+        if !readsInPlace { try stage() }
 
         // GAMES, not files. An archive holding one PlayStation disc holds it in
         // as many pieces as the disc had tracks: Tomb Raider is a `.cue` and
@@ -717,21 +1007,21 @@ final class ROMImporter {
         // so this costs a few hundred bytes whatever the archive weighs.
         let games: (discs: [DiscNameGroup], cartridges: [String], gaps: [DiscNameGap])
         do {
-            games = try ZIPExtractor.gameEntries(in: tempZip)
+            games = try GameArchive.gameEntries(in: tempZip)
         } catch {
-            try? FileManager.default.removeItem(at: tempZip)
-            throw importError(for: error)
+            releaseArchive()
+            throw archiveError(error, archive: tempZip)
         }
 
         if let gap = games.gaps.first, games.discs.isEmpty, games.cartridges.isEmpty {
-            try? FileManager.default.removeItem(at: tempZip)
+            releaseArchive()
             throw ROMImportError.discMissingFiles(names: gap.missing)
         }
 
         let total = games.discs.count + games.cartridges.count
         guard total > 0 else {
-            try? FileManager.default.removeItem(at: tempZip)
-            throw ROMImportError.zipNoGBA
+            releaseArchive()
+            throw noGameError(archive: tempZip)
         }
 
         // Several GAMES: hand the temp copy to the caller so the user can pick
@@ -740,12 +1030,13 @@ final class ROMImporter {
         // is given is one name per game, the boot file for a disc, so choosing
         // "Tomb Raider" quietly brings its fifty-eight files with it.
         guard total == 1 else {
+            if !staged { try stage() }
             cleanupInboxFile(sourceURL)
             let names = games.discs.map(\.boot) + games.cartridges
             throw ROMImportError.zipNeedsSelection(tempZipURL: tempZip, entryNames: names)
         }
 
-        defer { try? FileManager.default.removeItem(at: tempZip) }
+        defer { releaseArchive() }
         let id: NSManagedObjectID
         if let disc = games.discs.first {
             id = try importDiscGroup(disc, fromZip: tempZip, method: "picker")
@@ -754,6 +1045,23 @@ final class ROMImporter {
         }
         cleanupInboxFile(sourceURL)
         return id
+    }
+
+    /// Whether iOS delivered this file into our own Inbox (AirDrop, Share, Open in).
+    static func isInboxCopy(_ url: URL) -> Bool {
+        let inbox = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Inbox").standardizedFileURL.path
+        return url.standardizedFileURL.path.hasPrefix(inbox + "/")
+    }
+
+    /// Whether the file is on the same volume as the app's own temporary
+    /// folder: this device's storage, not an external drive or a server, whose
+    /// reads can stall or fail mid-way.
+    static func isOnLocalStorage(_ url: URL) -> Bool {
+        let key: URLResourceKey = .volumeIdentifierKey
+        guard let here = try? FileManager.default.temporaryDirectory.resourceValues(forKeys: [key]).volumeIdentifier,
+              let there = try? url.resourceValues(forKeys: [key]).volumeIdentifier else { return false }
+        return here.isEqual(there)
     }
 
     /// Import one disc game out of an archive: extract the files it is made of
@@ -768,16 +1076,16 @@ final class ROMImporter {
                                  method: String) throws -> NSManagedObjectID {
         let extracted: [URL]
         do {
-            extracted = try ZIPExtractor.extractEntries(named: group.members, from: tempZip)
+            extracted = try GameArchive.extractEntries(named: group.members, from: tempZip)
         } catch {
-            throw importError(for: error)
+            throw archiveError(error, archive: tempZip)
         }
         let staging = extracted.first?.deletingLastPathComponent()
         defer { if let staging { try? FileManager.default.removeItem(at: staging) } }
 
         let bootName = URL(fileURLWithPath: group.boot).lastPathComponent
         guard let boot = extracted.first(where: { $0.lastPathComponent == bootName }) else {
-            throw ROMImportError.zipExtractionFailed
+            throw importError(for: ZIPExtractorError.extractionFailed, archive: tempZip)
         }
         // The playlist decision travels with the group: an archive holding three
         // `.chd` files of one game is the same case as three picked files, and
@@ -800,13 +1108,13 @@ final class ROMImporter {
     /// Success signals fire per entry inside createGameEntry.
     func importZIPSelection(entryNames: [String], fromTempZip tempZip: URL)
         -> (failures: [ZipEntryFailure], duplicates: [String]) {
-        defer { try? FileManager.default.removeItem(at: tempZip) }
+        defer { GameArchive.discardStagedCopy(tempZip) }
         // Re-grouped rather than remembered: the sheet hands back the names it
         // was given, and a disc's boot file has to be expanded into its parts
         // again. Re-reading a few hundred bytes of descriptor is cheaper than
         // carrying a parallel structure through the picker and keeping the two
         // in step.
-        let games = (try? ZIPExtractor.gameEntries(in: tempZip))
+        let games = (try? GameArchive.gameEntries(in: tempZip))
         let discsByBoot = Dictionary((games?.discs ?? []).map { ($0.boot, $0) },
                                      uniquingKeysWith: { a, _ in a })
 
@@ -842,7 +1150,7 @@ final class ROMImporter {
 
     /// Cancel path of the zip picker: drop the temp copy importZIP staged.
     static func discardZIPSelection(tempZipURL: URL) {
-        try? FileManager.default.removeItem(at: tempZipURL)
+        GameArchive.discardStagedCopy(tempZipURL)
     }
 
     /// Extract one entry of the archive, validate it, copy it into ROMs/ and
@@ -857,11 +1165,17 @@ final class ROMImporter {
     private func importEntry(named name: String, fromZip tempZip: URL) throws -> NSManagedObjectID {
         let extractedURL: URL
         do {
-            extractedURL = try ZIPExtractor.extractROM(named: name, from: tempZip)
+            extractedURL = try GameArchive.extractROM(named: name, from: tempZip)
         } catch {
-            throw importError(for: error)
+            throw archiveError(error, archive: tempZip)
         }
         defer { try? FileManager.default.removeItem(at: extractedURL.deletingLastPathComponent()) }
+
+        // An encrypted 3DS game out of an archive is said to be, as a loose one is.
+        if ROMSystemType.from(fileExtension: extractedURL.pathExtension)?.isCTR == true,
+           CTRGameProbeRead(extractedURL.path) == CTRGameProbeEncrypted {
+            throw ROMImportError.ctrEncrypted
+        }
 
         // Validate (GBA, GB, GBC, NDS)
         guard GBAROMParser.isValidROMFile(url: extractedURL) else {
@@ -869,11 +1183,20 @@ final class ROMImporter {
             throw ROMImportError.invalidROM
         }
 
-        // Copy to ROMs directory (a Mega Drive `.bin` as `.md`, as when picked loose)
+        // Moved to ROMs/ (a Mega Drive `.bin` as `.md`, as when picked loose):
+        // the extracted file is this import's own, in tmp, on the same volume,
+        // so a move is a rename and no second copy of the game is written.
+        // Copied, a 4 GB 3DS game needed its size three times over (the
+        // archive, the extraction, the library copy; audit, 2026-10-29), as
+        // the disc path already avoids (`movingMembers`). A rename moves no
+        // bytes, so there is no size to verify.
         let filename = GBAROMParser.storedCartridgeName(for: extractedURL)
         let destURL = Self.uniqueDestination(for: romsDir.appendingPathComponent(filename))
-        try FileManager.default.copyItem(at: extractedURL, to: destURL)
-        try verifyCopyComplete(source: extractedURL, dest: destURL)
+        do { try FileManager.default.moveItem(at: extractedURL, to: destURL) } catch {
+            failureCause = ErrorTelemetry.copyCause(of: error)
+            try? FileManager.default.removeItem(at: destURL)
+            throw ROMImportError.copyFailed
+        }
 
         // The title from the game's own name, as for a loose file: " 2" is
         // only how it is STORED beside a game of the same name, and a console
@@ -948,6 +1271,19 @@ final class ROMImporter {
     /// `romFilePath` stores a RELATIVE PATH (`<folder>/<boot>`) rather than a
     /// bare filename, which is what every reader resolves against `ROMs/`
     /// anyway and what makes the folder the game's identity.
+    /// The TITLE a PBP's PARAM.SFO carries, trimmed, or nil (see
+    /// `PSPDiscProbeReadPBPTitle`). The field is 128 bytes on the PSP.
+    static func pbpTitle(_ url: URL) -> String? {
+        let capacity = 512
+        var buffer = [CChar](repeating: 0, count: capacity)
+        let found = url.withUnsafeFileSystemRepresentation { path in
+            path.map { PSPDiscProbeReadPBPTitle($0, &buffer, capacity) } ?? false
+        }
+        guard found else { return nil }
+        let title = String(cString: buffer).trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
+    }
+
     private func createDiscEntry(boot: URL,
                                  relativePath: String,
                                  system: ROMSystemType,
@@ -959,6 +1295,13 @@ final class ROMImporter {
         let rawTitle = boot.deletingPathExtension().lastPathComponent
             .replacingOccurrences(of: "_", with: " ")
         var title = Self.cleanGameTitle(rawTitle)
+        // Every PSP EBOOT is named `EBOOT.PBP`: two of them were two games called
+        // "Eboot" (audit 2026-10-27). Its real name is the TITLE in its PARAM.SFO;
+        // the file name stays the fallback for a PBP that carries none.
+        if system == .psp, boot.pathExtension.lowercased() == "pbp",
+           let sfoTitle = Self.pbpTitle(boot) {
+            title = sfoTitle
+        }
         // A disc that is a game of its own (each UMD of a PSP game, which
         // stays separate) keeps its number: the cleaning drops every
         // parenthesis, and two discs showed as two identical rows (audit

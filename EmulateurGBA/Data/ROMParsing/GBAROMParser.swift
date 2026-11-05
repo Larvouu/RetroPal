@@ -40,6 +40,10 @@ enum ROMSystemType: String {
     case sms = "sms"
     case gg = "gg"
     case psp = "psp"
+    /// The Nintendo 3DS (2026-10-19, CTRBridge). "n3ds", not "3ds": the raw
+    /// value is also the console's key in stored data and folder names, and an
+    /// identifier cannot start with a digit.
+    case n3ds = "n3ds"
 
     /// The PlayStation's formats, and the first ones here that are DISCS.
     ///
@@ -79,6 +83,18 @@ enum ROMSystemType: String {
     /// like an `.iso`: a UMD made into a `.chd` holds 2048-byte sectors, a
     /// PlayStation one raw CD sectors (`PSPDiscProbe`).
     static let pspFileExtensions: Set<String> = ["iso", "cso", "pbp", "chd"]
+
+    /// The Nintendo 3DS's formats (2026-10-19): `.3ds` / `.cci` (a cartridge
+    /// image, NCSD), `.cxi` (one of its partitions, NCCH) and `.3dsx` (a
+    /// homebrew executable). Only DECRYPTED ones: Azahar reads no other, and
+    /// Retro Pal ships no console keys, so `CTRGameProbe` reads the game's own
+    /// header and an encrypted file is refused at import, by name
+    /// (`ROMImportError.ctrEncrypted`). `.cia` (an installable package) is not
+    /// offered: the core would install it into the emulated console rather
+    /// than run it, which the app does not model. One file per game, so the
+    /// cartridge path, but up to 4 GB of it, so the identity hash is bounded
+    /// (`hashesBounded`).
+    static let ctrFileExtensions: Set<String> = ["3ds", "cci", "cxi", "3dsx"]
 
     /// Every extension the importer takes down the DISC path: the PlayStation's
     /// and the PSP's. The two gates that route a file (the importer and the
@@ -121,6 +137,7 @@ enum ROMSystemType: String {
         // the PlayStation and fall to the default below: only the file's bytes
         // can tell them apart (`resolve(url:)`).
         case "cso":          return .psp
+        case "3ds", "cci", "cxi", "3dsx": return .n3ds
         default:
             return discFileExtensions.contains(ext.lowercased()) ? .ps1 : nil
         }
@@ -143,13 +160,18 @@ enum ROMSystemType: String {
     /// image is the game and the descriptor travels with it, the way a `.sbi`
     /// does. The grouper still names a missing `.img` rather than dropping a
     /// lone `.ccd` silently.
-    static let discSidecarExtensions: Set<String> = ["sbi", "sub", "ccd"]
+    /// `.mds` joined 2026-10-27: the Alcohol 120% descriptor of a `.mdf`,
+    /// found by the core next to its image by name (`parsemds`, cdriso.c),
+    /// which it needs to read a `.mdf` dumped with subchannel data (2448-byte
+    /// sectors); without it the core reads 2352. It travels with its image.
+    static let discSidecarExtensions: Set<String> = ["sbi", "sub", "ccd", "mds"]
 
     /// Everything the file pickers offer. Sidecars are included so they can be
     /// selected ALONGSIDE their disc; the grouper drops any that arrive alone.
     static let allFileExtensions: [String] =
         ["gba", "gb", "gbc", "nds", "sfc", "smc", "nes", "z64", "n64", "v64", "md", "gen", "smd",
          "sms", "gg"]
+        + ctrFileExtensions.sorted()
         + importsAsDisc.sorted() + discSidecarExtensions.sorted()
 
     /// The extension a cartridge of this console is stored under when it
@@ -167,7 +189,9 @@ enum ROMSystemType: String {
         case .md:  return "md"
         case .sms: return "sms"
         case .gg:  return "gg"
-        case .ps1, .psp: return nil
+        // A 3DS game is never renamed: each of its four extensions is its
+        // own, and none is another console's.
+        case .ps1, .psp, .n3ds: return nil
         }
     }
 
@@ -176,6 +200,19 @@ enum ROMSystemType: String {
     /// is one: a UMD is a disc, its image is up to 1.8 GB, and the disc path
     /// is what copies, hashes and stages a file that size safely.
     var isDiscBased: Bool { self == .ps1 || self == .psp }
+
+    /// Whether a game's identity hash reads a bounded prefix (plus its size)
+    /// rather than the whole file: the disc consoles, and the 3DS, whose one
+    /// file runs to 4 GB and would be read whole on every import, duplicate
+    /// probe and post-copy check (`identityHash`). Separate from
+    /// `isDiscBased` on purpose: a 3DS game is one file in ROMs/, and none of
+    /// the disc path (a folder per game, tracks, discs of one game) applies.
+    var hashesBounded: Bool { isDiscBased || self == .n3ds }
+
+    /// Whether the file is checked by its own header WITHOUT being mapped:
+    /// a 3DS image is gigabytes and its header is two 512-byte blocks
+    /// (`CTRGameProbe`), and a decrypted one is all the core reads.
+    var isCTR: Bool { self == .n3ds }
 
     /// The console a file on disk belongs to, reading it when its extension
     /// is shared: a PSP `.iso` or `.pbp` is a PSP game, the same extensions
@@ -307,6 +344,30 @@ enum GBAROMParser {
         return isBootableDiscImage(head: head, fileExtension: url.pathExtension)
     }
 
+    /// Whether this `.mdf`'s first bytes are a 2448-byte layout (sectors with
+    /// subchannel data), which the core reads correctly only through the
+    /// `.mds` beside it: alone it reads 2352-byte sectors and boots to nothing
+    /// (audit 2026-10-27). False for a `.mdf` laid out as 2352 or 2048, which
+    /// the core reads alone.
+    static func mdfNeedsItsDescriptor(url: URL) -> Bool {
+        guard url.pathExtension.lowercased() == "mdf",
+              let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 16 * 2448 + 32) else { return false }
+        return mdfNeedsItsDescriptor(head: head)
+    }
+
+    static func mdfNeedsItsDescriptor(head: Data) -> Bool {
+        let bytes = [UInt8](head)
+        let volume: [UInt8] = [0x01] + Array("CD001".utf8)
+        func has(at offset: Int) -> Bool {
+            offset + volume.count <= bytes.count && Array(bytes[offset..<(offset + volume.count)]) == volume
+        }
+        let alone = [(2048, 0), (2352, 16), (2352, 24), (2336, 8)].contains { has(at: 16 * $0.0 + $0.1) }
+        let subchannel = [(2448, 16), (2448, 24)].contains { has(at: 16 * $0.0 + $0.1) }
+        return subchannel && !alone
+    }
+
     /// The same test on the first bytes of the file (`isBootableDiscImage(url:)`).
     static func isBootableDiscImage(head: Data, fileExtension ext: String) -> Bool {
         let bytes = [UInt8](head)
@@ -359,7 +420,7 @@ enum GBAROMParser {
         let base = url.deletingPathExtension().lastPathComponent
         if isMegaDriveBin(url: url) { return base + ".md" }
         guard let named = ROMSystemType.from(fileExtension: url.pathExtension),
-              !named.isDiscBased,
+              !named.isDiscBased, !named.isCTR,
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let actual = resolveSystem(data: data, hint: named),
               actual != named,
@@ -432,6 +493,13 @@ enum GBAROMParser {
         // A PSP image carries its name in PARAM.SFO, inside the image's own
         // filesystem, as a PlayStation disc carries its SYSTEM.CNF: the
         // importer's filename fallback names it, as it names the PlayStation's.
+        // A 3DS image names its game in the SMDH icon data inside its ExeFS,
+        // behind the NCSD and NCCH headers: phase 1 lets the filename name it,
+        // as the discs do. Its product code (CTR-P-AJRP) is read for box art
+        // alone (`ctrProductCode`), where the index knows it.
+        case .n3ds:
+            title = ""
+            gameCode = ""
         case .ps1, .psp:
             // A disc carries both, and neither is at an offset. The name and
             // the serial (SCUS-94900 and the like) live in a SYSTEM.CNF inside
@@ -458,6 +526,7 @@ enum GBAROMParser {
     /// bytes — the code survives renaming AND NDS trimming, which is what
     /// box-art matching uses it for.
     static func gameCode(url: URL, system: ROMSystemType) -> String? {
+        if system == .n3ds { return ctrProductCode(url: url) }
         guard system == .gba || system == .nds || system == .n64,
               let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -471,6 +540,28 @@ enum GBAROMParser {
         default:   code = readASCII(header, 0x00C, 0x010)
         }
         return code.count >= 3 ? code : nil
+    }
+
+    /// The 3DS game's product code ("CTR-P-BNDA"), its NCCH header's 16 bytes
+    /// at 0x150 (Azahar's NCCH_Header.product_code), which the No-Intro DAT
+    /// lists as the release's serial. The NCCH is the file for a `.cxi`, the
+    /// first partition of a `.3ds` / `.cci` (an NCSD, whose partition table
+    /// at 0x120 gives it in 0x200-byte units, `CTRGameProbe`). Two small
+    /// reads: a 3DS image is gigabytes. nil for a `.3dsx` and anything else.
+    static func ctrProductCode(url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 0x200), head.count == 0x200 else { return nil }
+        var base: UInt64 = 0
+        if head.subdata(in: 0x100..<0x104) == Data("NCSD".utf8) {
+            let units = head.subdata(in: 0x120..<0x124).withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+            base = UInt64(UInt32(littleEndian: units)) * 0x200
+        }
+        guard (try? handle.seek(toOffset: base)) != nil,
+              let ncch = try? handle.read(upToCount: 0x200), ncch.count == 0x200,
+              ncch.subdata(in: 0x100..<0x104) == Data("NCCH".utf8) else { return nil }
+        let code = readASCII(ncch, 0x150, 0x160)
+        return code.hasPrefix("CTR-") ? code : nil
     }
 
     /// Reads just the internal header title (offsets as in parse(data:)).
@@ -511,7 +602,7 @@ enum GBAROMParser {
         // is box-art matching, which asks "does the library title merely echo
         // the header?" — and with no header title there is no echo to find,
         // which is a correct answer rather than a missing one.
-        case .ps1, .psp: title = ""
+        case .ps1, .psp, .n3ds: title = ""
         }
         return title.isEmpty ? nil : title
     }
@@ -553,6 +644,11 @@ enum GBAROMParser {
         // parser's. Trusting the extension here is therefore not laziness, it
         // is declining to give a confident wrong answer.
         if let hint = hint, hint.isDiscBased { return hint }
+        // A 3DS image is checked by its own header (CTRGameProbe), on the file,
+        // in `isValidROMFile` and the importer; never by the cartridge
+        // sniffers below, where a gigabyte image could match the GBA's
+        // one-byte test by chance.
+        if let hint = hint, hint.isCTR { return hint }
 
         if let hint = hint, isValidFile(data: data, system: hint) {
             return hint
@@ -602,6 +698,10 @@ enum GBAROMParser {
         // safe direction: `resolveSystem` falls through to its sniffers and
         // then returns the hint regardless, so a disc still resolves to .ps1.
         case .ps1, .psp: return false
+        // The 3DS has a real test, but on the FILE (CTRGameProbe, two header
+        // blocks), never on mapped bytes: `resolveSystem` returns its hint
+        // before this, as for a disc.
+        case .n3ds: return false
         }
     }
 
@@ -993,6 +1093,12 @@ enum GBAROMParser {
         if ROMSystemType.from(fileExtension: url.pathExtension)?.isDiscBased == true {
             return true
         }
+        // A 3DS game: its own header, read without mapping the image, and
+        // DECRYPTED. An encrypted one is not a game Retro Pal can run; the
+        // importer asks the probe again to say so by name.
+        if ROMSystemType.from(fileExtension: url.pathExtension)?.isCTR == true {
+            return CTRGameProbeRead(url.path) == CTRGameProbeDecrypted
+        }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
         // The Master System and the Game Gear have no magic to sniff
         // (`isValidSMSFile`), so for their two extensions the extension
@@ -1107,8 +1213,17 @@ enum GBAROMParser {
     /// deliberately does the opposite: it identifies a FILE, because its job is
     /// to stop the same file being imported twice.
     private static func identityHash(data: Data, fileSize: Int64, system: ROMSystemType) -> String {
-        guard system.isDiscBased else { return sha256(data: data) }
+        guard system.hashesBounded else { return sha256(data: data) }
         let prefix = data.prefix(discHashPrefixBytes)
+        // The 3DS has its own seed: a key once given to stored games never
+        // changes, and the 3DS's are new. Four megabytes of a 3DS image are
+        // its NCSD and NCCH headers and the start of its ExeFS, which differ
+        // between two games and between two revisions of one.
+        if system == .n3ds {
+            var seed = Data("n3ds:\(fileSize):".utf8)
+            seed.append(prefix)
+            return sha256(data: seed)
+        }
         // "ps1-disc" for the PSP's images too, deliberately: renaming the seed
         // would re-key every PlayStation game already in a library and let the
         // same disc in twice. A PSP image and a PlayStation disc never share

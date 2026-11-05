@@ -57,45 +57,43 @@ struct WhatsNewContent {
     /// here without touching the sheet.
     var wearsTheNewLook: Bool = false
 
-    /// The CURRENT release's notes, written 2026-10-09 for 1.3.4. Every bullet
+    /// The CURRENT release's notes, written 2026-10-29 for 1.3.5. Every bullet
     /// describes something in the tree; nothing here is planned. **This release
     /// must not submit while these notes describe less than it ships** (the
     /// once-per-update gate compares against `version`, so stale notes fail
-    /// silent rather than loudly). Each `{PRO}` names what it gates: the
-    /// cheats on the four consoles, their custom skins (creating one is Pro;
-    /// the token was missing until the 2026-10-12 audit), the Nintendo 64's 30
-    /// seconds, the 10-second tap with its 30-second long press. Numbers are measured ones
-    /// (rewritten 2026-10-11, his ask: specific, with numbers): N64 states 9 to
-    /// 13 times smaller (said "about ten"), Low Power Mode 13 to 18 % less work
-    /// per frame (said "up to 18%").
+    /// silent rather than loudly). Each `{PRO}` names what it gates: the 3DS's
+    /// cheat codes and custom skins, as on every console. The Retro story,
+    /// its badges and its year in review are free; Pro only adds the crown
+    /// line on their shared images, which is not worth a bullet.
     ///
-    /// The 1.3.3 sections were removed rather than left in place: a leftover
+    /// The 1.3.4 sections were removed rather than left in place: a leftover
     /// section is copy about a release the player already has.
     ///
-    /// Ordered by what a player gains: the four consoles first because they
-    /// ARE the release, then the Nintendo 64 the last release brought, then the
-    /// look, then the rest, the new consoles' dresses included (2026-10-11).
+    /// Ordered by what a player gains: the 3DS first because it IS the
+    /// release, then the Retro story, the second thing a player will notice,
+    /// then the look and the controls, then the rest.
     ///
     /// ⚠ THE PRO NOTICE IS GONE, and its absence is a decision (decided on device,
     /// 2026-08-27). Do not reinstate it, and do not replace it with a "prices
     /// have changed" line.
     static let current = WhatsNewContent(
-        version: "1.3.4",
+        version: "1.3.5",
         noticeKey: nil,
         sections: [
-            // The four new consoles, with their drawings, as the Nintendo 64 had its own.
+            // The new console, with its drawing, as the four of 1.3.4 had theirs.
             ContentSection(titleKey: "whatsnew.s1.title",
                            bulletKeys: ["whatsnew.s1.b1", "whatsnew.s1.b2", "whatsnew.s1.b3",
                                         "whatsnew.s1.b4"],
-                           artNames: ["console-md", "console-sms", "console-gg", "console-psp"]),
+                           artNames: ["console-n3ds"]),
             ContentSection(titleKey: "whatsnew.s2.title",
                            bulletKeys: ["whatsnew.s2.b1", "whatsnew.s2.b2", "whatsnew.s2.b3"]),
             ContentSection(titleKey: "whatsnew.s3.title",
-                           bulletKeys: ["whatsnew.s3.b1"]),
+                           bulletKeys: ["whatsnew.s3.b1", "whatsnew.s3.b2", "whatsnew.s3.b3",
+                                        "whatsnew.s3.b4"]),
             ContentSection(titleKey: "whatsnew.s4.title",
                            bulletKeys: ["whatsnew.s4.b1", "whatsnew.s4.b2", "whatsnew.s4.b3",
                                         "whatsnew.s4.b4", "whatsnew.s4.b5", "whatsnew.s4.b6",
-                                        "whatsnew.s4.b7", "whatsnew.s4.b8"]),
+                                        "whatsnew.s4.b7"]),
         ],
         // The app wears the look everywhere since 1.3.1; its notes keep it.
         wearsTheNewLook: true

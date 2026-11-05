@@ -534,6 +534,70 @@ struct PSPSkinPalette: Equatable, Codable {
                                          glass: true)
 }
 
+// MARK: - Nintendo 3DS (9 slots)
+
+/// The 3DS's dress (2026-10-20, asked: "the NDS look"). The 3DS wears the DS's
+/// dress SHAPES (its body, the rim round each screen, the recessed seats, the
+/// MIC decal, the light, the brand), so that code reads it through `asNDS`;
+/// what is its own is read here: the four faces, each a colour of its own on
+/// the small New 3DS (red A, yellow B, blue X, green Y, the Super Famicom's),
+/// the two sticks, and the shoulders.
+/// `DressVariant.isCTR` asks for THIS type, so a custom skin keeps every piece
+/// that is the 3DS's.
+///
+/// What is NOT a slot: each face's letter, its own face darkened (the Super
+/// Nintendo's rule, `SNESTouchControlsView.labelDarkening`), and the dress
+/// structure, derived from the body as on the DS.
+struct N3DSSkinPalette: Equatable, Codable {
+    var bodyHex: UInt32       // the shell, the seats, the rims and grooves (derived)
+    var buttonsHex: UInt32    // the cross, SELECT/START, MENU/CLIP, MIC at rest
+    var lettersHex: UInt32    // L/R/ZL/ZR letters, the cross's lines
+    var iconsHex: UInt32      // the MENU/CLIP glyphs
+    var faceAHex: UInt32
+    var faceBHex: UInt32
+    var faceXHex: UInt32
+    var faceYHex: UInt32
+    var sticksHex: UInt32     // the circle pad and the C-stick
+
+    var body: UIColor    { UIColor(rpHex: bodyHex) }
+    var buttons: UIColor { UIColor(rpHex: buttonsHex) }
+    var letters: UIColor { UIColor(rpHex: lettersHex) }
+    var icons: UIColor   { UIColor(rpHex: iconsHex) }
+    var faceA: UIColor   { UIColor(rpHex: faceAHex) }
+    var faceB: UIColor   { UIColor(rpHex: faceBHex) }
+    var faceX: UIColor   { UIColor(rpHex: faceXHex) }
+    var faceY: UIColor   { UIColor(rpHex: faceYHex) }
+    var sticks: UIColor  { UIColor(rpHex: sticksHex) }
+
+    var isWithinHexRange: Bool {
+        [bodyHex, buttonsHex, lettersHex, iconsHex, faceAHex, faceBHex, faceXHex, faceYHex, sticksHex]
+            .allSatisfy { $0 <= 0xFFFFFF }
+    }
+
+    /// The DS palette the shared dress code reads. The light is the DS's green.
+    var asNDS: NDSSkinPalette {
+        NDSSkinPalette(bodyHex: bodyHex, buttonsHex: buttonsHex, lettersHex: lettersHex,
+                       iconsHex: iconsHex, ledHex: NDSSkinPalette.nostalgia.ledHex)
+    }
+
+    /// Nostalgia (his colours, 2026-10-21): one dark grey for the shell and
+    /// every control on it (#474948), one light grey for what is printed or
+    /// moulded apart (#BABCBE): the two sticks, the letters on A B X Y and the
+    /// line on each arrow of the cross. The controls read by their relief.
+    static let nostalgia = N3DSSkinPalette(
+        bodyHex: 0x474948, buttonsHex: 0x474948, lettersHex: 0xBABCBE, iconsHex: 0xBABCBE,
+        faceAHex: 0x474948, faceBHex: 0x474948, faceXHex: 0x474948, faceYHex: 0x474948,
+        sticksHex: 0xBABCBE)
+    /// Retro Pal (his colours, 2026-10-21): the shell and its controls in
+    /// #6BBCDF's hue taken much darker (#274F61: 198 degrees, 38 % brightness),
+    /// the plastic grain of the other dresses (a metal finish was tried the same
+    /// day and dropped), the sticks, the letters and the cross's lines in #EDEFEE.
+    static let retroPal = N3DSSkinPalette(
+        bodyHex: 0x274F61, buttonsHex: 0x274F61, lettersHex: 0xEDEFEE, iconsHex: 0xEDEFEE,
+        faceAHex: 0x274F61, faceBHex: 0x274F61, faceXHex: 0x274F61, faceYHex: 0x274F61,
+        sticksHex: 0xEDEFEE)
+}
+
 // MARK: - The console-tagged palette
 
 enum SkinPalette: Equatable, Codable {
@@ -548,6 +612,7 @@ enum SkinPalette: Equatable, Codable {
     case sms(SMSSkinPalette)
     case gg(GGSkinPalette)
     case psp(PSPSkinPalette)
+    case n3ds(N3DSSkinPalette)
 
     /// The console this palette belongs to (must match the owning CustomSkin's system).
     var system: PresetSystem {
@@ -563,6 +628,7 @@ enum SkinPalette: Equatable, Codable {
         case .sms: return .sms
         case .gg: return .gg
         case .psp: return .psp
+        case .n3ds: return .n3ds
         }
     }
 
@@ -579,6 +645,7 @@ enum SkinPalette: Equatable, Codable {
         case .sms(let p): return p.isWithinHexRange
         case .gg(let p): return p.isWithinHexRange
         case .psp(let p): return p.isWithinHexRange
+        case .n3ds(let p): return p.isWithinHexRange
         }
     }
 
@@ -596,6 +663,7 @@ enum SkinPalette: Equatable, Codable {
         case .sms: return .sms(.nostalgia)
         case .gg: return .gg(.nostalgia)
         case .psp: return .psp(.nostalgia)
+        case .n3ds: return .n3ds(.nostalgia)
         }
     }
 }

@@ -5,13 +5,12 @@
 "tab.settings" = "設定";
 
 /* Library */
-"library.title" = "ライブラリ";
 "library.empty.title" = "Retro Pal へようこそ";
 "library.empty.subtitle" = "レトロゲームを iPhone で。広告なし、個人の追跡もありません。";
 "library.empty.subtitle.ipad" = "レトロゲームを iPad で。広告なし、個人の追跡もありません。";
 "library.empty.button" = "ゲームを追加";
-"library.empty.step1" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg、.chd、.iso、.cso、.pbp)を Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
-"library.empty.step1.ipad" = "ゲームファイル(.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg、.chd、.iso、.cso、.pbp)を Safari、AirDrop、iCloud Drive などで iPad に取り込みます。";
+"library.empty.step1" = "ゲームを Safari、AirDrop、iCloud Drive などで iPhone に取り込みます。";
+"library.empty.step1.ipad" = "ゲームを Safari、AirDrop、iCloud Drive などで iPad に取り込みます。";
 "library.empty.step2" = "%@ をタップして、「ファイル」アプリでファイルを選びます。";
 "library.empty.step3" = "あとは遊ぶだけ。進行状況は自動で保存されます";
 "library.empty.romHint" = "ゲームをお持ちでない場合も、無料で合法なゲームが多数あります。「GBA homebrew」で検索してみてください。";
@@ -27,14 +26,10 @@
 "library.played.ago" = "%@にプレイ";
 "library.playTime" = "プレイ時間 %@時間%@分";
 "library.playTime.minutes" = "プレイ時間 %@分";
-"library.stats.title" = "統計";
 "library.stats.topGames" = "よく遊ぶゲーム";
 "library.stats.totalTime" = "合計時間";
 "library.stats.gamesPlayed" = "遊んだゲーム";
 "library.stats.sessions" = "プレイ回数";
-"library.stats.favoriteConsole" = "よく遊ぶ機種";
-"library.stats.duration" = "%@時間%@分";
-"library.stats.durationMin" = "%@分";
 
 /* Game Details */
 "details.continue" = "前回の続きから";
@@ -124,7 +119,7 @@
 "settings.core" = "エミュレータコア";
 "settings.engines.footer" = "ライセンス：%@。";
 "settings.engines.footer.patched" = "ライセンス：%@。小さな変更を加えて使用しており、その変更はソースコードとともにパッチファイルとして公開しています。";
-"settings.engines.footer.patches" = "ライセンス：%@。いくつかの変更を加えて使用しており、それらの変更はソースコードとともにパッチファイルとして公開しています。";
+"settings.engines.footer.patches" = "ライセンス：%@。独自の変更を加えて使用しており、それらの変更はソースコードとともにパッチファイルとして公開しています。";
 "settings.rateApp" = "Retro Pal を評価する";
 "review.headline" = "Retro Pal を評価する";
 "review.body" = "ひとつひとつのレビューが私たちの力になり、このプロジェクトを支えています。🙂";
@@ -229,7 +224,7 @@
 "legal.melonds" = "melonDS ライセンス";
 "legal.importantNotice.title" = "重要なお知らせ";
 "legal.aboutApp.title" = "このアプリについて";
-"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS、スーパーファミコン、ファミコン、プレイステーション、ニンテンドウ64、メガドライブ、マスターシステム、ゲームギア、PSP 用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
+"legal.aboutApp.description1" = "Retro Pal は、ゲームボーイアドバンス、ゲームボーイ、ゲームボーイカラー、ニンテンドーDS、スーパーファミコン、ファミコン、プレイステーション、ニンテンドウ64、メガドライブ、マスターシステム、ゲームギア、PSP、ニンテンドー3DS 用ゲームのローカルエミュレータフロントエンドです。ゲームコンテンツのダウンロード、配布、アクセスの提供は一切行いません。ROM ファイルはすべて、ユーザー自身が「ファイル」アプリを通じて端末のストレージから読み込む必要があります。";
 "legal.aboutApp.description2" = "このアプリはゲームカタログを提供せず、ゲームコンテンツを配布せず、著作権で保護された素材のダウンロードを助長することもありません。";
 "legal.privacy.title" = "プライバシー";
 "legal.privacy.description" = "ゲームとセーブデータは端末内に保存されます。アプリの改善のため、Retro Pal は匿名の利用統計のみを送信します。個人データや広告識別子は送信しません。";
@@ -253,6 +248,9 @@
 "legal.ppsspp" = "PPSSPP ライセンス";
 "legal.ppsspp.licenseLine" = "GNU General Public License v2.0 以降（GPL-2.0-or-later）に基づいてライセンスされています";
 "legal.ppsspp.description" = "PPSSPP は PSP エミュレーターで、このアプリでは PSP ゲームのエミュレーションエンジンとして使用しています。PPSSPP のソースコードは [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp) で公開されています";
+"legal.azahar" = "Azahar ライセンス";
+"legal.azahar.licenseLine" = "GNU General Public License v3.0 以降（GPL-3.0-or-later）に基づいてライセンスされています";
+"legal.azahar.description" = "Azahar はニンテンドー3DS エミュレーターで、このアプリではニンテンドー3DS ゲームのエミュレーションエンジンとして使用しています。いくつもの変更を加えており、それらの変更はソースコードとともにパッチファイルとして公開しています。Azahar のソースコードは [https://github.com/azahar-emu/azahar](https://github.com/azahar-emu/azahar) で公開されています";
 "legal.parallelrdp" = "ParaLLEl-RDP ライセンス";
 "legal.parallelrdp.licenseLine" = "MIT ライセンスに基づいてライセンスされています";
 "legal.parallelrdp.description" = "ParaLLEl-RDP は、このアプリでニンテンドウ64 の映像を GPU 上で描画しています。ParaLLEl-RDP のソースコードは [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp) で公開されています";
@@ -262,7 +260,7 @@
 "legal.retropal" = "Retro Pal ライセンス";
 "legal.retropal.licenseLine" = "GNU General Public License v3.0(GPL-3.0)に基づいてライセンスされています";
 "legal.retropal.description" = "Retro Pal の完全なソースコードは [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal) で公開されています。本ソフトウェアは無保証で提供されます。";
-"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)と PCSX-ReARMed(GPL-2.0 以降)を無改変で使用し、MesenCE(GPL-3.0)と PPSSPP(GPL-2.0 以降)にはそれぞれ小さな変更を一点、melonDS(GPL-3.0)と BlastEm(GPL-3.0 以降)にはそれぞれ小さな変更を二点、Mupen64Plus-Next(GPL-2.0 以降)にはいくつかの変更を加えています。Mupen64Plus-Next とあわせて ParaLLEl-RDP(MIT)、信号プロセッサ cxd4(CC0)、MoltenVK(Apache License 2.0)を使用しています。変更はすべてソースコードとあわせてパッチファイルとして公開しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
+"legal.compliance" = "Retro Pal は GNU General Public License v3.0 のもとで配布されています。mGBA(Mozilla Public License 2.0)と PCSX-ReARMed(GPL-2.0 以降)を無改変で使用し、MesenCE(GPL-3.0)には小さな変更を一点、melonDS(GPL-3.0)、BlastEm(GPL-3.0 以降)、PPSSPP(GPL-2.0 以降)にはそれぞれ小さな変更を二点、Mupen64Plus-Next(GPL-2.0 以降)にはいくつかの変更を加えています。Mupen64Plus-Next とあわせて ParaLLEl-RDP(MIT)、信号プロセッサ cxd4(CC0)、MoltenVK(Apache License 2.0)を使用しています。また Azahar(GPL-3.0 以降)にはいくつもの変更を加えて使用しています。変更はすべてソースコードとあわせてパッチファイルとして公開しています。完全な対応ソースコードは上記リポジトリで入手でき、本ソフトウェアは無保証です。";
 "legal.thirdParty.title" = "サードパーティライセンス";
 "legal.thirdParty.caption" = "Retro Pal に含まれるソフトウェアの配布条件である各ライセンスの全文と、そのライセンスを使用しているコンポーネントの一覧です。";
 "legal.thirdParty.usedBy" = "使用しているコンポーネント";
@@ -282,6 +280,8 @@
 "overlay.overwrite.message" = "既存のクイックセーブが置き換えられます。";
 "overlay.save.failed.title" = "スロット%@に保存できませんでした";
 "overlay.save.failed.message" = "このスロットには前のクイックセーブが残っています。もう一度お試しください。それでも失敗する場合は、ストレージの空き容量を増やすか、ほかのアプリを終了してください。";
+"overlay.load.failed.title" = "スロット%@を読み込めませんでした";
+"overlay.load.failed.message" = "このクイックセーブは、以前のバージョンのアプリで作られたか、破損している可能性があります。ゲーム内のセーブデータには影響ありません。そのあとゲームの動きがおかしい場合は、終了してから開き直してください。";
 "overlay.overwrite" = "上書き";
 "overlay.load.confirm.title" = "スロット%@をロードしますか？";
 "overlay.load.confirm.message" = "最後のセーブ以降の進行状況は失われます。";
@@ -289,6 +289,7 @@
 /* Cheats */
 "cheats.hint.gba" = "GameShark、CodeBreaker、Action Replay 形式";
 "cheats.hint.nds" = "Action Replay DS 形式(XXXXXXXX YYYYYYYY)";
+"cheats.hint.n3ds" = "Gateway 形式(XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Game Genie(XXXX-XXXX)または Pro Action Replay 形式";
 "cheats.hint.nes" = "Game Genie(英字)または Pro Action Rocky 形式";
 "cheats.hint.ps1" = "GameShark または Action Replay 形式（XXXXXXXX YYYY）";
@@ -301,6 +302,7 @@
 "cheats.add" = "コードを追加";
 "cheats.invalid.gba" = "認識できないコードです。GameShark、CodeBreaker、Action Replay 形式で入力してください。";
 "cheats.invalid.nds" = "認識できないコードです。Action Replay DS 形式で入力してください：XXXXXXXX YYYYYYYY(1行につき1ペア)。";
+"cheats.invalid.n3ds" = "認識できないコードです。Gateway 形式で入力してください：XXXXXXXX YYYYYYYY(1行につき1ペア)。";
 "cheats.invalid.snes" = "コードを認識できません。Game Genie(XXXX-XXXX)または Pro Action Replay(8文字)を入力してください。";
 "cheats.invalid.nes" = "コードを認識できません。Game Genie(英字6文字または8文字)または Pro Action Rocky(8文字)を入力してください。";
 "cheats.invalid.ps1" = "認識できないコードです。GameShark または Action Replay 形式で入力してください：XXXXXXXX YYYY(1行につき1ペア)。";
@@ -317,6 +319,13 @@
 /* Emulator */
 "emulator.loading" = "ROM を読み込み中…";
 "emulator.loadFailed" = "%@ を読み込めませんでした。\nゲームファイルが破損しているようです。ゲームの詳細画面からファイルを差し替えれば、セーブデータを保持したまま修復できます。";
+"emulator.loadingGame" = "ゲームを読み込み中…";
+"emulator.resumeFailed.title" = "前回のセッションを復元できませんでした";
+"emulator.resumeFailed.message" = "ゲームはタイトル画面から始まりました。前回のセッションは選ぶまで残してあります。あとでもう一度試すなら終了を、タイトル画面から続けるならそちらを選んでください。続けると前回のセッションは置き換わります。";
+"emulator.resumeFailed.loadSlot" = "スロット%@をロード（%@）";
+"emulator.resumeFailed.titleScreen" = "タイトル画面から続ける";
+"emulator.resumeFailed.quit" = "終了してセッションを残す";
+"emulator.resumeFailed.slotFailed" = "このスロットもロードできませんでした。前回のセッションはまだ残してあります。あとでもう一度試すなら終了を、タイトル画面から続けるならそちらを選んでください。続けると前回のセッションは置き換わります。";
 
 /* Common */
 "common.cancel" = "キャンセル";
@@ -421,6 +430,7 @@
 "saveImport.overwrite.confirm" = "置き換える";
 "saveImport.error.invalidFormat" = "認識できるセーブファイルではありません。他のエミュレータから書き出した .sav、.srm または .mcd ファイルを読み込んでください。";
 "saveImport.error.wrongSystem" = "このセーブはこのゲームと互換性がありません。";
+"saveImport.error.ctrNotASave" = "このファイルは3DSのセーブではありません。Retro Palまたは他の3DSエミュレーターから書き出した、ゲームのセーブフォルダを含む.zipを選んでください。";
 "saveImport.error.duplicateExists" = "このゲームにはすでにセーブがあります。";
 "saveImport.error.fileAccessDenied" = "選択したファイルを読み取れませんでした。";
 "saveImport.error.writeFailed" = "セーブを書き込めませんでした。";
@@ -429,13 +439,19 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "ゲームを追加";
 "guide.importRom.intro" = "Retro Pal にゲームは含まれていません。ROM ファイルは、合法的に所有しているもの(お持ちのカートリッジや、無料で合法な自作ゲームなど)をご自身で用意してください。";
-"guide.importRom.step1" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ、PSP のゲームなら .iso、.cso、.chd、.pbp）を iPhone に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
-"guide.importRom.step1.ipad" = "ゲームのファイル（.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg、またはプレイステーションのディスクなら .chd か .cue と .bin の組み合わせ、PSP のゲームなら .iso、.cso、.chd、.pbp）を iPad に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
+"guide.importRom.step1" = "ゲームのファイルを iPhone に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
+"guide.importRom.step1.ipad" = "ゲームのファイルを iPad に用意します。Safari でダウンロードする、パソコンから AirDrop で送る、iCloud Drive から取り込む、どの方法でもかまいません。";
 "guide.importRom.step2" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPhone 内、iCloud Drive のいずれか)。";
 "guide.importRom.step2.ipad" = "「ファイル」アプリに表示されることを確認します(ダウンロード、この iPad 内、iCloud Drive のいずれか)。";
 "guide.importRom.step3" = "Retro Pal でライブラリ上部の + ボタンをタップします。";
 "guide.importRom.step4" = "ファイルを選択すると、すぐにライブラリに追加され、プレイできます。";
-"guide.importRom.footer" = "対応形式：.gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg、およびプレイステーションのディスク（.chd、.cue と .bin、.m3u）、PSP のゲーム（.iso、.cso、.chd、.pbp）。.zip も使えます。ゲーム1本でも、ディスク1枚分のファイルすべてでも、選べる複数のゲームでもかまいません。.7z には対応していません。合法的に所有しているファイルだけを取り込んでください。";
+"formats.link" = "対応しているゲーム形式とゲーム機を見る";
+"formats.title" = "対応形式";
+"formats.intro" = "ゲーム機ごとに、対応するファイル形式があります。ファイルはそのまま取り込んでください。どのゲーム機のゲームかは Retro Pal が自動で判別します。";
+"formats.archives.header" = "アーカイブ";
+"formats.archives.footer" = "下に挙げたファイルがこれらのアーカイブに入っていれば、自動で検出されます。中身がゲーム1本でも、ディスク1枚分のファイル一式でも、選んで取り込む複数のゲームでもかまいません。";
+"formats.note.ps1" = "ディスクが複数のファイルに分かれていることもあります。.cue、.toc、.ccd とそれが指すファイル、複数枚組のゲームなら .m3u も含めて、ゲームのファイルをすべてまとめて選んでください。";
+"formats.note.n3ds" = "復号済みのゲームのみ対応しています。";
 "settings.guides.section" = "ガイド";
 "settings.controller.row" = "コントローラー";
 "common.done" = "完了";
@@ -571,6 +587,7 @@
 "skin.editor.menuButtons" = "メニューボタン";
 "skin.editor.shoulders" = "L/R ボタン";
 "skin.editor.stick" = "ジョイスティック";
+"skin.editor.sticks" = "ジョイスティック (2つ)";
 "skin.editor.stickSurround" = "ジョイスティックの周囲";
 "skin.editor.dpadMarks" = "十字キーの矢印";
 "skin.editor.faceZ" = "Z ボタン";
@@ -593,6 +610,7 @@
 "ra.login.createAccount" = "RetroAchievements アカウントを作成";
 "ra.error.login" = "サインインに失敗しました。ユーザー名とパスワードをご確認ください。";
 "ra.error.server" = "RetroAchievements へのリクエストに失敗しました。";
+"ra.error.unreachable" = "RetroAchievements が現在応答していません。原因は RetroAchievements 側にあり、お使いのアカウントではありません。数分後にもう一度お試しください。";
 "ra.hud.unlocked" = "実績を解除しました";
 "ra.dashboard.title" = "実績";
 "ra.dashboard.unlocked" = "解除済み";
@@ -614,13 +632,11 @@
 "ra.details.invite.headline" = "このゲームで実績を獲得しよう";
 "ra.details.invite.caption" = "このゲームには RetroAchievements の実績セットがあります。無料アカウントを連携すれば、プレイしながら挑戦できます。";
 "ra.details.unavailable" = "このゲームでは RetroAchievements を利用できません。";
+"ra.details.unavailable.console" = "RetroAchievements はニンテンドー3DS のゲームに対応していません。";
 "ra.details.unavailable.pbp" = "RetroAchievements は .pbp ファイルを読み取れません。同じゲームを .chd、または .cue と .bin の組み合わせにすれば、通常どおり実績を獲得できます。";
-"ra.library.invite.caption" = "お持ちのゲームに RetroAchievements の実績セットがあります。無料アカウントを連携して、プレイしながら実績を獲得しましょう。";
 "ra.library.recent" = "最近の解除";
 "ra.library.noUnlocks" = "最近解除した実績がここに表示されます。";
 "ra.profile.games" = "実績のあるゲーム";
-"ra.profile.openGame" = "ゲームページを開く";
-"ra.profile.expandHint" = "開くと実績が表示されます";
 "ra.card.game" = "実績";
 "ra.session.offline" = "実績はオフラインのため一時停止中。自動的に再開されます。";
 "ra.session.resumed" = "実績が有効になりました";
@@ -632,19 +648,27 @@
 "ra.retry" = "もう一度試す";
 "ra.profile.unsupported" = "RetroAchievements 非対応";
 "ra.profile.unsupported.footer" = "これらのゲームには RetroAchievements の実績がありません。ゲームによっては英語版のみ対応している場合があります。";
+"ra.profile.unsupported.footer.n3ds" = "これらのゲームには RetroAchievements の実績がありません。ゲームによっては英語版のみ対応している場合があります。RetroAchievements は 3DS ゲームに対応していません。";
+"ra.profile.unsupported.n3ds" = "3DS ゲーム";
 "ra.layout.toggle" = "実績の表示方法を切り替える";
 
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "選択したファイルにアクセスできません。「ファイル」アプリから読み込んでみてください。";
 "import.error.copyFailed" = "ゲームをRetro Palにコピーできませんでした。ストレージの空き容量を確保して、もう一度お試しください。";
-"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスク、.iso、.cso、.chd、.pbp 形式の PSP ゲームです。";
+"import.error.invalidROM" = "このファイルはRetro Palで読み込めるゲームではありません。対応しているのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスク、.iso、.cso、.chd、.pbp 形式の PSP ゲーム、.3ds、.cci、.cxi、.3dsx 形式のニンテンドー3DS ゲームです。";
 "import.error.discMissingFiles" = "このディスクには、選択されていないファイルが必要です：%@。.cue とすべての .bin ファイルを一度にまとめて選択してください。";
 "import.console.title" = "このゲームはどの機種用ですか？";
 "import.console.message" = "「%@」がPlayStationとPSPのどちらのゲームか、ファイルからは判別できません。正しい機種で起動するよう、機種を選んでください。";
-"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスク、.iso、.cso、.chd、.pbp 形式の PSP ゲームで、他の機種には対応していません。";
+"import.error.zipNoROM" = "このZIPにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスク、.iso、.cso、.chd、.pbp 形式の PSP ゲーム、.3ds、.cci、.cxi、.3dsx 形式のニンテンドー3DS ゲームで、他の機種には対応していません。";
 "import.error.zipExtractionFailed" = "このZIPを開けませんでした。「ファイル」アプリで解凍して、ゲームファイルを直接読み込んでください。";
 "import.error.zipUnsupportedCompression" = "このZIPは、LZMAやBZIP2など、Retro Palが読み込めない圧縮方式を使っています。ファイルが壊れているわけではありません。「ファイル」アプリで展開してゲームを直接読み込むか、標準の圧縮でZIPを作り直してください。";
 "import.error.zipEncrypted" = "このZIPはパスワードで保護されています。「ファイル」アプリで展開してから、ゲームファイルを直接読み込んでください。";
+"import.error.archiveNoGame" = "このアーカイブにゲームファイルが見つかりませんでした。Retro Palが読み込めるのは .gba、.gb、.gbc、.nds、.sfc、.smc、.nes、.z64、.n64、.v64、.md、.gen、.smd、.sms、.gg のゲームと、.chd、.cue と .bin、.m3u 形式の PlayStation ディスク、.iso、.cso、.chd、.pbp 形式の PSP ゲーム、.3ds、.cci、.cxi、.3dsx 形式のニンテンドー3DS ゲームで、他の機種には対応していません。";
+"import.error.archiveExtractionFailed" = "このアーカイブを開けませんでした。破損しているか、ダウンロードが途中で止まっている可能性があります。もう一度ダウンロードするか、パソコンで展開してゲームファイルを直接読み込んでください。";
+"import.error.archiveUnsupportedCompression" = "このアーカイブは、Retro Palが読み込めない圧縮方式を使っています。ファイルが壊れているわけではありません。パソコンで展開して、ゲームファイルを直接読み込んでください。";
+"import.error.archiveEncrypted" = "このアーカイブはパスワードで保護されています。パソコンで展開してから、ゲームファイルを直接読み込んでください。";
+"import.error.archiveSplit" = "このゲームは複数のアーカイブファイル（.part1.rar、.part2.rar…）に分割されています。Retro Palは一度に一つのアーカイブしか読み込めません。パソコンで結合するか展開してから、ゲームを読み込んでください。";
+"import.error.ctrEncrypted" = "このニンテンドー3DS のゲームは暗号化されています。Retro Pal で遊べるのは、復号済みの 3DS ゲームだけです。復号済みのゲームを読み込んでください。";
 "import.error.alreadyImported" = "このゲームはすでにライブラリにあります。";
 "import.duplicate.title" = "すでにライブラリにあります";
 "import.duplicate.bodySeveral" = "これらのゲームはすでにライブラリにあります：";
@@ -654,7 +678,7 @@
 "import.error.batchLine" = "・%1$@：%2$@";
 
 // Multi-ROM ZIP selection sheet
-"zipPicker.title" = "ZIP内のゲーム";
+"zipPicker.title" = "アーカイブ内のゲーム";
 "zipPicker.caption" = "ライブラリに追加するゲームを選んでください。";
 "zipPicker.add" = "追加 (%d)";
 
@@ -713,14 +737,25 @@
 "cheats.invalid.characters.psp" = "このコードには使われない文字が含まれています。PSPのチートコードは_L、0x、数字0-9、英字A-F、スペースのみです。";
 "cheats.invalid.characters.nes" = "このコードには使われない文字が含まれています。ファミコンのコードは Game Genie の英字 A P Z L G I T Y E O X U K S V N、または 0-9 と A-F、スペース、ハイフンを使います。";
 "cheats.invalid.pairs" = "Action Replay DSのコードは2つで1組です。各行に8文字のブロックが2つ必要です（例：94000130 FCFF0000）。";
+"cheats.invalid.pairs.n3ds" = "Gatewayのコードは2つで1組です。各行に8文字のブロックが2つ必要です（例：0012A3F4 0000270F）。";
 "cheats.invalid.pairs.psp" = "CWCheatのコードは2つで1組です。各行の_Lのあとに数値が2つ必要です（例：_L 0x20123456 0x0000270F）。";
 "cheats.invalid.placeholder" = "このコードでは値を自分で選びます。X や ? をそれぞれ16進数の数字（0-9 または A-F）に置き換えてください。例：XXXX → 0063。";
 "n64.displayLost.title" = "画面が更新されなくなりました";
 "n64.displayLost.message" = "グラフィックプロセッサが応答しなくなったため、ゲームの画面を表示できません。終了して進行状況を保存し、ゲームをもう一度開いて続きを遊んでください。";
 "n64.displayLost.quit" = "保存して終了";
+"n3ds.cameraDenied.title" = "カメラが許可されていません";
+"n3ds.cameraDenied.message" = "このゲームは本体のカメラを使いますが、Retro Pal にカメラの使用が許可されていないため、ゲームには黒い画面しか映りません。「設定」で Retro Pal のカメラを許可できます。";
+"n3ds.cameraDenied.settings" = "「設定」を開く";
+"n3ds.cameraDenied.ok" = "OK";
 "psp.bootFailed.title" = "このゲームを起動できませんでした";
 "psp.bootFailed.message" = "PSP エミュレータがこのファイルを起動できませんでした。以前に遊べていたゲームなら、Retro Pal を完全に終了してから開き直し、もう一度お試しください。そうでない場合、ファイルが壊れているか不完全である、または暗号化されたイメージなど、エミュレータが読み込めないコピーである可能性があります。セーブデータやほかのゲームには影響ありません。";
 "psp.bootFailed.quit" = "終了";
+"n3ds.gameEnded.title" = "ゲームが停止しました";
+"n3ds.gameEnded.message" = "ゲームが自ら終了したか、再起動のあとに再び開始できませんでした。この時点からは何も保存されないため、最後のセーブデータはそのまま残ります。終了してからゲームを開き直すと、続きを遊べます。";
+"psp.gameHalted.title" = "ゲームが停止しました";
+"psp.gameHalted.message" = "PSP エミュレータがこのゲームで、続行できないエラーに遭遇しました。この時点からは何も保存されないため、最後のセーブデータはそのまま残ります。終了してからゲームを開き直すと、続きを遊べます。";
+"n3ds.rewindUnavailable.title" = "まだ巻き戻せる地点がありません";
+"n3ds.rewindUnavailable.message" = "3DS は 5 秒ごとに巻き戻し用の地点を記録します。ゲームの起動直後やセーブデータの読み込み直後はまだ地点がないか、iPhone が一時的にそのメモリを必要としました。数秒プレイしてから、もう一度お試しください。";
 "n64.libdragonUnsupported" = "このニンテンドウ64のゲームは、Retro Pal がまだ対応していない新しい自作ゲーム開発ツール(libdragon)で作られています。ニンテンドウ64のカートリッジのゲームには影響ありません。";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -767,26 +802,28 @@
 "externalDisplay.idle.hint.ipad" = "iPadでゲームを起動してください";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "新しいゲーム機を4機種";
-"whatsnew.s1.b1" = "メガドライブ、マスターシステム、ゲームギア、PSPのゲームがRetro Palで遊べるようになりました。4機種ともすべての人に無料です。";
-"whatsnew.s1.b2" = "セーブ、ステートセーブ、実績、公式パッケージ画像が4機種とも最初から使えます。{PRO} ならチートコードも使えます。";
-"whatsnew.s1.b3" = "メガドライブとマスターシステムは2人で遊べます。メガドライブには6ボタンのパッドが画面に表示されます。";
-"whatsnew.s1.b4" = "スクリーンショットとクリップのカードには本体そのものが描かれ、{PRO} なら4機種ともカスタムスキンを作れます。";
-"whatsnew.s2.title" = "ニンテンドウ64";
-"whatsnew.s2.b1" = "{PRO} なら、ニンテンドウ64でも最大30秒まで巻き戻せます。これまでは5秒まででした。";
-"whatsnew.s2.b2" = "ニンテンドウ64のゲームが端末にかける負荷が減りました。低電力モードでは1フレームあたりの処理が最大18%少なくなります。";
-"whatsnew.s2.b3" = "ニンテンドウ64のステートセーブの容量が、これまでのおよそ10分の1になりました。";
-"whatsnew.s3.title" = "クラシック";
-"whatsnew.s3.b1" = "クラシックが独立した外観になり、横向きでも使えます。黒一色の背景で、パレットボタン {PALETTE} から選べます。";
+"whatsnew.s1.title" = "ニンテンドー3DS";
+"whatsnew.s1.b1" = "ニンテンドー3DSのゲームがRetro Palで遊べるようになりました。どなたでも無料です。2つの画面、タッチスクリーン、スライドパッドに対応し、New 3DSのCスティックはコントローラの右スティックで操作できます。";
+"whatsnew.s1.b2" = "セーブ、ステートセーブ、巻き戻し、公式パッケージ画像が最初から使えます。カメラ、マイク、モーションを使うゲームは、iPhoneのものを使います。";
+"whatsnew.s1.b3" = "{PRO} なら、3DSでもチートコードとカスタムスキンが使えます。ほかのゲーム機と同じです。";
+"whatsnew.s1.b4" = "RetroAchievementsは3DSのゲームに対応していないため、3DSのゲームには実績がありません。";
+"whatsnew.s2.title" = "レトロストーリー";
+"whatsnew.s2.b1" = "あなたのゲーム歴を1ページに。プレイ時間、よく遊んだゲーム、ゲーム機ごとの割合を示すリング、遊んだ日々が並びます。履歴は各デバイスに保存され、iCloudで引き継がれます。";
+"whatsnew.s2.b2" = "バッジは、最初のゲームから1000時間まで、あなたの歩みの節目を記録します。獲得すると、画面上部に専用のサウンドとともに表示されます。";
+"whatsnew.s2.b3" = "毎年12月には1年の振り返り。数枚の画面をスワイプで見られ、どの画面も画像としてシェアできます。";
+"whatsnew.s3.title" = "外観と操作";
+"whatsnew.s3.b1" = "ゲームボーイ、ゲームボーイカラー、ゲームボーイアドバンス、ニンテンドーDS、スーパーファミコン、ファミコンに、本体と同じ形の立体的な十字キーが付きました。";
+"whatsnew.s3.b2" = "クラシックでも、ほかの外観と同じライブラリが黒一色の背景で使えるようになりました。";
+"whatsnew.s3.b3" = "RetroAchievementsのページが見やすくなりました。最初にプロフィールと最近の実績、続いてゲームが並び、タップでゲームのページが開きます。";
+"whatsnew.s3.b4" = "iPadでは、すべてのゲーム機の十字キーとボタンが、親指を置く画面の下の端に並ぶようになりました。";
 "whatsnew.s4.title" = "そのほか";
-"whatsnew.s4.b1" = "「ファイル」アプリやAirDropからゲームやセーブを直接開くと、Retro Palが正しい場所に入れます。";
-"whatsnew.s4.b2" = "ホーム画面のRetro Palのアイコンを長押しすると、問題を知らせることができます。";
-"whatsnew.s4.b3" = "ステートセーブを書き込めなかったときは、黙って失敗せずにお知らせするようになりました。また、ステートセーブを読み込む前に、ゲーム本体のセーブのコピーを「ファイル」アプリに残すので、古いステートで新しいセーブが失われたままになることはありません。";
-"whatsnew.s4.b4" = "すべてのゲーム機のボタンに、光と影の縁取りで立体感がつきました。";
-"whatsnew.s4.b5" = "マスターシステム、ゲームギア、PSPは、ボタンまでそれぞれ本体そっくりの見た目になりました。";
-"whatsnew.s4.b6" = "{PRO} なら、巻き戻しをタップするとどのゲーム機でも10秒戻ります。長押しすると最大30秒まで選べます。";
-"whatsnew.s4.b7" = "ポーズメニューの「外観」がコントローラで操作できるようになりました。本体の見た目、画面フィルタ、すべてのボタンに対応しています。";
-"whatsnew.s4.b8" = "2人以上で遊べるゲーム機では、ゲームのページで「2Pでプレイ」を選べます。タッチ操作でもコントローラーでも2Pを操作し、反対側からコンピューター相手に練習できます。";
+"whatsnew.s4.b1" = ".zipだけでなく、.7z、.rar、.tar、.gz、.xzのアーカイブからもゲームを読み込めます。";
+"whatsnew.s4.b2" = "プレイステーションとPSPのゲームの読み込みがより確実になりました。大文字・小文字が異なるディスクファイル、4GBを超えるZIPアーカイブに対応し、PSPのゲームはEBOOTから本来の名前を読み取ります。";
+"whatsnew.s4.b3" = "PSPのゲームがエミュレーター内で異常終了したとき、固まらずにそのことをお知らせするようになりました。";
+"whatsnew.s4.b4" = "プレイ中はiOSのゲームモードが有効になり、BluetoothコントローラやAirPodsの遅延が少なくなります。";
+"whatsnew.s4.b5" = "ライブラリからゲームを削除するときは、確認が表示されるようになりました。";
+"whatsnew.s4.b6" = "キーボードの1と2で、2組目のショルダーボタンを押せます。3DSではZLとZR、プレイステーションではL2とR2、ニンテンドウ64ではZです。";
+"whatsnew.s4.b7" = "名前にアクセント記号や日本語を含むスーパーファミコン、ファミコン、マスターシステム、ゲームギアのゲームで、ゲーム内セーブが正しく残るようになりました。";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "このセットの実績は読み込まれていません。";
@@ -795,8 +832,8 @@
 "cheats.browse.noResults" = "その名前のゲームは見つかりませんでした。データベースにはゲームが英語のタイトルで登録されています。";
 "cheats.placeholderPrefix" = "例:";
 "library.untitled" = "タイトルのないゲーム";
-"guide.controller.keyboard" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。iPhoneでは、キーボードが接続されている間はタッチ操作が非表示になります。";
-"guide.controller.keyboard.ipad" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。";
+"guide.controller.keyboard" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、1 = L2 / ZL、2 = R2 / ZR、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。iPhoneでは、キーボードが接続されている間はタッチ操作が非表示になります。";
+"guide.controller.keyboard.ipad" = "ハードウェアキーボード：矢印キーで移動、X = A、Z = B、S = X、A = Y、Q = L、W = R、1 = L2 / ZL、2 = R2 / ZR、Return = Start、Shift = Select。キーは位置で判定され、ここではQWERTY配列の刻印で示しています。iOSがキーボードとして認識するBluetoothゲームパッド（キーボードモードの8BitDo Zeroなど）も使えます。キーボードが接続されている間は、設定のコントローラーからすべてのキーを割り当て直せます。";
 
 /* The Mega Drive's name as sold in this market (Genesis in the Americas) */
 "console.name.md" = "Mega Drive";
@@ -804,3 +841,88 @@
 /* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
 "feedback.mail.subject" = "Retro Pal へのご意見";
 "feedback.mail.body" = "どのような問題か、特定のゲームで起きる場合はそのゲーム名をお書きください：\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";
+
+/* Retro story */
+"story.title" = "レトロストーリー";
+"story.consolesPlayed" = "遊んだ本体";
+"story.longestSession" = "最長プレイ";
+"story.consoles" = "あなたのゲーム機";
+"story.consoles.tried" = "試したゲーム機";
+"story.timeline" = "これまでの歩み";
+"story.milestone.firstGame" = "あなたのストーリーの始まり：%@";
+"story.milestone.hours" = "合計プレイ時間 %@ 時間";
+"story.totalPlayed" = "プレイ時間 %@";
+"story.milestone.gameHours" = "%2$@ を %1$@ 時間プレイ";
+"story.milestone.gamesPlayed" = "遊んだゲーム：%@";
+"story.milestone.consoles" = "試したゲーム機：%@";
+"story.milestone.allConsoles" = "13 台すべてのゲーム機を制覇";
+"story.milestone.longSession" = "%@ 時間の連続プレイ";
+"story.milestone.secondDevice" = "ストーリーが別のデバイスにも引き継がれました";
+"story.milestone.anniversary1" = "Retro Pal と 1 年";
+"story.milestone.anniversary" = "Retro Pal と %@ 年";
+"story.kept" = "あなたのために保存";
+"story.kept.footer" = "プレイ履歴はこのデバイスに保存され、セーブデータと一緒に iCloud にもコピーされます。新しい iPhone でも続きから始められます。";
+"story.saves.states" = "クイックセーブ";
+"story.saves.battery" = "ゲーム内セーブ";
+"story.saves.icloudOn" = "iCloud にコピー済み";
+"story.saves.icloudOff" = "「設定」で iCloud へのコピーはオフです";
+"story.since" = "%@ から";
+"story.game.removed" = "ライブラリから削除済み";
+"story.empty" = "ゲームを遊ぶと、ここにあなたのストーリーが始まります。プレイ時間、ゲーム、ゲーム機。";
+"story.duration.hours" = "%@ 時間";
+"story.duration.hoursMinutes" = "%1$@ 時間 %2$@ 分";
+"story.duration.minutes" = "%@ 分";
+
+"story.activity" = "アクティビティ";
+"story.activity.daysThisMonth" = "今月プレイした日数";
+"story.activity.bestMonth" = "いちばん遊んだ月";
+"story.activity.since" = "カレンダーは %@ から記録されています。Retro Pal が記録を始めた日です。";
+"story.time.morning" = "朝によく遊んでいます";
+"story.time.afternoon" = "午後によく遊んでいます";
+"story.time.evening" = "夕方から夜によく遊んでいます";
+"story.time.night" = "夜型：深夜によく遊んでいます";
+
+"story.share.game" = "このゲームを共有";
+
+"story.activity.daysPlayed" = "プレイした日数";
+"story.year.cardTitle" = "わたしの Retro Pal %@年振り返り";
+"story.year.row" = "あなたの1年を数枚の画面で振り返り、画像でシェアもできます。";
+"story.year.intro" = "%@年もたくさん遊びました。あなたの1年を振り返りましょう。";
+"story.year.recordedFrom" = "ストーリーの始まり：%@";
+"story.year.total" = "今年遊んだ時間";
+"story.year.topGame" = "今年のゲーム";
+"story.year.topGames" = "トップ5";
+"story.year.newGames" = "今年はじめて遊んだゲーム";
+"story.year.consoles" = "あなたのゲーム機";
+"story.year.months" = "月ごとの一年";
+"story.year.peakMonth" = "いちばん遊んだ月：%@";
+"story.year.bestDay" = "いちばん遊んだ日";
+"story.year.next" = "次へ";
+
+"story.time.morning.short" = "朝型";
+"story.time.afternoon.short" = "午後型";
+"story.time.evening.short" = "夕方型";
+"story.time.night.short" = "夜型";
+
+"story.year.profile" = "あなたのプレイヤータイプ";
+"story.year.shareSlide" = "共有";
+"story.year.shareSummary" = "わたしの1年を共有";
+"story.profile.loyal" = "一途なプレイヤー";
+"story.profile.loyal.line" = "1年の半分以上を %@ に注ぎました。";
+"story.profile.explorer" = "探検家";
+"story.profile.explorer.line" = "ゲーム機を次々に巡り、新しいゲームを探しました。";
+"story.profile.nightOwl" = "夜型プレイヤー";
+"story.profile.nightOwl.line" = "いちばんのプレイは、家が静まってから始まります。";
+"story.profile.regular" = "常連プレイヤー";
+"story.profile.regular.line" = "ほとんどの日にゲームがありました。";
+"story.profile.enthusiast" = "ゲーム好き";
+"story.profile.enthusiast.line" = "あなたらしく遊んだ1年でした。";
+
+"story.year.spotlight" = "Retro Pal %@年の振り返りが届きました！";
+"story.year.open" = "見る";
+
+"story.consoles.others" = "その他";
+
+"story.year.daysSince" = "%2$@ から %1$@ 日プレイ";
+
+"story.badge.new" = "新しいバッジ";

@@ -86,6 +86,7 @@ struct EmulatorLayoutGeometryTests {
         case .sms: return 256.0 / 192.0
         case .gg: return 160.0 / 144.0
         case .psp: return 480.0 / 272.0
+        case .n3ds: return 400.0 / 480.0
         }
     }
 
@@ -196,7 +197,8 @@ struct EmulatorLayoutGeometryTests {
             isLandscape: isLandscape, gameAspect: gameAspect, system: system,
             controllerConnected: false, deviceScale: k)
         let container = EmulatorLayoutGeometry.controlsFrame(
-            deviceSize: deviceSize, screenFrame: metal, hasTouchScreen: isNDS, isLandscape: isLandscape)
+            deviceSize: deviceSize, screenFrame: metal, hasTouchScreen: isNDS, isLandscape: isLandscape,
+            system: system)
         let layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: container.size, scale: k,
             safeLeftInset: safeLeftInset)
@@ -518,9 +520,10 @@ struct EmulatorLayoutGeometryTests {
                     layout: pristine, system: system, isLandscape: isLandscape,
                     viewSize: size, safeInsets: .zero)
 
-                if system == .nds {
-                    let (top, bottom) = PresetLayoutResolver.ndsDefaultScreenRects(
-                        in: expected, isLandscape: isLandscape)
+                if system == .nds || system == .n3ds {
+                    let (top, bottom) = system == .nds
+                        ? PresetLayoutResolver.ndsDefaultScreenRects(in: expected, isLandscape: isLandscape)
+                        : EmulatorLayoutGeometry.ctrScreenRects(in: expected, sideBySide: isLandscape)
                     #expect(scene.screens[.top]?.frame == top,
                             "\(label) \(system): top screen drifted from today's geometry")
                     #expect(scene.screens[.bottom]?.frame == bottom,
@@ -543,8 +546,11 @@ struct EmulatorLayoutGeometryTests {
                 if let menu {
                     #expect(approx(menu.scale, 1, tol: 0.0001),
                             "\(label) \(system): pristine Menu scale \(menu.scale) != 1")
+                    // The per-console size, the one the game draws MENU at
+                    // (`TouchControlsView.applyDefaultLayout`): the 3DS's is
+                    // its own rounded square, not the shared table's.
                     let expectedMenu = EmulatorLayoutGeometry.buttonSize(
-                        .btnMenu, isNDS: system == .nds, isLandscape: isLandscape,
+                        .btnMenu, system: system, isLandscape: isLandscape,
                         deviceScale: EmulatorLayoutGeometry.deviceScale(for: size))
                     #expect(approx(menu.baseSize.width, expectedMenu.width)
                             && approx(menu.baseSize.height, expectedMenu.height),
@@ -564,12 +570,13 @@ struct EmulatorLayoutGeometryTests {
             ("Pro Max", CGSize(width: 956, height: 440)),
         ]
         for (label, size) in devices {
-            // Every console but the DS, whose two screens are checked on their own.
+            // Every console but the DS, whose two screens are checked on their own; the
+            // 3DS's two screens count as one picture, their union.
             for system in PresetSystem.allCases where system != .nds {
                 let scene = PresetLayoutResolver.resolveController(
                     layout: ControllerLayout(), system: system, isLandscape: true,
                     viewSize: size, safeInsets: .zero)
-                guard let menu = scene.buttons[.btnMenu], let screen = scene.screens[.main]?.frame else {
+                guard let menu = scene.buttons[.btnMenu], let screen = scene.picture else {
                     Issue.record("\(label) \(system): no Menu or no picture")
                     continue
                 }
@@ -702,7 +709,7 @@ struct SNESAndNESLayoutTests {
             controllerConnected: false, deviceScale: k)
         return EmulatorLayoutGeometry.controlsFrame(
             deviceSize: size, screenFrame: frame,
-            hasTouchScreen: false, isLandscape: isLandscape).size
+            hasTouchScreen: false, isLandscape: isLandscape, system: system).size
     }
 
     /// The NES pad IS the Game Boy pad, so its layout must be the Game Boy's — except where this
@@ -1691,7 +1698,8 @@ struct SNESAndNESLayoutTests {
             isLandscape: isLandscape, gameAspect: EmulatorLayoutGeometryTests.displayAspect(system), system: system,
             controllerConnected: false, deviceScale: k)
         let container = EmulatorLayoutGeometry.controlsFrame(
-            deviceSize: deviceSize, screenFrame: screen, hasTouchScreen: false, isLandscape: isLandscape)
+            deviceSize: deviceSize, screenFrame: screen, hasTouchScreen: false, isLandscape: isLandscape,
+            system: system)
         // BOTH horizontal insets, exactly as `EmulatorViewController.applyControlConstraints`
         // passes them. The trailing one is not decoration: the SNES centres its face-button
         // diamond in the SAFE right gutter, so leaving it at zero measured a page the app
@@ -1701,7 +1709,8 @@ struct SNESAndNESLayoutTests {
         let layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: container.size, scale: k,
             safeLeftInset: isLandscape ? insets.left : 0,
-            safeRightInset: isLandscape ? insets.right : 0)
+            safeRightInset: isLandscape ? insets.right : 0,
+            deviceSize: deviceSize)
         var rects: [ControlElement: CGRect] = [:]
         for e in ControlElement.elements(for: system) {
             guard let bl = layout.buttons[e.rawValue], !bl.isHidden else { continue }
@@ -1712,6 +1721,13 @@ struct SNESAndNESLayoutTests {
             let drawn = ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape,
                                                             family: .phone, system: system)
             s = CGSize(width: s.width * drawn, height: s.height * drawn)
+            // And the 3DS on its side: bars as tall as half their screen, the
+            // circle pad grown to its band (`n3dsLandscapeDrawnSize`).
+            if system == .n3ds && isLandscape {
+                s = ControlLayoutDefaults.n3dsLandscapeDrawnSize(
+                    e, size: s, deviceSize: deviceSize, scale: k,
+                    safeLeftInset: insets.left, safeRightInset: insets.right, family: .phone)
+            }
             rects[e] = CGRect(x: container.minX + bl.centerX * container.width - s.width / 2,
                               y: container.minY + bl.centerY * container.height - s.height / 2,
                               width: s.width, height: s.height)
@@ -1746,7 +1762,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 440, height: 956), UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
              CGSize(width: 956, height: 440), UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp, .n3ds] {
             for (name, portrait, pInsets, landscape, lInsets) in devices {
                 for (size, insets, isLandscape) in [(portrait, pInsets, false), (landscape, lInsets, true)] {
                     let rects = realRects(system: system, isLandscape: isLandscape,
@@ -1780,7 +1796,7 @@ struct SNESAndNESLayoutTests {
             ("iPhone 16 Pro Max", CGSize(width: 956, height: 440),
              UIEdgeInsets(top: 0, left: 62, bottom: 21, right: 62)),
         ]
-        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp] {
+        for system in [PresetSystem.snes, .nes, .ps1, .n64, .md, .sms, .gg, .psp, .n3ds] {
             for (name, size, insets) in devices {
                 let k = EmulatorLayoutGeometry.deviceScale(for: size)
                 let screen = EmulatorLayoutGeometry.screenFrame(

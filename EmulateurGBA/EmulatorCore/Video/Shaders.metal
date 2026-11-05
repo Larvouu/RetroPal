@@ -91,12 +91,23 @@ constant uint kFilterCRT = 4;
 constant uint kFilterSmooth = 5;
 constant uint kFilterSharp = 6;
 
+// `screenCount` for the 3DS's composed picture (400x480): two screens stacked
+// like the DS's, but the lower one only 320 of the 400 columns, centred
+// (columns 40 to 360), with black bands either side. The CRT curves each
+// screen on its OWN width: normalised to the full 400 the lower screen was
+// under-curved, its corners not pinned and its vignette weaker (3DS audit,
+// 2026-10-27). Matches `FilterScreens.ctr` (EmulatorMetalView.swift); a value, not a new
+// field, so the uniform stays 24 bytes and every other console is untouched.
+constant uint kScreensCTR = 3;
+constant float kCTRBottomInset = 40.0 / 400.0;
+
 // Mirrors Swift's EmulatorMetalView.FilterUniforms, the one Swift copy (the
 // offscreen VideoFilterRenderer sends the same struct): 24 bytes, and
 // VideoFilterPreviewTests holds the two to that.
 struct FilterUniforms {
     uint filterType;
-    uint screenCount;   // 1, or 2 for the stacked NDS texture (per-screen CRT warp)
+    uint screenCount;   // 1, or 2 for the stacked NDS texture (per-screen CRT warp),
+                        // or kScreensCTR for the 3DS's stacked picture (below)
     // The TEXTURE's pixel size (e.g. 240x160, 256x384, 1024x512), which for
     // every console but the PlayStation and the Nintendo 64 is also the live
     // picture's size. Paired with the vertex stage's `uvScale` it always
@@ -199,9 +210,14 @@ fragment float4 filteredFragment(VertexOut in [[stage_in]],
         // console passes (1, 1) and is untouched by the division.
         float2 span = max(u.uvScale, float2(1e-6));
         float2 n = uv / span;
-        float sc = float(u.screenCount);
+        bool ctr = u.screenCount == kScreensCTR;
+        float sc = ctr ? 2.0 : float(u.screenCount);
         float screenIdx = clamp(floor(n.y * sc), 0.0, sc - 1.0);
-        float2 local = float2(n.x, n.y * sc - screenIdx) * 2.0 - 1.0;
+        // The screen's own horizontal extent: the whole width, except the
+        // 3DS's lower screen (`kScreensCTR`).
+        float x0 = (ctr && screenIdx > 0.5) ? kCTRBottomInset : 0.0;
+        float xw = 1.0 - 2.0 * x0;
+        float2 local = float2((n.x - x0) / xw, n.y * sc - screenIdx) * 2.0 - 1.0;
         float r2 = dot(local, local);
         // NORMALISED BY THE CORNER'S OWN WARP, so the corner still lands on the
         // corner. Without the divisor the warp pushes the outer edge past the
@@ -213,12 +229,13 @@ fragment float4 filteredFragment(VertexOut in [[stage_in]],
         // point of a barrel.
         const float warp = 0.035;
         local *= (1.0 + warp * r2) / (1.0 + warp * 2.0);
-        // Cannot fire now (the corner maps to exactly 1.0 and every other point
-        // falls inside), and kept as the guard it always was.
+        // Inside a screen it cannot fire (the corner maps to exactly 1.0 and
+        // every other point falls inside). It does on the 3DS's black bands
+        // beside its lower screen, upright, which stay black, as they are.
         if (any(abs(local) > float2(1.0))) return float4(0.0, 0.0, 0.0, in.alpha);
         float2 warped = (local + 1.0) * 0.5;
         // ...and back out through the same fraction it came in by.
-        uv = float2(warped.x, (screenIdx + warped.y) / sc) * span;
+        uv = float2(x0 + warped.x * xw, (screenIdx + warped.y) / sc) * span;
 
         rgb = sampleSharp(tex, uv, u.gameSize);
         rgb *= scanlineShade(uv.y * u.gameSize.y, 0.30);

@@ -27,6 +27,9 @@ struct IsometricCardPreview<Face: View>: View {
     /// card passes its own body colour so the extruded edge matches that card's background.
     var edgeColors: [Color] = [Color(red: 0.22, green: 0.12, blue: 0.34),
                                Color(red: 0.07, green: 0.04, blue: 0.13)]
+    /// The coloured halo under the card; purple by default, the look's accent
+    /// for the cards that wear the look (2026-10-28).
+    var glowColor: Color = .purple
     @ViewBuilder var face: () -> Face
 
     /// Animated Y-axis angle. Starts at 0 and sways symmetrically -9...9.
@@ -69,7 +72,7 @@ struct IsometricCardPreview<Face: View>: View {
         .rotation3DEffect(.degrees(5), axis: (x: 1, y: 0, z: 0),
                           anchor: .center, perspective: 0.5)
         .shadow(color: .black.opacity(0.45), radius: 20, x: tiltFrac * 10, y: 16)
-        .shadow(color: .purple.opacity(0.32), radius: 26)
+        .shadow(color: glowColor.opacity(0.32), radius: 26)
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
         .padding(.bottom, 8)

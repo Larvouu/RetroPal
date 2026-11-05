@@ -63,12 +63,16 @@ struct RALoginView: View {
                             signIn()
                         } label: {
                             HStack {
-                                if isLoggingIn { ProgressView().padding(.trailing, 4) }
+                                if isLoggingIn || ra.isRestoringSession { ProgressView().padding(.trailing, 4) }
                                 Text(String(localized: "ra.login.signIn", defaultValue: "Sign In"))
                             }
                         }
                         .disabled(username.trimmingCharacters(in: .whitespaces).isEmpty
-                                  || password.isEmpty || isLoggingIn || !ra.isOnline)
+                                  || password.isEmpty || isLoggingIn || !ra.isOnline
+                                  // The stored sign-in still running: it ends
+                                  // signed in (the sheet closes) or not (this
+                                  // button comes back).
+                                  || ra.isRestoringSession)
                     }
                     .landscapeGlassRow()
 
@@ -97,6 +101,11 @@ struct RALoginView: View {
                 }
             }
             .sheet(isPresented: $showAbout) { RAAboutSheet() }
+            // Signed in by the stored sign-in that was running when the sheet
+            // opened: nothing left to ask.
+            .onChange(of: ra.isLoggedIn) { loggedIn in
+                if loggedIn, !isLoggingIn { dismiss() }
+            }
         }
     }
 

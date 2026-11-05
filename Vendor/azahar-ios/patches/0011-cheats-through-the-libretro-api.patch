@@ -1,0 +1,81 @@
+Cheats through the libretro API, and one cheat event after a state load
+
+The libretro core's retro_cheat_reset and retro_cheat_set were empty, so a
+frontend had no way to the core's Gateway cheat engine but its file
+(cheats/<title id>.txt), read once when the game boots. They now reach the
+engine directly: retro_cheat_set adds an enabled Gateway cheat made from the
+code (its lines "XXXXXXXX YYYYYYYY", separated by newlines), refusing a code
+with any invalid line; retro_cheat_reset removes every cheat. The file is not
+written: the frontend owns the list.
+
+CheatEngine::Connect also scheduled its event without removing the one a
+loaded state's timing queue already holds (System::serialize connects again
+after a load): from the first load on, the cheats ran twice as often (Tools/
+3ds-bench cheat, Craftus Reloaded: a counting code ran 54 times in 600 frames,
+then 107 after each of three loads). It now unschedules the event first, as
+its destructor does: 54 after each load.
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -41,6 +41,8 @@
+ #include "common/logging/filter.h"
+ #include "common/settings.h"
+ #include "common/string_util.h"
++#include "core/cheats/cheats.h"
++#include "core/cheats/gateway_cheat.h"
+ #include "core/core.h"
+ #include "core/frontend/applets/default_applets.h"
+ #include "core/frontend/image_interface.h"
+@@ -747,6 +749,37 @@
+     return 0;
+ }
+ 
+-void retro_cheat_reset() {}
++// Cheats through the libretro API, into the core's own Gateway engine: the
++// frontend sets each code with retro_cheat_set and clears them all with
++// retro_cheat_reset. A code is the Gateway lines ("XXXXXXXX YYYYYYYY") separated
++// by newlines; one that has no valid line is refused (nothing is added). The
++// engine's cheat file for the title (cheats/<title id>.txt) is not written: the
++// frontend owns the list and sets it again after each load.
++void retro_cheat_reset() {
++    auto& engine = Core::System::GetInstance().CheatEngine();
++    for (std::size_t i = engine.GetCheats().size(); i > 0; i--) {
++        engine.RemoveCheat(i - 1);
++    }
++}
+ 
+-void retro_cheat_set(unsigned index, bool enabled, const char* code) {}
++void retro_cheat_set(unsigned index, bool enabled, const char* code) {
++    if (!code || !enabled) {
++        return;
++    }
++    auto cheat = std::make_shared<Cheats::GatewayCheat>("libretro " + std::to_string(index),
++                                                        std::string(code), "");
++    bool any_valid = false;
++    for (const auto& line : Common::SplitString(cheat->GetCode(), '\n')) {
++        if (Cheats::GatewayCheat::CheatLine(line).valid) {
++            any_valid = true;
++        } else if (!line.empty()) {
++            LOG_ERROR(Frontend, "Cheat {} refused: invalid line {}", index, line);
++            return;
++        }
++    }
++    if (!any_valid) {
++        return;
++    }
++    cheat->SetEnabled(true);
++    Core::System::GetInstance().CheatEngine().AddCheat(std::move(cheat));
++}
+--- a/src/core/cheats/cheats.cpp
++++ b/src/core/cheats/cheats.cpp
+@@ -30,6 +30,10 @@
+     event = system.CoreTiming().RegisterEvent(
+         "CheatCore::run_event",
+         [this](u64 thread_id, s64 cycle_late) { RunCallback(thread_id, cycle_late); });
++    // After a state load the restored event queue already holds this event
++    // (System::serialize connects again once the queue is unlocked): without
++    // this, every load added a second one and the cheats ran twice as often.
++    system.CoreTiming().UnscheduleEvent(event, 0);
+     system.CoreTiming().ScheduleEvent(run_interval_ticks, event);
+ }
+ 

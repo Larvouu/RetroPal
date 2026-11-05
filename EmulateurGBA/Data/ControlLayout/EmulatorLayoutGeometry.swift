@@ -222,10 +222,6 @@ enum EmulatorLayoutGeometry {
     static let mdTabletGap: CGFloat = 12
     static let mdTabletMenuGap: CGFloat = 16
     static let mdBowlMargin: CGFloat = 8
-    /// On its side, where the two thumbs rest: the line the cross and the six
-    /// buttons are centred on, as a fraction of the window's height. Below the
-    /// middle, where hands holding an iPad by its sides reach without moving.
-    static let mdTabletLandscapeThumbLine: CGFloat = 0.60
 
     /// The band an upright iPad keeps under the Mega Drive's picture, in
     /// points: MENU and the surround's foot, then the controls (CLIP over the
@@ -325,6 +321,52 @@ enum EmulatorLayoutGeometry {
                 return CGSize(width: f.width * pspLandscapeFaceScale, height: f.height * pspLandscapeFaceScale)
             }
             return referenceSize(element, system: .ps1, isLandscape: isLandscape)
+        }
+        // The 3DS (phase 1) is laid out on the PlayStation's page and is that
+        // pad without the right stick, the stick clicks and ANALOG: every
+        // control it has takes the PlayStation's size, the circle pad the left
+        // stick's, so the page's own spacing holds.
+        if system == .n3ds {
+            // UPRIGHT, its own page (asked 2026-10-20, `ControlLayoutDefaults.
+            // n3dsPortrait`): the shoulders are vertical bars in the bands beside
+            // the bottom screen, the cross smaller than the circle pad above it,
+            // the C-stick small above the faces.
+            if !isLandscape {
+                switch element {
+                case .btnL, .btnR, .btnL2, .btnR2: return n3dsPortraitShoulder
+                // MENU and CLIP stand above the bars, in the top third of the band
+                // beside the lower screen: rounded squares the bars' width.
+                case .btnMenu, .btnClip:
+                    return CGSize(width: n3dsPortraitShoulder.width, height: n3dsPortraitShoulder.width)
+                case .dpad:
+                    let pad = referenceSize(.dpad, system: .ps1, isLandscape: false)
+                    return CGSize(width: pad.width * n3dsPortraitPadScale, height: pad.height * n3dsPortraitPadScale)
+                case .stickLeft: return CGSize(width: n3dsPortraitCirclePad, height: n3dsPortraitCirclePad)
+                case .stickRight: return CGSize(width: n3dsPortraitCStick, height: n3dsPortraitCStick)
+                case .btnMic: return referenceSize(.btnClip, system: .ps1, isLandscape: false)
+                default: return referenceSize(element, system: .ps1, isLandscape: false)
+                }
+            }
+            // ON ITS SIDE, its own page too (asked 2026-10-20, the DS's model,
+            // `ControlLayoutDefaults.n3dsLandscape`): the controls share the
+            // band under the two screens, so the shoulders are upright bars at
+            // the outer edges, the cross smaller than the circle pad beside
+            // it, the four faces a diamond that fits the band's height.
+            switch element {
+            case .btnL, .btnR, .btnL2, .btnR2: return n3dsLandscapeShoulder
+            case .dpad: return CGSize(width: n3dsLandscapePad, height: n3dsLandscapePad)
+            case .btnA, .btnB, .btnX, .btnY: return CGSize(width: n3dsLandscapeFace, height: n3dsLandscapeFace)
+            case .stickRight: return CGSize(width: n3dsPortraitCStick, height: n3dsPortraitCStick)
+            case .btnMic: return referenceSize(.btnClip, system: .ps1, isLandscape: true)
+            // The circle pad keeps its control's size here: the band under the
+            // screens is 157 points, and grown as upright (`n3dsPortraitCirclePad`)
+            // it left the page and pushed the cross onto SELECT and MIC. Its pad
+            // glides inside a still surround of that size (2026-10-21).
+            // MENU and CLIP are rounded squares the bars' width, as upright.
+            case .btnMenu, .btnClip:
+                return CGSize(width: n3dsLandscapeShoulder.width, height: n3dsLandscapeShoulder.width)
+            default: return referenceSize(element, system: .ps1, isLandscape: true)
+            }
         }
         // The PlayStation joins the Super Nintendo here, and for the same
         // reason: its pad is the DS's shape too, a cross and four buttons in a
@@ -604,6 +646,8 @@ enum EmulatorLayoutGeometry {
         let isMD = (system == .md)
         let isPSP = (system == .psp)
         let isSMS = (system == .sms)
+        let isCTR = (system == .n3ds)
+        let original = system
         let system = system.layoutPage
         let menuStrip = controllerMenuStrip * k
         // GB/GBC derive their on-screen HEIGHT from a fixed 3:2 shape (independent of
@@ -612,6 +656,28 @@ enum EmulatorLayoutGeometry {
         let heightAspect: CGFloat = (system == .gbc) ? gbcScreenHeightAspect : gameAspect
 
         if isLandscape {
+            // THE 3DS ON ITS SIDE (asked 2026-10-20, the DS's model): its two
+            // screens side by side (EmulatorMetalView.ctrSideBySide) in the
+            // DS's band across the top, the controls under it. The band is the
+            // DS's; the pair is fitted inside it at one scale and centred.
+            if isCTR {
+                let screenAreaH = controllerConnected
+                    ? deviceSize.height - menuStrip
+                    : deviceSize.height * ndsLandscapeScreenRatio
+                // With touch controls the pair leaves a column each side for the
+                // shoulders, set against the screens (his design, 2026-10-21:
+                // ZL and L left of the top screen, ZR and R right of the bottom
+                // one): the frame narrows by it and the pair, fitted inside,
+                // shrinks a little, its shape kept (`n3dsLandscapeColumn`).
+                if controllerConnected {
+                    return CGRect(x: safeInsets.left, y: 0,
+                                  width: deviceSize.width - safeInsets.left - safeInsets.right, height: screenAreaH)
+                }
+                let size = n3dsLandscapeFrameSize(deviceSize: deviceSize, scale: k,
+                                                  safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right)
+                return CGRect(x: max(safeInsets.left, n3dsLandscapeMargin * k) + n3dsLandscapeColumn(deviceScale: k),
+                              y: 0, width: size.width, height: size.height)
+            }
             if hasTouchScreen {
                 // NDS landscape: screens fill the upper band, side by side.
                 let screenAreaH = controllerConnected
@@ -753,6 +819,29 @@ enum EmulatorLayoutGeometry {
             // clusters, SELECT · START, with no empty band anywhere. Never above
             // the GBA's top padding, which is where the picture sat lowest
             // before (the PlayStation's own padding is 8).
+            // THE 3DS UPRIGHT (asked 2026-10-20), phone and iPad: the composed
+            // picture at the full width, so the top screen spans the phone and the bottom
+            // one leaves a band either side for the shoulders; narrowed and
+            // centred only where the controls would keep less than their band.
+            // The cap is reckoned from flat reserves, not the insets, so the
+            // page (`ControlLayoutDefaults.n3dsPortrait`, which has none) finds
+            // the same picture: `n3dsPortraitPictureSize`.
+            if isCTR, !hasTouchScreen, !controllerConnected {
+                let size = n3dsPortraitPictureSize(deviceSize: deviceSize, gameAspect: gameAspect, deviceScale: k)
+                return CGRect(x: (availW - size.width) / 2, y: safeInsets.top + n3dsPortraitTopPadding * k,
+                              width: size.width, height: size.height)
+            }
+            // With a controller, the picture as large as the page allows above
+            // MENU's strip, as the DS's (found 2026-10-20: it fell to the
+            // PlayStation page's cap and SHRANK, 393 to 319 wide on a 14 Pro,
+            // where every other console grows).
+            if isCTR, !hasTouchScreen, controllerConnected {
+                let room = deviceSize.height - safeInsets.top - safeInsets.bottom - menuStrip
+                var w = availW
+                var h = w / gameAspect
+                if h > room { h = max(0, room); w = h * gameAspect }
+                return CGRect(x: (availW - w) / 2, y: safeInsets.top, width: w, height: h)
+            }
             if isPSP, !hasTouchScreen, !controllerConnected, LayoutFamily.of(deviceSize) == .phone {
                 let w = availW
                 let h = w / gameAspect
@@ -785,6 +874,15 @@ enum EmulatorLayoutGeometry {
                 var h = w / gameAspect
                 if h > room { h = max(0, room); w = h * gameAspect }
                 return CGRect(x: (availW - w) / 2, y: safeInsets.top + above, width: w, height: h)
+            }
+            // AN UPRIGHT IPAD, the consoles that grow (asked 2026-11-01): the
+            // picture takes the room the 14 Pro's band leaves empty now that
+            // the thumbs stand at the bottom (`tabletUprightGrowth`).
+            if !controllerConnected, LayoutFamily.of(deviceSize) == .tablet,
+               let grown = tabletUprightGrownFrame(deviceSize: deviceSize, safeInsets: safeInsets,
+                                                   gameAspect: gameAspect, system: original,
+                                                   deviceScale: k) {
+                return grown
             }
             let maxH: CGFloat = (LayoutFamily.of(deviceSize) == .tablet && !hasTouchScreen)
                 ? deviceSize.height - tabletLandscapeTopReserve - extraPadding
@@ -869,6 +967,345 @@ enum EmulatorLayoutGeometry {
     /// lowest, is the one phone without it and is told so by its shape.
     static let pspLandscapeSideInset: CGFloat = 59
     static let pspLandscapeGutterMargin: CGFloat = 8
+    // MARK: - The upright iPad, a larger picture (2026-11-01)
+
+    /// The consoles whose picture grows upright on an iPad (asked 2026-11-01:
+    /// "the game screen could be bigger, without moving or resizing anything
+    /// but the screen and its surround"). The 14 Pro's band kept under the
+    /// picture (`referencePortraitControlsHeight`) dates from before the thumb
+    /// rule (`ControlLayoutDefaults.thumbsToTheEdges`, 2026-10-30): with the
+    /// cross and the faces at the bottom of the window, hundreds of points of
+    /// it stand empty. The DS, the NES, the Super Nintendo, the Mega Drive and
+    /// the PSP were judged right as they are and keep their frames.
+    static let tabletUprightGrowingSystems: Set<PresetSystem> = [.gba, .gbc, .gg, .sms, .ps1, .n64]
+
+    /// The controls that hang from the picture on each page upright, the row
+    /// under it: they ride down with a taller picture, exactly as far, and
+    /// every other control keeps its place on the glass
+    /// (`ControlLayoutDefaults.tabletUprightRegrown`). The Game Gear's and the
+    /// Nintendo 64's pages are built up from the bottom of the window and hang
+    /// nothing. The PlayStation's CLIP joins its row (L1 · L2 · CLIP · MENU ·
+    /// R2 · R1, his call 2026-11-01): over its faces it met their plateau.
+    static func tabletUprightHangingControls(_ system: PresetSystem) -> Set<ControlElement> {
+        switch system {
+        case .gba: return [.btnL, .btnR, .btnMenu, .btnClip]
+        case .gbc: return [.btnMenu, .btnClip]
+        case .sms: return [.btnMenu]
+        case .ps1: return [.btnL, .btnL2, .btnR, .btnR2, .btnMenu, .btnClip]
+        default:   return []
+        }
+    }
+
+    /// What each dress keeps between the lowest thing that rides with the
+    /// picture (the row that hangs from it, or the picture itself where
+    /// nothing hangs) and the highest control that stays, in reference points.
+    /// It is the dress's furniture in that band, read from `ConsoleSkinView`:
+    /// - Game Boy and Color: PHONES, centred in the band (`drawTabletDecals`):
+    ///   its 14-point icon and 7 of padding above and below, and half its
+    ///   12-point margin each side. Its speaker stands next to START since
+    ///   2026-11-01, not in the band.
+    /// - Game Boy Advance: nothing; its surround ends under MENU and its brand
+    ///   sits on CLIP's line, both of which ride down. A gap.
+    /// - PlayStation: the plateau round the faces reaches about 32 points (at
+    ///   k 1.6, 20 reference) past the buttons (`drawRaisedGround`), and the
+    ///   cross's past the cross.
+    /// - Nintendo 64: its brand stands on L and R's line (2026-11-01), so the
+    ///   band holds the picture's 10-point frame and the top of the shoulder
+    ///   recesses, which rise 18 over the bars (`drawShoulders`), and a gap.
+    /// - Master System: the panel's skirt (18) and the red line under it (6),
+    ///   then the brand left of MENU.
+    /// - Game Gear: its surround reaches 30 under the picture, then its plaque.
+    static func tabletUprightDressRoom(_ system: PresetSystem) -> CGFloat {
+        switch system {
+        case .gbc: return 14 + 2 * 7 + 12
+        case .gba: return 12
+        case .ps1: return 20 + 12
+        case .n64: return 10 + 18 + 12
+        case .sms: return 12
+        case .gg:  return 30 + 12
+        default:   return 12
+        }
+    }
+
+    /// How much further the row that hangs from the picture stands below it
+    /// upright on an iPad than on the page it comes from: the Game Boy's
+    /// surround is an even frame there (2026-11-01, `GameBoySkin.portraitDeco`),
+    /// deeper under the picture than the phone's, and MENU and CLIP keep their
+    /// gap below it. The frame is the LED cluster's width and four gaps
+    /// (`clusterW + 4 * 8`, the cluster being the BATTERY word, 49.9 reference
+    /// points wide at 6.5-point type) where the phone's was the stripe band and
+    /// two gaps (22 + 16).
+    static func tabletUprightRowDrop(_ system: PresetSystem) -> CGFloat {
+        switch system {
+        case .gbc: return tabletGBCSurroundSide - (22 + 2 * 8)
+        default:   return 0
+        }
+    }
+    /// The Game Boy's even frame round its picture upright on an iPad, in
+    /// reference points (`GameBoySkin.portraitDeco` draws it from its own
+    /// measure of the BATTERY word, which this matches).
+    static let tabletGBCSurroundSide: CGFloat = 49.9 + 4 * 8
+
+    /// The picture upright on an iPad for a console that grows, or nil (every
+    /// other console, a phone, a controller). The picture keeps its top and
+    /// grows down and out from it, as wide as the window and no wider, and only
+    /// as tall as leaves `tabletUprightDressRoom` over the highest control that
+    /// stays. Measured on the page as it is laid out under the old picture, so
+    /// the controls that stay are exactly where they were.
+    static func tabletUprightGrownFrame(deviceSize: CGSize, safeInsets: UIEdgeInsets,
+                                        gameAspect: CGFloat, system: PresetSystem,
+                                        deviceScale k: CGFloat) -> CGRect? {
+        guard tabletUprightGrowingSystems.contains(system),
+              LayoutFamily.of(deviceSize) == .tablet, deviceSize.height > deviceSize.width,
+              let old = tabletUprightPreviousFrame(deviceSize: deviceSize, safeInsets: safeInsets,
+                                                   gameAspect: gameAspect, system: system, deviceScale: k)
+        else { return nil }
+        let growth = tabletUprightGrowth(deviceSize: deviceSize, gameAspect: gameAspect,
+                                         system: system, deviceScale: k)
+        guard growth > 0.5 else { return nil }
+        let h = old.height + growth
+        let w = h * gameAspect
+        return CGRect(x: (deviceSize.width - w) / 2, y: old.minY, width: w, height: h)
+    }
+
+    /// How much taller the picture grows upright on an iPad: as much as makes
+    /// it the window's width, capped by the room over the highest control that
+    /// stays, less `tabletUprightDressRoom`. Zero for a console that does not
+    /// grow.
+    ///
+    /// INSET-FREE, like the cap it replaces: the old picture is placed under
+    /// the flat status band (`tabletLandscapeTopReserve`), not the caller's
+    /// inset. `screenFrame` is called with the window's insets and
+    /// `ControlLayoutDefaults` recomputes with none, and a growth read from the
+    /// insets came out 24 points apart between the two, which moved the
+    /// controls that stay (found on the host harness 2026-11-01).
+    static func tabletUprightGrowth(deviceSize: CGSize, gameAspect: CGFloat,
+                                    system: PresetSystem, deviceScale k: CGFloat) -> CGFloat {
+        guard tabletUprightGrowingSystems.contains(system), gameAspect > 0,
+              let old = tabletUprightPreviousFrame(
+                deviceSize: deviceSize,
+                safeInsets: UIEdgeInsets(top: tabletLandscapeTopReserve, left: 0, bottom: 0, right: 0),
+                gameAspect: gameAspect, system: system, deviceScale: k) else { return 0 }
+        let toFullWidth = max(0, tabletUprightWidestPicture(deviceSize: deviceSize, system: system,
+                                                           deviceScale: k) / gameAspect - old.height)
+        let container = CGSize(width: deviceSize.width, height: deviceSize.height - old.maxY)
+        let page = ControlLayoutDefaults.classicPageThenThumbs(
+            system: system, containerSize: container, scale: k, deviceSize: deviceSize)
+        let hanging = tabletUprightHangingControls(system)
+        // Where the lowest hanging control ends (the picture's own bottom,
+        // the container's top, where nothing hangs) and the highest staying
+        // one starts, in the old container.
+        var hangingBottom: CGFloat = 0
+        var stayingTop = container.height
+        for (key, b) in page.buttons {
+            guard let e = ControlElement(rawValue: key), !b.isHidden else { continue }
+            let size = buttonSize(e, system: system, isLandscape: false, deviceScale: k)
+            let y = b.centerY * container.height
+            if hanging.contains(e) {
+                hangingBottom = max(hangingBottom, y + size.height / 2)
+            } else {
+                stayingTop = min(stayingTop, y - size.height / 2)
+            }
+        }
+        let room = stayingTop - hangingBottom - (tabletUprightDressRoom(system) + tabletUprightRowDrop(system)) * k
+        return max(0, min(toFullWidth, room))
+    }
+
+    /// The widest the picture grows to upright on an iPad: the window's width,
+    /// less what its dress draws beside the picture that nothing else would
+    /// hold clear of a picture reaching the edges:
+    /// - the Game Gear's three pills and lamp, `GameGearSkin.marginWidth` (44)
+    ///   either side, inside the surround's 8 from the edge;
+    /// - the PlayStation's panel, which stands `ps1PortraitSkirt` (14) round
+    ///   the picture with rounded corners;
+    /// - the Nintendo 64's frame, `screenFrameWidth` (10) round the picture.
+    /// The Game Boy Advance and the Master System frame theirs edge to edge.
+    static func tabletUprightWidestPicture(deviceSize: CGSize, system: PresetSystem,
+                                           deviceScale k: CGFloat) -> CGFloat {
+        let side: CGFloat
+        switch system {
+        case .gg:  side = GameGearSkin.marginWidth + 8
+        case .ps1: side = ControlLayoutDefaults.ps1PortraitSkirt
+        case .n64: side = NintendoSixtyFourSkin.screenFrameWidth
+        default:   side = 0
+        }
+        return max(0, deviceSize.width - 2 * side * k)
+    }
+
+    /// The picture upright on an iPad as it was before 2026-11-01: the shared
+    /// cap that keeps the 14 Pro's band scaled under it. Kept as the page's
+    /// reference: the controls that stay are placed against it.
+    static func tabletUprightPreviousFrame(deviceSize: CGSize, safeInsets: UIEdgeInsets,
+                                           gameAspect: CGFloat, system original: PresetSystem,
+                                           deviceScale k: CGFloat) -> CGRect? {
+        let system = original.layoutPage
+        let heightAspect: CGFloat = (system == .gbc) ? gbcScreenHeightAspect : gameAspect
+        let portraitPad: CGFloat
+        switch system {
+        case .gbc: portraitPad = gbcPortraitTopPadding
+        case .ps1: portraitPad = ps1PortraitTopPadding
+        default:   portraitPad = gbaPortraitTopPadding
+        }
+        let extraPadding = portraitPad * k
+        let maxH = deviceSize.height - tabletLandscapeTopReserve - extraPadding
+            - referencePortraitControlsHeight(gameAspect: gameAspect, system: system) * k
+        var fitH = deviceSize.width / heightAspect
+        if fitH > maxH { fitH = maxH }
+        let fitW = fitH * gameAspect
+        return CGRect(x: (deviceSize.width - fitW) / 2, y: safeInsets.top + extraPadding,
+                      width: fitW, height: fitH)
+    }
+
+    // MARK: - 3DS upright (2026-10-20)
+
+    /// The 3DS's page upright: the top screen across the whole width, the
+    /// bottom screen (four fifths as wide, as on the console) under it, the
+    /// shoulders in the bands either side of the bottom screen.
+    /// A shoulder there: a vertical bar, ZL over L on the left, ZR over R on
+    /// the right. At the reference (14 Pro, full-width picture) a band is a
+    /// tenth of 393 points and the bottom screen 235.8 high. The two bars take
+    /// its lower two thirds, MENU or CLIP its top third (his design,
+    /// 2026-10-21): (157.2 - 8) / 2 = 74.6 each. Both scale with the width, as
+    /// `deviceScale` does.
+    static let n3dsPortraitShoulder = CGSize(width: 31, height: 74.6)
+    /// The cross, second to the circle pad on this console (asked 2026-10-20).
+    static let n3dsPortraitPadScale: CGFloat = 0.72
+    /// The circle pad's whole control, its still surround included: the pad
+    /// that moves is `ControlLayoutDefaults.AnalogStickViewMetrics.circlePadScale`
+    /// of it, so 86 over that makes the pad the 86 the whole control was until
+    /// 2026-10-21 (his ask that day: the pad as big as the surround was, the
+    /// surround round it).
+    static let n3dsPortraitCirclePad: CGFloat = 86 / ControlLayoutDefaults.AnalogStickViewMetrics.circlePadScale
+    /// The New 3DS's C-stick, small, above the faces as on the console.
+    static let n3dsPortraitCStick: CGFloat = 46
+    // MARK: - 3DS on its side (2026-10-20)
+
+    /// The 3DS's page on its side, the DS's model: both screens side by side
+    /// in the DS's band across the top (`ndsLandscapeScreenRatio`), the
+    /// controls in the band under them, 157 points high on a 14 Pro, 136
+    /// above its home indicator. Everything there is sized to that height:
+    /// a shoulder is an upright bar (two side by side at each outer edge),
+    /// the cross 100 points beside the 90-point circle pad, the four faces a
+    /// diamond of 48-point buttons, 123 points tall.
+    static let n3dsLandscapeShoulder = CGSize(width: 34, height: 100)
+    /// The room a shoulder column takes beside the screens on its side: one
+    /// bar's width AS DRAWN (`buttonSize` floors it, so on a smaller phone it is
+    /// wider than 34 x the scale) and the gap to the screen
+    /// (`n3dsLandscapeScreenGap`).
+    static func n3dsLandscapeColumn(deviceScale k: CGFloat) -> CGFloat {
+        buttonSize(.btnL, system: .n3ds, isLandscape: true, deviceScale: k).width + n3dsLandscapeScreenGap * k
+    }
+    /// The 3DS's two screens inside its picture frame, as the game draws them,
+    /// in the frame's own coordinates: on its side the pair of
+    /// `ctrSideBySideRects`; upright the composed 400 x 480 picture, the top
+    /// screen across its upper half and the bottom one (columns 40 to 360,
+    /// `CTRBottomScreenRect`) centred under it. The one source for the dress
+    /// (`ConsoleSkinView.ctrScreens`) and a custom layout's two screens
+    /// (`PresetLayoutResolver.defaultGeometry`), so a layout never moves them.
+    static func ctrScreenRects(in picture: CGRect, sideBySide: Bool) -> (top: CGRect, bottom: CGRect) {
+        if sideBySide {
+            let pair = ctrSideBySideRects(in: picture.size)
+            return (pair.top.offsetBy(dx: picture.minX, dy: picture.minY),
+                    pair.bottom.offsetBy(dx: picture.minX, dy: picture.minY))
+        }
+        let half = picture.height / 2
+        return (CGRect(x: picture.minX, y: picture.minY, width: picture.width, height: half),
+                CGRect(x: picture.minX + picture.width / 10, y: picture.minY + half,
+                       width: picture.width * 0.8, height: half))
+    }
+
+    /// The 3DS's two screens side by side in a picture of `size` (its frame on
+    /// its side): the 720 x 240 pair fitted at one scale and centred, the top
+    /// screen left, the bottom one right. The one source for the drawing
+    /// (`EmulatorMetalView.ctrScreenVertices`), the touch overlay, the dress
+    /// and the page (`ControlLayoutDefaults.n3dsLandscape`), so the columns set
+    /// against the screens cannot drift from them.
+    static func ctrSideBySideRects(in size: CGSize) -> (top: CGRect, bottom: CGRect) {
+        let scale = min(size.width / 720, size.height / 240)
+        let topW = 400 * scale, bottomW = 320 * scale, h = 240 * scale
+        let x = (size.width - topW - bottomW) / 2
+        let y = (size.height - h) / 2
+        return (CGRect(x: x, y: y, width: topW, height: h),
+                CGRect(x: x + topW, y: y, width: bottomW, height: h))
+    }
+
+    /// Between a shoulder column and the screen it is set against.
+    static let n3dsLandscapeScreenGap: CGFloat = 4
+
+    /// The 3DS's picture frame on its side with touch controls: the DS's band,
+    /// narrowed each side by the safe area (or the page margin) and a shoulder
+    /// column (his design, 2026-10-21). One function for the frame
+    /// (`screenFrame`), the page (`ControlLayoutDefaults.n3dsLandscape`) and the
+    /// bars' drawn height (`ControlLayoutDefaults.n3dsLandscapeDrawnSize`).
+    static func n3dsLandscapeFrameSize(deviceSize: CGSize, scale k: CGFloat,
+                                       safeLeftInset: CGFloat, safeRightInset: CGFloat) -> CGSize {
+        let left = max(safeLeftInset, n3dsLandscapeMargin * k) + n3dsLandscapeColumn(deviceScale: k)
+        let right = max(safeRightInset, n3dsLandscapeMargin * k) + n3dsLandscapeColumn(deviceScale: k)
+        return CGSize(width: max(0, deviceSize.width - left - right),
+                      height: deviceSize.height * ndsLandscapeScreenRatio)
+    }
+    /// The page's own side margin on its side, where the safe area is smaller.
+    static let n3dsLandscapeMargin: CGFloat = 8
+    static let n3dsLandscapePad: CGFloat = 100
+    /// A B X Y on its side: 54 since his third look (2026-10-21, "a bit
+    /// bigger"); 48 until then, the size the page still measures A's place by.
+    static let n3dsLandscapeFace: CGFloat = 54
+    static let n3dsLandscapeFaceSecondLook: CGFloat = 48
+
+    /// The band kept under the picture for the controls (reference points):
+    /// where a full-width picture would leave less (iPhone SE), the picture
+    /// is narrowed instead and centred.
+    static let n3dsPortraitControlsMin: CGFloat = 270
+    /// The gap above the picture, under the safe area.
+    static let n3dsPortraitTopPadding: CGFloat = 4
+    /// The status band and the home indicator a notched phone keeps upright,
+    /// as flat reference points (59 and 34 on a 14 Pro): the picture's cap is
+    /// reckoned from them, so it does not move with the insets a caller passes.
+    static let n3dsPortraitTopReserve: CGFloat = 59
+    static let n3dsPortraitBottomReserve: CGFloat = 34
+
+    /// The 3DS's picture upright on a phone: the whole width, or less where
+    /// the controls would keep under `n3dsPortraitControlsMin`.
+    static func n3dsPortraitPictureSize(deviceSize: CGSize, gameAspect: CGFloat,
+                                        deviceScale k: CGFloat) -> CGSize {
+        var w = deviceSize.width
+        var h = w / gameAspect
+        let room: CGFloat
+        if LayoutFamily.of(deviceSize) == .tablet {
+            // An iPad: the 14 Pro's page scaled, so the band under the picture
+            // is the 14 Pro's band scaled (`n3dsPortraitControlsHeight`).
+            room = deviceSize.height - tabletLandscapeTopReserve
+                - n3dsPortraitTopPadding * k - n3dsPortraitControlsHeight(deviceScale: k)
+            // Then larger (asked 2026-11-01): the top screen down to where CLIP
+            // and MENU began, which on the page above is the top screen's foot
+            // plus the first sixth of the bottom screen less half of CLIP
+            // (`ControlLayoutDefaults.n3dsPortrait`: CLIP centred in the top
+            // third of the bottom screen). The two screens are the picture's
+            // halves, so the picture grows by twice that, and the bottom screen,
+            // CLIP, MENU and the bars beside it come down with it.
+            if h > room { h = max(0, room); w = h * gameAspect }
+            let clip = buttonSize(.btnClip, system: .n3ds, isLandscape: false, deviceScale: k).height
+            let reach = max(0, h / 12 - clip / 2)
+            h += 2 * reach
+            w = h * gameAspect
+            if w > deviceSize.width { w = deviceSize.width; h = w / gameAspect }
+            return CGSize(width: w, height: h)
+        } else {
+            room = deviceSize.height - n3dsPortraitTopReserve - n3dsPortraitBottomReserve
+                - (n3dsPortraitTopPadding + n3dsPortraitControlsMin) * k
+        }
+        if h > room { h = max(0, room); w = h * gameAspect }
+        return CGSize(width: w, height: h)
+    }
+
+    /// The band under the 3DS's picture upright on the 14 Pro (the page's
+    /// reference, home indicator included), scaled: what an iPad keeps for it.
+    static func n3dsPortraitControlsHeight(deviceScale k: CGFloat) -> CGFloat {
+        let reference = CGSize(width: referenceShortSide, height: referenceLongSide)
+        let picture = n3dsPortraitPictureSize(deviceSize: reference, gameAspect: 400.0 / 480.0, deviceScale: 1)
+        return (referenceLongSide - n3dsPortraitTopReserve - n3dsPortraitTopPadding - picture.height) * k
+    }
+
     static let pspLandscapeFaceScale: CGFloat = 0.85
     /// The row band under the picture on its side (SELECT · START and the
     /// indicator), in reference points.
@@ -1006,10 +1443,24 @@ enum EmulatorLayoutGeometry {
     /// EmulatorViewController.applyControlConstraints():
     ///  - GBA landscape: controls overlay the whole view.
     ///  - everything else: controls sit below the screen(s).
+    /// `system`: the 3DS on its side lays its screens in a band over the
+    /// controls, as the DS does (`screensBandAboveControls`).
     static func controlsFrame(deviceSize: CGSize, screenFrame: CGRect,
-                              hasTouchScreen: Bool, isLandscape: Bool) -> CGRect {
-        let top: CGFloat = (isLandscape && !hasTouchScreen) ? 0 : screenFrame.maxY
+                              hasTouchScreen: Bool, isLandscape: Bool,
+                              system: PresetSystem? = nil) -> CGRect {
+        let band = screensBandAboveControls(system: system, isLandscape: isLandscape,
+                                            hasTouchScreen: hasTouchScreen)
+        let top: CGFloat = (isLandscape && !band) ? 0 : screenFrame.maxY
         return CGRect(x: 0, y: top, width: deviceSize.width, height: deviceSize.height - top)
+    }
+
+    /// Whether, on its side, the console's screens fill a band across the top
+    /// with the controls under it: the DS (two screens, `hasTouchScreen`) and
+    /// the 3DS (its two screens drawn side by side, asked 2026-10-20). Every
+    /// other console lays its controls beside and over its picture.
+    static func screensBandAboveControls(system: PresetSystem?, isLandscape: Bool,
+                                         hasTouchScreen: Bool) -> Bool {
+        hasTouchScreen || (isLandscape && system == .n3ds)
     }
 
     // MARK: - NDS landscape side bars (L / R)

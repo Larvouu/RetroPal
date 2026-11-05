@@ -108,6 +108,25 @@ enum LegacyTextEncoding {
         }
     }
 
+    /// The ANSI codepage a Windows machine set to this language writes a TEXT
+    /// file in (Notepad's "ANSI", ImgBurn, CDRWIN): a `.cue` or `.m3u`, where
+    /// a zip entry's name is in the OEM one (`oemEncoding`). They differ for
+    /// the Latin and Cyrillic languages, "é" being 0xE9 in CP1252 and 0x82 in
+    /// CP850, and are the same for Japanese, Korean and Chinese.
+    static func ansiEncoding(forLanguageTag tag: String) -> String.Encoding {
+        let language = tag.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init) ?? ""
+        switch language {
+        case "ja", "ko", "zh":
+            return oemEncoding(forLanguageTag: tag)
+        case "pl", "cs", "sk", "hu", "hr", "sl", "ro", "bs", "sq":
+            return .windowsCP1250
+        case "ru", "uk", "be":
+            return .windowsCP1251
+        default:
+            return .windowsCP1252
+        }
+    }
+
     /// A `String.Encoding` for a CoreFoundation codepage constant. The DOS
     /// codepages have no Foundation-level case of their own; this is the
     /// documented bridge for them.

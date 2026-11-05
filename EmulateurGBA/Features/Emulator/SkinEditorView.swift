@@ -242,6 +242,18 @@ struct SkinEditorView: View {
                     ("skin.editor.printedText", pspBinding(\.printHex)),
                     ("skin.editor.shoulders", pspBinding(\.shouldersHex)),
                     ("skin.editor.stick", pspBinding(\.stickHex))]
+        // Every colour the dress paints (`N3DSSkinPalette`): the DS's slots and
+        // its own, the four faces each and the two sticks.
+        case .n3ds:
+            return [("skin.editor.body", ctrBinding(\.bodyHex)),
+                    ("skin.editor.buttons", ctrBinding(\.buttonsHex)),
+                    ("skin.editor.letters", ctrBinding(\.lettersHex)),
+                    ("skin.editor.menuIcons", ctrBinding(\.iconsHex)),
+                    ("skin.editor.faceA", ctrBinding(\.faceAHex)),
+                    ("skin.editor.faceB", ctrBinding(\.faceBHex)),
+                    ("skin.editor.faceX", ctrBinding(\.faceXHex)),
+                    ("skin.editor.faceY", ctrBinding(\.faceYHex)),
+                    ("skin.editor.sticks", ctrBinding(\.sticksHex))]
         case .gbc:
             return [("skin.editor.body", gbcBinding(\.bodyHex)),
                     ("skin.editor.surround", gbcBinding(\.surroundHex)),
@@ -332,6 +344,11 @@ struct SkinEditorView: View {
     private func pspBinding(_ kp: WritableKeyPath<PSPSkinPalette, UInt32>) -> Binding<UInt32> {
         Binding(get: { if case .psp(let p) = palette { return p[keyPath: kp] }; return 0 },
                 set: { v in if case .psp(var p) = palette { p[keyPath: kp] = v; palette = .psp(p) } })
+    }
+
+    private func ctrBinding(_ kp: WritableKeyPath<N3DSSkinPalette, UInt32>) -> Binding<UInt32> {
+        Binding(get: { if case .n3ds(let p) = palette { return p[keyPath: kp] }; return 0 },
+                set: { v in if case .n3ds(var p) = palette { p[keyPath: kp] = v; palette = .n3ds(p) } })
     }
 
     private var saveButton: some View {

@@ -7,37 +7,36 @@
 //  margins, a top bar of our own, and the content as glass cards. Portrait
 //  keeps its List and is untouched.
 //
-//  A LAYOUT, not a second page. `RetroAchievementsView` still owns the
-//  expansion state, the per-game loads, the layout choice and every sheet
-//  (share, overview, dashboard, badge detail, about); it hands this view the
-//  facts, one closure per action, and the expanded content of a game as a
-//  view it builds itself, so the loading, offline and loaded shapes are the
-//  ones portrait shows and were never written twice.
+//  A LAYOUT, not a second page. `RetroAchievementsView` owns every sheet
+//  (share, overview, the game's dashboard, about); it hands this view the
+//  facts and one closure per action, and both layouts draw the same rows
+//  (`RAProfileRows.swift`) and the same summary (`RAProfileSummary`).
 //
-//  Left: the account (the RA mark, name, points, the total progress) and the
-//  share + layout row. Right: one card per game with achievements, its header
-//  the same row portrait uses (box art, title, progress) and its body the
-//  expanded content when open; then the "not on RetroAchievements" card.
+//  Left: the account with the last three achievements (`RAProfileSummary`)
+//  and the share. Right: one card per game with achievements, a tap opening
+//  its own sheet (2026-10-28; the card used to open in place); then the
+//  "not on RetroAchievements" card, by console, the 3DS as one row.
 //
 
 import SwiftUI
 
-struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
-    let username: String
-    let points: Int
+struct RetroAchievementsLandscapeView: View {
     let totalUnlocked: Int
     let totalAchievements: Int
     let games: [RAGameRecord]
+    /// Sorted by the page: by console, then by name.
     let unsupported: [RALibraryEntry]
-    let expandedHash: String?
-    @Binding var wallLayout: Bool
+    /// The 3DS's one row, last, when the library holds a 3DS game.
+    let showsN3DSRow: Bool
+    /// The unsupported card's note, the 3DS sentence included when its row is.
+    let unsupportedFooter: String
     let displayTitle: (RAGameRecord) -> String
-    let onToggle: (RAGameRecord) -> Void
+    /// The library's game behind an unsupported entry, for its console and cover.
+    let libraryGame: (RALibraryEntry) -> GameEntity?
+    let onOpenGame: (RAGameRecord) -> Void
+    let onShareUnlock: (RAUnlockLogEntry) -> Void
     let onShareOverview: () -> Void
     let onAbout: () -> Void
-    /// The open game's body: skeleton, offline row, or the achievements in the
-    /// chosen layout, built by the page.
-    @ViewBuilder let expandedContent: (RAGameRecord) -> ExpandedContent
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -116,8 +115,6 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
         .frame(height: 40)
     }
 
-    // MARK: - Left: the account
-
     /// The games, the empty note and the unsupported note, in order.
     private var gamesColumn: some View {
         VStack(spacing: 12) {
@@ -127,110 +124,35 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
             if games.isEmpty {
                 emptyCard
             }
-            if !unsupported.isEmpty {
+            if !unsupported.isEmpty || showsN3DSRow {
                 unsupportedCard
             }
         }
     }
 
+    // MARK: - Left: the account
+
     private var profileCard: some View {
         LandscapeChrome.card(nil) {
-            HStack(spacing: 10) {
-                Image("RABrand")
-                    .resizable().scaledToFit()
-                    .frame(height: 22)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(username)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Text("\(points.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .monospacedDigit()
-                }
-                Spacer(minLength: 0)
-            }
-            if totalAchievements > 0 {
-                Text(String(format: String(localized: "ra.dashboard.summary",
-                                           defaultValue: "%lld of %lld unlocked"),
-                            totalUnlocked, totalAchievements))
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
-                ProgressView(value: Double(totalUnlocked), total: Double(totalAchievements))
-                    .tint(.yellow)
-            }
+            RAProfileSummary(totalUnlocked: totalUnlocked,
+                             totalAchievements: totalAchievements,
+                             onShareUnlock: onShareUnlock)
             RAActionsRow(shareDisabled: games.isEmpty,
-                         onShare: onShareOverview,
-                         wallLayout: $wallLayout)
+                         onShare: onShareOverview)
                 .padding(.top, 4)
-            Text(String(localized: "ra.dashboard.shareHint",
-                        defaultValue: "Tap an unlocked achievement to share it."))
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.65))
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     // MARK: - Right: the games
 
     private func gameCard(_ record: RAGameRecord) -> some View {
-        let isOpen = expandedHash == record.romHash
-        return LandscapeChrome.card(nil) {
+        LandscapeChrome.card(nil) {
             FocusableButton {
-                onToggle(record)
+                onOpenGame(record)
             } label: {
-                HStack(spacing: 12) {
-                    AsyncImage(url: record.boxArtURL.flatMap(URL.init(string:))) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        ZStack {
-                            Color.white.opacity(LandscapeChrome.cardFill)
-                            Image(systemName: "trophy")
-                                .font(.footnote)
-                                .foregroundStyle(.white.opacity(0.78))
-                        }
-                    }
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(displayTitle(record))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        if record.total > 0 {
-                            ProgressView(value: Double(record.unlocked), total: Double(record.total))
-                                .tint(.yellow)
-                                .scaleEffect(x: 1, y: 0.8, anchor: .center)
-                            Text(String(format: String(localized: "ra.dashboard.summary",
-                                                       defaultValue: "%lld of %lld unlocked"),
-                                        record.unlocked, record.total))
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.78))
-                        } else {
-                            Text(String(localized: "ra.profile.expandHint",
-                                        defaultValue: "Open to see its achievements"))
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.78))
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.down")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .rotationEffect(.degrees(isOpen ? 180 : 0))
-                }
-                .contentShape(Rectangle())
+                RAGameRowLabel(record: record, title: displayTitle(record))
             }
             .buttonStyle(.plain)
-            .accessibilityAddTraits(isOpen ? .isSelected : [])
-
-            if isOpen {
-                Divider().overlay(Color.white.opacity(0.12))
-                expandedContent(record)
-            }
         }
     }
 
@@ -247,13 +169,12 @@ struct RetroAchievementsLandscapeView<ExpandedContent: View>: View {
     private var unsupportedCard: some View {
         LandscapeChrome.card(String(localized: "ra.profile.unsupported", defaultValue: "Not on RetroAchievements")) {
             ForEach(unsupported, id: \.romHash) { entry in
-                Text(entry.title)
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
+                RAUnsupportedGameRow(title: entry.title, game: libraryGame(entry))
             }
-            Text(String(localized: "ra.profile.unsupported.footer",
-                        defaultValue: "These games have no achievements on RetroAchievements. Sometimes only the English version of a game is covered."))
+            if showsN3DSRow {
+                RAUnsupportedN3DSRow()
+            }
+            Text(unsupportedFooter)
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)

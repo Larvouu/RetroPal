@@ -2,9 +2,11 @@
 //  RAOverviewShareView.swift
 //  EmulateurGBA
 //
-//  The shareable RetroAchievements OVERVIEW card, restyled after the official
-//  retroachievements.org profile: the RA dark-charcoal theme (no console
-//  dress — the games span consoles), the RA masthead, username + totals, then
+//  The shareable RetroAchievements OVERVIEW card: since 2026-10-28 in the
+//  app's look by theme like the Retro story cards (the look's ground, glass
+//  panels, white numbers; his ask), where it wore the RA site's charcoal. RA's
+//  gold stays where RA means it: the progress bars and the "mastered" stroke.
+//  The RA masthead, username + totals, then
 //  EVERY eligible game, most points first, at a density that adapts to how
 //  many there are:
 //    • ≤ 4 games  → full RA-site panels (icon, title, console, points, n/m,
@@ -48,14 +50,12 @@ struct RAOverviewCardView: View {
     /// and footer). The host uses it to bound the mosaic's box-art fetch.
     static let gamesArea = CGSize(width: 324, height: 196)
     private static let gold = Color(red: 0.98, green: 0.80, blue: 0.36)
+    private var theme: LandscapeTheme { LandscapeThemeStore.shared.theme }
 
     var body: some View {
         ZStack {
-            // The RA site's neutral dark charcoal, not the Retro Pal purple.
-            LinearGradient(
-                colors: [Color(red: 0.118, green: 0.118, blue: 0.133),
-                         Color(red: 0.055, green: 0.055, blue: 0.063)],
-                startPoint: .top, endPoint: .bottom)
+            // The look's ground, still (the Retro story cards' own).
+            StoryCardGround(theme: theme)
 
             VStack(spacing: 7) {
                 HStack(spacing: 7) {
@@ -97,19 +97,25 @@ struct RAOverviewCardView: View {
                     }
                     Text("Retro Pal")
                         .font(.system(size: 11, weight: .heavy))
-                        .foregroundStyle(Self.gold)
+                        .foregroundStyle(.white.opacity(0.85))
                 }
             }
             .padding(18)
         }
         .frame(width: Self.side, height: Self.side)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .inset(by: 1)
+                .stroke(theme.isClassic ? Color.white.opacity(0.18) : theme.accent.opacity(0.45), lineWidth: 1))
+        .environment(\.colorScheme, .dark)
     }
 
     private func stat(value: String, label: String) -> some View {
         VStack(spacing: 1) {
             Text(value)
                 .font(.system(size: 17, weight: .heavy))
-                .foregroundStyle(Self.gold)
+                .foregroundStyle(.white)
                 .monospacedDigit()
             Text(label)
                 .font(.system(size: 9, weight: .semibold))
@@ -193,7 +199,7 @@ struct RAOverviewCardView: View {
                     if let points = game.points {
                         Text("\(points.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                             .font(.system(size: 10.5, weight: .heavy))
-                            .foregroundStyle(Self.gold)
+                            .foregroundStyle(.white)
                             .monospacedDigit()
                     }
                 }
@@ -215,9 +221,10 @@ struct RAOverviewCardView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.055)))
-        .overlay(RoundedRectangle(cornerRadius: 8)
-            .strokeBorder(isMastered(game) ? Self.gold.opacity(0.85) : Color.white.opacity(0.08),
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color.white.opacity(LandscapeChrome.cardFill)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .strokeBorder(isMastered(game) ? Self.gold.opacity(0.85) : Color.white.opacity(LandscapeChrome.cardStroke),
                           lineWidth: 1))
     }
 
@@ -235,7 +242,7 @@ struct RAOverviewCardView: View {
                 if let points = game.points {
                     Text("\(points.formatted()) \(String(localized: "ra.pointsSuffix", defaultValue: "pts"))")
                         .font(.system(size: 9, weight: .heavy))
-                        .foregroundStyle(Self.gold)
+                        .foregroundStyle(.white)
                         .monospacedDigit()
                 }
                 Text("\(game.unlocked)/\(game.total)")
@@ -267,7 +274,7 @@ struct RAOverviewCardView: View {
                                 .overlay(
                                     Text("+\(hiddenGames)")
                                         .font(.system(size: max(8, spec.side * 0.3), weight: .heavy))
-                                        .foregroundStyle(Self.gold.opacity(0.9))
+                                        .foregroundStyle(.white.opacity(0.9))
                                         .minimumScaleFactor(0.6))
                         }
                     }
@@ -324,9 +331,10 @@ struct RAOverviewShareView: View {
         RAShareScaffold(cardImage: cardImage,
                         shareFilename: "retropal-ra-overview",
                         cardType: "ra_overview",
-                        // Isometric tilt with the Classic purple edge (no game
-                        // context, so no console body to extrude).
-                        edgeColors: ShareCardStyle.retroPal.extrudeEdgeColors(system: nil, skin: nil),
+                        // Isometric tilt with the look's edge and halo, as the
+                        // card wears the look (2026-10-28).
+                        edgeColors: LandscapeThemeStore.shared.theme.cardEdgeColors,
+                        glowColor: LandscapeThemeStore.shared.theme.cardGlowColor,
                         onClose: onClose)
             .task { await loadAndRender() }
     }
@@ -398,7 +406,8 @@ struct RAOverviewCardDebugPreview: View {
         RAShareScaffold(cardImage: cardImage,
                         shareFilename: "retropal-debug-ra-overview",
                         cardType: "ra_overview",
-                        edgeColors: ShareCardStyle.retroPal.extrudeEdgeColors(system: nil, skin: nil),
+                        edgeColors: LandscapeThemeStore.shared.theme.cardEdgeColors,
+                        glowColor: LandscapeThemeStore.shared.theme.cardGlowColor,
                         onClose: onClose)
             .onAppear(perform: render)
     }

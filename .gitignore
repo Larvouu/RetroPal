@@ -52,6 +52,14 @@ Packages/
 *.sra
 *.fla
 *.mpk
+# Nintendo 3DS games (added 2026-10-30): the 3DS came in 1.3.5 and its four
+# extensions were never listed, so a game dropped in the tree could be
+# committed. Same rule as every console above.
+*.3ds
+*.cci
+*.cxi
+*.3dsx
+*.cia
 
 # Save-state compatibility fixtures. A save state is a dump of the running
 # game's memory, so it carries the same content as the ROM above it and follows
@@ -74,6 +82,8 @@ EmulateurGBATests/Fixtures/SaveStateCompat/*.state
 !EmulateurGBATests/Fixtures/SaveStateCompat/md/kleleatoms.state
 !EmulateurGBATests/Fixtures/SaveStateCompat/psp/2048psp.pbp
 !EmulateurGBATests/Fixtures/SaveStateCompat/psp/2048psp.state
+!EmulateurGBATests/Fixtures/SaveStateCompat/azahar/minimalist-quest.3dsx
+!EmulateurGBATests/Fixtures/SaveStateCompat/azahar/minimalist-quest.state
 
 # The owner's own game files, states and saves, handed over for testing and
 # benchmarking (commercial ROMs among them). Local only, never committed.

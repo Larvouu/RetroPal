@@ -1,0 +1,66 @@
+Expose async shader compilation as a libretro core option
+
+The Vulkan renderer can compile a shader it has never seen on worker threads
+and skip the draws that need it until it is ready
+(RasterizerVulkan::AccelerateDrawBatchInternal: wait_built is false when
+Settings::values.async_shader_compilation is on, except for draws of six
+vertices or fewer, which still wait). The Android and Qt frontends offer it; the
+libretro core never sets it, so it stays at its default, off, and every new
+shader stops the emulation thread until the GPU driver returns.
+
+On an iPhone 14 Pro (Majora's Mask 3D, MoltenVK, 2026-10-19) the game held 60
+fps at 5.7 to 6.4 ms of work per frame, and stopped for 1 to 4 seconds each
+time a scene was drawn for the first time; the disk shader cache only helps
+on the second visit.
+
+This adds the option `citra_async_shader_compilation` (default disabled, so a
+frontend that does not set it sees no change) and reads it with the other
+graphics options.
+
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index 7b43e31..483387a 100644
+--- a/src/citra_libretro/core_settings.cpp
++++ b/src/citra_libretro/core_settings.cpp
+@@ -60,6 +60,8 @@ static constexpr const char* use_hw_shader = citra_setting(BaseKeys::use_hw_shad
+ static constexpr const char* use_shader_jit = citra_setting(BaseKeys::use_shader_jit);
+ static constexpr const char* shaders_accurate_mul = citra_setting(BaseKeys::shaders_accurate_mul);
+ static constexpr const char* use_disk_shader_cache = citra_setting(BaseKeys::use_disk_shader_cache);
++static constexpr const char* async_shader_compilation =
++    citra_setting(BaseKeys::async_shader_compilation);
+ static constexpr const char* resolution_factor = citra_setting(BaseKeys::resolution_factor);
+ static constexpr const char* texture_filter = citra_setting(BaseKeys::texture_filter);
+ static constexpr const char* texture_sampling = citra_setting(BaseKeys::texture_sampling);
+@@ -362,6 +364,22 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
+         },
+         config::enabled
+     },
++    {
++        config::graphics::async_shader_compilation,
++        "Async Shader Compilation",
++        "Async Shaders",
++        "Compile new shaders on worker threads instead of stopping the game to wait for them. "
++        "Removes the stutter of a scene drawn for the first time, at the cost of objects "
++        "missing for a few frames until their shaders are ready.",
++        nullptr,
++        config::category::graphics,
++        {
++            { config::enabled, "Enabled" },
++            { config::disabled, "Disabled" },
++            { nullptr, nullptr }
++        },
++        config::disabled
++    },
+     {
+         config::graphics::use_disk_shader_cache,
+         "Hardware Shader Cache",
+@@ -1004,6 +1022,10 @@ static void ParseGraphicsOptions(void) {
+         LibRetro::FetchVariable(config::graphics::use_disk_shader_cache, config::enabled) ==
+         config::enabled;
+ 
++    Settings::values.async_shader_compilation =
++        LibRetro::FetchVariable(config::graphics::async_shader_compilation, config::disabled) ==
++        config::enabled;
++
+     auto resolution = LibRetro::FetchVariable(config::graphics::resolution_factor, "1");
+     Settings::values.resolution_factor = std::stoi(resolution);
+ 

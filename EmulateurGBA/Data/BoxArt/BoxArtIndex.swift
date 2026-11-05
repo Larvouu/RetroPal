@@ -107,7 +107,7 @@ final class BoxArtIndex {
     /// have no unique code (the DATs carry a handful of stray entries there).
     /// The Nintendo 64's is the one at 0x3B ("NZLP" is Ocarina of Time,
     /// Europe), and its No-Intro DAT lists it as the serial.
-    static let serialSystems: Set<ROMSystemType> = [.gba, .nds, .n64]
+    static let serialSystems: Set<ROMSystemType> = [.gba, .nds, .n64, .n3ds]
 
     func serialName(_ serial: String, system: ROMSystemType) -> String? {
         guard Self.serialSystems.contains(system), serial.count >= 3,

@@ -46,7 +46,7 @@ struct OpenFromFilesTests {
     @Test("Our own game types are claimed at Owner rank")
     func ownGameTypesAreOwned() {
         let owned = Self.types(rank: "Owner")
-        for console in ["gba", "gbc", "gb", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg"] {
+        for console in ["gba", "gbc", "gb", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp", "n3ds"] {
             #expect(owned.contains("com.retropal.rom.\(console)"),
                     "com.retropal.rom.\(console) is not claimed at Owner rank.")
         }

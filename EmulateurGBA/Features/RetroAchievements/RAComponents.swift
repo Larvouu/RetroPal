@@ -202,10 +202,13 @@ struct RABadgeWallSkeleton: View {
 /// The share + rows⇄wall action row shown under the header of both achievement
 /// surfaces (profile page + game dashboard) — replaced the old toolbar buttons.
 /// Rendered on the sheet/list background (the callers clear the row chrome).
+/// The profile page passes no layout (2026-10-28): it lists no achievements
+/// since its games open their own sheet, so the radio there chose nothing.
 struct RAActionsRow: View {
     let shareDisabled: Bool
     let onShare: () -> Void
-    @Binding var wallLayout: Bool
+    /// The rows⇄wall choice, nil for no radio.
+    var wallLayout: Binding<Bool>? = nil
 
     var body: some View {
         // Share first, the layout radio right beside it (one left-aligned
@@ -233,7 +236,9 @@ struct RAActionsRow: View {
             .accessibilityLabel(Text(String(localized: "ra.share.progress",
                                             defaultValue: "Share your progress")))
 
-            RALayoutRadio(wallLayout: $wallLayout)
+            if let wallLayout {
+                RALayoutRadio(wallLayout: wallLayout)
+            }
 
             Spacer(minLength: 0)
         }

@@ -5,13 +5,12 @@
 "tab.settings" = "Definições";
 
 /* Library */
-"library.title" = "Biblioteca";
 "library.empty.title" = "Bem-vindo ao Retro Pal";
 "library.empty.subtitle" = "Joga os teus jogos retro no iPhone. Sem anúncios, sem rastreio pessoal.";
 "library.empty.subtitle.ipad" = "Joga os teus jogos retro no iPad. Sem anúncios, sem rastreio pessoal.";
 "library.empty.button" = "Adicionar um jogo";
-"library.empty.step1" = "Coloca um jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso ou .pbp) no teu iPhone, através do Safari, AirDrop ou iCloud Drive.";
-"library.empty.step1.ipad" = "Coloca um jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, .chd, .iso, .cso ou .pbp) no teu iPad, através do Safari, AirDrop ou iCloud Drive.";
+"library.empty.step1" = "Coloca um jogo no teu iPhone, através do Safari, AirDrop ou iCloud Drive.";
+"library.empty.step1.ipad" = "Coloca um jogo no teu iPad, através do Safari, AirDrop ou iCloud Drive.";
 "library.empty.step2" = "Toca em %@ e escolhe o ficheiro na app Ficheiros.";
 "library.empty.step3" = "Joga. O teu progresso é gravado automaticamente";
 "library.empty.romHint" = "Ainda sem jogos? Existem muitos gratuitos e legais. Pesquisa \"GBA homebrew\" online.";
@@ -27,14 +26,10 @@
 "library.played.ago" = "Jogado %@";
 "library.playTime" = "%@h %@m jogado";
 "library.playTime.minutes" = "%@m jogado";
-"library.stats.title" = "Estatísticas";
 "library.stats.topGames" = "Mais jogados";
 "library.stats.totalTime" = "Tempo total";
 "library.stats.gamesPlayed" = "Jogos jogados";
 "library.stats.sessions" = "Sessões";
-"library.stats.favoriteConsole" = "Consola favorita";
-"library.stats.duration" = "%@h %@m";
-"library.stats.durationMin" = "%@m";
 
 /* Game Details */
 "details.continue" = "Continuar última sessão";
@@ -124,7 +119,7 @@
 "settings.core" = "Núcleo do emulador";
 "settings.engines.footer" = "Licença: %@.";
 "settings.engines.footer.patched" = "Licença: %@. Usado com uma pequena alteração, publicada como ficheiro de patch junto ao código-fonte.";
-"settings.engines.footer.patches" = "Licença: %@. Usado com algumas alterações, publicadas como ficheiros de patch junto ao código-fonte.";
+"settings.engines.footer.patches" = "Licença: %@. Usado com alterações próprias, publicadas como ficheiros de patch junto ao código-fonte.";
 "settings.rateApp" = "Avaliar o Retro Pal";
 "review.headline" = "Avalia o Retro Pal";
 "review.body" = "Cada avaliação conta para nós. É o que mantém o projeto vivo. 🙂";
@@ -229,7 +224,7 @@
 "legal.melonds" = "Licença melonDS";
 "legal.importantNotice.title" = "Aviso importante";
 "legal.aboutApp.title" = "Sobre esta app";
-"legal.aboutApp.description1" = "Retro Pal é um emulador local para jogos Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation, Nintendo 64, Mega Drive, Master System, Game Gear e PSP. Não transfere, distribui nem fornece acesso a qualquer conteúdo de jogos. Todos os ficheiros ROM devem ser importados pelo utilizador a partir do armazenamento do seu próprio dispositivo através da app Ficheiros.";
+"legal.aboutApp.description1" = "Retro Pal é um emulador local para jogos Game Boy Advance, Game Boy, Game Boy Color, Nintendo DS, Super Nintendo, NES, PlayStation, Nintendo 64, Mega Drive, Master System, Game Gear, PSP e Nintendo 3DS. Não transfere, distribui nem fornece acesso a qualquer conteúdo de jogos. Todos os ficheiros ROM devem ser importados pelo utilizador a partir do armazenamento do seu próprio dispositivo através da app Ficheiros.";
 "legal.aboutApp.description2" = "Esta app não fornece um catálogo de jogos, não distribui conteúdo de jogos nem facilita o descarregamento de material protegido por direitos de autor.";
 "legal.privacy.title" = "Privacidade";
 "legal.privacy.description" = "Os teus jogos e gravações ficam no teu dispositivo. Para melhorar a app, o Retro Pal envia apenas estatísticas de utilização anónimas, sem dados pessoais nem identificadores publicitários.";
@@ -253,6 +248,9 @@
 "legal.ppsspp" = "Licença PPSSPP";
 "legal.ppsspp.licenseLine" = "Licenciado sob a GNU General Public License v2.0 ou posterior (GPL-2.0-or-later)";
 "legal.ppsspp.description" = "O PPSSPP é um emulador de PSP usado como motor de emulação para os jogos de PSP nesta aplicação. O código-fonte do PPSSPP está disponível em [https://github.com/hrydgard/ppsspp](https://github.com/hrydgard/ppsspp)";
+"legal.azahar" = "Licença Azahar";
+"legal.azahar.licenseLine" = "Licenciado sob a GNU General Public License v3.0 ou posterior (GPL-3.0-or-later)";
+"legal.azahar.description" = "O Azahar é um emulador de Nintendo 3DS usado como motor de emulação para os jogos de Nintendo 3DS nesta aplicação. É usado com várias alterações, publicadas como ficheiros de patch junto ao código-fonte. O código-fonte do Azahar está disponível em [https://github.com/azahar-emu/azahar](https://github.com/azahar-emu/azahar)";
 "legal.parallelrdp" = "Licença ParaLLEl-RDP";
 "legal.parallelrdp.licenseLine" = "Licenciado sob a licença MIT";
 "legal.parallelrdp.description" = "O ParaLLEl-RDP desenha a imagem da Nintendo 64 no processador gráfico nesta aplicação. O código-fonte do ParaLLEl-RDP está disponível em [https://github.com/Themaister/parallel-rdp](https://github.com/Themaister/parallel-rdp)";
@@ -262,7 +260,7 @@
 "legal.retropal" = "Licença Retro Pal";
 "legal.retropal.licenseLine" = "Licenciado sob a GNU General Public License v3.0 (GPL-3.0)";
 "legal.retropal.description" = "O código-fonte completo do Retro Pal está disponível em [github.com/Larvouu/RetroPal](https://github.com/Larvouu/RetroPal). O software é fornecido sem qualquer garantia.";
-"legal.compliance" = "O Retro Pal é distribuído sob a GNU General Public License v3.0. Baseia-se no mGBA (Mozilla Public License 2.0) e no PCSX-ReARMed (GPL-2.0 ou posterior), utilizados sem modificações, no MesenCE (GPL-3.0) e no PPSSPP (GPL-2.0 ou posterior), utilizados cada um com uma pequena alteração, no melonDS (GPL-3.0) e no BlastEm (GPL-3.0 ou posterior), utilizados cada um com duas pequenas alterações, e no Mupen64Plus-Next (GPL-2.0 ou posterior), utilizado com algumas alterações, juntamente com o ParaLLEl-RDP (MIT), o processador de sinal cxd4 (CC0) e o MoltenVK (Apache License 2.0). Cada alteração é publicada como ficheiro de patch junto ao código-fonte. O código-fonte correspondente completo está disponível no repositório ligado acima, e o software é fornecido sem qualquer garantia.";
+"legal.compliance" = "O Retro Pal é distribuído sob a GNU General Public License v3.0. Baseia-se no mGBA (Mozilla Public License 2.0) e no PCSX-ReARMed (GPL-2.0 ou posterior), utilizados sem modificações, no MesenCE (GPL-3.0), utilizado com uma pequena alteração, no melonDS (GPL-3.0), no BlastEm (GPL-3.0 ou posterior) e no PPSSPP (GPL-2.0 ou posterior), utilizados cada um com duas pequenas alterações, e no Mupen64Plus-Next (GPL-2.0 ou posterior), utilizado com algumas alterações, juntamente com o ParaLLEl-RDP (MIT), o processador de sinal cxd4 (CC0) e o MoltenVK (Apache License 2.0), e no Azahar (GPL-3.0 ou posterior), utilizado com várias alterações. Cada alteração é publicada como ficheiro de patch junto ao código-fonte. O código-fonte correspondente completo está disponível no repositório ligado acima, e o software é fornecido sem qualquer garantia.";
 "legal.thirdParty.title" = "Licenças de terceiros";
 "legal.thirdParty.caption" = "O texto completo de cada licença sob a qual é distribuído o software incluído no Retro Pal, com os componentes que a utilizam.";
 "legal.thirdParty.usedBy" = "Utilizada por";
@@ -284,6 +282,8 @@
 "overlay.overwrite.message" = "O estado guardado existente será substituído.";
 "overlay.save.failed.title" = "Não foi possível guardar no slot %@";
 "overlay.save.failed.message" = "O slot mantém o estado guardado anterior. Tenta novamente. Se continuar a falhar, liberta espaço de armazenamento ou fecha outras apps.";
+"overlay.load.failed.title" = "Não foi possível carregar o slot %@";
+"overlay.load.failed.message" = "Este estado guardado pode vir de uma versão anterior da app, ou estar danificado. O progresso guardado dentro do próprio jogo não é afetado. Se depois o jogo se comportar de forma estranha, sai e volta a abri-lo.";
 "overlay.overwrite" = "Sobrescrever";
 "overlay.load.confirm.title" = "Carregar slot %@?";
 "overlay.load.confirm.message" = "O progresso não guardado será perdido.";
@@ -291,6 +291,7 @@
 /* Cheats */
 "cheats.hint.gba" = "Formato GameShark, CodeBreaker ou Action Replay";
 "cheats.hint.nds" = "Formato Action Replay DS (XXXXXXXX YYYYYYYY)";
+"cheats.hint.n3ds" = "Formato Gateway (XXXXXXXX YYYYYYYY)";
 "cheats.hint.snes" = "Formato Game Genie (XXXX-XXXX) ou Pro Action Replay";
 "cheats.hint.nes" = "Formato Game Genie (letras) ou Pro Action Rocky";
 "cheats.hint.ps1" = "Formato GameShark ou Action Replay (XXXXXXXX YYYY)";
@@ -303,6 +304,7 @@
 "cheats.add" = "Adicionar código";
 "cheats.invalid.gba" = "Código não reconhecido. Formato esperado: GameShark, CodeBreaker ou Action Replay.";
 "cheats.invalid.nds" = "Código não reconhecido. Formato esperado: Action Replay DS (XXXXXXXX YYYYYYYY, um par por linha).";
+"cheats.invalid.n3ds" = "Código não reconhecido. Formato esperado: Gateway (XXXXXXXX YYYYYYYY, um par por linha).";
 "cheats.invalid.snes" = "Código não reconhecido. Esperado Game Genie (XXXX-XXXX) ou Pro Action Replay (oito caracteres).";
 "cheats.invalid.nes" = "Código não reconhecido. Esperado Game Genie (seis ou oito letras) ou Pro Action Rocky (oito caracteres).";
 "cheats.invalid.ps1" = "Código não reconhecido. Formato esperado: GameShark ou Action Replay (XXXXXXXX YYYY, um par por linha).";
@@ -319,6 +321,13 @@
 /* Emulator */
 "emulator.loading" = "A carregar ROM...";
 "emulator.loadFailed" = "Não foi possível carregar %@.\nO ficheiro do jogo parece danificado. Substitui-o nos detalhes do jogo para o reparar sem perder as tuas gravações.";
+"emulator.loadingGame" = "A carregar o jogo…";
+"emulator.resumeFailed.title" = "Não foi possível restaurar a tua última sessão";
+"emulator.resumeFailed.message" = "O jogo começou no ecrã de título. A tua última sessão fica guardada até escolheres: sai para tentar de novo mais tarde, ou continua no ecrã de título, o que a substitui.";
+"emulator.resumeFailed.loadSlot" = "Carregar o slot %@ (%@)";
+"emulator.resumeFailed.titleScreen" = "Continuar no ecrã de título";
+"emulator.resumeFailed.quit" = "Sair e manter a sessão";
+"emulator.resumeFailed.slotFailed" = "Também não foi possível carregar esse slot. A tua última sessão continua guardada: sai para tentar de novo mais tarde, ou continua no ecrã de título, o que a substitui.";
 
 /* Common */
 "common.cancel" = "Cancelar";
@@ -423,6 +432,7 @@
 "saveImport.overwrite.confirm" = "Substituir";
 "saveImport.error.invalidFormat" = "Este ficheiro não é uma gravação reconhecida. Importa um ficheiro .sav, .srm ou .mcd exportado de outro emulador.";
 "saveImport.error.wrongSystem" = "Esta gravação não é compatível com este jogo.";
+"saveImport.error.ctrNotASave" = "Este ficheiro não é uma gravação da 3DS. Escolhe um .zip exportado do Retro Pal ou de outro emulador de 3DS, com a pasta de gravação do jogo.";
 "saveImport.error.duplicateExists" = "Já existe uma gravação para este jogo.";
 "saveImport.error.fileAccessDenied" = "Não foi possível ler o ficheiro selecionado.";
 "saveImport.error.writeFailed" = "Não foi possível guardar a gravação.";
@@ -431,13 +441,19 @@
 /* Guides section + how-to sheets (Week 5) */
 "guide.importRom.title" = "Adicionar um jogo";
 "guide.importRom.intro" = "O Retro Pal não inclui jogos. És tu que forneces os teus próprios ficheiros ROM, dos quais possuis legalmente os direitos (os teus próprios cartuchos ou jogos homebrew gratuitos e legais).";
-"guide.importRom.step1" = "Coloca o ficheiro do jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, ou um disco de PlayStation em .chd, ou .cue com o respetivo .bin, ou um jogo de PSP em .iso, .cso, .chd ou .pbp) no teu iPhone: transfere-o no Safari, envia-o por AirDrop de um computador ou usa o iCloud Drive.";
-"guide.importRom.step1.ipad" = "Coloca o ficheiro do jogo (.gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, ou um disco de PlayStation em .chd, ou .cue com o respetivo .bin, ou um jogo de PSP em .iso, .cso, .chd ou .pbp) no teu iPad: transfere-o no Safari, envia-o por AirDrop de um computador ou usa o iCloud Drive.";
+"guide.importRom.step1" = "Coloca o ficheiro do jogo no teu iPhone: transfere-o no Safari, envia-o por AirDrop de um computador ou usa o iCloud Drive.";
+"guide.importRom.step1.ipad" = "Coloca o ficheiro do jogo no teu iPad: transfere-o no Safari, envia-o por AirDrop de um computador ou usa o iCloud Drive.";
 "guide.importRom.step2" = "Confirma que aparece na app Ficheiros (em Transferências, No meu iPhone ou iCloud Drive).";
 "guide.importRom.step2.ipad" = "Confirma que aparece na app Ficheiros (em Transferências, No meu iPad ou iCloud Drive).";
 "guide.importRom.step3" = "No Retro Pal, toca no botão + no topo da biblioteca.";
 "guide.importRom.step4" = "Escolhe o ficheiro. O jogo aparece logo na tua biblioteca, pronto a jogar.";
-"guide.importRom.footer" = "Formatos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms, .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, e jogos de PSP em .iso, .cso, .chd ou .pbp. Um .zip também funciona, contenha ele um jogo, todos os ficheiros de um disco ou vários jogos à escolha. O .7z não é suportado. Importa apenas ficheiros que possuis legalmente.";
+"formats.link" = "Consulta os formatos de jogo e consolas suportados";
+"formats.title" = "Formatos de jogo";
+"formats.intro" = "Cada consola tem os seus próprios formatos de ficheiro. Importa o ficheiro tal como está: o Retro Pal reconhece a consola sozinho.";
+"formats.archives.header" = "Arquivos";
+"formats.archives.footer" = "Se os ficheiros indicados abaixo estiverem dentro de um destes arquivos, são detetados automaticamente, seja um jogo, todos os ficheiros de um disco ou vários jogos à escolha.";
+"formats.note.ps1" = "Um disco também pode vir em vários ficheiros: um .cue, .toc ou .ccd com os ficheiros a que se refere, e um .m3u para um jogo em vários discos. Seleciona todos os ficheiros do jogo de uma vez.";
+"formats.note.n3ds" = "Apenas jogos desencriptados.";
 "settings.guides.section" = "Guias";
 "settings.controller.row" = "Comando";
 "common.done" = "Concluído";
@@ -573,6 +589,7 @@
 "skin.editor.menuButtons" = "Botões de menu";
 "skin.editor.shoulders" = "Botões L/R";
 "skin.editor.stick" = "Joystick";
+"skin.editor.sticks" = "Joysticks";
 "skin.editor.stickSurround" = "Contorno do joystick";
 "skin.editor.dpadMarks" = "Setas do direcional";
 "skin.editor.faceZ" = "Botão Z";
@@ -596,6 +613,7 @@
 "ra.login.createAccount" = "Criar uma conta RetroAchievements";
 "ra.error.login" = "Falha ao iniciar sessão. Verifica o nome de utilizador e a palavra-passe.";
 "ra.error.server" = "O pedido ao RetroAchievements falhou.";
+"ra.error.unreachable" = "O RetroAchievements não está a responder neste momento. O problema é do lado deles, não da tua conta. Tenta de novo daqui a alguns minutos.";
 "ra.hud.unlocked" = "Conquista desbloqueada";
 "ra.dashboard.title" = "Conquistas";
 "ra.dashboard.unlocked" = "Desbloqueadas";
@@ -617,13 +635,11 @@
 "ra.details.invite.headline" = "Ganha conquistas neste jogo";
 "ra.details.invite.caption" = "Este jogo tem conquistas RetroAchievements: desafios para completar enquanto jogas, registados com uma conta gratuita.";
 "ra.details.unavailable" = "RetroAchievements não está disponível para este jogo.";
+"ra.details.unavailable.console" = "O RetroAchievements não suporta jogos da Nintendo 3DS.";
 "ra.details.unavailable.pbp" = "O RetroAchievements não consegue ler um ficheiro .pbp. O mesmo jogo em .chd, ou em .cue com o respetivo .bin, ganha conquistas normalmente.";
-"ra.library.invite.caption" = "Os teus jogos têm conquistas RetroAchievements. Liga uma conta gratuita para as ganhares enquanto jogas.";
 "ra.library.recent" = "Últimas desbloqueadas";
 "ra.library.noUnlocks" = "As tuas últimas conquistas vão aparecer aqui.";
 "ra.profile.games" = "Jogos com conquistas";
-"ra.profile.openGame" = "Abrir a página do jogo";
-"ra.profile.expandHint" = "Abre para veres as conquistas";
 "ra.card.game" = "CONQUISTAS";
 "ra.session.offline" = "Conquistas em pausa offline. Retomam automaticamente.";
 "ra.session.resumed" = "Conquistas ativas";
@@ -635,19 +651,27 @@
 "ra.retry" = "Tentar novamente";
 "ra.profile.unsupported" = "Indisponíveis no RetroAchievements";
 "ra.profile.unsupported.footer" = "Estes jogos não têm conquistas no RetroAchievements. Por vezes, apenas a versão inglesa de um jogo é abrangida.";
+"ra.profile.unsupported.footer.n3ds" = "Estes jogos não têm conquistas no RetroAchievements. Por vezes, apenas a versão inglesa de um jogo é abrangida. O RetroAchievements não suporta nenhum jogo de 3DS.";
+"ra.profile.unsupported.n3ds" = "Jogos de 3DS";
 "ra.layout.toggle" = "Mudar a vista das conquistas";
 
 // ROM import errors (shown in the import alert)
 "import.error.fileAccessDenied" = "Não é possível aceder ao ficheiro selecionado. Tenta importá-lo a partir da app Ficheiros.";
 "import.error.copyFailed" = "Não foi possível copiar o jogo para o Retro Pal. Liberta espaço de armazenamento e tenta novamente.";
-"import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms e .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, e jogos de PSP em .iso, .cso, .chd ou .pbp.";
+"import.error.invalidROM" = "Este ficheiro não é um jogo que o Retro Pal consiga ler. Jogos suportados: .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms e .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, jogos de PSP em .iso, .cso, .chd ou .pbp e jogos de Nintendo 3DS em .3ds, .cci, .cxi ou .3dsx.";
 "import.error.discMissingFiles" = "Este disco precisa de ficheiros que não foram selecionados: %@. Seleciona o .cue e todos os seus ficheiros .bin em conjunto, de uma só vez.";
 "import.console.title" = "Para que consola é este jogo?";
 "import.console.message" = "O Retro Pal não consegue saber pelo ficheiro se \"%@\" é um jogo de PlayStation ou de PSP. Escolhe a consola para que arranque na certa.";
-"import.error.zipNoROM" = "Não foi encontrado nenhum jogo neste ZIP. O Retro Pal lê jogos .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms e .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, e jogos de PSP em .iso, .cso, .chd ou .pbp; outras consolas não são suportadas.";
+"import.error.zipNoROM" = "Não foi encontrado nenhum jogo neste ZIP. O Retro Pal lê jogos .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms e .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, jogos de PSP em .iso, .cso, .chd ou .pbp e jogos de Nintendo 3DS em .3ds, .cci, .cxi ou .3dsx; outras consolas não são suportadas.";
 "import.error.zipExtractionFailed" = "Não foi possível abrir este ZIP. Extrai-o na app Ficheiros e importa diretamente o ficheiro do jogo.";
 "import.error.zipUnsupportedCompression" = "Este ZIP usa um método de compressão que o Retro Pal não consegue ler, como LZMA ou BZIP2. O ficheiro não está danificado. Extrai-o na app Ficheiros e importa o jogo diretamente, ou cria o ZIP de novo com compressão normal.";
 "import.error.zipEncrypted" = "Este ZIP está protegido por palavra-passe. Extrai-o na app Ficheiros e depois importa o ficheiro do jogo diretamente.";
+"import.error.archiveNoGame" = "Não foi encontrado nenhum jogo neste arquivo. O Retro Pal lê jogos .gba, .gb, .gbc, .nds, .sfc, .smc, .nes, .z64, .n64, .v64, .md, .gen, .smd, .sms e .gg, além de discos de PlayStation em .chd, .cue com o respetivo .bin, ou .m3u, jogos de PSP em .iso, .cso, .chd ou .pbp e jogos de Nintendo 3DS em .3ds, .cci, .cxi ou .3dsx; outras consolas não são suportadas.";
+"import.error.archiveExtractionFailed" = "Não foi possível abrir este arquivo. Pode estar danificado ou incompleto: descarrega-o de novo, ou extrai-o num computador e importa diretamente o ficheiro do jogo.";
+"import.error.archiveUnsupportedCompression" = "Este arquivo usa um método de compressão que o Retro Pal não consegue ler. O ficheiro não está danificado. Extrai-o num computador e importa diretamente o ficheiro do jogo.";
+"import.error.archiveEncrypted" = "Este arquivo está protegido por palavra-passe. Extrai-o num computador e depois importa diretamente o ficheiro do jogo.";
+"import.error.archiveSplit" = "Este jogo está dividido em vários ficheiros de arquivo (.part1.rar, .part2.rar…). O Retro Pal lê um arquivo de cada vez: junta as partes ou extrai-as num computador e depois importa o jogo.";
+"import.error.ctrEncrypted" = "Este jogo de Nintendo 3DS está encriptado, e o Retro Pal só consegue correr jogos de 3DS desencriptados. Importa uma cópia desencriptada do jogo.";
 "import.error.alreadyImported" = "Este jogo já está na tua biblioteca.";
 "import.duplicate.title" = "Já na tua biblioteca";
 "import.duplicate.bodySeveral" = "Estes jogos já estão na tua biblioteca:";
@@ -657,7 +681,7 @@
 "import.error.batchLine" = "• %1$@: %2$@";
 
 // Multi-ROM ZIP selection sheet
-"zipPicker.title" = "Jogos neste ZIP";
+"zipPicker.title" = "Jogos neste arquivo";
 "zipPicker.caption" = "Escolhe os jogos a adicionar à tua biblioteca.";
 "zipPicker.add" = "Adicionar (%d)";
 
@@ -716,14 +740,25 @@
 "cheats.invalid.characters.psp" = "Este código contém caracteres inesperados. Os truques de PSP só usam _L, 0x, os algarismos 0-9, as letras A-F e espaços.";
 "cheats.invalid.characters.nes" = "Este código contém caracteres inesperados. Os códigos de NES usam as letras do Game Genie A P Z L G I T Y E O X U K S V N, ou 0-9 e A-F, além de espaços e traços.";
 "cheats.invalid.pairs" = "Os códigos Action Replay DS vão aos pares: cada linha precisa de dois blocos de oito caracteres, por exemplo 94000130 FCFF0000.";
+"cheats.invalid.pairs.n3ds" = "Os códigos Gateway vão aos pares: cada linha precisa de dois blocos de oito caracteres, por exemplo 0012A3F4 0000270F.";
 "cheats.invalid.pairs.psp" = "Os códigos CWCheat vão aos pares: cada linha precisa de dois números depois de _L, por exemplo _L 0x20123456 0x0000270F.";
 "cheats.invalid.placeholder" = "Este código deixa-te escolher um valor. Substitui cada X ou ? por um dígito hexadecimal (0-9 ou A-F), por exemplo XXXX por 0063.";
 "n64.displayLost.title" = "A imagem deixou de atualizar";
 "n64.displayLost.message" = "O processador gráfico deixou de responder, por isso a imagem do jogo já não pode ser apresentada. Sai para guardar o teu progresso e volta a abrir o jogo para continuar a jogar.";
 "n64.displayLost.quit" = "Guardar e sair";
+"n3ds.cameraDenied.title" = "A câmara não está autorizada";
+"n3ds.cameraDenied.message" = "Este jogo usa a câmara da consola e o Retro Pal não tem autorização para usar a tua, por isso o jogo vê preto. Podes autorizar a câmara para o Retro Pal nas Definições.";
+"n3ds.cameraDenied.settings" = "Abrir Definições";
+"n3ds.cameraDenied.ok" = "OK";
 "psp.bootFailed.title" = "Não foi possível iniciar este jogo";
 "psp.bootFailed.message" = "O emulador de PSP não conseguiu iniciar este ficheiro. Se este jogo já funcionou antes, fecha completamente o Retro Pal, abre-o de novo e tenta outra vez. Caso contrário, pode estar danificado ou incompleto, ou ser uma cópia que o emulador não consegue ler, como uma imagem encriptada. Os teus jogos guardados e os teus outros jogos não são afetados.";
 "psp.bootFailed.quit" = "Sair";
+"n3ds.gameEnded.title" = "O jogo parou";
+"n3ds.gameEnded.message" = "O jogo fechou-se sozinho, ou não conseguiu arrancar de novo depois de reiniciar. A partir deste momento nada é guardado, por isso o teu último progresso guardado fica como estava. Sai e volta a abrir o jogo para continuares a jogar.";
+"psp.gameHalted.title" = "O jogo parou";
+"psp.gameHalted.message" = "O emulador de PSP encontrou neste jogo um erro a partir do qual não consegue continuar. A partir deste momento nada é guardado, por isso o teu último progresso guardado fica como estava. Sai e volta a abrir o jogo para continuares a jogar.";
+"n3ds.rewindUnavailable.title" = "Ainda não há para onde voltar";
+"n3ds.rewindUnavailable.message" = "A 3DS guarda um ponto para voltar a cada cinco segundos. Logo depois de iniciares o jogo ou carregares um progresso guardado ainda não há nenhum, ou o telemóvel precisou dessa memória por um momento. Joga alguns segundos e tenta de novo.";
 "n64.libdragonUnsupported" = "Este jogo de Nintendo 64 foi feito com uma ferramenta homebrew recente (libdragon) que o Retro Pal ainda não consegue executar. Os jogos em cartucho de Nintendo 64 não são afetados.";
 
 /* Cheats - a code on several lines is ONE entry (the split-entry trap) */
@@ -770,26 +805,28 @@
 "externalDisplay.idle.hint.ipad" = "Inicia um jogo no teu iPad";
 
 /* --- What's New, rewritten each release --- */
-"whatsnew.s1.title" = "Quatro consolas novas";
-"whatsnew.s1.b1" = "Os jogos de Mega Drive, Master System, Game Gear e PSP já se jogam no Retro Pal, e as quatro são gratuitas para todos.";
-"whatsnew.s1.b2" = "Gravações, estados de jogo, conquistas e capas oficiais funcionam nas quatro desde o primeiro dia, e com {PRO} também os códigos.";
-"whatsnew.s1.b3" = "Dois jogadores na Mega Drive e na Master System. A Mega Drive tem o seu comando de seis botões no ecrã.";
-"whatsnew.s1.b4" = "Os cartões de captura e de clip mostram a própria consola, e com {PRO} podes criar skins personalizados para as quatro.";
-"whatsnew.s2.title" = "A Nintendo 64";
-"whatsnew.s2.b1" = "Com {PRO}, o recuo vai até 30 segundos na Nintendo 64, antes ficava pelos 5.";
-"whatsnew.s2.b2" = "Os jogos de Nintendo 64 exigem menos do telemóvel: até 18% menos trabalho por fotograma no modo de pouca energia.";
-"whatsnew.s2.b3" = "Os estados de jogo da Nintendo 64 ocupam cerca de dez vezes menos do que antes.";
-"whatsnew.s3.title" = "Clássico";
-"whatsnew.s3.b1" = "Clássico passa a ser um aspeto próprio, também na horizontal: um fundo preto liso, no botão de paleta {PALETTE}.";
+"whatsnew.s1.title" = "A Nintendo 3DS";
+"whatsnew.s1.b1" = "Os jogos da Nintendo 3DS já se jogam no Retro Pal, grátis para todos: os dois ecrãs, o ecrã tátil, o botão deslizante e o Manípulo C da New 3DS no manípulo direito de um comando.";
+"whatsnew.s1.b2" = "Gravações, estados de jogo, recuo e capas oficiais funcionam desde o primeiro dia. Os jogos que usam a câmara, o microfone ou o movimento usam os do teu iPhone.";
+"whatsnew.s1.b3" = "Códigos e skins personalizados para a 3DS com {PRO}, como em todas as consolas.";
+"whatsnew.s1.b4" = "O RetroAchievements não suporta nenhum jogo da 3DS, por isso os jogos da 3DS não têm conquistas.";
+"whatsnew.s2.title" = "Retro story";
+"whatsnew.s2.b1" = "A tua história de jogador numa página: o tempo de jogo, os jogos mais jogados, as tuas consolas num anel e os teus dias de jogo. O teu histórico fica em cada dispositivo e acompanha-te através do iCloud.";
+"whatsnew.s2.b2" = "Os crachás marcam as etapas da tua história, do primeiro jogo às mil horas. Quando ganhas um, aparece no topo do ecrã, com um som só seu.";
+"whatsnew.s2.b3" = "Em dezembro, a retrospetiva do teu ano: alguns ecrãs para deslizar, cada um pronto a partilhar como imagem.";
+"whatsnew.s3.title" = "Aspeto e comandos";
+"whatsnew.s3.b1" = "A Game Boy, a Game Boy Color, a Game Boy Advance, a Nintendo DS, a Super Nintendo e a NES têm agora uma cruz direcional moldada a sério, com a forma da cruz da consola.";
+"whatsnew.s3.b2" = "Clássico tem agora a mesma biblioteca que os outros aspetos, no seu fundo preto liso.";
+"whatsnew.s3.b3" = "A página do RetroAchievements está mais clara: primeiro o teu perfil e as tuas últimas conquistas, depois os teus jogos, e um toque abre a página de um jogo.";
+"whatsnew.s3.b4" = "No iPad, a cruz direcional e os botões de cada consola estão agora em baixo, junto às margens, onde pousam os teus polegares.";
 "whatsnew.s4.title" = "E ainda";
-"whatsnew.s4.b1" = "Abre um jogo ou uma gravação diretamente na app Ficheiros ou por AirDrop, e o Retro Pal coloca-o no sítio certo.";
-"whatsnew.s4.b2" = "Mantém premido o ícone do Retro Pal no ecrã principal para nos avisares quando algo corre mal.";
-"whatsnew.s4.b3" = "Quando um estado de jogo não pode ser gravado, o Retro Pal agora avisa em vez de falhar em silêncio. E antes de carregar um estado, fica uma cópia da gravação do próprio jogo na app Ficheiros: um estado mais antigo nunca te pode tirar de vez uma gravação mais recente.";
-"whatsnew.s4.b4" = "Os botões de cada consola têm agora relevo, com uma orla de luz e sombra.";
-"whatsnew.s4.b5" = "A Master System, a Game Gear e a PSP têm cada uma o aspeto da sua própria consola, até nos botões.";
-"whatsnew.s4.b6" = "Com {PRO}, um toque em Rebobinar recua 10 segundos em todas as consolas; mantém premido para escolher até 30.";
-"whatsnew.s4.b7" = "O painel Aspeto do menu de pausa funciona com comando: carcaças, filtros de ecrã e todos os botões.";
-"whatsnew.s4.b8" = "Na página de um jogo, escolhe Jogar como Jogador 2 nas consolas de dois jogadores ou mais: jogas como Jogador 2, com os controlos táteis ou um comando, e treinas contra o computador do outro lado.";
+"whatsnew.s4.b1" = "Importa jogos de arquivos .7z, .rar, .tar, .gz e .xz, e não só de .zip.";
+"whatsnew.s4.b2" = "Os jogos da PlayStation e da PSP são importados de forma mais fiável: ficheiros de disco com maiúsculas diferentes, arquivos ZIP com mais de 4 GB e o nome verdadeiro de um jogo da PSP lido no seu EBOOT.";
+"whatsnew.s4.b3" = "Um jogo da PSP que falha no emulador passa a dizê-lo, em vez de ficar parado.";
+"whatsnew.s4.b4" = "O Modo de Jogo do iOS liga-se quando jogas, com menos atraso nos comandos Bluetooth e nos AirPods.";
+"whatsnew.s4.b5" = "O Retro Pal pede confirmação antes de apagar um jogo da biblioteca.";
+"whatsnew.s4.b6" = "Num teclado, 1 e 2 premem o segundo par de gatilhos: ZL e ZR na 3DS, L2 e R2 na PlayStation, Z na Nintendo 64.";
+"whatsnew.s4.b7" = "Os jogos da Super Nintendo, NES, Master System e Game Gear com acentos ou caracteres japoneses no nome guardam agora as suas gravações do jogo.";
 
 /* RetroAchievements - a set that is attached but contributed no rows */
 "ra.dashboard.set.empty" = "Nenhuma conquista desta série está carregada.";
@@ -798,8 +835,8 @@
 "cheats.browse.noResults" = "Nenhum jogo encontrado com esse nome. A base de dados lista os jogos pelo título em inglês.";
 "cheats.placeholderPrefix" = "ex.:";
 "library.untitled" = "Jogo sem título";
-"guide.controller.keyboard" = "Teclado físico: as setas movem, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. As teclas são lidas pela posição, por isso as letras são as de um teclado QWERTY. Os comandos Bluetooth que o iOS deteta como teclado, como o 8BitDo Zero em modo teclado, também funcionam. Cada tecla pode ser remapeada em Definições, Comando, enquanto o teclado estiver ligado. No iPhone, os controlos táteis desaparecem enquanto houver um teclado ligado.";
-"guide.controller.keyboard.ipad" = "Teclado físico: as setas movem, X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Shift = Select. As teclas são lidas pela posição, por isso as letras são as de um teclado QWERTY. Os comandos Bluetooth que o iOS deteta como teclado, como o 8BitDo Zero em modo teclado, também funcionam. Cada tecla pode ser remapeada em Definições, Comando, enquanto o teclado estiver ligado.";
+"guide.controller.keyboard" = "Teclado físico: as setas movem, X = A, Z = B, S = X, A = Y, Q = L, W = R, 1 = L2 / ZL, 2 = R2 / ZR, Enter = Start, Shift = Select. As teclas são lidas pela posição, por isso as letras são as de um teclado QWERTY. Os comandos Bluetooth que o iOS deteta como teclado, como o 8BitDo Zero em modo teclado, também funcionam. Cada tecla pode ser remapeada em Definições, Comando, enquanto o teclado estiver ligado. No iPhone, os controlos táteis desaparecem enquanto houver um teclado ligado.";
+"guide.controller.keyboard.ipad" = "Teclado físico: as setas movem, X = A, Z = B, S = X, A = Y, Q = L, W = R, 1 = L2 / ZL, 2 = R2 / ZR, Enter = Start, Shift = Select. As teclas são lidas pela posição, por isso as letras são as de um teclado QWERTY. Os comandos Bluetooth que o iOS deteta como teclado, como o 8BitDo Zero em modo teclado, também funcionam. Cada tecla pode ser remapeada em Definições, Comando, enquanto o teclado estiver ligado.";
 
 /* The Mega Drive's name as sold in this market (Genesis in the Americas) */
 "console.name.md" = "Mega Drive";
@@ -807,3 +844,88 @@
 /* The mail draft the Home Screen "Something wrong?" action opens. The body's last line is the app version, iOS version and device model. */
 "feedback.mail.subject" = "Comentários sobre o Retro Pal";
 "feedback.mail.body" = "Conta-nos o que correu mal, e com que jogo, se for com um jogo:\n\n\n\nRetro Pal %1$@ · iOS %2$@ · %3$@";
+
+/* Retro story */
+"story.title" = "Retro story";
+"story.consolesPlayed" = "Consolas jogadas";
+"story.longestSession" = "Sessão mais longa";
+"story.consoles" = "As tuas consolas";
+"story.consoles.tried" = "Consolas experimentadas";
+"story.timeline" = "O teu percurso";
+"story.milestone.firstGame" = "A tua história começa: %@";
+"story.milestone.hours" = "%@ horas de jogo no total";
+"story.totalPlayed" = "%@ de jogo";
+"story.milestone.gameHours" = "%1$@ horas em %2$@";
+"story.milestone.gamesPlayed" = "Jogos jogados: %@";
+"story.milestone.consoles" = "Consolas experimentadas: %@";
+"story.milestone.allConsoles" = "As treze consolas experimentadas";
+"story.milestone.longSession" = "Uma sessão de %@ horas";
+"story.milestone.secondDevice" = "A tua história seguiu-te para outro dispositivo";
+"story.milestone.anniversary1" = "Um ano com o Retro Pal";
+"story.milestone.anniversary" = "%@ anos com o Retro Pal";
+"story.kept" = "Guardado para ti";
+"story.kept.footer" = "O teu histórico fica neste dispositivo e é copiado para o iCloud com as tuas gravações, por isso um iPhone novo continua onde ficaste.";
+"story.saves.states" = "Gravações rápidas";
+"story.saves.battery" = "Gravações do jogo";
+"story.saves.icloudOn" = "Copiadas para o iCloud";
+"story.saves.icloudOff" = "Cópia no iCloud desativada nas Definições";
+"story.since" = "Desde %@";
+"story.game.removed" = "Removido da biblioteca";
+"story.empty" = "Joga algo e a tua história começa aqui: o teu tempo, os teus jogos, as tuas consolas.";
+"story.duration.hours" = "%@ h";
+"story.duration.hoursMinutes" = "%1$@ h %2$@ min";
+"story.duration.minutes" = "%@ min";
+
+"story.activity" = "Atividade";
+"story.activity.daysThisMonth" = "Dias jogados este mês";
+"story.activity.bestMonth" = "Melhor mês";
+"story.activity.since" = "O teu calendário preenche-se desde %@, o dia em que o Retro Pal começou a registá-lo.";
+"story.time.morning" = "Jogas sobretudo de manhã";
+"story.time.afternoon" = "Jogas sobretudo à tarde";
+"story.time.evening" = "Jogas sobretudo ao fim do dia";
+"story.time.night" = "Noctívago: jogas sobretudo à noite";
+
+"story.share.game" = "Partilhar este jogo";
+
+"story.activity.daysPlayed" = "Dias jogados";
+"story.year.cardTitle" = "A minha retrospetiva Retro Pal %@";
+"story.year.row" = "O teu ano em poucos ecrãs, com imagens para partilhar.";
+"story.year.intro" = "Que ano de jogos foi %@. Este é o teu.";
+"story.year.recordedFrom" = "A tua história começou a %@";
+"story.year.total" = "Este ano jogaste";
+"story.year.topGame" = "O teu jogo do ano";
+"story.year.topGames" = "O teu top 5";
+"story.year.newGames" = "Jogos novos este ano";
+"story.year.consoles" = "As tuas consolas";
+"story.year.months" = "O teu ano, mês a mês";
+"story.year.peakMonth" = "O teu mês mais jogado: %@";
+"story.year.bestDay" = "O teu maior dia";
+"story.year.next" = "Seguinte";
+
+"story.time.morning.short" = "De manhã";
+"story.time.afternoon.short" = "De tarde";
+"story.time.evening.short" = "Ao fim do dia";
+"story.time.night.short" = "Noctívago";
+
+"story.year.profile" = "O teu perfil de jogador";
+"story.year.shareSlide" = "Partilhar";
+"story.year.shareSummary" = "Partilhar o meu ano";
+"story.profile.loyal" = "O Fiel";
+"story.profile.loyal.line" = "Mais de metade do teu ano foi para %@.";
+"story.profile.explorer" = "O Explorador";
+"story.profile.explorer.line" = "Consola após consola, foste à procura de jogos novos.";
+"story.profile.nightOwl" = "O Noctívago";
+"story.profile.nightOwl.line" = "As tuas melhores sessões começam quando a casa fica em silêncio.";
+"story.profile.regular" = "O Assíduo";
+"story.profile.regular.line" = "Jogar fez parte da maioria dos teus dias.";
+"story.profile.enthusiast" = "O Entusiasta";
+"story.profile.enthusiast.line" = "Um ano de jogos, jogados à tua maneira.";
+
+"story.year.spotlight" = "A tua retrospetiva Retro Pal %@ chegou!";
+"story.year.open" = "Ver";
+
+"story.consoles.others" = "Outras";
+
+"story.year.daysSince" = "%1$@ dias jogados desde %2$@";
+
+"story.badge.new" = "Novo crachá";

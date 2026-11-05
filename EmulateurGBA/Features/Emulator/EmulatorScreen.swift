@@ -84,6 +84,8 @@ struct EmulatorScreen: View {
         // Measured-achievement progress pill (e.g. "42/151"), below the
         // unlock banner's band, never hit-testable.
         .overlay(alignment: .top) { RAProgressHUD() }
+        // A Retro story badge earned (2026-10-29); it waits for an RA banner.
+        .overlay(alignment: .top) { StoryBadgeHUD() }
         // RA tracking-state notice (paused offline / resumed), leading side
         // of the same band.
         .overlay(alignment: .top) { RASessionNoticeHUD() }

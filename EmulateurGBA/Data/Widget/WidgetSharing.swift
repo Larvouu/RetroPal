@@ -85,6 +85,7 @@ enum WidgetSharing {
             case "sms": return "Master System"
             case "gg": return "Game Gear"
             case "psp": return "PSP"
+            case "n3ds": return "Nintendo 3DS"
             default: return "Game Boy Advance"
             }
         }

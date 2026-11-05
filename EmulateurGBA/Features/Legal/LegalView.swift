@@ -103,6 +103,14 @@ struct LegalView: View {
                         descriptionKey: "legal.ppsspp.description"
                     )
                     licenseRow(
+                        titleKey: "legal.azahar",
+                        // From its source files' own headers (src/core/core.cpp):
+                        // the project and the one it continues, from 2014.
+                        copyright: "Copyright 2014-2026 Citra Emulator Project / Azahar Emulator Project",
+                        licenseKey: "legal.azahar.licenseLine",
+                        descriptionKey: "legal.azahar.description"
+                    )
+                    licenseRow(
                         titleKey: "legal.parallelrdp",
                         // Verbatim from its LICENSE.
                         copyright: "Copyright (c) 2020 Themaister",

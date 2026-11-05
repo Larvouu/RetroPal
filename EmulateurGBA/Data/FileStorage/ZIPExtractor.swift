@@ -25,76 +25,17 @@ enum ZIPExtractorError: Error {
 }
 
 enum ZIPExtractor {
-    /// Read from the parser's own list so a new console cannot be importable
-    /// loose but invisible inside a zip.
-    private static let romExtensions: Set<String> = Set(ROMSystemType.allFileExtensions)
-
     /// Full entry names (including any folder prefix) of the ROM files
     /// (every extension in `ROMSystemType.allFileExtensions`) inside the
-    /// archive, in archive order.
-    /// Duplicate names are dropped: extraction is by name, so a malformed
-    /// archive with two identical entry names could only ever yield the
-    /// first one anyway.
-    ///
-    /// **Cartridges win over disc parts when an archive holds both**, and that
-    /// rule exists to protect archives that already work. The PlayStation
-    /// brought generic extensions into the ROM list, `.bin` and `.iso` among
-    /// them, and a cartridge zip that happens to carry a stray `.bin` beside
-    /// its game would otherwise go from importing silently to asking the user
-    /// which of two "games" they meant. An archive containing a cartridge is a
-    /// cartridge archive; only one containing no cartridge at all is read as a
-    /// disc.
+    /// archive, in archive order: the cartridges when there are any, else the
+    /// disc parts. The rules (cartridges win, a README is not a game, a `.bin`
+    /// may be a Mega Drive cartridge) are `ArchiveGameRules`, shared with the
+    /// other archive formats since 2026-10-27.
     static func romEntryNames(in zipURL: URL) throws -> [String] {
         let data = try loadData(zipURL)
         let entries = romEntries(in: data)
-        let markdown = markdownNames(entries, in: data)
-        var seen = Set<String>()
-        let names = entries.map(\.name).filter { !markdown.contains($0) && seen.insert($0).inserted }
-        let megaDriveBins = megaDriveBinNames(entries, in: data)
-        let cartridges = names.filter { !isDiscPart($0) || megaDriveBins.contains($0) }
-        return cartridges.isEmpty ? names : cartridges
-    }
-
-    private static func isDiscPart(_ entryName: String) -> Bool {
-        DiscImportGrouper.isDiscFile(entryName)
-    }
-
-    /// The `.bin` entries that are Mega Drive cartridges rather than disc
-    /// tracks: the same test as a loose file (`GBAROMParser.isMegaDriveBin`),
-    /// on the decompressed header. Only an entry no larger than a cartridge
-    /// is decompressed, so an archive's PlayStation data track never is.
-    private static func megaDriveBinNames(_ entries: [ZIPEntry], in data: Data) -> Set<String> {
-        var names = Set<String>()
-        for entry in entries
-        where URL(fileURLWithPath: entry.name).pathExtension.lowercased() == "bin"
-            && entry.uncompressedSize <= GBAROMParser.megaDriveBinMaxBytes {
-            guard let bytes = try? extractEntry(entry, from: data),
-                  GBAROMParser.isValidMDFile(data: bytes) else { continue }
-            names.insert(entry.name)
-        }
-        return names
-    }
-
-    /// The `.md` entries that are Markdown rather than Mega Drive cartridges:
-    /// the README an archive so often carries beside its game. `.md` is both
-    /// formats' extension, so, as for `.bin` above, the bytes decide, with the
-    /// loose file's own test (`GBAROMParser.isValidMDFile`). Left in, a README
-    /// turned a one-game archive into a choice of two, and hid a disc entirely,
-    /// since a "cartridge" wins over disc parts (audit 2026-10-12).
-    private static func markdownNames(_ entries: [ZIPEntry], in data: Data) -> Set<String> {
-        var names = Set<String>()
-        for entry in entries
-        where URL(fileURLWithPath: entry.name).pathExtension.lowercased() == "md" {
-            // Larger than any cartridge: not one, and not worth decompressing.
-            guard entry.uncompressedSize <= GBAROMParser.megaDriveBinMaxBytes else {
-                names.insert(entry.name); continue
-            }
-            guard let bytes = try? extractEntry(entry, from: data),
-                  GBAROMParser.isValidMDFile(data: bytes) else {
-                names.insert(entry.name); continue
-            }
-        }
-        return names
+        try requireReadableMethods(entries)
+        return ArchiveGameRules.entryNames(entries.map(\.ruleEntry), bytes: bytesReader(entries, in: data))
     }
 
     /// The GAMES an archive holds, rather than the files it holds.
@@ -108,24 +49,29 @@ enum ZIPExtractor {
     -> (discs: [DiscNameGroup], cartridges: [String], gaps: [DiscNameGap]) {
         let data = try loadData(zipURL)
         let entries = romEntries(in: data)
-        let markdown = markdownNames(entries, in: data)
-        var seen = Set<String>()
-        let names = entries.map(\.name).filter { !markdown.contains($0) && seen.insert($0).inserted }
+        try requireReadableMethods(entries)
+        return ArchiveGameRules.games(entries.map(\.ruleEntry), bytes: bytesReader(entries, in: data))
+    }
 
-        // Cartridges still win, for the reason above: an archive with a real
-        // cartridge in it is a cartridge archive, whatever else it carries. A
-        // Mega Drive `.bin` is a cartridge.
-        let megaDriveBins = megaDriveBinNames(entries, in: data)
-        let cartridgeNames = names.filter { !isDiscPart($0) || megaDriveBins.contains($0) }
-        if !cartridgeNames.isEmpty { return ([], cartridgeNames, []) }
-
-        let byName = Dictionary(entries.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
-        let grouping = DiscImportGrouper.groupNames(names) { name in
-            guard let entry = byName[name],
-                  let bytes = try? extractEntry(entry, from: data) else { return nil }
-            return DiscImportGrouper.decode(bytes)
+    /// The rules read some entries' BYTES (a `.cue`, a `.md` or `.bin` that may
+    /// be a cartridge), through `bytesReader`, which answers nil on a method
+    /// this reader does not implement. So an LZMA zip's `.md` was taken for a
+    /// README ("no game in this ZIP") and its `.cue` read as empty, the `.bin`
+    /// then offered as a second game; the libarchive fallback (`GameArchive`)
+    /// only runs on a THROWN `unsupportedCompression` (audit, 2026-10-29). Any
+    /// game file in another method sends the whole zip there, which reads them all.
+    private static func requireReadableMethods(_ entries: [ZIPEntry]) throws {
+        if entries.contains(where: { $0.method != 0 && $0.method != 8 }) {
+            throw ZIPExtractorError.unsupportedCompression
         }
-        return (grouping.discs, grouping.others, grouping.gaps)
+    }
+
+    /// An entry's bytes for the rules, decompressed on demand from the mapped
+    /// archive (the rules ask only for small entries: descriptors, and `.md` /
+    /// `.bin` no larger than a cartridge).
+    private static func bytesReader(_ entries: [ZIPEntry], in data: Data) -> (String) -> Data? {
+        let byName = Dictionary(entries.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+        return { name in byName[name].flatMap { try? extractEntry($0, from: data) } }
     }
 
     /// Extract several named entries into ONE fresh temp directory, parsing the
@@ -138,20 +84,26 @@ enum ZIPExtractor {
         let data = try loadData(zipURL)
         let byName = Dictionary(romEntries(in: data).map { ($0.name, $0) },
                                 uniquingKeysWith: { a, _ in a })
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let tempDir = try GameArchive.makeScratchFolder()
 
         var written: [URL] = []
-        for name in names {
-            guard let entry = byName[name] else { throw ZIPExtractorError.noROMFound }
-            // Flattened: an archive's folder structure is its own, and a game's
-            // descriptor names its tracks WITHOUT a path, so they have to end up
-            // side by side or the core cannot find them.
-            let dest = tempDir.appendingPathComponent(
-                URL(fileURLWithPath: entry.name).lastPathComponent)
-            try writeEntry(entry, from: data, to: dest)
-            written.append(dest)
+        // A failure leaves nothing in tmp: the caller removes the folder only
+        // once this returns, and a disc stopped by a full phone otherwise kept
+        // its written tracks there (audit, 2026-10-29).
+        do {
+            for name in names {
+                guard let entry = byName[name] else { throw ZIPExtractorError.noROMFound }
+                // Flattened: an archive's folder structure is its own, and a game's
+                // descriptor names its tracks WITHOUT a path, so they have to end up
+                // side by side or the core cannot find them.
+                let dest = tempDir.appendingPathComponent(
+                    URL(fileURLWithPath: entry.name).lastPathComponent)
+                try writeEntry(entry, from: data, to: dest)
+                written.append(dest)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: tempDir)
+            throw error
         }
         return written
     }
@@ -164,19 +116,62 @@ enum ZIPExtractor {
             throw ZIPExtractorError.noROMFound
         }
 
-        // Extract the file data
-        let fileData = try extractEntry(entry, from: data)
-
-        // Write to temp directory
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let tempDir = try GameArchive.makeScratchFolder()
 
         let filename = URL(fileURLWithPath: entry.name).lastPathComponent
         let destURL = tempDir.appendingPathComponent(filename)
-        try fileData.write(to: destURL)
+        // Written through `writeEntry`, the disc path's: a stored entry is a
+        // slice of the mapped archive, a deflated one past the streaming
+        // threshold is inflated to the file a megabyte at a time. A Nintendo
+        // 3DS game is a single cartridge entry of 1 to 4 GB (2026-10-19), and
+        // inflating it whole in memory, as this did, ends the app. Under the
+        // threshold it is the same in-memory inflate as before. Streamed to the
+        // file, a failure (a full phone) left the part written in tmp, gigabytes
+        // for a 3DS game: removed (audit, 2026-10-29).
+        do {
+            try writeEntry(entry, from: data, to: destURL)
+        } catch {
+            try? FileManager.default.removeItem(at: tempDir)
+            throw error
+        }
 
         return destURL
+    }
+
+    /// Every file entry of the archive, written under `directory` at its own
+    /// relative path (folders created as needed), and every folder entry
+    /// (`name/`) created, empty ones included. For an archive that IS a
+    /// folder, a Nintendo 3DS game's save data (`CTRSaveData`), where the
+    /// structure is the content: an extdata the core opens only if its `boss/`
+    /// folder exists, usually empty (audit, 2026-10-20). Returns the relative
+    /// paths of the files written.
+    ///
+    /// A name that would land outside `directory` (absolute, or with a `..`
+    /// component) refuses the whole archive: a save import must never write
+    /// anywhere but where it was told.
+    static func extractAll(from zipURL: URL, to directory: URL) throws -> [String] {
+        let data = try loadData(zipURL)
+        var entries = (try? findEntriesFromCentralDirectory(in: data, keepingFolders: true)) ?? []
+        if entries.isEmpty { entries = findEntriesFromLocalHeaders(in: data, keepingFolders: true) }
+        var written: [String] = []
+        for entry in entries {
+            let parts = entry.name.split(separator: "/", omittingEmptySubsequences: true)
+            guard !entry.name.hasPrefix("/"), !parts.isEmpty,
+                  !parts.contains(where: { $0 == ".." || $0 == "." }) else {
+                throw ZIPExtractorError.cannotReadZIP
+            }
+            let relative = parts.joined(separator: "/")
+            let dest = directory.appendingPathComponent(relative)
+            if entry.name.hasSuffix("/") {
+                try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+                continue
+            }
+            try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            try writeEntry(entry, from: data, to: dest)
+            written.append(relative)
+        }
+        return written
     }
 
     /// Mapped, not loaded: collection zips can run to hundreds of MB, and
@@ -196,11 +191,7 @@ enum ZIPExtractor {
         if entries.isEmpty {
             entries = findEntriesFromLocalHeaders(in: data)
         }
-        return entries.filter { entry in
-            // Check extension from both URL parsing and raw string suffix
-            let name = entry.name.lowercased()
-            return romExtensions.contains(where: { name.hasSuffix(".\($0)") })
-        }
+        return entries.filter { ArchiveGameRules.isGameFile($0.name) }
     }
 
     // MARK: - ZIP Parsing (minimal, handles store + deflate)
@@ -215,6 +206,8 @@ enum ZIPExtractor {
         let flags: UInt16
 
         var isEncrypted: Bool { flags & 0x0001 != 0 }
+
+        var ruleEntry: ArchiveGameRules.Entry { .init(name: name, size: uncompressedSize) }
     }
 
     // MARK: - Entry names
@@ -315,34 +308,78 @@ enum ZIPExtractor {
     /// alignment this buffer cannot be given, and the shifts state ZIP's
     /// little-endian layout rather than inheriting the host's.
     private static func readU32(_ data: Data, at offset: Int) -> UInt32? {
-        guard offset >= 0, offset + 4 <= data.count else { return nil }
+        guard offset >= 0, offset <= data.count - 4 else { return nil }
         let b = [UInt8](data.subdata(in: offset..<offset+4))
         return UInt32(b[0]) | (UInt32(b[1]) << 8) | (UInt32(b[2]) << 16) | (UInt32(b[3]) << 24)
     }
 
+    /// Read a little-endian UInt64, or nil if the range is not inside `data`.
+    private static func readU64(_ data: Data, at offset: Int) -> UInt64? {
+        guard offset >= 0, offset <= data.count - 8 else { return nil }
+        var v: UInt64 = 0
+        for i in (0..<8).reversed() { v = v << 8 | UInt64(data[data.startIndex + offset + i]) }
+        return v
+    }
+
+    /// The data of the ZIP64 extended-information block (header ID 0x0001) in
+    /// an entry's extra field, or nil.
+    private static func zip64ExtraBlock(_ extra: Data) -> Data? {
+        var at = 0
+        while at + 4 <= extra.count {
+            guard let id = readU16(extra, at: at), let size = readU16(extra, at: at + 2) else { return nil }
+            if id == 0x0001 { return slice(extra, at: at + 4, count: Int(size)) }
+            at += 4 + Int(size)
+        }
+        return nil
+    }
+
+    /// A 64-bit value from the file as an offset, a size or a count that can
+    /// be real: never more than the file itself. nil otherwise, so the caller
+    /// treats it as the malformed field it is instead of trapping on it.
+    private static func withinFile(_ value: UInt64?, _ data: Data) -> Int? {
+        guard let value, value <= UInt64(data.count) else { return nil }
+        return Int(value)
+    }
+
     /// Read a little-endian UInt16, or nil if the range is not inside `data`.
     private static func readU16(_ data: Data, at offset: Int) -> UInt16? {
-        guard offset >= 0, offset + 2 <= data.count else { return nil }
+        guard offset >= 0, offset <= data.count - 2 else { return nil }
         let b = [UInt8](data.subdata(in: offset..<offset+2))
         return UInt16(b[0]) | (UInt16(b[1]) << 8)
     }
 
     /// A bounds-checked slice. Same reason as the readers above.
     private static func slice(_ data: Data, at offset: Int, count: Int) -> Data? {
-        guard offset >= 0, count >= 0, offset + count <= data.count else { return nil }
+        guard offset >= 0, count >= 0, offset <= data.count, count <= data.count - offset else { return nil }
         return data.subdata(in: offset..<offset+count)
     }
 
     /// Parse entries from the Central Directory (reliable, handles data descriptors).
-    private static func findEntriesFromCentralDirectory(in data: Data) throws -> [ZIPEntry] {
+    /// `keepingFolders`: folder entries (`name/`) too, for `extractAll` only;
+    /// every ROM path reads the files alone, as it always has.
+    private static func findEntriesFromCentralDirectory(in data: Data,
+                                                        keepingFolders: Bool = false) throws -> [ZIPEntry] {
         guard let eocdOffset = findEOCD(in: data),
               let cdOffsetRaw = readU32(data, at: eocdOffset + 16),
               let cdEntriesRaw = readU16(data, at: eocdOffset + 10) else {
             throw ZIPExtractorError.cannotReadZIP
         }
 
-        let cdOffset = Int(cdOffsetRaw)   // offset of central directory
-        let cdEntries = Int(cdEntriesRaw) // total entries
+        var cdOffset = Int(cdOffsetRaw)   // offset of central directory
+        var cdEntries = Int(cdEntriesRaw) // total entries
+        // ZIP64 (APPNOTE 4.3.14-15): an archive over 4 GB, or with more than
+        // 65,535 entries, saturates these fields and keeps the real ones in
+        // the ZIP64 end record, found through the locator just before the end
+        // record. A collection of PSP games is one (audit 2026-10-27).
+        if cdOffsetRaw == 0xFFFF_FFFF || cdEntriesRaw == 0xFFFF,
+           readU32(data, at: eocdOffset - 20) == 0x07064b50,
+           let zip64EndOffset = withinFile(readU64(data, at: eocdOffset - 20 + 8), data),
+           readU32(data, at: zip64EndOffset) == 0x06064b50,
+           let entries64 = withinFile(readU64(data, at: zip64EndOffset + 32), data),
+           let offset64 = withinFile(readU64(data, at: zip64EndOffset + 48), data) {
+            cdEntries = entries64
+            cdOffset = offset64
+        }
 
         var entries: [ZIPEntry] = []
         var offset = cdOffset
@@ -361,15 +398,38 @@ enum ZIPExtractor {
                   let commentLengthRaw = readU16(data, at: offset + 32),
                   let localHeaderOffsetRaw = readU32(data, at: offset + 42) else { break }
 
-            let compressedSize = Int(compressedSizeRaw)
-            let uncompressedSize = Int(uncompressedSizeRaw)
+            var compressedSize = Int(compressedSizeRaw)
+            var uncompressedSize = Int(uncompressedSizeRaw)
             let nameLength = Int(nameLengthRaw)
             let extraLength = Int(extraLengthRaw)
             let commentLength = Int(commentLengthRaw)
-            let localHeaderOffset = Int(localHeaderOffsetRaw)
+            var localHeaderOffset = Int(localHeaderOffsetRaw)
 
             guard let nameData = slice(data, at: offset + 46, count: nameLength) else { break }
             let extraData = slice(data, at: offset + 46 + nameLength, count: extraLength)
+            // ZIP64 (APPNOTE 4.5.3): each saturated field is in the 0x0001
+            // extra block, in this order, and only the saturated ones are.
+            if let extra = extraData,
+               uncompressedSizeRaw == 0xFFFF_FFFF || compressedSizeRaw == 0xFFFF_FFFF
+                || localHeaderOffsetRaw == 0xFFFF_FFFF,
+               let block = zip64ExtraBlock(extra) {
+                var at = 0
+                func next() -> UInt64? {
+                    guard let v = readU64(block, at: at) else { return nil }
+                    at += 8
+                    return v
+                }
+                // Each one taken only when it can be real: a compressed size or
+                // an offset inside the file, a size a game can have. A crafted
+                // value trapped `Int(_:)` (2^63 and up) or the additions after
+                // it (audit, 2026-10-29); such an entry is now skipped below,
+                // as an unreadable local header is.
+                if uncompressedSizeRaw == 0xFFFF_FFFF, let v = next() {
+                    uncompressedSize = v <= UInt64(Int32.max) * 64 ? Int(v) : -1
+                }
+                if compressedSizeRaw == 0xFFFF_FFFF, let v = next() { compressedSize = withinFile(v, data) ?? -1 }
+                if localHeaderOffsetRaw == 0xFFFF_FFFF, let v = next() { localHeaderOffset = withinFile(v, data) ?? -1 }
+            }
             let name = decodeEntryName(nameData, flags: flags, extra: extraData)
 
             // Compute data offset from local file header. A header we cannot
@@ -381,7 +441,8 @@ enum ZIPExtractor {
             let dataOffset = localHeaderOffset + 30
                 + Int(localNameLen ?? 0) + Int(localExtraLen ?? 0)
 
-            if localNameLen != nil, localExtraLen != nil, !name.hasSuffix("/") {
+            if localNameLen != nil, localExtraLen != nil, compressedSize >= 0, uncompressedSize >= 0,
+               keepingFolders || !name.hasSuffix("/") {
                 entries.append(ZIPEntry(
                     name: name,
                     compressedSize: compressedSize,
@@ -410,7 +471,7 @@ enum ZIPExtractor {
     }
 
     /// Fallback: parse entries from local file headers (doesn't handle data descriptors).
-    private static func findEntriesFromLocalHeaders(in data: Data) -> [ZIPEntry] {
+    private static func findEntriesFromLocalHeaders(in data: Data, keepingFolders: Bool = false) -> [ZIPEntry] {
         var entries: [ZIPEntry] = []
         var offset = 0
 
@@ -434,7 +495,7 @@ enum ZIPExtractor {
 
             let dataOffset = offset + 30 + nameLength + extraLength
 
-            if !name.hasSuffix("/") && compressedSize > 0 {
+            if name.hasSuffix("/") ? keepingFolders : compressedSize > 0 {
                 entries.append(ZIPEntry(
                     name: name,
                     compressedSize: compressedSize,
@@ -500,26 +561,60 @@ enum ZIPExtractor {
     /// Write one entry to `dest`, choosing how by size.
     private static func writeEntry(_ entry: ZIPEntry, from data: Data, to dest: URL) throws {
         try check(entry)
-        guard let compressed = slice(data, at: entry.dataOffset, count: entry.compressedSize) else {
+        let offset = entry.dataOffset, count = entry.compressedSize
+        guard offset >= 0, count >= 0, offset <= data.count, count <= data.count - offset else {
             throw ZIPExtractorError.cannotReadZIP
         }
-        switch entry.method {
-        case 0:
-            // Stored. `compressed` is a slice of the MAPPED archive, so this
-            // never resident-loads the whole thing either.
-            try compressed.write(to: dest)
-        case 8 where entry.uncompressedSize <= streamingInflateThreshold:
+        // A small entry is built in memory, as before: bounded by the threshold.
+        if entry.method == 8, entry.uncompressedSize <= streamingInflateThreshold {
+            guard let compressed = slice(data, at: offset, count: count) else {
+                throw ZIPExtractorError.cannotReadZIP
+            }
             try inflate(compressed, expectedSize: entry.uncompressedSize).write(to: dest)
-        case 8:
-            try inflateToFile(compressed, expectedSize: entry.uncompressedSize, dest: dest)
-        default:
-            throw ZIPExtractorError.unsupportedCompression
+            return
+        }
+        // A large one is read straight from the MAPPED archive through a
+        // pointer, never through `slice`: `subdata` COPIES, so a 1.8 GB PSP game
+        // stored in a zip was copied whole into memory before being written,
+        // and a large compressed one had its whole compressed range copied
+        // before the streaming inflate even began (audit 2026-10-27). Mapped
+        // pages are the file's, which the system can drop again under pressure.
+        try data.withUnsafeBytes { (archive: UnsafeRawBufferPointer) in
+            guard let base = archive.baseAddress else { throw ZIPExtractorError.cannotReadZIP }
+            let source = UnsafeRawBufferPointer(start: base + offset, count: count)
+            switch entry.method {
+            case 0:
+                try writeStored(source, to: dest)
+            case 8:
+                try inflateToFile(source, expectedSize: entry.uncompressedSize, dest: dest)
+            default:
+                throw ZIPExtractorError.unsupportedCompression
+            }
+        }
+    }
+
+    /// A stored entry, a megabyte at a time, so peak memory is the piece and
+    /// not the entry.
+    private static func writeStored(_ source: UnsafeRawBufferPointer, to dest: URL) throws {
+        guard FileManager.default.createFile(atPath: dest.path, contents: nil),
+              let handle = try? FileHandle(forWritingTo: dest) else {
+            throw ZIPExtractorError.extractionFailed
+        }
+        defer { try? handle.close() }
+        let piece = 1 << 20
+        var at = 0
+        while at < source.count {
+            let n = min(piece, source.count - at)
+            try autoreleasepool {
+                try handle.write(contentsOf: Data(bytes: source.baseAddress! + at, count: n))
+            }
+            at += n
         }
     }
 
     /// Inflate to a file a megabyte at a time, so peak memory is the chunk and
     /// not the track.
-    private static func inflateToFile(_ compressed: Data, expectedSize: Int, dest: URL) throws {
+    private static func inflateToFile(_ compressed: UnsafeRawBufferPointer, expectedSize: Int, dest: URL) throws {
         guard FileManager.default.createFile(atPath: dest.path, contents: nil),
               let handle = try? FileHandle(forWritingTo: dest) else {
             throw ZIPExtractorError.extractionFailed
@@ -540,8 +635,9 @@ enum ZIPExtractor {
         defer { chunk.deallocate() }
         var written = 0
 
-        try compressed.withUnsafeBytes { raw in
-            stream.src_ptr = raw.bindMemory(to: UInt8.self).baseAddress!
+        do {
+            guard let source = compressed.baseAddress else { throw ZIPExtractorError.extractionFailed }
+            stream.src_ptr = source.assumingMemoryBound(to: UInt8.self)
             stream.src_size = compressed.count
 
             while true {

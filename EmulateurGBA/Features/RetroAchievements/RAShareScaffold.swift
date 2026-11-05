@@ -29,6 +29,8 @@ struct RAShareScaffold<Picker: View>: View {
     let cardType: String
     /// Isometric-preview extruded-edge colours; nil = flat preview.
     var edgeColors: [Color]? = nil
+    /// The preview's coloured halo (the overview card's look accent).
+    var glowColor: Color = .purple
     let onClose: () -> Void
     /// The card-style picker, shown between the preview and the buttons
     /// (EmptyView via the convenience init when a card has no styles).
@@ -42,12 +44,13 @@ struct RAShareScaffold<Picker: View>: View {
     @State private var saveErrorMessage = ""
 
     init(cardImage: UIImage?, shareFilename: String, cardType: String,
-         edgeColors: [Color]? = nil, onClose: @escaping () -> Void,
+         edgeColors: [Color]? = nil, glowColor: Color = .purple, onClose: @escaping () -> Void,
          @ViewBuilder picker: @escaping () -> Picker) {
         self.cardImage = cardImage
         self.shareFilename = shareFilename
         self.cardType = cardType
         self.edgeColors = edgeColors
+        self.glowColor = glowColor
         self.onClose = onClose
         self.picker = picker
     }
@@ -152,7 +155,7 @@ struct RAShareScaffold<Picker: View>: View {
             if let cardImage {
                 if let edgeColors {
                     IsometricCardPreview(reduceMotion: reduceMotion, aspect: 1, maxWidth: maxWidth,
-                                         edgeColors: edgeColors) {
+                                         edgeColors: edgeColors, glowColor: glowColor) {
                         Image(uiImage: cardImage).resizable()
                     }
                 } else {
@@ -263,8 +266,8 @@ struct RAShareScaffold<Picker: View>: View {
 /// The picker-less form (the overview card, which has no style choice).
 extension RAShareScaffold where Picker == EmptyView {
     init(cardImage: UIImage?, shareFilename: String, cardType: String,
-         edgeColors: [Color]? = nil, onClose: @escaping () -> Void) {
+         edgeColors: [Color]? = nil, glowColor: Color = .purple, onClose: @escaping () -> Void) {
         self.init(cardImage: cardImage, shareFilename: shareFilename, cardType: cardType,
-                  edgeColors: edgeColors, onClose: onClose, picker: { EmptyView() })
+                  edgeColors: edgeColors, glowColor: glowColor, onClose: onClose, picker: { EmptyView() })
     }
 }

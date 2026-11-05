@@ -317,8 +317,11 @@ struct PresetLayoutResolverTests {
                 return moved
             }
 
-            // The game sets no flag for these five, so the resolver may not either.
-            for system in [PresetSystem.gbc, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp] {
+            // The game sets no flag for these, so the resolver may not either. The 3DS
+            // upright too; on its side it is checked below.
+            let unpolished: [PresetSystem] = [.gbc, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp]
+                + (isLandscape ? [] : [.n3ds])
+            for system in unpolished {
                 let moved = differing(system)
                 #expect(moved.isEmpty,
                         Comment(rawValue: "\(label) \(system): the resolver polishes "
@@ -333,6 +336,54 @@ struct PresetLayoutResolverTests {
                 : [.btnL, .btnR, .btnSelect, .btnStart, .btnClip, .btnMic]
             #expect(differing(.nds) == dsExpected,
                     "\(label) nds: the DS's own adjustments moved a control they do not name")
+            // The 3DS on its side DRAWS its four bars and its circle pad at sizes of
+            // their own (`drawnSize`), so the polish touches those and nothing else
+            // (which of them actually differs from the table depends on the device).
+            if isLandscape {
+                let drawnOnly: Set<ControlElement> = [.btnL, .btnR, .btnL2, .btnR2, .stickLeft]
+                #expect(differing(.n3ds).isSubset(of: drawnOnly),
+                        "\(label) n3ds: the polish moved a control the game does not redraw")
+            }
+        }
+    }
+
+    /// The 3DS on its side: a preset seeded from the default, and every untouched
+    /// component of one, has the sizes the GAME draws (`TouchControlsView.applyDefaultLayout`
+    /// passes `ControlLayoutDefaults.n3dsLandscapeDrawnSize` as `drawnSize`), with the
+    /// same inputs the game gives it. Before 2026-10-27 the resolver kept the table's
+    /// sizes, so the editor and a new preset opened with the circle pad and the bars
+    /// smaller than the page the player was using (stick ~90 against ~126 on a 14 Pro).
+    /// Checked with real insets, the rotation with the island on the left.
+    @Test func n3dsOnItsSidePresetsKeepTheDrawnSizes() {
+        let windows: [(CGSize, UIEdgeInsets)] = [
+            (Self.seLandscape, .zero),
+            (Self.proLandscape, UIEdgeInsets(top: 0, left: 59, bottom: 21, right: 59)),
+            (CGSize(width: 1133, height: 744), UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0)),
+        ]
+        for (size, insets) in windows {
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            let resolved = PresetLayoutResolver.resolve(
+                preset: emptyPreset(.n3ds), system: .n3ds, isLandscape: true,
+                viewSize: size, safeInsets: insets)
+            for element in [ControlElement.btnL, .btnR, .btnL2, .btnR2, .stickLeft] {
+                let table = EmulatorLayoutGeometry.buttonSize(element, system: .n3ds,
+                                                              isLandscape: true, deviceScale: k)
+                let drawn = ControlLayoutDefaults.n3dsLandscapeDrawnSize(
+                    element, size: table, deviceSize: size, scale: k,
+                    safeLeftInset: insets.left, safeRightInset: insets.right,
+                    family: LayoutFamily.of(size))
+                // An untouched component (the fallback) is drawn as the game draws it.
+                let fallback = try! #require(resolved.buttons[element])
+                #expect(approx(fallback.baseSize.width, drawn.width)
+                        && approx(fallback.baseSize.height, drawn.height),
+                        "\(size) \(element.rawValue): fallback \(fallback.baseSize), game \(drawn)")
+                // And a component the player has placed keeps that base size.
+                let placed = PresetLayoutResolver.presetBaseSize(
+                    element: element, system: .n3ds, isLandscape: true, deviceScale: k,
+                    viewSize: size, safeInsets: insets)
+                #expect(approx(placed.width, drawn.width) && approx(placed.height, drawn.height),
+                        "\(size) \(element.rawValue): placed \(placed), game \(drawn)")
+            }
         }
     }
 

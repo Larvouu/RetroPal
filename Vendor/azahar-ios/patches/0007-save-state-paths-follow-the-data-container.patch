@@ -1,0 +1,286 @@
+Keep save states' file paths valid when the app's data container moves
+
+A save state stores where each open 3DS archive lives on the host: the save
+data, extra data, SD card, NAND and system save folders (their mount_point,
+base_path, sdmc_directory and nand_directory), the LayeredFS patch folders, the
+3GX plugin path and the amiibo file. They were written as absolute host paths.
+Azahar already has a mechanism for this (FileUtil::Path::make, which writes the
+user directory as %CITRA_USER_DIR% and puts the current one back on load), but
+only open files used it.
+
+On iOS the app's data container is "<...>/Data/Application/<UUID>/", and the
+UUID changes when the app is reinstalled or its data restored. On an iPhone 14
+Pro (2026-10-19) a state written under one container was resumed under
+another: from then on every save write the game made failed, mkdir "Operation
+not permitted" under the old container and "failed to get a handle for archive
+archive_id=0x00000004" (SaveData), about three errors a frame, and the in-game
+save never reached the phone.
+
+This writes those fields through FileUtil::Path::make, so new states hold
+placeholders. A state written before this patch still holds absolute paths:
+on load, a path naming an older "<...>/Data/Application/<UUID>" is moved to the
+current one, where the same files now are. The file format is unchanged (a
+plain string either way), so old states load as before.
+
+diff --git a/src/common/file_util.cpp b/src/common/file_util.cpp
+index 8ad7ca1..bd185fd 100644
+--- a/src/common/file_util.cpp
++++ b/src/common/file_util.cpp
+@@ -1055,8 +1055,35 @@ bool StringReplace(std::string& haystack, const std::string& a, const std::strin
+     return true;
+ }
+ 
++// The app's data container in a path, "<...>/Data/Application/<UUID>", or an empty view.
++// iOS gives an app a new container UUID when it is reinstalled or restored, so a path
++// written into a save state before that points at a container that no longer exists.
++static std::string_view ContainerPrefix(std::string_view path) {
++    static constexpr std::string_view marker = "/Data/Application/";
++    static constexpr std::size_t uuid_length = 36;
++    const auto at = path.find(marker);
++    if (at == std::string_view::npos || path.size() < at + marker.size() + uuid_length) {
++        return {};
++    }
++    return path.substr(0, at + marker.size() + uuid_length);
++}
++
++// A loaded path that still names an older container is moved to the current one, where
++// the same files now live. Paths written by a newer core are placeholders and never match.
++static void RebaseContainer(std::string& path) {
++    const auto old_prefix = ContainerPrefix(path);
++    const auto new_prefix = ContainerPrefix(GetUserPath(UserPath::UserDir));
++    if (old_prefix.empty() || new_prefix.empty() || old_prefix == new_prefix) {
++        return;
++    }
++    path = std::string(new_prefix) + path.substr(old_prefix.size());
++}
++
+ std::string SerializePath(const std::string& input, bool is_saving) {
+     auto result = input;
++    if (!is_saving) {
++        RebaseContainer(result);
++    }
+     StringReplace(result, "%CITRA_ROM_FILE%", g_currentRomPath, is_saving);
+     StringReplace(result, "%CITRA_USER_DIR%", GetUserPath(UserPath::UserDir), is_saving);
+     StringReplace(result, "%CITRA_USER_SDMC%", GetUserPath(UserPath::SDMCDir), is_saving);
+diff --git a/src/core/file_sys/archive_extsavedata.h b/src/core/file_sys/archive_extsavedata.h
+index d51e180..ce391b5 100644
+--- a/src/core/file_sys/archive_extsavedata.h
++++ b/src/core/file_sys/archive_extsavedata.h
+@@ -10,6 +10,7 @@
+ #include <string>
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "common/common_types.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/file_sys/artic_cache.h"
+@@ -87,7 +88,7 @@ private:
+         ar& boost::serialization::base_object<ArchiveFactory>(*this);
+         ar& boost::serialization::base_object<ArticCacheProvider>(*this);
+         ar & type;
+-        ar & mount_point;
++        ar& FileUtil::Path::make(mount_point);
+     }
+     friend class boost::serialization::access;
+ };
+diff --git a/src/core/file_sys/archive_nand.h b/src/core/file_sys/archive_nand.h
+index b3bf862..6172100 100644
+--- a/src/core/file_sys/archive_nand.h
++++ b/src/core/file_sys/archive_nand.h
+@@ -9,6 +9,7 @@
+ #include <boost/serialization/base_object.hpp>
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/hle/result.h"
+ 
+@@ -50,7 +51,7 @@ protected:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveBackend>(*this);
+-        ar & mount_point;
++        ar& FileUtil::Path::make(mount_point);
+         ar & archive_type;
+     }
+     friend class boost::serialization::access;
+@@ -103,7 +104,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveFactory>(*this);
+-        ar & nand_directory;
++        ar& FileUtil::Path::make(nand_directory);
+         ar & archive_type;
+     }
+     friend class boost::serialization::access;
+diff --git a/src/core/file_sys/archive_sdmc.h b/src/core/file_sys/archive_sdmc.h
+index 55f4d71..96d6515 100644
+--- a/src/core/file_sys/archive_sdmc.h
++++ b/src/core/file_sys/archive_sdmc.h
+@@ -9,6 +9,7 @@
+ #include <boost/serialization/base_object.hpp>
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/hle/result.h"
+ 
+@@ -47,7 +48,7 @@ protected:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveBackend>(*this);
+-        ar & mount_point;
++        ar& FileUtil::Path::make(mount_point);
+     }
+     friend class boost::serialization::access;
+ };
+@@ -79,7 +80,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveFactory>(*this);
+-        ar & sdmc_directory;
++        ar& FileUtil::Path::make(sdmc_directory);
+     }
+     friend class boost::serialization::access;
+ };
+diff --git a/src/core/file_sys/archive_sdmcwriteonly.h b/src/core/file_sys/archive_sdmcwriteonly.h
+index 1a711b5..88dc122 100644
+--- a/src/core/file_sys/archive_sdmcwriteonly.h
++++ b/src/core/file_sys/archive_sdmcwriteonly.h
+@@ -4,6 +4,7 @@
+ 
+ #pragma once
+ 
++#include "common/file_util.h"
+ #include "core/file_sys/archive_sdmc.h"
+ 
+ namespace FileSys {
+@@ -65,7 +66,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveFactory>(*this);
+-        ar & sdmc_directory;
++        ar& FileUtil::Path::make(sdmc_directory);
+     }
+     friend class boost::serialization::access;
+ };
+diff --git a/src/core/file_sys/archive_source_sd_savedata.h b/src/core/file_sys/archive_source_sd_savedata.h
+index 1914983..00cb356 100644
+--- a/src/core/file_sys/archive_source_sd_savedata.h
++++ b/src/core/file_sys/archive_source_sd_savedata.h
+@@ -8,6 +8,7 @@
+ #include <string>
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/file_sys/artic_cache.h"
+ #include "core/hle/result.h"
+@@ -51,7 +52,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArticCacheProvider>(*this);
+-        ar & mount_point;
++        ar& FileUtil::Path::make(mount_point);
+     }
+     friend class boost::serialization::access;
+ };
+diff --git a/src/core/file_sys/archive_systemsavedata.h b/src/core/file_sys/archive_systemsavedata.h
+index 8abb5f1..ad0ff98 100644
+--- a/src/core/file_sys/archive_systemsavedata.h
++++ b/src/core/file_sys/archive_systemsavedata.h
+@@ -8,6 +8,7 @@
+ #include <string>
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "common/common_types.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/file_sys/artic_cache.h"
+@@ -56,7 +57,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveFactory>(*this);
+-        ar & base_path;
++        ar& FileUtil::Path::make(base_path);
+     }
+     friend class boost::serialization::access;
+ };
+diff --git a/src/core/file_sys/layered_fs.h b/src/core/file_sys/layered_fs.h
+index 135e9bf..88869df 100644
+--- a/src/core/file_sys/layered_fs.h
++++ b/src/core/file_sys/layered_fs.h
+@@ -13,6 +13,7 @@
+ #include <boost/serialization/export.hpp>
+ #include <boost/serialization/shared_ptr.hpp>
+ #include <boost/serialization/string.hpp>
++#include "common/file_util.h"
+ #include "common/common_types.h"
+ #include "common/swap.h"
+ #include "core/file_sys/romfs_reader.h"
+@@ -142,8 +143,8 @@ private:
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<RomFSReader>(*this);
+         ar & romfs;
+-        ar & patch_path;
+-        ar & patch_ext_path;
++        ar& FileUtil::Path::make(patch_path);
++        ar& FileUtil::Path::make(patch_ext_path);
+         ar & load_relocations;
+         if (Archive::is_loading::value) {
+             Load();
+diff --git a/src/core/file_sys/savedata_archive.h b/src/core/file_sys/savedata_archive.h
+index 8b53e58..124c9fd 100644
+--- a/src/core/file_sys/savedata_archive.h
++++ b/src/core/file_sys/savedata_archive.h
+@@ -5,6 +5,7 @@
+ #pragma once
+ 
+ #include <string>
++#include "common/file_util.h"
+ #include "core/file_sys/archive_backend.h"
+ #include "core/file_sys/directory_backend.h"
+ #include "core/file_sys/file_backend.h"
+@@ -43,7 +44,7 @@ private:
+     template <class Archive>
+     void serialize(Archive& ar, const unsigned int) {
+         ar& boost::serialization::base_object<ArchiveBackend>(*this);
+-        ar & mount_point;
++        ar& FileUtil::Path::make(mount_point);
+         ar & allow_zero_size_create;
+     }
+     friend class boost::serialization::access;
+diff --git a/src/core/hle/service/nfc/nfc_device.cpp b/src/core/hle/service/nfc/nfc_device.cpp
+index 5de9bf3..365b435 100644
+--- a/src/core/hle/service/nfc/nfc_device.cpp
++++ b/src/core/hle/service/nfc/nfc_device.cpp
+@@ -33,7 +33,7 @@ void NfcDevice::serialize(Archive& ar, const unsigned int) {
+     ar & device_state;
+     ar & connection_state;
+     ar & communication_state;
+-    ar & amiibo_filename;
++    ar& FileUtil::Path::make(amiibo_filename);
+     ar & tag;
+     ar & encrypted_tag;
+ }
+diff --git a/src/core/hle/service/plgldr/plgldr.cpp b/src/core/hle/service/plgldr/plgldr.cpp
+index 370961e..c9b2d63 100644
+--- a/src/core/hle/service/plgldr/plgldr.cpp
++++ b/src/core/hle/service/plgldr/plgldr.cpp
+@@ -23,6 +23,7 @@
+ 
+ #include <boost/serialization/weak_ptr.hpp>
+ #include <fmt/format.h>
++#include "common/file_util.h"
+ #include "common/archives.h"
+ #include "common/logging/log.h"
+ #include "common/settings.h"
+@@ -71,7 +72,7 @@ void PLG_LDR::PluginLoaderContext::serialize(Archive& ar, const unsigned int) {
+     ar & allow_game_change;
+     ar & plugin_loaded;
+     ar & is_default_path;
+-    ar & plugin_path;
++    ar& FileUtil::Path::make(plugin_path);
+     ar & memory_region;
+     ar & memory_block;
+     ar & plugin_process_id;

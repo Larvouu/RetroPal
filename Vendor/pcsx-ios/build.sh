@@ -113,6 +113,19 @@ if [ "$PATCH_APPLIED_NOW" = "1" ] && [ -f "$OUTPUT_LIB" ]; then
     rm -f "$OUTPUT_LIB"
 fi
 
+# A library built from another pin is not this core. The commit it was built
+# from is recorded beside it, and a pin that moved rebuilds it: otherwise a
+# machine that pulled a core update (2026-10-27, da2cb8e -> c8816799) went on
+# linking the old core without a word.
+PIN_FILE="$OUTPUT_LIB.pin"
+CURRENT_PIN="$(git -C "$PCSX_SRC" rev-parse HEAD 2>/dev/null || echo unknown)"
+if [ -f "$OUTPUT_LIB" ] && [ "$(cat "$PIN_FILE" 2>/dev/null)" != "$CURRENT_PIN" ]; then
+    echo "The core's pin moved (built from $(cat "$PIN_FILE" 2>/dev/null || echo 'an unrecorded pin'), now $CURRENT_PIN) - rebuilding it."
+    make -C "$PCSX_SRC" -f Makefile.libretro clean >/dev/null 2>&1 || true
+    find "$PCSX_SRC" \( -name '*.o' -o -name '*.d' \) -delete 2>/dev/null || true
+    rm -f "$OUTPUT_LIB"
+fi
+
 # Skip if already built (use 'clean' to force a rebuild), matching the other two.
 if [ -f "$OUTPUT_LIB" ]; then
     echo "$(basename "$OUTPUT_LIB") already built. Run '$0 clean' to rebuild."
@@ -295,6 +308,8 @@ else
         echo "         link, the failure was real and this is where it was seen."
     fi
 fi
+
+echo "$CURRENT_PIN" > "$PIN_FILE"
 
 echo
 echo "=== Done ==="

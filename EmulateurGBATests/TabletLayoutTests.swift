@@ -74,12 +74,13 @@ struct TabletLayoutTests {
             isLandscape: isLandscape, gameAspect: EmulatorLayoutGeometryTests.displayAspect(system),
             system: system, controllerConnected: false, deviceScale: k)
         let container = EmulatorLayoutGeometry.controlsFrame(
-            deviceSize: deviceSize, screenFrame: screen, hasTouchScreen: isNDS, isLandscape: isLandscape)
+            deviceSize: deviceSize, screenFrame: screen, hasTouchScreen: isNDS, isLandscape: isLandscape,
+            system: system)
         let layout = ControlLayoutDefaults.defaultLayout(
             system: system, isLandscape: isLandscape, containerSize: container.size, scale: k,
             safeLeftInset: isLandscape ? insets.left : 0,
             safeRightInset: isLandscape ? insets.right : 0,
-            family: LayoutFamily.of(deviceSize))
+            family: LayoutFamily.of(deviceSize), deviceSize: deviceSize)
         var rects: [ControlElement: CGRect] = [:]
         for e in ControlElement.elements(for: system) {
             guard let bl = layout.buttons[e.rawValue], !bl.isHidden else { continue }
@@ -258,6 +259,11 @@ struct TabletLayoutTests {
                     let pair = EmulatorLayoutGeometry.ndsLandscapeScreenRects(controlsContainer: laid.container.size)
                     screens = [("left", pair.left.offsetBy(dx: laid.container.minX, dy: laid.container.minY)),
                                ("touch", pair.touch.offsetBy(dx: laid.container.minX, dy: laid.container.minY))]
+                } else if system == .n3ds {
+                    // Its two screens side by side in the band (`ctrSideBySide`).
+                    let pair = EmulatorMetalView.ctrSideBySideRects(in: laid.screen.size)
+                    screens = [("top", pair.top.offsetBy(dx: laid.screen.minX, dy: laid.screen.minY)),
+                               ("touch", pair.bottom.offsetBy(dx: laid.screen.minX, dy: laid.screen.minY))]
                 } else {
                     screens = [("picture", laid.screen)]
                 }
@@ -306,8 +312,11 @@ struct TabletLayoutTests {
     /// wide, the PlayStation's width, and 453 tall. A picture that is neither
     /// half the height nor the whole width still fails, which is the case this
     /// test was written for.
+    ///
+    /// The DS and the 3DS are not on this page: on their side their screens
+    /// fill a band across the top (`screensBandAboveControls`).
     @Test func tabletLandscapePictureFillsHalfTheHeight() {
-        for system in Self.systems where system != .nds {
+        for system in Self.systems where system != .nds && system != .n3ds {
             for (name, portrait) in Self.tablets {
                 let size = onItsSide(portrait)
                 let screen = page(system: system, isLandscape: true, deviceSize: size, insets: Self.tabletInsets).screen
@@ -340,14 +349,87 @@ struct TabletLayoutTests {
                 switch system {
                 case .md:  promised = EmulatorLayoutGeometry.mdTabletPortraitControlsHeight(deviceScale: k)
                 case .psp: promised = EmulatorLayoutGeometry.pspTabletPortraitControlsHeight(deviceScale: k)
-                default:   promised = EmulatorLayoutGeometry.referencePortraitControlsHeight(
-                        gameAspect: EmulatorLayoutGeometryTests.displayAspect(system), system: system) * k
+                // The 3DS's own upright page (2026-10-20), the 14 Pro's band
+                // scaled, less what its picture grew by (2026-11-01: the top
+                // screen down to where CLIP began, twice that for the picture).
+                case .n3ds:
+                    let base = EmulatorLayoutGeometry.n3dsPortraitControlsHeight(deviceScale: k)
+                    let clip = EmulatorLayoutGeometry.buttonSize(.btnClip, system: .n3ds, isLandscape: false,
+                                                                 deviceScale: k).height
+                    let old = portrait.height - EmulatorLayoutGeometry.tabletLandscapeTopReserve
+                        - EmulatorLayoutGeometry.n3dsPortraitTopPadding * k - base
+                    promised = base - 2 * max(0, old / 12 - clip / 2)
+                default:
+                    // The consoles whose picture grew upright (2026-11-01)
+                    // give back to it what the band no longer needs
+                    // (`EmulatorLayoutGeometry.tabletUprightGrowth`).
+                    let aspect = EmulatorLayoutGeometryTests.displayAspect(system)
+                    promised = EmulatorLayoutGeometry.referencePortraitControlsHeight(
+                        gameAspect: aspect, system: system.layoutPage) * k
+                        - EmulatorLayoutGeometry.tabletUprightGrowth(deviceSize: portrait, gameAspect: aspect,
+                                                                    system: system, deviceScale: k)
                 }
                 #expect(band >= promised - 0.5,
                         "\(system) \(name) upright: \(band) points under the picture, \(promised) promised")
                 #expect(laid.screen.width <= portrait.width + 0.5 && laid.screen.minX >= -0.5,
                         "\(system) \(name) upright: the picture \(laid.screen) leaves the window")
             }
+        }
+    }
+
+    /// The upright iPad, a larger picture (asked 2026-11-01): six consoles
+    /// grow their picture into the band the thumb rule emptied, and the page
+    /// moves only what hangs from the picture. Measured against the page laid
+    /// out under the old picture: every control that stays is where it was on
+    /// the glass, every one that hangs came down exactly as far as the picture
+    /// grew, and the picture is wider than it was without leaving the window.
+    @Test func theUprightTabletPictureGrowsAndOnlyItsRowFollows() {
+        let growing: [PresetSystem] = [.gba, .gbc, .gg, .sms, .ps1, .n64]
+        for system in growing {
+            let hanging = EmulatorLayoutGeometry.tabletUprightHangingControls(system)
+            let aspect = EmulatorLayoutGeometryTests.displayAspect(system)
+            for (name, portrait) in Self.tablets {
+                let k = EmulatorLayoutGeometry.deviceScale(for: portrait)
+                let now = page(system: system, isLandscape: false, deviceSize: portrait, insets: Self.tabletInsets)
+                let growth = EmulatorLayoutGeometry.tabletUprightGrowth(
+                    deviceSize: portrait, gameAspect: aspect, system: system, deviceScale: k)
+                #expect(growth > 0, "\(system) \(name): the picture did not grow")
+                // The page as it was: the old picture, its container, its page.
+                guard let old = EmulatorLayoutGeometry.tabletUprightPreviousFrame(
+                    deviceSize: portrait, safeInsets: Self.tabletInsets, gameAspect: aspect,
+                    system: system, deviceScale: k) else { Issue.record("no old frame"); continue }
+                #expect(approx(now.screen.height, old.height + growth),
+                        "\(system) \(name): the picture is \(now.screen.height), \(old.height + growth) expected")
+                #expect(now.screen.width > old.width + 0.5 && now.screen.width <= portrait.width + 0.5,
+                        "\(system) \(name): the picture \(now.screen) is not wider inside the window")
+                #expect(approx(now.screen.minY, old.minY), "\(system) \(name): the picture's top moved")
+                let oldContainer = CGRect(x: 0, y: old.maxY, width: portrait.width, height: portrait.height - old.maxY)
+                let before = ControlLayoutDefaults.classicPageThenThumbs(
+                    system: system, containerSize: oldContainer.size, scale: k, deviceSize: portrait)
+                for (e, rect) in now.rects {
+                    guard let b = before.buttons[e.rawValue] else { continue }
+                    let wasY = oldContainer.minY + b.centerY * oldContainer.height
+                    let drop = EmulatorLayoutGeometry.tabletUprightRowDrop(system) * k
+                    let expected = hanging.contains(e) ? wasY + growth + drop : wasY
+                    #expect(approx(rect.midY, expected, tol: 1),
+                            "\(system) \(name): \(e.rawValue) at y \(rect.midY), \(expected) expected")
+                    #expect(approx(rect.midX, b.centerX * oldContainer.width, tol: 1),
+                            "\(system) \(name): \(e.rawValue) moved sideways")
+                }
+            }
+        }
+    }
+
+    /// The PlayStation upright on an iPad: CLIP on the shoulder row, between
+    /// the L pair and MENU (his call, 2026-11-01), clear of both.
+    @Test func thePlayStationClipJoinsItsShoulderRowOnAnUprightTablet() {
+        for (name, portrait) in Self.tablets {
+            let laid = page(system: .ps1, isLandscape: false, deviceSize: portrait, insets: Self.tabletInsets)
+            guard let clip = laid.rects[.btnClip], let menu = laid.rects[.btnMenu],
+                  let l2 = laid.rects[.btnL2] else { Issue.record("\(name): missing a control"); continue }
+            #expect(approx(clip.midY, menu.midY), "PlayStation \(name): CLIP is not on MENU's line")
+            #expect(clip.minX > l2.maxX && clip.maxX < menu.minX,
+                    "PlayStation \(name): CLIP \(clip) is not between L2 \(l2) and MENU \(menu)")
         }
     }
 
@@ -377,14 +459,207 @@ struct TabletLayoutTests {
         }
     }
 
+    /// The 3DS on an iPad follows the tablet rule of the 1.3.4 consoles
+    /// (asked 2026-10-29: priority and reach by the thumbs): the circle pad and
+    /// A B X Y low and against their edges, on one thumb line, the cross above
+    /// the circle pad, the C-stick above the diamond; and the circle pad DRAWN
+    /// at its thumb size on its side, not grown to the band, where it met the
+    /// cross. Before: 220 points above the bottom of an iPad mini upright, the
+    /// cross 213 points in from the edge on its side.
+    @Test func the3DSThumbClustersSitLowAndAtTheEdges() {
+        for window in tabletWindows {
+            let laid = page(system: .n3ds, isLandscape: window.isLandscape, deviceSize: window.size,
+                            insets: Self.tabletInsets)
+            let label = "\(window.name) \(window.isLandscape ? "on its side" : "upright")"
+            guard let circle = laid.rects[.stickLeft], let cross = laid.rects[.dpad],
+                  let a = laid.rects[.btnA], let b = laid.rects[.btnB], let c = laid.rects[.stickRight]
+            else {
+                Issue.record("\(label): a 3DS thumb control has no default position")
+                continue
+            }
+            let k = EmulatorLayoutGeometry.deviceScale(for: window.size)
+            let reach = 80 * k
+            #expect(window.size.height - circle.maxY <= reach, "\(label): the circle pad is \(window.size.height - circle.maxY) above the bottom")
+            #expect(window.size.height - b.maxY <= reach, "\(label): the diamond is \(window.size.height - b.maxY) above the bottom")
+            #expect(circle.minX <= reach, "\(label): the circle pad is \(circle.minX) in from the left edge")
+            #expect(window.size.width - a.maxX <= reach, "\(label): the diamond is \(window.size.width - a.maxX) in from the right edge")
+            #expect(cross.maxY <= circle.minY + 0.5, "\(label): the cross is not above the circle pad")
+            #expect(c.maxY <= a.minY + 0.5, "\(label): the C-stick is not above the diamond")
+            if window.isLandscape {
+                let table = EmulatorLayoutGeometry.buttonSize(.stickLeft, system: .n3ds, isLandscape: true, deviceScale: k)
+                let drawn = ControlLayoutDefaults.n3dsLandscapeDrawnSize(
+                    .stickLeft, size: circle.size, deviceSize: window.size, scale: k,
+                    safeLeftInset: 0, safeRightInset: 0, family: .tablet)
+                #expect(drawn == circle.size, "\(label): the circle pad is drawn at \(drawn), placed at \(circle.size)")
+                #expect(circle.width < table.width, "\(label): the circle pad is not at its thumb size")
+            }
+        }
+    }
+
+    /// The six consoles shipped before 1.3.3 on an iPad (asked 2026-10-30, the
+    /// rule of the N64's, the PSP's and the 3DS's pages): the cross and the
+    /// faces low and against their edges, both ways up, drawn at a thumb's
+    /// span. Before: 165 to 354 points above the bottom. The DS on its side
+    /// keeps its own tall L and R bars at the edges, so its cross and faces
+    /// stand beside them rather than at the glass's edge. Nothing drawn over
+    /// anything else, on the app's own path at the drawn sizes.
+    @Test func theOlderConsolesPutTheirThumbsAtTheEdges() {
+        let consoles: [PresetSystem] = [.gba, .gbc, .nes, .snes, .nds, .ps1]
+        for system in consoles {
+            for window in tabletWindows {
+                let size = window.size, isLandscape = window.isLandscape
+                let geometry = PresetLayoutResolver.defaultGeometry(system: system, isLandscape: isLandscape,
+                                                                    viewSize: size, safeInsets: Self.tabletInsets)
+                let k = EmulatorLayoutGeometry.deviceScale(for: size)
+                var drawn: [ControlElement: CGRect] = [:]
+                for (e, v) in geometry.buttons {
+                    let f = ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape, family: .tablet, system: system)
+                    var s = CGSize(width: v.baseSize.width * f, height: v.baseSize.height * f)
+                    var x = v.center.x
+                    if system == .nds {
+                        let row = ControlLayoutDefaults.ndsBottomRow(e, isLandscape: isLandscape, deviceScale: k)
+                        if let z = row.size { s = z }
+                        x += row.dx
+                    }
+                    drawn[e] = CGRect(x: x - s.width / 2, y: v.center.y - s.height / 2, width: s.width, height: s.height)
+                }
+                let label = "\(system.rawValue) \(window.name) \(isLandscape ? "on its side" : "upright")"
+                let left = [ControlElement.dpad, .stickLeft].compactMap { drawn[$0] }
+                let right = [ControlElement.btnA, .btnB, .btnX, .btnY, .stickRight].compactMap { drawn[$0] }
+                guard !left.isEmpty, !right.isEmpty else {
+                    Issue.record("\(label): no thumb controls")
+                    continue
+                }
+                let reach = 40 * k
+                let besideBars = system == .nds && isLandscape
+                let leftBottom = size.height - left.map(\.maxY).max()!
+                let rightBottom = size.height - right.map(\.maxY).max()!
+                #expect(leftBottom <= reach, "\(label): the cross is \(leftBottom) above the bottom")
+                #expect(rightBottom <= reach, "\(label): the faces are \(rightBottom) above the bottom")
+                let leftEdge = left.map(\.minX).min()!, rightEdge = size.width - right.map(\.maxX).max()!
+                let edgeReach = besideBars ? 140 * k : reach
+                #expect(leftEdge <= edgeReach, "\(label): the cross is \(leftEdge) in from the left edge")
+                #expect(rightEdge <= edgeReach, "\(label): the faces are \(rightEdge) in from the right edge")
+                let together: Set<ControlElement> = [.btnA, .btnB, .btnX, .btnY]
+                let pairs: Set<Set<ControlElement>> = [[.stickLeft, .btnL3], [.stickRight, .btnR3]]
+                let all = Array(drawn)
+                for i in all.indices {
+                    #expect(all[i].value.minX >= -0.5 && all[i].value.maxX <= size.width + 0.5
+                            && all[i].value.maxY <= size.height + 0.5,
+                            "\(label): \(all[i].key.rawValue) is off the window")
+                    for j in all.indices where j > i {
+                        let a = all[i].key, b = all[j].key
+                        if together.contains(a) && together.contains(b) { continue }
+                        if pairs.contains([a, b]) { continue }
+                        let o = all[i].value.intersection(all[j].value)
+                        #expect(o.isNull || o.width <= 0.5 || o.height <= 0.5,
+                                "\(label): \(a.rawValue) and \(b.rawValue) are drawn over each other")
+                    }
+                }
+            }
+        }
+    }
+
+    /// The iPhone never takes the tablet pass: on every phone, both ways up,
+    /// each of the six consoles' default page is its own page exactly, and
+    /// every control is drawn at its table size.
+    @Test func theOlderConsolesAreUnchangedOnThePhone() {
+        for (name, portrait) in Self.phones {
+            for isLandscape in [false, true] {
+                let size = isLandscape ? onItsSide(portrait) : portrait
+                #expect(LayoutFamily.of(size) == .phone, "\(name) is not a phone window")
+                let k = EmulatorLayoutGeometry.deviceScale(for: size)
+                let container = CGSize(width: size.width, height: size.height / 2)
+                for system in ControlLayoutDefaults.classicTabletSystems {
+                    let page = ControlLayoutDefaults.defaultLayout(
+                        system: system, isLandscape: isLandscape, containerSize: container, scale: k,
+                        family: .phone, deviceSize: size)
+                    let own = ControlLayoutDefaults.classicPage(
+                        system: system, isLandscape: isLandscape, containerSize: container, scale: k,
+                        safeLeftInset: 0, safeRightInset: 0, family: .phone, deviceSize: size)
+                    #expect(page == own, "\(system.rawValue) on \(name): the phone page was changed")
+                    for e in ControlElement.elements(for: system) {
+                        #expect(ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape, family: .phone,
+                                                                    system: system) == 1,
+                                "\(system.rawValue) \(e.rawValue) drawn at another size on \(name)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// The 3DS in the iPad windows smaller than the screen (split view at a
+    /// third, a half and two thirds of each iPad, Stage Manager from its
+    /// smallest): no two controls drawn over each other, none off the window,
+    /// none on the screens but the bars that belong beside them. A tablet
+    /// window keeps a full iPad's control sizes (`tabletMinDeviceScale`), and
+    /// in these ZL covered CLIP, ZR covered MENU, MIC ran into the circle pad
+    /// and START into Y (audit, 2026-10-30). Measured on the app's own path
+    /// (`PresetLayoutResolver.defaultGeometry`, which passes the window size)
+    /// at the drawn sizes. The four faces form one diamond and are not
+    /// compared with each other.
+    @Test func the3DSFitsTheSmallerIPadWindows() {
+        var windows: [CGSize] = []
+        for (_, p) in Self.tablets + [("iPad Air 11", CGSize(width: 820, height: 1180)),
+                                      ("iPad 11", CGSize(width: 834, height: 1194))] {
+            windows.append(contentsOf: [1.0 / 3, 0.5, 2.0 / 3].map { CGSize(width: (p.height - 10) * $0, height: p.width) })
+            windows.append(contentsOf: [1.0 / 3, 2.0 / 3].map { CGSize(width: (p.width - 10) * $0, height: p.height) })
+            for w in stride(from: CGFloat(600), through: p.height, by: 60) {
+                for ratio: CGFloat in [0.66, 0.8, 1.0, 1.25, 1.5] where w * ratio <= p.height {
+                    windows.append(CGSize(width: w, height: w * ratio))
+                }
+            }
+        }
+        let faces: Set<ControlElement> = [.btnA, .btnB, .btnX, .btnY]
+        let bars: Set<ControlElement> = [.btnL, .btnR, .btnL2, .btnR2]
+        var checked = 0
+        for size in windows where LayoutFamily.of(size) == .tablet {
+            let isLandscape = size.width > size.height
+            let geometry = PresetLayoutResolver.defaultGeometry(system: .n3ds, isLandscape: isLandscape,
+                                                                viewSize: size, safeInsets: Self.tabletInsets)
+            let k = EmulatorLayoutGeometry.deviceScale(for: size)
+            var drawn: [(ControlElement, CGRect)] = []
+            for (e, v) in geometry.buttons {
+                let f = ControlLayoutDefaults.n64PhoneScale(e, isLandscape: isLandscape, family: .tablet, system: .n3ds)
+                var s = CGSize(width: v.baseSize.width * f, height: v.baseSize.height * f)
+                if isLandscape {
+                    s = ControlLayoutDefaults.n3dsLandscapeDrawnSize(e, size: s, deviceSize: size, scale: k,
+                                                                      safeLeftInset: 0, safeRightInset: 0, family: .tablet)
+                }
+                drawn.append((e, CGRect(x: v.center.x - s.width / 2, y: v.center.y - s.height / 2,
+                                        width: s.width, height: s.height)))
+            }
+            let label = "\(Int(size.width))×\(Int(size.height))"
+            for i in drawn.indices {
+                let (e, r) = drawn[i]
+                #expect(r.minX >= -0.5 && r.maxX <= size.width + 0.5 && r.maxY <= size.height + 0.5,
+                        "\(label): \(e.rawValue) is off the window")
+                for j in drawn.indices where j > i && !(faces.contains(e) && faces.contains(drawn[j].0)) {
+                    let o = r.intersection(drawn[j].1)
+                    #expect(o.isNull || o.width <= 0.5 || o.height <= 0.5,
+                            "\(label): \(e.rawValue) and \(drawn[j].0.rawValue) are drawn over each other")
+                }
+                if !bars.contains(e) {
+                    for (screen, frame) in geometry.screens {
+                        let o = frame.intersection(r)
+                        #expect(o.isNull || o.width <= 0.5 || o.height <= 0.5,
+                                "\(label): \(e.rawValue) is on the \(screen.rawValue) screen")
+                    }
+                }
+            }
+            checked += 1
+        }
+        #expect(checked > 100, "only \(checked) tablet windows swept")
+    }
+
     /// The DS upright on a tablet keeps the 14 Pro's whole band under its
     /// screens, scaled (2026-09-08): the reserve alone left it seven percent
     /// short and closed the D-pad on the SELECT · START row, and the dress's
     /// slot-2 well, which lives between the two, needs twelve reference
     /// points of room and had two. Three facts pinned: the band, that it
     /// does not move with the insets, and the room the well asks for
-    /// (`drawSlot2Well`: the side is twice the room, drawn above 24
-    /// reference points).
+    /// (`drawSlot2Well`, drawn above 24 reference points; since 2026-10-30
+    /// over the row, the cross having moved down onto its line).
     @Test func tabletDSUprightBandIsThePhonesScaled() {
         let reference = EmulatorLayoutGeometry.referenceNDSPortraitControlsHeight
         for (name, portrait) in Self.tablets {
@@ -401,9 +676,18 @@ struct TabletLayoutTests {
                 Issue.record("\(name) upright DS: the pad or the SELECT · START row is missing")
                 continue
             }
-            let room = min(select.minY, start.minY) - 8 * k - dpad.maxY
-            #expect(room > 12 * k,
-                    "\(name) upright DS: \(room) points between the D-pad and the row, the slot-2 well needs more than \(12 * k)")
+            // Since 2026-10-30 the cross sits on the row's own line on a tablet
+            // (`thumbsToTheEdges`), and the well takes the band over the row,
+            // under the lowest control above it (`drawSlot2Well`): the room is
+            // measured there. Its side is two thirds of the room, drawn above 24.
+            let rowTop = min(select.minY, start.minY) - 8 * k
+            let x = select.union(start).midX
+            let above = laid.rects.values
+                .filter { $0.maxY < rowTop && $0.maxX > x - 40 * k && $0.minX < x + 40 * k }
+                .map(\.maxY).max() ?? laid.screen.maxY
+            let room = dpad.maxY > rowTop ? rowTop - above - 8 * k : rowTop - dpad.maxY
+            #expect(room > 36 * k,
+                    "\(name) upright DS: \(room) points for the slot-2 well over the row, it needs more than \(36 * k)")
         }
     }
 

@@ -64,6 +64,9 @@ struct GameDetailsView: View {
     @State private var showCoverChooser = false
     @State private var pickPhotoAfterChooser = false
     @State private var showSavePicker = false
+    /// A 3DS save zip waiting on the same two questions as a `.sav`.
+    @State private var pendingCTRMismatch: CTRSaveData.Pending?
+    @State private var pendingCTROverwrite: CTRSaveData.Pending?
     /// Drives the ROM-file picker for the save-preserving "Replace game file"
     /// recovery (fixes a corrupted/missing ROM without dropping save states).
     @State private var showROMPicker = false
@@ -120,7 +123,7 @@ struct GameDetailsView: View {
     /// so they take the look's accent as the landscape card's do.
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
     private var uprightLook: Bool {
-        UprightLook.isActive(isLandscape: isLandscape, store: themeStore)
+        UprightLook.isActive(isLandscape: isLandscape)
     }
 
     /// Canonical basename, via the single source of truth. Deliberately NOT
@@ -142,9 +145,13 @@ struct GameDetailsView: View {
             // B goes back to the library, as the back button does.
             .controllerBack { dismiss() }
             .sheet(isPresented: $showSavePicker) {
-                DocumentPickerView(contentTypes: DocumentPickerView.saveTypes) { urls in
+                DocumentPickerView(contentTypes: ctrTitleID == nil ? DocumentPickerView.saveTypes : [.zip]) { urls in
                     guard let url = urls.first else { return }
-                    handlePickedSave(url: url)
+                    if let titleID = ctrTitleID {
+                        handlePickedCTRSave(url: url, titleID: titleID)
+                    } else {
+                        handlePickedSave(url: url)
+                    }
                 }
             }
             .sheet(isPresented: $showROMPicker) {
@@ -174,18 +181,23 @@ struct GameDetailsView: View {
             .alert(
                 NSLocalizedString("saveImport.overwrite.title", comment: ""),
                 isPresented: Binding(
-                    get: { pendingOverwrite != nil },
-                    set: { if !$0 { pendingOverwrite = nil } }
+                    get: { pendingOverwrite != nil || pendingCTROverwrite != nil },
+                    set: { if !$0 { pendingOverwrite = nil; pendingCTROverwrite = nil } }
                 )
             ) {
                 Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {
                     pendingOverwrite = nil
+                    pendingCTROverwrite?.discard()
+                    pendingCTROverwrite = nil
                 }
                 Button(NSLocalizedString("saveImport.overwrite.confirm", comment: ""), role: .destructive) {
                     if let pending = pendingOverwrite {
                         applySave(pending, overwriting: true)
+                    } else if let pending = pendingCTROverwrite, let titleID = ctrTitleID {
+                        applyCTRSave(pending, titleID: titleID, overwriting: true)
                     }
                     pendingOverwrite = nil
+                    pendingCTROverwrite = nil
                 }
             } message: {
                 Text(String(format: NSLocalizedString("saveImport.overwrite.message", comment: ""),
@@ -194,24 +206,32 @@ struct GameDetailsView: View {
             .confirmationDialog(
                 NSLocalizedString("saveImport.mismatch.title", comment: ""),
                 isPresented: Binding(
-                    get: { pendingMismatch != nil },
-                    set: { if !$0 { pendingMismatch = nil } }
+                    get: { pendingMismatch != nil || pendingCTRMismatch != nil },
+                    set: { if !$0 { pendingMismatch = nil; pendingCTRMismatch = nil } }
                 ),
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("saveImport.mismatch.confirm", comment: ""), role: .destructive) {
                     let pending = pendingMismatch
+                    let ctrPending = pendingCTRMismatch
                     pendingMismatch = nil
+                    pendingCTRMismatch = nil
                     // Defer so the dialog finishes dismissing before a
                     // follow-up overwrite alert or success alert presents.
                     if let pending = pending {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             applySave(pending, overwriting: false)
                         }
+                    } else if let ctrPending, let titleID = ctrTitleID {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            applyCTRSave(ctrPending, titleID: titleID, overwriting: false)
+                        }
                     }
                 }
                 Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {
                     pendingMismatch = nil
+                    pendingCTRMismatch?.discard()
+                    pendingCTRMismatch = nil
                 }
             } message: {
                 Text(String(format: NSLocalizedString("saveImport.mismatch.message", comment: ""),
@@ -498,8 +518,11 @@ struct GameDetailsView: View {
             || RAClient.consoleId(forROMPath: romsDir.appendingPathComponent(filename).path) == 0 {
             // The `.pbp` advice ("the same game as .chd earns achievements")
             // is the PlayStation's; a PSP game's `.pbp` gets the plain line.
-            return .unavailable(isPBP: game.systemType != ROMSystemType.psp.rawValue
-                                && Self.isUnhashableDiscContainer(filename))
+            // The 3DS: RetroAchievements supports no game of that console at
+            // all, and "this game" said otherwise (asked 2026-10-20).
+            if game.systemType == ROMSystemType.n3ds.rawValue { return .unavailable(.console) }
+            return .unavailable(game.systemType != ROMSystemType.psp.rawValue
+                                && Self.isUnhashableDiscContainer(filename) ? .pbp : .game)
         }
         return .hidden
     }
@@ -525,7 +548,7 @@ struct GameDetailsView: View {
                     RASectionHeader(onInfo: { showRAInfo = true })
                 }
             }
-        case .unavailable(let isPBP):
+        case .unavailable(let reason):
             if placement == .bottom {
                 Section {
                 } header: {
@@ -535,11 +558,17 @@ struct GameDetailsView: View {
                     // not the game, and the one a player can act on: the same
                     // game as `.chd` earns achievements normally. "Not
                     // available" would be true and useless.
-                    Text(isPBP
-                         ? String(localized: "ra.details.unavailable.pbp",
-                                  defaultValue: "RetroAchievements cannot read a .pbp file. The same game as .chd, or as .cue with its .bin, earns achievements normally.")
-                         : String(localized: "ra.details.unavailable",
-                                  defaultValue: "RetroAchievements is not available for this game."))
+                    switch reason {
+                    case .pbp:
+                        Text(String(localized: "ra.details.unavailable.pbp",
+                                    defaultValue: "RetroAchievements cannot read a .pbp file. The same game as .chd, or as .cue with its .bin, earns achievements normally."))
+                    case .console:
+                        Text(String(localized: "ra.details.unavailable.console",
+                                    defaultValue: "RetroAchievements does not support Nintendo 3DS games."))
+                    case .game:
+                        Text(String(localized: "ra.details.unavailable",
+                                    defaultValue: "RetroAchievements is not available for this game."))
+                    }
                 }
             }
         }
@@ -1128,12 +1157,33 @@ struct GameDetailsView: View {
 
     // MARK: - Battery-save export (this game)
 
-    /// Whether this game keeps its save in one battery file, which is what the
-    /// import and export rows move. Every console does but the PSP, whose
-    /// games write a FOLDER on their memory stick (`PSP/SAVEDATA/<game id>/`,
-    /// `PSPBridge.setMemoryStickDirectory`): one file in or out would be no
-    /// save at all, so the two rows are not offered for it.
-    private var hasBatterySaveFile: Bool { game.systemType != ROMSystemType.psp.rawValue }
+    /// Whether this game has the import and export rows: its save is one
+    /// battery file (every console but the PSP and the 3DS), or the 3DS game's
+    /// save folder, moved as one `.zip` (`CTRSaveData`).
+    private var hasBatterySaveFile: Bool { Self.offersSaveImportExport(game, romsDir: romsDir) }
+
+    /// The PSP's games write a FOLDER on their memory stick
+    /// (`PSP/SAVEDATA/<game id>/`, `PSPBridge.setMemoryStickDirectory`), where
+    /// one file in or out would be no save at all: not offered. A 3DS game's
+    /// save is a folder too, filed by its title ID, which the rows move as a
+    /// zip; a `.3dsx` has no title ID and no such folder (homebrew keeps its
+    /// own files on the SD card), so not for it.
+    static func offersSaveImportExport(_ game: GameEntity, romsDir: URL) -> Bool {
+        switch game.systemType {
+        case ROMSystemType.psp.rawValue: return false
+        case ROMSystemType.n3ds.rawValue: return ctrTitleID(of: game, romsDir: romsDir) != nil
+        default: return true
+        }
+    }
+
+    /// A 3DS game's title ID, read from its file; nil for a `.3dsx` or a
+    /// missing file.
+    static func ctrTitleID(of game: GameEntity, romsDir: URL) -> UInt64? {
+        guard game.systemType == ROMSystemType.n3ds.rawValue, let filename = game.romFilePath else { return nil }
+        return CTRSaveData.titleID(ofROMAt: romsDir.appendingPathComponent(filename))
+    }
+
+    private var ctrTitleID: UInt64? { Self.ctrTitleID(of: game, romsDir: romsDir) }
 
     /// Share this game's in-game battery save. The file is copied to a temp
     /// name other emulators expect for the system (.sav for GBA/GB/GBC/NES,
@@ -1141,6 +1191,10 @@ struct GameDetailsView: View {
     /// our own importer uses, so a round-trip export/import always works).
     /// No save yet -> explanatory alert.
     private func exportSave() {
+        if let titleID = ctrTitleID {
+            exportCTRSave(titleID: titleID)
+            return
+        }
         let source = BatterySaveImporter.savePath(forRomBasename: romName)
         guard FileManager.default.fileExists(atPath: source.path) else {
             saveInfo = SaveImportInfo(
@@ -1182,6 +1236,70 @@ struct GameDetailsView: View {
             saveInfo = SaveImportInfo(
                 title: NSLocalizedString("saveExport.title", comment: ""),
                 message: NSLocalizedString("saveExport.error.message", comment: ""))
+        }
+    }
+
+    /// A 3DS game's save folder, zipped (`CTRSaveData`), shared like a `.sav`.
+    private func exportCTRSave(titleID: UInt64) {
+        guard CTRSaveData.hasSave(titleID: titleID) else {
+            saveInfo = SaveImportInfo(
+                title: NSLocalizedString("saveExport.none.title", comment: ""),
+                message: NSLocalizedString("saveExport.none.message", comment: ""))
+            return
+        }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SaveExport", isDirectory: true)
+        let dest = dir.appendingPathComponent("\(romName).zip")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: dest)
+            try CTRSaveData.exportSave(titleID: titleID, to: dest)
+            exportedSave = ExportedSave(url: dest)
+        } catch {
+            Analytics.signal("save_failure", ["kind": "battery_export", "system": game.systemType ?? "unknown",
+                                              "reason": ErrorTelemetry.writeReason(for: error).rawValue])
+            saveInfo = SaveImportInfo(
+                title: NSLocalizedString("saveExport.title", comment: ""),
+                message: NSLocalizedString("saveExport.error.message", comment: ""))
+        }
+    }
+
+    /// A zip picked for a 3DS game: unpacked and checked aside, then put in
+    /// place of the game's save after the same confirmations as a `.sav`
+    /// (another game's name, an existing save), the current save zipped to the
+    /// backups first.
+    private func handlePickedCTRSave(url: URL, titleID: UInt64) {
+        let saveBasename = url.deletingPathExtension().lastPathComponent
+        let result = CTRSaveData.prepare(zipURL: url)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            switch result {
+            case .failure:
+                Analytics.signalOnce("save_import_fail", ["method": "picker", "system": game.systemType ?? "unknown",
+                                                          "reason": SaveImportFailureReason.invalidFormat.rawValue])
+                showImportError(NSLocalizedString("saveImport.error.ctrNotASave", comment: ""))
+            case .success(let pending):
+                if saveBasename != romName {
+                    pendingCTRMismatch = pending
+                } else {
+                    applyCTRSave(pending, titleID: titleID, overwriting: false)
+                }
+            }
+        }
+    }
+
+    private func applyCTRSave(_ pending: CTRSaveData.Pending, titleID: UInt64, overwriting: Bool) {
+        if !overwriting, CTRSaveData.hasSave(titleID: titleID) {
+            pendingCTROverwrite = pending
+            return
+        }
+        do {
+            try CTRSaveData.apply(pending, titleID: titleID, romBasename: romName)
+            saveInfo = SaveImportInfo(
+                title: NSLocalizedString("saveImport.success.title", comment: ""),
+                message: String(format: NSLocalizedString("saveImport.success.message", comment: ""),
+                                game.title ?? ""))
+        } catch {
+            showImportError(BatterySaveImportError.writeFailed.errorDescription)
         }
     }
 
@@ -1268,6 +1386,17 @@ enum RADetailsState {
     case dashboard(RAGameRecord)
     /// Eligible and not signed in: the invite to connect.
     case invite
-    /// No set for this game, or a set RA cannot hash from this file.
-    case unavailable(isPBP: Bool)
+    /// No set for this game, a set RA cannot hash from this file, or a
+    /// console RA does not support at all.
+    case unavailable(RAUnavailableReason)
+}
+
+/// Why RetroAchievements has nothing for a game, which decides what it says.
+enum RAUnavailableReason {
+    /// No set for this game.
+    case game
+    /// A PlayStation `.pbp`, which RA cannot hash (the same game as `.chd` can).
+    case pbp
+    /// A console RA supports no game of: the Nintendo 3DS.
+    case console
 }

@@ -1,0 +1,28 @@
+Keep the queued shader compiles when the pipeline cache goes
+
+0009 made ~PipelineCache drop the work no worker had started, on both its
+queues. A pipeline build a worker has already started waits for its shaders
+(GraphicsPipeline::Build, Shader::WaitDone): with that shader's compile still
+queued and dropped, nothing ever marks it done, the build waits for ever, and
+so does the destructor waiting for the build. A quit or a reset (System::
+Shutdown, the renderer destroyed) while a new scene compiles hung the app.
+Found by reading (audit 2026-10-20), not seen on a device.
+
+Only the pipeline builds are dropped now; the shaders' queue runs to its end.
+A shader is a short SPIR-V compile; the pipelines were the seconds 0009 saved.
+
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -152,7 +152,11 @@
+     // after a boot otherwise waited for every pipeline the boot had queued from the disk
+     // cache, each a whole Metal compile on MoltenVK (seconds on a phone).
+     pipeline_workers.CancelPending();
+-    shader_workers.CancelPending();
++    // Not the shaders': a pipeline build a worker has already started waits for
++    // its shaders (GraphicsPipeline::Build, WaitDone), and a dropped shader is
++    // never marked done, so that build, and this destructor waiting for it,
++    // would wait for ever. A shader is a short SPIR-V compile; the pipelines
++    // were the seconds.
+     pipeline_workers.WaitForRequests();
+     shader_workers.WaitForRequests();
+     SaveDriverPipelineDiskCache();

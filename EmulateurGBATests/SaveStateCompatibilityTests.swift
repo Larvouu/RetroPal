@@ -220,6 +220,41 @@ struct SaveStateCompatibilityTests {
         }
     }
 
+    /// Azahar (the 3DS, 1.3.5) serialises through libretro's `retro_serialize`:
+    /// its own header (magic "CST\x1B", the game's title ID, the core's
+    /// REVISION), then zstd. CTRBridge writes it behind its own header, stored
+    /// as it is. The fixture is a slot from the core 1.3.5 ships, made from
+    /// redistributable homebrew (Minimalist Quest, GPL v3, the App Review kit's
+    /// 3DS game), so it is in git and runs on the phone.
+    ///
+    /// The most load-bearing case of this suite: Azahar REFUSES a state whose
+    /// revision is not its own, and `Vendor/azahar-ios/build.sh` stamps the
+    /// pin's commit. The patches never change the stamp; moving the pin would
+    /// break every 3DS state every player holds, and this case fails first.
+    /// Proved on the host with `Tools/3ds-bench` before committing
+    /// (EXPECTED-azahar.txt): reloaded, the next 300 frames are identical,
+    /// picture and sound; a damaged and a truncated file are refused.
+    @Test("Azahar: a save state from the shipped core still loads, and this build's own state loads back")
+    func azaharStateStillLoads() throws {
+        try runCompatCase(coreDir: "azahar", romExtensions: ["3dsx", "3ds", "cci", "cxi"]) {
+            let bridge = CTRBridge()
+            // The app gives the core its 3DS folder before every load; the core
+            // refuses to boot without one (CTRBridge.loadROMAtPath).
+            bridge.setSystemDirectory(FileManager.default.temporaryDirectory
+                .appendingPathComponent("SaveStateCompat-azahar-\(UUID().uuidString)", isDirectory: true).path)
+            return bridge
+        } afterLoad: { bridge, _ in
+            for _ in 0..<60 { bridge.runFrame() }
+            let written = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString).appendingPathExtension("state")
+            defer { try? FileManager.default.removeItem(at: written) }
+            #expect(bridge.saveState(toPath: written.path),
+                    "This build could not write a 3DS save state.")
+            #expect(bridge.loadState(fromPath: written.path),
+                    "A 3DS state this build wrote does not load back into it.")
+        }
+    }
+
     // MARK: - Harness
 
     /// `afterLoad` runs on the same bridge once the fixture's state has loaded,
@@ -365,7 +400,7 @@ struct SaveStateCompatibilityTests {
     /// come from the first line of the core's manifest:
     ///   files: <rom> <state> [<sav>]
     /// Only the fixtures committed with the repository carry that line (melonds,
-    /// mgba, n64 and md, freely redistributable homebrew). A manifest without it, or no
+    /// mgba, n64, md, psp and azahar, freely redistributable homebrew). A manifest without it, or no
     /// manifest in the bundle, is nil, which the caller reports as a skip,
     /// exactly as before this existed.
     ///

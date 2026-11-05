@@ -4,6 +4,7 @@
    name is the key. */
 
 "NSPhotoLibraryAddUsageDescription" = "Spiel-Screenshots in deiner Fotomediathek speichern";
+"NSCameraUsageDescription" = "Nintendo-3DS-Spiele, die die Kameras der Konsole nutzen, sehen durch deine Kamera. Die Bilder bleiben auf deinem Gerät.";
 
 "Game Boy Advance ROM" = "Game Boy Advance-ROM";
 "Game Boy Color ROM" = "Game Boy Color-ROM";
@@ -17,6 +18,7 @@
 "NES ROM" = "NES-ROM";
 "PlayStation disc" = "PlayStation-Disc";
 "PSP game" = "PSP-Spiel";
+"Nintendo 3DS game" = "Nintendo-3DS-Spiel";
 "Game save" = "Spielstand";
 "Retro Pal Skin" = "Retro Pal-Skin";
 

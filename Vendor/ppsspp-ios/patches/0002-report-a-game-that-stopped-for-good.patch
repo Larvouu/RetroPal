@@ -1,0 +1,73 @@
+Report a game that stopped for good, instead of freezing silently
+
+When the emulated CPU takes an exception (a jump to a bad address,
+Core_ExecException; a bad memory access, Core_MemoryException; a broken
+savestate's AntiCrashCallback), Core_Break puts the core in CORE_STEPPING_CPU,
+and a runtime error leaves it in CORE_RUNTIME_ERROR. The libretro port has no
+debugger to step it out again: its run loop's default case "is not handling
+the various states used for debugging", so every later retro_run returns
+without emulating a cycle. The player sees the last picture frozen and hears
+nothing, with no way to tell a crash from a hang.
+
+After the frame, these three states now call RETRO_ENVIRONMENT_SHUTDOWN once
+per boot (cleared when a game loads and on reset), the call the port already
+makes when a boot fails, so the frontend can stop the game and say so.
+
+Nothing in normal play reaches them: the save, load and rewind paths call
+Core_Break only from CORE_RUNTIME_ERROR (SaveState.cpp), the libretro port
+serializes through SaveState::SaveStart without that path, and the other
+callers are debugger, breakpoint and RAIntegration (Windows) features this
+port does not run.
+
+diff --git a/libretro/libretro.cpp b/libretro/libretro.cpp
+index 3b2f103..c95d60e 100644
+--- a/libretro/libretro.cpp
++++ b/libretro/libretro.cpp
+@@ -109,6 +109,8 @@ namespace Libretro
+ 
+    bool g_pendingBoot = false;
+    std::string g_bootErrorString;
++   // A halt (see retro_run) is reported once per boot.
++   static bool g_haltReported = false;
+ 
+    static bool detectVsyncSwapInterval = false;
+    static bool detectVsyncSwapIntervalOptShown = true;
+@@ -1378,6 +1380,22 @@ namespace Libretro
+          // Reached the end of the frame while running at full blast, all good. Set back to running for the next frame
+          coreState = CORE_RUNNING_CPU;
+          break;
++      case CORE_STEPPING_CPU:
++      case CORE_STEPPING_GE:
++      case CORE_RUNTIME_ERROR:
++         // The game has stopped for good. With no debugger in this port, the only
++         // ways here are an emulated CPU exception (Core_ExecException,
++         // Core_MemoryException, a broken savestate's AntiCrashCallback) or a
++         // runtime error, and nothing will ever step the core out of them: every
++         // later retro_run would return without emulating a cycle, a frozen
++         // picture and silence. Tell the frontend, once, the way a failed boot
++         // does, so it can say so. (Retro Pal, 2026-10-27.)
++         if (!g_haltReported) {
++            g_haltReported = true;
++            ERROR_LOG(Log::CPU, "Core halted in state %s", CoreStateToString(coreState));
++            environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
++         }
++         break;
+       default:
+          // We're not handling the various states used for debugging in the libretro port.
+          break;
+@@ -1547,6 +1565,7 @@ bool retro_load_game(const struct retro_game_info *game)
+    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
+ 
+    g_pendingBoot = true;
++   g_haltReported = false;
+ 
+    struct retro_core_option_display option_display;
+ 
+@@ -1596,6 +1615,7 @@ void retro_unload_game(void)
+ void retro_reset(void)
+ {
+    PSP_Shutdown(true);
++   g_haltReported = false;
+ 
+    if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString))
+    {

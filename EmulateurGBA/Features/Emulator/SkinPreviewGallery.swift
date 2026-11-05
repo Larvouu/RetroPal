@@ -15,10 +15,11 @@ struct SkinPreviewGallery: View {
     private let portraitInsets = UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)
     private let landscapeLeading: CGFloat = 59                          // Dynamic Island side
 
+    /// Every console, from `allCases`: the hand-written list this replaced
+    /// stopped at the Game Gear, so the PSP and the 3DS never reached this
+    /// page (audit 2026-10-27).
     private let systems: [(system: PresetSystem, name: String)] =
-        [(.gba, "GBA"), (.gbc, "GB/GBC"), (.nds, "NDS"), (.snes, "SNES"), (.nes, "NES"),
-         (.ps1, "PlayStation"), (.n64, "Nintendo 64"), (.md, "Mega Drive"),
-         (.sms, "Master System"), (.gg, "Game Gear")]
+        ConsoleChoiceList.all.map { ($0, ConsoleChoiceList.name($0)) }
     private let skins = GameSkin.pickerOrder
 
     var body: some View {

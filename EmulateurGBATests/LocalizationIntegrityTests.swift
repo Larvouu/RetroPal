@@ -106,7 +106,13 @@ struct LocalizationIntegrityTests {
         let t = try #require(table("Localizable", locale))
         for key in ["import.error.zipUnsupportedCompression", "import.error.zipEncrypted",
                     "cheats.browse.noResults", "cheats.placeholderPrefix",
-                    "library.untitled", "guide.controller.keyboard"] {
+                    "library.untitled", "guide.controller.keyboard",
+                    // The other archives' four sentences (1.3.5), built by name
+                    // in `ROMImportError.errorDescription`.
+                    "import.error.archiveNoGame", "import.error.archiveExtractionFailed",
+                    "import.error.archiveUnsupportedCompression", "import.error.archiveEncrypted",
+                    // A split archive's volume (2026-10-30).
+                    "import.error.archiveSplit"] {
             #expect(t[key]?.isEmpty == false, "\(locale) lacks \(key)")
         }
     }

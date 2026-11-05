@@ -2,14 +2,15 @@
 
 A local, offline emulator for iPhone and iPad supporting Game Boy, Game Boy Color,
 Game Boy Advance, Nintendo DS, Super Nintendo, NES, PlayStation, Nintendo 64,
-Mega Drive / Genesis, Master System, Game Gear and PSP.
+Mega Drive / Genesis, Master System, Game Gear, PSP and Nintendo 3DS.
 Built with SwiftUI, UIKit and Metal, on top of the [mGBA](https://mgba.io),
 [melonDS](https://melonds.kuribo64.net),
 [MesenCE](https://github.com/nesdev-org/MesenCE),
 [PCSX-ReARMed](https://github.com/notaz/pcsx_rearmed),
 [Mupen64Plus-Next](https://github.com/libretro/mupen64plus-libretro-nx),
-[BlastEm](https://www.retrodev.com/repos/blastem) and
-[PPSSPP](https://github.com/hrydgard/ppsspp) emulation cores.
+[BlastEm](https://www.retrodev.com/repos/blastem),
+[PPSSPP](https://github.com/hrydgard/ppsspp) and
+[Azahar](https://github.com/azahar-emu/azahar) emulation cores.
 
 Website: [retropal.fr](https://retropal.fr)
 
@@ -19,7 +20,7 @@ Retro Pal is released under the **GNU General Public License v3.0**. See
 [`LICENSE`](LICENSE) for the full text. The software is provided without any
 warranty.
 
-It uses seven emulation cores. Six are included as git submodules pinned to
+It uses eight emulation cores. Seven are included as git submodules pinned to
 their upstream commits; BlastEm, whose upstream is a Mercurial repository, is
 included as plain source in [`Vendor/blastem/`](Vendor/blastem), exactly as
 upstream's archive of the pinned revision ships it (its `.hg_archival.txt`
@@ -35,19 +36,29 @@ names the revision):
 - **BlastEm** (Mega Drive / Genesis): GNU General Public License v3.0 or later
 - **PPSSPP** (PSP): GNU General Public License v2.0 or later, its own libretro
   port, drawing through MoltenVK as Mupen64Plus-Next does
+- **Azahar** (Nintendo 3DS): GNU General Public License v3.0 or later, its own
+  libretro core, drawing through MoltenVK as well; built with no console keys,
+  so it plays decrypted games only
 
 mGBA and PCSX-ReARMed are built from unmodified upstream sources. melonDS,
-MesenCE, Mupen64Plus-Next, BlastEm and PPSSPP carry changes of ours, which are
+MesenCE, Mupen64Plus-Next, BlastEm, PPSSPP and Azahar carry changes of ours, which are
 not applied to their sources but kept beside them as patch files, in
 [`Vendor/melonds-ios/patches/`](Vendor/melonds-ios/patches),
 [`Vendor/mesen-ios/patches/`](Vendor/mesen-ios/patches),
 [`Vendor/n64-ios/patches/`](Vendor/n64-ios/patches),
-[`Vendor/blastem-ios/patches/`](Vendor/blastem-ios/patches) and
-[`Vendor/ppsspp-ios/patches/`](Vendor/ppsspp-ios/patches), and applied by
+[`Vendor/blastem-ios/patches/`](Vendor/blastem-ios/patches),
+[`Vendor/ppsspp-ios/patches/`](Vendor/ppsspp-ios/patches) and
+[`Vendor/azahar-ios/patches/`](Vendor/azahar-ios/patches), and applied by
 their build scripts before compiling (BlastEm's to a copy of its source). Mupen64Plus-Next's build leaves out the renderers and
 processors whose licences cannot ship in this app (GLideN64, angrylion) and its
 recompiler. The upstream commits plus those patches are exactly what the shipped
 binary is built from.
+
+Two libraries beside the cores are also pinned submodules, used unmodified, for
+importing games from archives other than .zip (.7z, .rar, .tar, .gz, .xz):
+
+- **libarchive**: BSD 2-Clause License
+- **liblzma** (XZ Utils): BSD Zero Clause License (0BSD)
 
 The Retro Pal name, logo and visual identity are not covered by the GPL and
 remain reserved.
@@ -68,6 +79,9 @@ cd Vendor/n64-ios    && ./build.sh && cd ../..   # build the Mupen64Plus-Next st
 cd Vendor/blastem-ios && ./build.sh && cd ../..  # build the BlastEm static lib (needs python3)
 cd Vendor/ppsspp-ios && ./build.sh && cd ../..   # build the PPSSPP static lib and its assets
                                                  # (fetches PPSSPP's own submodules itself)
+cd Vendor/azahar-ios && ./build.sh && cd ../..   # build the Azahar static lib
+                                                 # (fetches Azahar's own submodules itself)
+cd Vendor/archive-ios && ./build.sh && cd ../..  # build libarchive + liblzma (archive import)
 open EmulateurGBA.xcodeproj                      # then build on a device
 ```
 

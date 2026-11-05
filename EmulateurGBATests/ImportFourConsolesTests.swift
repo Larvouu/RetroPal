@@ -218,6 +218,41 @@ struct ImportFourConsolesTests {
         #expect((games.first?.value(forKey: "romFilePath") as? String)?.hasSuffix(".m3u") == true)
     }
 
+    /// A track named past what the PlayStation core's cue line holds (255
+    /// bytes, `cdriso.c`), through the real import: it is stored under a
+    /// shorter name and the stored `.cue` names THAT file, on a line that fits
+    /// (audit, 2026-10-29). The boot file keeps its name.
+    @Test func aTrackNameTooLongForTheCoreIsStoredShorterAndTheCueFollows() throws {
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let importer = ROMImporter(context: context)
+        defer { removeImported(context, importer) }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("four-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let stem = String(repeating: "ポケモンスタジアム", count: 10) + " \(UUID().uuidString.prefix(4))"
+        let trackName = stem + " (Track 1).bin"
+        #expect(trackName.utf8.count > DiscImportGrouper.coreCueNameMaxBytes)
+        let track = dir.appendingPathComponent(trackName)
+        let cue = dir.appendingPathComponent("Long \(UUID().uuidString.prefix(4)).cue")
+        try makeVolume(systemID: "PLAYSTATION", sectorSize: 2352, userData: 24).write(to: track)
+        try Data("FILE \"\(trackName)\" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n".utf8).write(to: cue)
+
+        let group = try #require(DiscImportGrouper.group([cue, track]).discs.first)
+        _ = try importer.importDiscGroup(group, method: "picker")
+        let path = try #require(try entries(context).first?.value(forKey: "romFilePath") as? String)
+        let storedCue = importer.romURL(for: path)
+        #expect(storedCue.lastPathComponent == cue.lastPathComponent, "the boot file was renamed")
+        let text = try String(contentsOf: storedCue, encoding: .utf8)
+        let referenced = try #require(DiscImportGrouper.cueTracks(text).first)
+        let line = try #require(text.components(separatedBy: "\n").first)
+        #expect(line.replacingOccurrences(of: "\r", with: "").utf8.count <= 255, "the cue line is still too long")
+        #expect(referenced != trackName, "the track kept its long name")
+        let folder = storedCue.deletingLastPathComponent()
+        #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent(referenced).path),
+                "the cue names \(referenced), which is not in the game's folder")
+    }
+
     // MARK: - Names and cases
 
     @Test func uppercaseExtensionsNameTheirConsole() throws {
@@ -259,10 +294,12 @@ struct ImportFourConsolesTests {
     /// Every console the app runs is in the library's console order, the
     /// welcome strip and the file pickers.
     @Test func everyConsoleIsListedEverywhereTheLibraryListsThem() {
-        let all = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp"]
+        let all = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md", "sms", "gg", "psp", "n3ds"]
+        // The welcome strip draws every console, the 3DS since its drawing
+        // (2026-10-20).
         #expect(ConsoleIconRow.all.count == all.count)
         #expect(ConsoleIconRow.lines.joined().count == all.count)
-        for ext in ["md", "gen", "smd", "sms", "gg", "iso", "cso", "pbp"] {
+        for ext in ["md", "gen", "smd", "sms", "gg", "iso", "cso", "pbp", "3ds", "cci", "cxi", "3dsx"] {
             #expect(ROMSystemType.allFileExtensions.contains(ext), "the pickers do not offer .\(ext)")
         }
         for system in all {
@@ -270,28 +307,36 @@ struct ImportFourConsolesTests {
         }
     }
 
-    // MARK: - The onboarding names every format
+    // MARK: - The formats page names every format the importer takes
 
-    /// The empty library's first step listed formats up to the PlayStation's
-    /// `.chd` in every language until 2026-10-10; the four consoles after it
-    /// were missing. Read from the checkout, so the source strings are checked.
-    @Test func theFirstStepNamesEveryConsolesFormats() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("EmulateurGBA", isDirectory: true)
-        guard FileManager.default.fileExists(atPath: root.path) else {
-            print("SKIPPED: the checkout is not readable from this test run")
-            return
+    /// The welcome's first step listed every extension in every language
+    /// until 2026-10-31, when the list had grown past readable and moved to
+    /// its own page (`GameFormatsView`), opened from under that step. This
+    /// holds the page to the importer both ways: every console the app runs
+    /// is on it, every extension it shows is one the importer takes, and every
+    /// extension the importer takes on its own is shown (the sidecars, which
+    /// never import alone, are named in the PlayStation's note instead).
+    @Test func theFormatsPageMatchesTheImporter() {
+        let consoles = GameFormatsView.entries.map(\.console)
+        #expect(consoles.count == ConsoleIconRow.all.count, "a console is missing from the formats page")
+        for console in ConsoleIconRow.all {
+            #expect(consoles.contains(where: { $0.label == console.label }), "\(console.label) has no row")
         }
-        for locale in shippedLocales {
-            let url = root.appendingPathComponent("\(locale).lproj/Localizable.strings")
-            let text = try String(contentsOf: url, encoding: .utf8)
-            for key in ["library.empty.step1", "library.empty.step1.ipad"] {
-                let line = text.split(separator: "\n").first { $0.hasPrefix("\"\(key)\" = ") }
-                let value = try #require(line.map(String.init), "\(locale) lacks \(key)")
-                for ext in [".md", ".gen", ".smd", ".sms", ".gg", ".chd", ".iso", ".cso", ".pbp"] {
-                    #expect(value.contains(ext), "\(locale) \(key) does not name \(ext)")
-                }
-            }
+        let shown = Set(GameFormatsView.entries.flatMap(\.extensions))
+        let offered = Set(ROMSystemType.allFileExtensions)
+        for ext in shown {
+            #expect(offered.contains(ext), "the page shows .\(ext), which the importer does not take")
+        }
+        // Descriptors and sidecars arrive with their disc and are described
+        // in the PlayStation's note, not listed as games.
+        let travelWithADisc = Set(["cue", "toc", "ccd", "m3u"])
+            .union(ROMSystemType.discSidecarExtensions)
+        for ext in offered.subtracting(travelWithADisc) {
+            #expect(shown.contains(ext), "the importer takes .\(ext) but the page does not show it")
+        }
+        // The archives the page names are the ones the importer opens.
+        for ext in GameArchive.extensions {
+            #expect(GameFormatsView.archiveNames.contains("." + ext), "the page does not name .\(ext)")
         }
     }
 }

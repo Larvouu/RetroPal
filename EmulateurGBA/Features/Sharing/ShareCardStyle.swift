@@ -56,7 +56,12 @@ enum ShareCardStyle: String {
             if self == .skin, let skin {
                 return skin.variant.cardExtrudeColors(for: system)
             }
-            if self == .nostalgia {
+            // Only a console that HAS a Nostalgia card wears its shell here: the
+            // renderer draws the Classic card for one without
+            // (`ScreenshotCardRenderer.hasConsoleCard`), and the 3DS, dressed
+            // before its card, showed a purple card in a white edge (audit,
+            // 2026-10-20). One source: its card and its edge arrive together.
+            if self == .nostalgia, ScreenshotCardRenderer.hasConsoleCard(system) {
                 switch system {
                 case .gbc:
                     return [Color(red: 0.66, green: 0.65, blue: 0.64), Color(red: 0.50, green: 0.49, blue: 0.48)]
@@ -90,6 +95,9 @@ enum ShareCardStyle: String {
                 // the skin path uses, as the Mega Drive's.
                 case .sms, .gg, .psp:
                     return DressVariant.nostalgia.cardExtrudeColors(for: system)
+                // Its own shell, through the same gradient the skin path uses.
+                case .n3ds:
+                    return DressVariant.nostalgia.cardExtrudeColors(for: .n3ds)
                 }
             }
         }
@@ -182,6 +190,7 @@ extension PresetSystem {
             case .sms: return .sms
             case .gg: return .gg
             case .psp: return .psp
+            case .n3ds: return .n3ds
             }
         }
         return forRomExtension(filename)
@@ -205,6 +214,7 @@ extension PresetSystem {
         // the PlayStation and only the file's bytes tell them apart
         // (`ROMSystemType.resolve(url:)`), which callers holding the file use.
         case "cso":               return .psp
+        case "3ds", "cci", "cxi", "3dsx": return .n3ds
         // A disc has ten possible extensions and they are already enumerated
         // once, by the importer that has to accept them. Asked rather than
         // re-listed: written out here, this switch returned nil for every
@@ -249,6 +259,7 @@ extension DressVariant {
             case .sms: return DressKind.smsLook(.nostalgia).body
             case .gg: return DressKind.ggLook(.nostalgia).body
             case .psp: return PSPSkinPalette.nostalgia.body
+            case .n3ds: return N3DSSkinPalette.nostalgia.body
             }
         case .retroPal:
             switch system {
@@ -263,6 +274,7 @@ extension DressVariant {
             case .sms: return DressKind.smsLook(.retroPal).body
             case .gg: return DressKind.ggLook(.retroPal).body
             case .psp: return PSPSkinPalette.retroPal.body
+            case .n3ds: return N3DSSkinPalette.retroPal.body
             }
         case .custom(.gbc(let p)): return p.body
         case .custom(.gba(let p)): return p.body
@@ -275,6 +287,7 @@ extension DressVariant {
         case .custom(.sms(let p)): return p.body
         case .custom(.gg(let p)): return p.body
         case .custom(.psp(let p)): return p.body
+        case .custom(.n3ds(let p)): return p.body
         }
     }
 
@@ -305,6 +318,10 @@ extension DressVariant {
         case .psp:
             let p = ConsoleSkinView.pspVariant(self).pspPalette ?? .nostalgia
             return p.shoulders
+        // The DS's structure ink, as its dress derives it from the 3DS's shell.
+        case .n3ds:
+            let body = ConsoleSkinView.ctrVariant(self).ctrPalette?.body ?? N3DSSkinPalette.nostalgia.body
+            return body.rpMixed(with: .black, 0.39)
         case .ps1:
             switch self {
             case .nostalgia:           return PS1SkinPalette.nostalgia.surround
@@ -404,6 +421,9 @@ extension DressVariant {
             return "custom-psp-" + hexes([p.bodyHex, p.surroundHex, p.controlsHex, p.printHex,
                                           p.shouldersHex, p.stickHex])
                 + (p.glass ? "-g" : "")
+        case .custom(.n3ds(let p)):
+            return "custom-n3ds-" + hexes([p.bodyHex, p.buttonsHex, p.lettersHex, p.iconsHex,
+                                           p.faceAHex, p.faceBHex, p.faceXHex, p.faceYHex, p.sticksHex])
         }
     }
 }

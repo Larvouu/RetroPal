@@ -145,9 +145,56 @@ final class CrossDPadView: UIView {
     private let core = Bombe.makeCore()
     private let relief = ReliefLayer()   // the Nintendo 64's rim relief
 
+    /// EVERY piece of the cross, in one container that takes the press's tilt
+    /// (2026-10-28). Until then the tilt was set on some layers one by one
+    /// (body, bevel, dot, arm lines, highlights, the PSP's marks) and the
+    /// others stayed flat: the rim relief, the dome, the N64's and the real
+    /// crosses' marks, their middle. Tilted and flat layers side by side are
+    /// depth-sorted as whole layers, and with the tilt turning about the
+    /// layers' top-left corner, pressing DOWN or RIGHT brought the tilted body
+    /// in front of every flat piece: the cross went flat, only its press
+    /// highlight left (reported on device on every dressed cross; the GBA's
+    /// old "up/left darkens the whole cross" was the same sort, softened in
+    /// 2026 by a smaller angle and never fixed). One container is one plane:
+    /// nothing to sort, and a piece added to the cross tilts with it. The
+    /// Mega Drive's, Game Gear's and Master System's discs always rocked this
+    /// way and never showed it. The drop shadow stays outside, on the case.
+    private let crossRocker = CALayer()
+
+    /// THE REAL CROSS OF THE FIVE NINTENDO PADS BEFORE THE 3DS (asked
+    /// 2026-10-28: "looks exactly like the real d-pad, and moulded just like
+    /// the buttons", as the 3DS's was). Read off Evan-Amos's public-domain
+    /// photographs on Wikimedia Commons (NES D-pad close-up, SNES controller,
+    /// Game Boy DMG, Game Boy Advance, Nintendo DS Lite), the same day:
+    ///   - NES: an engraved outline of a block arrow (a square stem, a
+    ///     triangular head pointing out) on each arm; a raised glossy dome in
+    ///     the middle.
+    ///   - SNES: a solid triangle sunk into each arm, darker than the cross;
+    ///     a shallow dish in the middle.
+    ///   - Game Boy Advance: the same sunk triangles, faint, the cross's own
+    ///     colour; a shallow dish in the middle.
+    ///   - Game Boy / Color: plain arms; a deep dish in the middle.
+    ///   - Nintendo DS (Lite): a printed light line along each arm, which is
+    ///     what `armLines` already draws; nothing in the middle.
+    /// Each of them also wears the faces' rim relief, as the 3DS's does.
+    private let realMarks = CAShapeLayer()
+    /// The light an engraving catches on its lower edge, the side facing the
+    /// light coming from above.
+    private let realMarksCatch = CAShapeLayer()
+    /// The middle of the cross: a dish (SNES, GBA, Game Boy) or a dome (NES).
+    private let realHub = CAShapeLayer()
+    private let realHubShade = CAGradientLayer()
+
+    /// The five consoles whose real cross is drawn (`realMarks`).
+    private var wearsRealCross: Bool {
+        dressed && [.gbc, .gba, .nds, .snes, .nes].contains(dressKind)
+    }
+
     /// UNIFORM inset of the GBA cross from the full hitbox shape, as a fraction of the width.
     /// Combined with a matching arm-width reduction this leaves a CONSTANT gap all around, so
     /// the dark under-cross reads as an even stroke around the moving cross (not a big patch).
+    /// ⚠ The 3DS's page aligns its cross by this and `armRatioShared`
+    /// (`ControlLayoutDefaults.n3dsCrossLeftArmCentre`): change them together.
     private let gbaCrossInset: CGFloat = 0.02
 
     private var pressedButtons: UInt32 = 0
@@ -219,6 +266,13 @@ final class CrossDPadView: UIView {
 
     /// When on, the cross wears the GB/GBC console-dress look (near-black) instead of the
     /// default translucent white. Set by TouchControlsView for the GB/GBC default layout.
+    /// The faces' rim relief on the whole cross, as the Nintendo 64's has, but
+    /// keeping this cross's own corners: the 3DS (his ask, 2026-10-21: the
+    /// cross moulded like A B X Y).
+    var moulded = false {
+        didSet { guard moulded != oldValue else { return }; applyResting(); setNeedsLayout() }
+    }
+
     var dressed = false {
         didSet { guard dressed != oldValue else { return }; applyResting(); setNeedsLayout() }
     }
@@ -284,11 +338,31 @@ final class CrossDPadView: UIView {
         centerDot.strokeColor = UIColor.white.withAlphaComponent(0.3).cgColor
         centerDot.lineWidth = 1.0
         layer.addSublayer(centerDot)
+        // The real cross's marks and middle sit on the body, under the press
+        // highlights' layer order like the arm lines (see `wearsRealCross`).
+        // In this order, bottom to top: the middle and its shade, then the
+        // catch of each engraving, then the engraving over it, so only the
+        // catch's lower edge shows.
+        var below: CALayer = armLines
+        for piece in [realHub, realHubShade, realMarksCatch, realMarks] as [CALayer] {
+            piece.isHidden = true
+            layer.insertSublayer(piece, above: below)
+            below = piece
+        }
+        realMarks.lineJoin = .round
+        realMarksCatch.fillColor = UIColor.clear.cgColor
+        realMarksCatch.lineJoin = .round
         // Above the body, below the direction highlights: a dome shades the
         // plastic, and a press still has to read on top of it.
         layer.insertSublayer(dome, above: baseLayer)
         layer.insertSublayer(core, above: dome)
         layer.insertSublayer(relief, above: core)
+
+        // Into the rocker, in the order they stand in now, so nothing at rest
+        // changes; the shadow stays on the case beneath it.
+        let pieces = (layer.sublayers ?? []).filter { $0 !== shadowLayer }
+        layer.insertSublayer(crossRocker, above: shadowLayer)
+        for piece in pieces { crossRocker.addSublayer(piece) }
 
         mdRocker.isHidden = true
         mdDish.type = .radial
@@ -377,6 +451,9 @@ final class CrossDPadView: UIView {
         // one, so it joins the light-faced consoles here and takes an inverted ink below. The
         // Game Boy family is deliberately left out: its cross is bare and shipped that way.
         armLines.isHidden = !(dressed && (dressKind.usesLightFaces || dressKind == .snes))
+        // The SNES and the Game Boy Advance carry sunk triangles, not lines
+        // (`realMarks`); the DS's printed lines are its real marks and stay.
+        if dressed && (dressKind == .snes || dressKind == .gba) { armLines.isHidden = true }
         // THE PLAYSTATION'S CROSS IS FOUR KEYS, not one moulding with lines on
         // it. Everything that describes a continuous cross is switched off: the
         // inner bevel follows the outline of a shape this console does not have,
@@ -389,7 +466,7 @@ final class CrossDPadView: UIView {
         dome.isHidden = true
         core.isHidden = true
         // The Nintendo 64 wears its rim relief instead (asked 2026-09-27).
-        relief.isHidden = !(dressed && (dressKind.wearsRelief || isPS1))
+        relief.isHidden = !(dressed && (dressKind.wearsRelief || isPS1 || moulded || wearsRealCross))
         n64Arrows.isHidden = !(dressed && dressKind == .n64)
         n64Arrows.fillColor = dressVariant.n64.dpadMarks.cgColor
         let isPSP = isPS1 && dressVariant.isPSP
@@ -497,10 +574,68 @@ final class CrossDPadView: UIView {
             centerDot.strokeColor = UIColor.white.withAlphaComponent(0.3).cgColor
             shadowLayer.fillColor = UIColor.black.withAlphaComponent(0.15).cgColor
         }
+        applyRealCrossColours()
+    }
+
+    /// The real cross's marks and middle, coloured from what the cross wears
+    /// (Nostalgia, Retro Pal or a custom skin), so they read on any of them:
+    /// an engraving is the cross a shade darker with a light catch, a dish a
+    /// hollow (dark at the top, the light on its lower wall), a dome the
+    /// reverse. Hidden everywhere else.
+    private func applyRealCrossColours() {
+        let on = wearsRealCross
+        // The middle is the real cross's own, so the generic dot goes.
+        centerDot.isHidden = centerDot.isHidden || on
+        realMarks.isHidden = !(on && (dressKind == .nes || dressKind == .snes || dressKind == .gba))
+        realMarksCatch.isHidden = realMarks.isHidden
+        let hasHub = on && dressKind != .nds
+        realHub.isHidden = !hasHub
+        realHubShade.isHidden = !hasHub
+        guard on, let cross = baseLayer.fillColor.map(UIColor.init(cgColor:)) else { return }
+        let light = cross.rpIsLight
+        switch dressKind {
+        case .nes:
+            // An outline cut into glossy black. On the photograph it reads by
+            // the light its edges catch, not by being darker (nothing is
+            // darker than that black): a groove a shade lighter than the
+            // cross, its lower edge lit.
+            realMarks.fillColor = UIColor.clear.cgColor
+            realMarks.strokeColor = cross.rpMixed(with: light ? .black : .white, light ? 0.30 : 0.10).cgColor
+            realMarksCatch.strokeColor = UIColor.white.withAlphaComponent(light ? 0.35 : 0.26).cgColor
+        case .snes:
+            // A solid triangle sunk into the arm, darker than the cross.
+            realMarks.fillColor = cross.rpMixed(with: .black, light ? 0.18 : 0.30).cgColor
+            realMarks.strokeColor = UIColor.clear.cgColor
+            realMarksCatch.strokeColor = UIColor.white.withAlphaComponent(light ? 0.40 : 0.14).cgColor
+        case .gba:
+            // The same sunk triangle, faint: barely darker than the cross.
+            realMarks.fillColor = cross.rpMixed(with: .black, 0.07).cgColor
+            realMarks.strokeColor = UIColor.clear.cgColor
+            realMarksCatch.strokeColor = UIColor.white.withAlphaComponent(light ? 0.45 : 0.14).cgColor
+        default:
+            break
+        }
+        // The middle: a dish everywhere it is one, the NES's a raised dome.
+        realHub.fillColor = cross.rpMixed(with: .black, dressKind == .nes ? 0.0 : 0.06).cgColor
+        let dark = UIColor.black.withAlphaComponent(dressKind == .gbc ? 0.38 : 0.22).cgColor
+        let lit = UIColor.white.withAlphaComponent(light ? 0.40 : 0.16).cgColor
+        let clear = UIColor.clear.cgColor
+        // A hollow's wall hides the light at the top and catches it at the
+        // bottom; a dome is lit on top and in shadow below.
+        realHubShade.colors = dressKind == .nes ? [lit, clear, dark] : [dark, clear, lit]
+        realHubShade.locations = [0, 0.55, 1]
+        realHubShade.startPoint = CGPoint(x: 0.3, y: 0)
+        realHubShade.endPoint = CGPoint(x: 0.7, y: 1)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Bounds and position, not frame: the rocker may be tilted here. Its
+        // own coordinates are the view's, so every path stays as drawn.
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        crossRocker.bounds = bounds
+        crossRocker.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        CATransaction.commit()
         rebuildPaths()
         updateHighlights()
     }
@@ -576,7 +711,7 @@ final class CrossDPadView: UIView {
             }
             Bombe.fit(core, over: bounds, clippedTo: cores.cgPath)
         }
-        if dressed && dressKind.wearsRelief {
+        if dressed && (dressKind.wearsRelief || moulded || wearsRealCross) {
             relief.fit(over: bounds, clippedTo: crossPath.cgPath)
         } else if isPS1 {
             // One rim per key: the path is the four keys apart, so the rim
@@ -635,6 +770,10 @@ final class CrossDPadView: UIView {
         lines.move(to: CGPoint(x: rX - len / 2, y: cy)); lines.addLine(to: CGPoint(x: rX + len / 2, y: cy))
         armLines.path = lines.cgPath
 
+        if wearsRealCross {
+            layoutRealCross(in: r, halfArm: halfArm)
+        }
+
         // Direction highlight zones. On the PlayStation they are the KEYS
         // themselves, so a press lights the shape the player is looking at
         // rather than a rectangle over part of it.
@@ -662,6 +801,81 @@ final class CrossDPadView: UIView {
             roundedRect: CGRect(x: cx + halfArm, y: cy - halfArm, width: r.maxX - (cx + halfArm), height: halfArm * 2),
             cornerRadius: cornerR
         ).cgPath
+    }
+
+    /// The real cross's marks and middle (`realMarks`), in the cross's own
+    /// rect `r`. Every mark is drawn for the UP arm, pointing out, and turned
+    /// a quarter at a time, so the four are one shape. Proportions read off
+    /// the photographs: a mark sits in the middle of the length of arm beyond
+    /// the hub, about two thirds of the arm's width across; the middle is
+    /// about half the arm's width wide.
+    private func layoutRealCross(in r: CGRect, halfArm: CGFloat) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let c = CGPoint(x: r.midX, y: r.midY)
+        let reach = min(r.width, r.height) / 2 - halfArm      // the arm beyond the hub
+        let middle = halfArm + reach * 0.5                     // its centre, from c
+        let quarterTurns: [CGFloat] = [0, .pi / 2, .pi, -.pi / 2]
+
+        let marks = UIBezierPath()
+        switch dressKind {
+        case .nes:
+            // A block arrow: a stem as wide as half the arm, a head as wide
+            // as most of it, pointing out; as an outline.
+            let length = reach * 0.74
+            let headHalf = halfArm * 0.70, stemHalf = halfArm * 0.38
+            let tip = middle + length / 2, base = middle - length / 2
+            let shoulder = base + length * 0.55
+            for turn in quarterTurns {
+                let one = UIBezierPath()
+                one.move(to: CGPoint(x: 0, y: -tip))
+                one.addLine(to: CGPoint(x: headHalf, y: -shoulder))
+                one.addLine(to: CGPoint(x: stemHalf, y: -shoulder))
+                one.addLine(to: CGPoint(x: stemHalf, y: -base))
+                one.addLine(to: CGPoint(x: -stemHalf, y: -base))
+                one.addLine(to: CGPoint(x: -stemHalf, y: -shoulder))
+                one.addLine(to: CGPoint(x: -headHalf, y: -shoulder))
+                one.close()
+                one.apply(CGAffineTransform(rotationAngle: turn))
+                one.apply(CGAffineTransform(translationX: c.x, y: c.y))
+                marks.append(one)
+            }
+            realMarks.lineWidth = max(0.8, halfArm * 0.07)
+        case .snes, .gba:
+            // A triangle pointing out, sunk into the arm.
+            let height = reach * 0.50
+            let half = halfArm * 0.58
+            for turn in quarterTurns {
+                let one = UIBezierPath()
+                one.move(to: CGPoint(x: 0, y: -(middle + height / 2)))
+                one.addLine(to: CGPoint(x: half, y: -(middle - height / 2)))
+                one.addLine(to: CGPoint(x: -half, y: -(middle - height / 2)))
+                one.close()
+                one.apply(CGAffineTransform(rotationAngle: turn))
+                one.apply(CGAffineTransform(translationX: c.x, y: c.y))
+                marks.append(one)
+            }
+        default:
+            break
+        }
+        realMarks.path = marks.cgPath
+        // The catch: the same shapes, offset down by a hair and drawn as a
+        // light line, so the cut reads as cut (its lower edge lit).
+        let catchPath = marks.copy() as! UIBezierPath
+        let drop = max(0.5, halfArm * 0.05)
+        catchPath.apply(CGAffineTransform(translationX: 0, y: drop))
+        realMarksCatch.path = catchPath.cgPath
+        realMarksCatch.lineWidth = max(0.6, halfArm * 0.05)
+
+        // The middle: a circle about the arm's width, a little less on the
+        // Game Boy Advance and the SNES, whose dish is shallow and small.
+        let hubR = halfArm * (dressKind == .gbc || dressKind == .nes ? 0.62 : 0.52)
+        let hubRect = CGRect(x: c.x - hubR, y: c.y - hubR, width: hubR * 2, height: hubR * 2)
+        realHub.path = UIBezierPath(ovalIn: hubRect).cgPath
+        realHubShade.frame = hubRect
+        let mask = CAShapeLayer()
+        mask.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: hubRect.size)).cgPath
+        realHubShade.mask = mask
     }
 
     /// The Mega Drive's disc, cross, nub and marks, all in the rocker's own
@@ -1271,17 +1485,8 @@ final class CrossDPadView: UIView {
             ggTiltShade.opacity = 0
             smsTiltShade.opacity = 0
         }
-        baseLayer.transform = tilt
-        bevelLayer.transform = tilt
-        centerDot.transform = tilt
-        armLines.transform = tilt
-        for hl in [highlightUp, highlightDown, highlightLeft, highlightRight] {
-            hl.transform = tilt
-        }
-        // The PSP's marks ride on its keys.
-        for piece in [pspTriangles, pspGlints, pspGloss] as [CALayer] {
-            piece.transform = tilt
-        }
+        // The whole cross at once, about its own middle (the rocker's anchor).
+        crossRocker.transform = tilt
         CATransaction.commit()
     }
 
@@ -1299,19 +1504,15 @@ final class CrossDPadView: UIView {
     /// recedes into the case), rotated about the view center. Dressed only. If the rocker
     /// tilts the wrong way on device, negate `maxTilt`.
     private func tilt3D(for buttons: UInt32) -> CATransform3D {
-        let rp = rocker(for: buttons)
-        guard !CATransform3DIsIdentity(rp) else { return rp }
-        let cx = bounds.midX, cy = bounds.midY
-        // Rotate about the view center: T(-c) * Rp * T(c).
-        var t = CATransform3DConcat(CATransform3DMakeTranslation(-cx, -cy, 0), rp)
-        t = CATransform3DConcat(t, CATransform3DMakeTranslation(cx, cy, 0))
-        return t
+        // The rocker turns about its own middle: no conjugation by the view's
+        // centre, which the layers it replaced needed, anchored at a corner.
+        rocker(for: buttons)
     }
 
     /// The rocker's rotation alone, about whatever point the layer it is given
-    /// to turns about: `tilt3D` moves it to the view's centre for the layers
-    /// placed at the view's origin; the Mega Drive's container already turns
-    /// about its own middle.
+    /// to turns about: every container it is given here (`crossRocker`, the
+    /// Mega Drive's, Game Gear's and Master System's) turns about its own
+    /// middle.
     private func rocker(for buttons: UInt32) -> CATransform3D {
         // 0.14: a single-axis press tilts the same amount a clean diagonal already did
         // (diagonal normalizes 0.20 to 0.20/√2 ≈ 0.14 per axis), so the dark under-cross no

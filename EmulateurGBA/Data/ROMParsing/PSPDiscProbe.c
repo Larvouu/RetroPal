@@ -106,7 +106,15 @@ static PSPDiscProbeAnswer ReadPSPISO(ISOSource *src) {
     if (memcmp(systemId, "PLAYSTATION", 11) == 0 || memcmp(systemId, "PS3", 3) == 0) {
         return PSPDiscProbeNotPSP;
     }
-    return RootHoldsPSPGame(src, pvd) ? PSPDiscProbePSP : PSPDiscProbeUndecided;
+    if (RootHoldsPSPGame(src, pvd)) return PSPDiscProbePSP;
+    // A UMD film or album with no game on it: PPSSPP refuses it
+    // (PSP_UMD_VIDEO_ISO) and no PlayStation plays it, so it is nobody's game,
+    // not a question for the player (audit 2026-10-27; the importer refuses it,
+    // `RAClient.isOtherConsolesDisc`).
+    if (memcmp(systemId, "UMD VIDEO", 9) == 0 || memcmp(systemId, "UMD AUDIO", 9) == 0) {
+        return PSPDiscProbeNotPSP;
+    }
+    return PSPDiscProbeUndecided;
 }
 
 /// A `.chd`. A raw CD track (every PlayStation `.chd`, made by `chdman
@@ -179,9 +187,11 @@ static PSPDiscProbeAnswer ReadPSPCHD(const char *path) {
     return answer;
 }
 
-/// The PARAM.SFO's CATEGORY, read from `sfo` (`size` bytes), into `out`
-/// (NUL-terminated, at most `outSize - 1` characters). False when absent.
-static bool SFOCategory(const uint8_t *sfo, size_t size, char *out, size_t outSize) {
+/// One string of a PARAM.SFO, by its key (`CATEGORY`, `TITLE`), read from
+/// `sfo` (`size` bytes) into `out` (NUL-terminated, at most `outSize - 1`
+/// bytes, UTF-8 as the SFO stores it). False when absent.
+static bool SFOString(const uint8_t *sfo, size_t size, const char *wanted,
+                      char *out, size_t outSize) {
     if (size < 20 || LE32(sfo) != 0x46535000) return false;   // "\0PSF"
     uint32_t keyTable = LE32(sfo + 8);
     uint32_t dataTable = LE32(sfo + 12);
@@ -193,12 +203,18 @@ static bool SFOCategory(const uint8_t *sfo, size_t size, char *out, size_t outSi
         size_t key = keyTable + LE16(sfo + index);
         size_t data = dataTable + LE32(sfo + index + 12);
         uint32_t length = LE32(sfo + index + 4);
-        if (key + 9 > size || data >= size) return false;
-        if (memcmp(sfo + key, "CATEGORY", 9) != 0) continue;   // with its NUL
+        size_t wantedLength = strlen(wanted) + 1;                // with its NUL
+        if (key + wantedLength > size || data >= size) return false;
+        if (memcmp(sfo + key, wanted, wantedLength) != 0) continue;
         size_t n = 0;
         while (n + 1 < outSize && n < length && data + n < size && sfo[data + n]) {
             out[n] = (char)sfo[data + n];
             n++;
+        }
+        // Cut short by `outSize`: never in the middle of a UTF-8 character.
+        if (n < length && data + n < size && sfo[data + n]) {
+            while (n > 0 && ((uint8_t)out[n - 1] & 0xC0) == 0x80) n--;   // continuation bytes
+            if (n > 0 && ((uint8_t)out[n - 1] & 0x80)) n--;              // the lead byte
         }
         out[n] = 0;
         return true;
@@ -229,7 +245,7 @@ static bool IsPSPPBP(FILE *f) {
         size_t size = sfoEnd - sfoStart;
         char category[8];
         if (ReadAt(f, sfoStart, sfo, size)
-            && SFOCategory(sfo, size, category, sizeof(category))
+            && SFOString(sfo, size, "CATEGORY", category, sizeof(category))
             && strcmp(category, "ME") == 0) {
             return false;
         }
@@ -241,6 +257,66 @@ static bool IsPSPPBP(FILE *f) {
         return false;
     }
     return true;
+}
+
+/// What an ISO volume's system name says, read from an `.iso` or a flat `.chd`
+/// (see the header).
+static PSPDiscProbeVolume VolumeKind(ISOSource *src) {
+    uint8_t pvd[2048];
+    if (!ReadISO(src, kVolumeDescriptorOffset, pvd, sizeof(pvd))) return PSPDiscProbeVolumeOther;
+    if (memcmp(pvd + 1, "CD001", 5) != 0) return PSPDiscProbeVolumeOther;
+    const uint8_t *systemId = pvd + 8;
+    if (memcmp(systemId, "PS3", 3) == 0) return PSPDiscProbeVolumePS3;
+    if ((memcmp(systemId, "UMD VIDEO", 9) == 0 || memcmp(systemId, "UMD AUDIO", 9) == 0)
+        && !RootHoldsPSPGame(src, pvd)) {
+        return PSPDiscProbeVolumeUMDMedia;
+    }
+    return PSPDiscProbeVolumeOther;
+}
+
+PSPDiscProbeVolume PSPDiscProbeReadVolume(const char *path) {
+    if (!path) return PSPDiscProbeVolumeOther;
+    const char *ext = Extension(path);
+    if (strcasecmp(ext, "chd") == 0) {
+        void *disc = RADiscOpen(path);
+        if (!disc) return PSPDiscProbeVolumeOther;
+        PSPDiscProbeVolume kind = PSPDiscProbeVolumeOther;
+        if (RADiscIsFlatImage(disc)) {
+            ISOSource src = { NULL, disc };
+            kind = VolumeKind(&src);
+        }
+        RADiscClose(disc);
+        return kind;
+    }
+    if (strcasecmp(ext, "iso") != 0) return PSPDiscProbeVolumeOther;
+    FILE *f = fopen(path, "rb");
+    if (!f) return PSPDiscProbeVolumeOther;
+    ISOSource src = { f, NULL };
+    PSPDiscProbeVolume kind = VolumeKind(&src);
+    fclose(f);
+    return kind;
+}
+
+bool PSPDiscProbeReadPBPTitle(const char *path, char *out, size_t outSize) {
+    if (!path || !out || outSize == 0) return false;
+    out[0] = 0;
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    bool found = false;
+    uint8_t header[16];                             // magic, version, offsets[0..1]
+    if (ReadAt(f, 0, header, sizeof(header)) && memcmp(header, "\0PBP", 4) == 0) {
+        uint32_t sfoStart = LE32(header + 8);
+        uint32_t sfoEnd = LE32(header + 12);
+        if (sfoEnd > sfoStart && sfoEnd - sfoStart <= 64 * 1024) {
+            uint8_t sfo[64 * 1024];                 // as IsPSPPBP reads it
+            size_t size = sfoEnd - sfoStart;
+            found = ReadAt(f, sfoStart, sfo, size)
+                && SFOString(sfo, size, "TITLE", out, outSize)
+                && out[0] != 0;
+        }
+    }
+    fclose(f);
+    return found;
 }
 
 PSPDiscProbeAnswer PSPDiscProbeRead(const char *path) {

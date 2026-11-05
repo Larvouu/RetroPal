@@ -179,7 +179,11 @@ struct ControlPresetsView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        // The full height, so the name, all twelve consoles and Create are seen at once (his
+        // ask, 2026-10-27): at half height the last row (MS, GG, PSP, 3DS) sat below the fold,
+        // and scrolling down to it hid the name field. The content is about 500 points; half
+        // a sheet is 333 on an iPhone SE and 426 on a 14 Pro, the full sheet 610 on the SE.
+        .presentationDetents([.large])
     }
 
     // MARK: - Helpers
@@ -315,6 +319,7 @@ struct ConsoleChoiceList: View {
         case .sms:  return SystemColor.name("sms")
         case .gg:   return SystemColor.name("gg")
         case .psp:  return SystemColor.name("psp")
+        case .n3ds: return SystemColor.name("n3ds")
         }
     }
 

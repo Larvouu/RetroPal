@@ -87,10 +87,14 @@ struct GameDetailsLandscapeView: View {
     @State private var previews: [Int: UIImage] = [:]
 
     private var isNDS: Bool { game.systemType == "nds" }
-    /// A PSP game's saves are a folder the game writes (its memory stick), not
-    /// one battery file, so the import and export of one file do not apply
-    /// (`GameDetailsView.hasBatterySaveFile`).
-    private var hasBatterySaveFile: Bool { game.systemType != ROMSystemType.psp.rawValue }
+    /// The import and export rows, on the same rule as the upright page
+    /// (`GameDetailsView.offersSaveImportExport`): not the PSP's memory stick,
+    /// and a 3DS game's save folder as a zip when the game has a title ID.
+    private var hasBatterySaveFile: Bool {
+        GameDetailsView.offersSaveImportExport(
+            game, romsDir: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("ROMs", isDirectory: true))
+    }
 
     private var existingSlots: [SaveSlotInfo] { slots.filter { $0.exists } }
 

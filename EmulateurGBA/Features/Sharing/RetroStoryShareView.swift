@@ -2,17 +2,23 @@
 //  RetroStoryShareView.swift
 //  EmulateurGBA
 //
-//  Opened by tapping the stats area in the library: renders the branded
-//  "retro story" card to an image and offers Share / Save / Close, mirroring
-//  the screenshot + clip share sheets.
+//  Opened from the Retro story page: renders one of its cards
+//  (`StoryCardView`: the whole story, a game, a console) to
+//  an image and offers Share / Save / Close, mirroring the screenshot + clip
+//  share sheets.
 //
 
 import SwiftUI
 import UIKit
 import Photos
+import CoreData
 
 struct RetroStoryShareView: View {
-    let stats: LibraryStats
+    /// Which card (the whole story, a game, a console; 2026-10-28) and the
+    /// stats it reads.
+    let card: StoryCard
+    /// The overall story's stats (the game and console cards carry their own).
+    let stats: PlayStats?
     let onClose: () -> Void
 
     @State private var cardImage: UIImage?
@@ -119,7 +125,10 @@ struct RetroStoryShareView: View {
                 // Presentation only: a faux-3D isometric tilt that gently sways,
                 // to make the card feel tactile and worth sharing. The shared/
                 // saved image stays the clean front-facing card (see `render()`).
-                IsometricCardPreview(reduceMotion: reduceMotion, maxWidth: maxWidth) {
+                // The edge and the halo in the look the card wears.
+                IsometricCardPreview(reduceMotion: reduceMotion, maxWidth: maxWidth,
+                                     edgeColors: LandscapeThemeStore.shared.theme.cardEdgeColors,
+                                     glowColor: LandscapeThemeStore.shared.theme.cardGlowColor) {
                     Image(uiImage: cardImage).resizable()
                 }
                 .accessibilityLabel("Retro story card")
@@ -148,7 +157,7 @@ struct RetroStoryShareView: View {
             // screenshot/clip cards). ShareLink carries only one item type, so we
             // bridge to UIActivityViewController via ActivityShareSheet.
             .sheet(isPresented: $showShareSheet) {
-                ActivityShareSheet(activityItems: storyShareItems(), cardType: "story") {
+                ActivityShareSheet(activityItems: storyShareItems(), cardType: card.cardType) {
                     showShareSheet = false
                 }
             }
@@ -194,20 +203,48 @@ struct RetroStoryShareView: View {
         return min(0.96, estimated / h)
     }
 
-    /// First render (idempotent on appear).
+    /// The covers of the games the card shows, read before the render
+    /// (`ImageRenderer` draws one frame, so nothing can load inside it).
+    @State private var covers: [String: UIImage] = [:]
+
+    /// First render (idempotent on appear): the covers first, then the card.
     @MainActor private func render() {
         guard cardImage == nil else { return }
-        renderCard()
+        let hashes = StoryCardView.gamesShown(by: card, stats: stats).map(\.romHash)
+        Task {
+            var loaded: [String: UIImage] = [:]
+            for hash in hashes {
+                if let image = await Self.loadCover(romHash: hash) { loaded[hash] = image }
+            }
+            covers = loaded
+            renderCard()
+        }
+    }
+
+    /// The game's library cover, as the library shows it (picked, else the
+    /// default, else the last quick-save's screenshot).
+    private static func loadCover(romHash: String) async -> UIImage? {
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "romHash == %@", romHash)
+        request.fetchLimit = 1
+        guard let game = try? PersistenceController.shared.container.viewContext.fetch(request).first else {
+            return nil
+        }
+        let filename = game.romFilePath
+        let coverType = game.coverType
+        return await Task.detached(priority: .userInitiated) {
+            LibraryLandscapeCover.load(filename: filename, romHash: romHash, coverType: coverType,
+                                       maxPixels: 96 * 3)?.image
+        }.value
     }
 
     /// Render the branded square card at the screenshot-card resolution
-    /// (360pt × scale 3 = 1080×1080), so the share image is crisp. Always the
-    /// Classic style (the view's default). Re-runnable: called again when Pro
-    /// unlocks while open (the crown joins the card).
+    /// (360pt × scale 3 = 1080×1080), so the share image is crisp.
+    /// Re-runnable: called again when Pro unlocks while open (the crown joins
+    /// the card).
     @MainActor private func renderCard() {
         let renderer = ImageRenderer(content:
-            RetroStoryCardView(stats: stats, includesBranding: true, isPro: isPro)
-                .frame(width: 360))
+            StoryCardView(card: card, stats: stats, isPro: isPro, covers: covers))
         renderer.scale = 3
         cardImage = renderer.uiImage
     }
@@ -394,7 +431,7 @@ struct StatsCardLandscapePreviewGallery: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("\(device.name) · landscape \(Int(device.size.width))×\(Int(device.size.height))")
                                 .font(.caption).foregroundStyle(.secondary)
-                            RetroStoryShareView(stats: Self.dummy, onClose: {})
+                            RetroStoryShareView(card: .overall, stats: Self.dummy, onClose: {})
                                 .environment(\.verticalSizeClass, .compact)   // force landscape layout
                                 .frame(width: device.size.width, height: device.size.height)
                                 .clipped()
@@ -413,20 +450,17 @@ struct StatsCardLandscapePreviewGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private static let dummy = LibraryStats(
-        totalSeconds: 47 * 3600 + 25 * 60,
-        sessionCount: 92,
-        libraryCount: 14,
-        playedCount: 9,
-        topGames: [
-            .init(id: "1", title: "Pokémon Mystery Dungeon: Explorers", seconds: 31 * 3600),
-            .init(id: "2", title: "Zelda: The Minish Cap", seconds: 12 * 3600 + 40 * 60),
-            .init(id: "3", title: "Mario Kart Super Circuit", seconds: 5 * 3600 + 10 * 60),
-        ],
-        topConsoles: [
-            .init(id: "gba", seconds: 38 * 3600),
-            .init(id: "nds", seconds: 7 * 3600),
-            .init(id: "gb", seconds: 2 * 3600 + 25 * 60),
-        ])
+    /// A sample story: one device, a few games on three consoles.
+    private static let dummy: PlayStats = {
+        var file = PlayHistoryFile(deviceID: "preview", recordingSince: Date().addingTimeInterval(-30 * 86400))
+        file.games = [
+            "1": .init(title: "Pokémon Mystery Dungeon: Explorers", system: "nds", seconds: 31 * 3600),
+            "2": .init(title: "Zelda: The Minish Cap", system: "gba", seconds: 12 * 3600 + 40 * 60),
+            "3": .init(title: "Mario Kart Super Circuit", system: "gba", seconds: 5 * 3600 + 10 * 60),
+            "4": .init(title: "Tetris", system: "gb", seconds: 2 * 3600 + 25 * 60),
+        ]
+        file.sessions = 92
+        return PlayStats.compute(files: [file], library: [])
+    }()
 }
 #endif

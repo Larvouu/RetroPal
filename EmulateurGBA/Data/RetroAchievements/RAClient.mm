@@ -14,6 +14,7 @@
 
 #import "RAClient.h"
 #import "../ROMParsing/PSPDiscProbe.h"
+#import <string.h>
 
 // rcheevos is linked as a SwiftPM package; its public headers (Vendor/rcheevos/
 // include) are on the target's header search path. We include them TEXTUALLY
@@ -676,24 +677,35 @@ static std::string RAFirstDiscOf(const char *path) {
     } else if (cd->read_sector(track, first + 16, sector, sizeof sector) == sizeof sector
                && memcmp(sector + 1, "CD001", 5) == 0) {
         // The volume: its system name, then the root directory's first sector.
-        if (memcmp(sector + 8, "SEGA", 4) == 0) {
+        // "PS3" is a PlayStation 3 disc. "UMD VIDEO" and "UMD AUDIO" are a
+        // film or an album on a UMD, which PPSSPP refuses (Loaders.cpp,
+        // PSP_UMD_VIDEO_ISO) unless it carries PSP_GAME too, in which case it
+        // is a game: the root check below still says so, and the PSP keeps it
+        // (audit 2026-10-27: the player was asked "PSP or PlayStation?" and
+        // either answer imported a disc that could not start).
+        const bool umdMedia = memcmp(sector + 8, "UMD VIDEO", 9) == 0
+                           || memcmp(sector + 8, "UMD AUDIO", 9) == 0;
+        if (memcmp(sector + 8, "SEGA", 4) == 0 || memcmp(sector + 8, "PS3", 3) == 0) {
             other = YES;
         } else {
             const uint32_t root = (uint32_t)sector[158] | (uint32_t)sector[159] << 8 | (uint32_t)sector[160] << 16;
             uint8_t dir[2048];
             uint32_t cnfSector = 0;
+            bool umdHasGame = false;
             if (root && cd->read_sector(track, root, dir, sizeof dir) == sizeof dir) {
                 for (size_t at = 0; at + 33 < sizeof dir && dir[at];) {
                     const uint8_t length = dir[at], nameLength = dir[at + 32];
                     if (length < 33 || at + length > sizeof dir) break;
                     const char *name = (const char *)dir + at + 33;
-                    if (nameLength == 8 && strncasecmp(name, "PSP_GAME", 8) == 0) other = YES;
+                    if (nameLength == 8 && strncasecmp(name, "PSP_GAME", 8) == 0) { other = YES; umdHasGame = true; }
                     if (nameLength >= 10 && strncasecmp(name, "SYSTEM.CNF", 10) == 0) {
                         cnfSector = (uint32_t)dir[at + 2] | (uint32_t)dir[at + 3] << 8 | (uint32_t)dir[at + 4] << 16;
                     }
                     at += length;
                 }
             }
+            // A UMD film or album with no game on it is no console's game.
+            if (umdMedia && !umdHasGame) other = YES;
             // A PlayStation 2 disc: its SYSTEM.CNF boots with BOOT2, and the
             // PlayStation's core looks only for "BOOT = cdrom:" (PCSX
             // `CheckCdrom`), so it could never start. A file that has BOTH (a
@@ -1119,8 +1131,30 @@ static void RALoginCallback(int result, const char *error_message, rc_client_t *
         BOOL rejected = (result == RC_INVALID_CREDENTIALS
                          || result == RC_EXPIRED_TOKEN
                          || result == RC_ACCESS_DENIED);
-        NSString *err = error_message ? @(error_message)
-                                      : NSLocalizedString(@"ra.error.login", @"Login failed");
+        // The server's own words only when it judged the credentials. Any other
+        // failure is RetroAchievements or the network not answering, and
+        // rcheevos then hands over whatever came back: an HTML error page's
+        // title, "502 Bad Gateway", in English, which a player read on the
+        // sign-in sheet during an outage of the site (his report, 2026-10-21).
+        // The server also refuses in JSON with other codes: "not_found", or a
+        // refusal with no code it names (RC_API_FAILURE, its JSON said
+        // Success: false). Those are its words about the account, not an
+        // outage, which is RC_NO_RESPONSE (no answer, an empty body, a
+        // transport error) or RC_INVALID_JSON (an HTML page): the only two
+        // read as "not answering" now (audit, 2026-10-29; the codes as
+        // rcheevos' rc_api_common.c assigns them). rcheevos' own fallback
+        // text for a refusal without a message is English, so it reads as
+        // the login failure.
+        BOOL serverWords = rejected || result == RC_NOT_FOUND || result == RC_API_FAILURE;
+        // The server's words only: rcheevos fills in its own English when the
+        // server gave none (`rc_error_str` for the code, or this one sentence
+        // for a refusal with no code, `rc_client_server_error_message`).
+        BOOL hasOwnMessage = error_message && *error_message
+            && strcmp(error_message, rc_error_str(result)) != 0
+            && strcmp(error_message, "Unexpected API failure with no error message") != 0;
+        NSString *err = serverWords
+            ? (hasOwnMessage ? @(error_message) : NSLocalizedString(@"ra.error.login", @"Login failed"))
+            : NSLocalizedString(@"ra.error.unreachable", @"RetroAchievements is not answering");
         if (completion) completion(NO, nil, err, rejected);
     }
 }

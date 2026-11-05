@@ -68,6 +68,7 @@ enum GameplayClipRenderer {
                 DispatchQueue.global(qos: .userInitiated).async {
                     let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
                         gbCompositeFrame(chrome: chrome, screens: screens, gameImage: game.image, side: cardSide,
+                                         ctrCrops: system == .n3ds,
                                          filter: filter, pixelGrid: game.pixelGrid)
                     }
                     DispatchQueue.main.async { completion(url) }
@@ -79,6 +80,7 @@ enum GameplayClipRenderer {
         DispatchQueue.global(qos: .userInitiated).async {
             let url = encode(frames: frames, fps: max(1, fps), speed: max(0.25, speed), size: size) { game in
                 compositeCard(gameImage: game.image, title: title, playTime: playTime, style: style, isPro: isPro,
+                              ctrScreens: system == .n3ds,
                               filter: filter, pixelGrid: game.pixelGrid)
             }
             DispatchQueue.main.async { completion(url) }
@@ -88,8 +90,11 @@ enum GameplayClipRenderer {
     /// One GB/GBC console-card frame: the prebuilt chrome (console + text + edge, dark screen) with
     /// the gameplay frame drawn into the GB screen rect. UIGraphicsImageRenderer is thread-safe, so
     /// this runs off the main thread; the chrome was built on the main thread by `renderClip`.
+    /// `ctrCrops`: the 3DS, whose two screens are cut out of its composed picture at their own
+    /// sizes (`ScreenshotCardRenderer.n3dsScreenCrops`) rather than as two equal halves.
     private static func gbCompositeFrame(chrome: UIImage?, screens: [CGRect],
                                          gameImage: CGImage, side: CGFloat,
+                                         ctrCrops: Bool = false,
                                          filter: VideoFilter = .none,
                                          pixelGrid: CGSize? = nil) -> CGImage? {
         let fmt = UIGraphicsImageRendererFormat.default()
@@ -109,7 +114,12 @@ enum GameplayClipRenderer {
                 UIImage(cgImage: drawn).draw(in: rect)
                 ctx.restoreGState()
             }
-            if screens.count == 2 {
+            if screens.count == 2 && ctrCrops {
+                let crops = ScreenshotCardRenderer.n3dsScreenCrops(frameWidth: gameImage.width,
+                                                                  frameHeight: gameImage.height)
+                if let top = gameImage.cropping(to: crops.top.integral) { drawGame(top, into: screens[0]) }
+                if let bottom = gameImage.cropping(to: crops.bottom.integral) { drawGame(bottom, into: screens[1]) }
+            } else if screens.count == 2 {
                 // NDS separated: split the stacked frame into the upper + lower screens.
                 let H = gameImage.height
                 let top = gameImage.cropping(to: CGRect(x: 0, y: 0, width: gameImage.width, height: H / 2))
@@ -250,6 +260,7 @@ enum GameplayClipRenderer {
     /// UIGraphicsImageRenderer (upright, correct colours) like the screenshot card.
     private static func compositeCard(gameImage: CGImage, title: String, playTime: TimeInterval,
                                       style: ShareCardStyle, isPro: Bool,
+                                      ctrScreens: Bool = false,
                                       filter: VideoFilter = .none,
                                       pixelGrid: CGSize? = nil) -> CGImage? {
         let side = cardSide
@@ -293,34 +304,49 @@ enum GameplayClipRenderer {
             let nativeW = CGFloat(gameImage.width), nativeH = CGFloat(gameImage.height)
             let gameRect = ScreenshotCardRenderer.standardGameScreenRect(
                 side: side, gameNativeSize: CGSize(width: nativeW, height: nativeH))
-            let gw = gameRect.width, gh = gameRect.height
-            let gx = gameRect.minX, gy = gameRect.minY
+            let gh = gameRect.height
+            let gy = gameRect.minY
             let bezelPad: CGFloat = 8
-            let bezel = CGRect(x: gx - bezelPad, y: gy - bezelPad, width: gw + bezelPad * 2, height: gh + bezelPad * 2)
 
-            ctx.saveGState()
-            ctx.setShadow(offset: .zero, blur: 14, color: purple.withAlphaComponent(0.4).cgColor)
-            ctx.setFillColor(UIColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1).cgColor)
-            UIBezierPath(roundedRect: bezel, cornerRadius: 16).fill()
-            ctx.restoreGState()
+            // The 3DS: its two screens apart, each at its own ratio, in their own frames, inside
+            // the same rect (`classicN3DSScreens`), as the screenshot card draws them. Every
+            // other console: the one picture.
+            var screens: [(rect: CGRect, image: CGImage)] = [(gameRect, gameImage)]
+            if ctrScreens {
+                let crops = ScreenshotCardRenderer.n3dsScreenCrops(frameWidth: gameImage.width,
+                                                                  frameHeight: gameImage.height)
+                let rects = ScreenshotCardRenderer.classicN3DSScreens(side: side, frameAspect: nativeW / max(nativeH, 1),
+                                                                      bezelPadding: bezelPad)
+                screens = [(rects.top, crops.top), (rects.bottom, crops.bottom)].compactMap { rect, crop in
+                    gameImage.cropping(to: crop.integral).map { (rect: rect, image: $0) }
+                }
+            }
+            for screen in screens {
+                let frame = screen.rect.insetBy(dx: -bezelPad, dy: -bezelPad)
+                ctx.saveGState()
+                ctx.setShadow(offset: .zero, blur: 14, color: purple.withAlphaComponent(0.4).cgColor)
+                ctx.setFillColor(UIColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1).cgColor)
+                UIBezierPath(roundedRect: frame, cornerRadius: 16).fill()
+                ctx.restoreGState()
 
-            ctx.saveGState()
-            UIBezierPath(roundedRect: gameRect, cornerRadius: 12).addClip()
-            ctx.interpolationQuality = .none
-            // UIImage.draw handles CGImage orientation correctly inside a
-            // UIGraphics context (same approach as ScreenshotCardRenderer), so
-            // no manual flip needed here. The display filter bakes in at the
-            // on-card screen size, mirroring the live view.
-            let drawnGame = VideoFilterRenderer.apply(filter, to: gameImage,
-                                                      targetSize: gameRect.size,
-                                                      pixelGrid: pixelGrid) ?? gameImage
-            UIImage(cgImage: drawnGame).draw(in: gameRect)
-            ctx.restoreGState()
+                ctx.saveGState()
+                UIBezierPath(roundedRect: screen.rect, cornerRadius: 12).addClip()
+                ctx.interpolationQuality = .none
+                // UIImage.draw handles CGImage orientation correctly inside a
+                // UIGraphics context (same approach as ScreenshotCardRenderer), so
+                // no manual flip needed here. The display filter bakes in at the
+                // on-card screen size, mirroring the live view.
+                let drawnGame = VideoFilterRenderer.apply(filter, to: screen.image,
+                                                          targetSize: screen.rect.size,
+                                                          pixelGrid: ctrScreens ? nil : pixelGrid) ?? screen.image
+                UIImage(cgImage: drawnGame).draw(in: screen.rect)
+                ctx.restoreGState()
 
-            purple.withAlphaComponent(0.6).setStroke()
-            let path = UIBezierPath(roundedRect: bezel, cornerRadius: 16)
-            path.lineWidth = 1.5
-            path.stroke()
+                purple.withAlphaComponent(0.6).setStroke()
+                let path = UIBezierPath(roundedRect: frame, cornerRadius: 16)
+                path.lineWidth = 1.5
+                path.stroke()
+            }
 
             // Title below the game (same cursor as the screenshot + console cards).
             var cursorY = gy + gh + bezelPad + 32

@@ -35,6 +35,9 @@ struct AppShellView: View {
     }
 
     var body: some View {
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE let _ = LaunchProbe.mark("AppShellView.body")
+        // LAUNCHPROBE #endif
         TabView(selection: $selectedTab) {
             NavigationStack {
                 LibraryView(pendingOpenURL: $pendingOpenURL,
@@ -57,7 +60,13 @@ struct AppShellView: View {
             .tag(AppTab.settings)
         }
         .task {
+            // LAUNCHPROBE #if DEBUG
+            // LAUNCHPROBE LaunchProbe.mark("AppShellView.task start (ProManager.setup)")
+            // LAUNCHPROBE #endif
             await ProManager.shared.setup()
+            // LAUNCHPROBE #if DEBUG
+            // LAUNCHPROBE LaunchProbe.mark("AppShellView.task ProManager.setup done")
+            // LAUNCHPROBE #endif
             // Seed the widget on a fresh install / first launch after update;
             // every later change is picked up when the app backgrounds.
             WidgetSnapshotWriter.refresh()
@@ -96,6 +105,9 @@ struct AppShellView: View {
         // L and R on player 1's controller switch tabs, and so does left or
         // right past the edge of a tab's page (`ControllerNavigator`).
         .onAppear {
+            // LAUNCHPROBE #if DEBUG
+            // LAUNCHPROBE LaunchProbe.mark("AppShellView.onAppear (first frame is on screen)")
+            // LAUNCHPROBE #endif
             ControllerNavigator.shared.onSwitchTab = { delta in
                 let tabs: [AppTab] = [.library, .settings]
                 guard let index = tabs.firstIndex(of: selectedTab) else { return false }

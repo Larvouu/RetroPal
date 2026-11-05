@@ -13,7 +13,8 @@
 //  glass rows (handed in by the library as `uprightList`). A rack standing on
 //  end was tried first the same day and dropped: portrait is where a game is
 //  FOUND, and one readable cover in place of six readable rows was a step
-//  back. "Classic" in that picker is the List. An iPad shows this surface
+//  back. Every look takes it upright, Classic included since 2026-10-28
+//  (it was the system's own List until then). An iPad shows this surface
 //  either way up already. The view's own state (the selected game, a drag
 //  in progress) starts fresh on every rotation, and the chosen game is
 //  re-found from its stored path.
@@ -199,11 +200,11 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
     case meadow
     /// Orange and gold.
     case sunset
-    /// The List upright, the system's own look, and on its side a flat black
-    /// ground with nothing moving on it (2026-10-07: Classic became a look
-    /// of its own, in both orientations, instead of a portrait-only switch
-    /// back to the List). Its accents are Aurora's, the ones the List's plus
-    /// already wore.
+    /// A flat black ground with nothing moving on it, in both orientations
+    /// (2026-10-07). Since 2026-10-28 everything else is the other looks'
+    /// to the detail, upright as on its side; until then it was the system's
+    /// own List upright, with its own bar, hero and cards. Its accents are
+    /// Aurora's.
     case classic
 
     var id: String { rawValue }
@@ -284,10 +285,11 @@ enum LandscapeTheme: String, CaseIterable, Identifiable {
 /// observes so a change in the picker repaints them all at once.
 ///
 /// The look is ONE value for both orientations: picking Ember upright makes
-/// the landscape Ember too. Since 2026-10-07 that includes Classic, which is
-/// a look like the others (the List upright, a flat black ground on its
-/// side); from 2026-09-07 until then it was a separate switch that only sent
-/// the upright phone back to the List and left the landscape look as it was.
+/// the landscape Ember too. Since 2026-10-07 that includes Classic, a look
+/// on a flat black ground (and since 2026-10-28 the same surface as the
+/// others upright too, where it had been the system's List); from 2026-09-07
+/// until 10-07 it was a separate switch that only sent the upright phone
+/// back to the List and left the landscape look as it was.
 final class LandscapeThemeStore: ObservableObject {
     static let shared = LandscapeThemeStore()
     private static let key = "landscape.theme"
@@ -306,8 +308,7 @@ final class LandscapeThemeStore: ObservableObject {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.key) }
     }
 
-    /// Classic is the look: the List upright (a phone, or an iPad window at
-    /// a phone's width), the flat black ground on its side.
+    /// Classic is the look on a flat black ground.
     var isClassic: Bool { theme.isClassic }
 
     /// Whether the upright library shows the last game played above its List.
@@ -683,15 +684,16 @@ struct ScaffoldBack: ViewModifier {
 }
 
 /// Whether an upright page shows the chosen look (2026-09-07): not a
-/// landscape surface, and the List not chosen back in the palette. That is a
-/// phone upright, or an iPad window narrowed to a phone's width (windowed,
-/// Stage Manager): until 2026-09-08 the narrow window kept the List whatever
-/// the look, which read on the device as a forced Classic. Read at render
-/// time by the recipe below; a page that needs the fact for its own
-/// decisions observes the store and reads the same two things.
+/// landscape surface. That is a phone upright, or an iPad window narrowed to
+/// a phone's width (windowed, Stage Manager): until 2026-09-08 the narrow
+/// window kept the List whatever the look, which read on the device as a
+/// forced Classic. Every look counts, Classic included since 2026-10-28 (it
+/// used to keep the system's own pages upright). Read at render time by the
+/// recipe below; a page that needs the fact for its own decisions reads it
+/// the same way.
 enum UprightLook {
-    static func isActive(isLandscape: Bool, store: LandscapeThemeStore) -> Bool {
-        !isLandscape && !store.isClassic
+    static func isActive(isLandscape: Bool) -> Bool {
+        !isLandscape
     }
 }
 
@@ -702,9 +704,8 @@ enum UprightLook {
 /// moving ground shows, the marked sections sit on glass (the same flag the
 /// landscape scaffold sets, so `landscapeGlassRow()` answers both), the
 /// subtree renders dark, and the bars take the dark scheme so their type
-/// reads on the ground. On the List, or on the landscape surface (a phone
-/// on its side, an iPad window wide enough to be one), the page is returned
-/// untouched.
+/// reads on the ground. On the landscape surface (a phone on its side, an
+/// iPad window wide enough to be one), the page is returned untouched.
 private struct UprightLookModifier: ViewModifier {
     /// Pauses the ground (the library's tab while another shows).
     let isActive: Bool
@@ -714,11 +715,11 @@ private struct UprightLookModifier: ViewModifier {
     let tint: Color?
     @LandscapeSurface private var isLandscape
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Observed so a change of look, or Classic chosen back, repaints the page.
+    /// Observed so a change of look repaints the page.
     @ObservedObject private var store = LandscapeThemeStore.shared
 
     func body(content: Content) -> some View {
-        if UprightLook.isActive(isLandscape: isLandscape, store: store) {
+        if UprightLook.isActive(isLandscape: isLandscape) {
             content
                 .scrollContentBackground(.hidden)
                 .background(LibraryLandscapeBackground(isPaused: !isActive || reduceMotion, dimmed: true))
@@ -775,6 +776,8 @@ struct LandscapeListSwitch<Content: View>: View {
 /// one on its side.
 struct LibraryImportCTA: View {
     let action: () -> Void
+    /// A shorter button, for a phone on its side whose welcome needs the room.
+    var compact: Bool = false
 
     var body: some View {
         FocusableButton(shape: .rounded(14), isDefault: true, action: action) {
@@ -782,7 +785,7 @@ struct LibraryImportCTA: View {
                 .font(.headline)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, compact ? 10 : 14)
                 .background(
                     LinearGradient(
                         colors: [
@@ -835,9 +838,9 @@ struct LibraryStepLabel: View {
 /// eight consoles) and the three steps, the call to action and the two notes
 /// on the right. Same strings, same order as the upright welcome.
 struct LibraryEmptyLandscapeView: View {
-    /// An upright phone in a chosen look (2026-09-07): the pitch above the
-    /// steps as on an iPad, the bar under the status bar, the palette in the
-    /// bar so the List can be chosen back from here too.
+    /// An upright phone (2026-09-07, every look since 2026-10-28): the pitch
+    /// above the steps as on an iPad, the bar under the status bar, the
+    /// palette in the bar so the look can be chosen from here too.
     var upright: Bool = false
     let isActive: Bool
     let onImport: () -> Void
@@ -852,6 +855,8 @@ struct LibraryEmptyLandscapeView: View {
     @TabletSurface private var isTablet
     @Environment(\.surfaceSafeAreaInsets) private var surfaceInsets
     @State private var showThemePicker = false
+    /// The supported formats, from the link under the first step (2026-10-31).
+    @State private var showFormats = false
 
     var body: some View {
         let insets = LandscapeChrome.insets(surfaceInsets)
@@ -912,15 +917,33 @@ struct LibraryEmptyLandscapeView: View {
                             }
                         }
                     } else {
-                        HStack(alignment: .center, spacing: 24) {
-                            pitchColumn
+                        // A phone on its side (2026-10-31): the whole welcome at
+                        // once. The right column held the steps, the button and
+                        // both notes, about 400 points on a 14 Pro against the
+                        // 290 the band has, so everything under "Add a game" was
+                        // below the fold. The layouts below are tried in turn
+                        // and the first that fits is shown: the notes split
+                        // between the columns, then tighter type, then the legal
+                        // note beside the consoles (where the Settings circle
+                        // stands over the right column's foot, the SE), then the
+                        // consoles on one moving line. Only if none fits does it
+                        // scroll. Nothing is cut (rule 8).
+                        let cornerRoom: CGFloat = insets.right < 44 ? 40 : 0
+                        ViewThatFits(in: .vertical) {
+                            phoneColumns(compact: false, legalLeft: false, oneLine: false, cornerRoom: cornerRoom)
+                            phoneColumns(compact: true, legalLeft: false, oneLine: false, cornerRoom: cornerRoom)
+                            phoneColumns(compact: true, legalLeft: true, oneLine: false, cornerRoom: cornerRoom)
+                            phoneColumns(compact: true, legalLeft: true, oneLine: true, cornerRoom: cornerRoom)
+                            HStack(alignment: .center, spacing: 24) {
+                                pitchColumn
+                                    .frame(maxWidth: .infinity)
+                                ScrollView(.vertical, showsIndicators: false) {
+                                    stepsColumn
+                                        // Room under the last note for the Settings circle.
+                                        .padding(.bottom, 56)
+                                }
                                 .frame(maxWidth: .infinity)
-                            ScrollView(.vertical, showsIndicators: false) {
-                                stepsColumn
-                                    // Room under the last note for the Settings circle.
-                                    .padding(.bottom, 56)
                             }
-                            .frame(maxWidth: .infinity)
                         }
                         // On an iPad the pair is capped and centred; a phone fills the width.
                         .frame(maxWidth: isTablet ? 960 : .infinity)
@@ -959,11 +982,39 @@ struct LibraryEmptyLandscapeView: View {
         }
         .ignoresSafeArea(edges: upright ? .top : .all)
         .environment(\.colorScheme, .dark)
+        .sheet(isPresented: $showFormats) { GameFormatsSheet() }
+    }
+
+    /// The welcome on a phone on its side, in one of its fits (see `body`):
+    /// the pitch and the free-games hint on the left, the steps and the
+    /// button on the right, the legal note under the button or, when the
+    /// right column needs the room, under the hint.
+    private func phoneColumns(compact: Bool, legalLeft: Bool, oneLine: Bool, cornerRoom: CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 24) {
+            VStack(spacing: compact ? 10 : 14) {
+                pitchContent(compact: compact, oneLine: oneLine)
+                romHint(compact: compact)
+                if legalLeft { legalNote }
+            }
+            .frame(maxWidth: .infinity)
+            VStack(spacing: compact ? 8 : 12) {
+                stepsCard(compact: compact)
+                LibraryImportCTA(action: onImport, compact: compact)
+                if !legalLeft { legalNote }
+            }
+            // Clear of the Settings circle where it stands over this column.
+            .padding(.bottom, cornerRoom)
+            .frame(maxWidth: .infinity)
+        }
     }
 
     /// The headline, the one line and every console, in one strip.
     private var pitchColumn: some View {
-        VStack(spacing: 14) {
+        pitchContent(compact: false)
+    }
+
+    private func pitchContent(compact: Bool, oneLine: Bool = false) -> some View {
+        VStack(spacing: compact ? 10 : 14) {
             Text(NSLocalizedString("library.empty.title", comment: ""))
                 .font(.title2.bold())
                 .foregroundStyle(.white)
@@ -973,54 +1024,75 @@ struct LibraryEmptyLandscapeView: View {
                 .foregroundStyle(.white.opacity(0.75))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            ConsoleIconRow(isActive: isActive)
+            ConsoleIconRow(isActive: isActive, singleLine: oneLine)
                 .padding(.horizontal, 8)
-                .padding(.top, 4)
+                .padding(.top, compact ? 0 : 4)
         }
     }
 
-    /// The three steps, the call to action and the two notes.
+    /// The three steps, the call to action and the two notes (upright and
+    /// on an iPad; a phone on its side splits them, see `body`).
     private var stepsColumn: some View {
         VStack(spacing: 12) {
-            LandscapeChrome.card(nil) {
-                stepRow(1, DeviceWording.string("library.empty.step1"))
-                stepRow(2, NSLocalizedString("library.empty.step2", comment: ""))
-                stepRow(3, NSLocalizedString("library.empty.step3", comment: ""))
-            }
+            stepsCard(compact: false)
             LibraryImportCTA(action: onImport)
-            Text(NSLocalizedString("library.empty.romHint", comment: ""))
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.78))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .center, spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundColor(.orange.opacity(0.85))
-                Text(NSLocalizedString("library.empty.legal", comment: ""))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.78))
-                    .multilineTextAlignment(.leading)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.orange.opacity(0.12))
-            )
+            romHint(compact: false)
+            legalNote
         }
     }
 
-    private func stepRow(_ num: Int, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+    /// The three steps, with the formats link under the first one: the step
+    /// says how a game reaches the device, the link says which files are
+    /// games (2026-10-31, the list had grown past readable inside the step).
+    private func stepsCard(compact: Bool) -> some View {
+        LandscapeChrome.card(nil) {
+            VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+                stepRow(1, DeviceWording.string("library.empty.step1"), compact: compact)
+                GameFormatsLink(tint: LibraryLandscapePalette.highlight) { showFormats = true }
+                    .padding(.leading, compact ? 22 : 28)
+                    .padding(.vertical, -4)
+                stepRow(2, NSLocalizedString("library.empty.step2", comment: ""), compact: compact)
+                stepRow(3, NSLocalizedString("library.empty.step3", comment: ""), compact: compact)
+            }
+        }
+    }
+
+    private func romHint(compact: Bool) -> some View {
+        Text(NSLocalizedString("library.empty.romHint", comment: ""))
+            .font(compact ? .caption2 : .caption)
+            .foregroundStyle(.white.opacity(0.78))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var legalNote: some View {
+        HStack(alignment: .center, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption2)
+                .foregroundColor(.orange.opacity(0.85))
+            Text(NSLocalizedString("library.empty.legal", comment: ""))
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.78))
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.orange.opacity(0.12))
+        )
+    }
+
+    private func stepRow(_ num: Int, _ text: String, compact: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: compact ? 10 : 12) {
             Text("\(num)")
-                .font(.subheadline.bold())
+                .font((compact ? Font.footnote : Font.subheadline).bold())
                 .foregroundStyle(.white)
-                .frame(width: 26, height: 26)
+                .frame(width: compact ? 22 : 26, height: compact ? 22 : 26)
                 .background(Color.white.opacity(0.15))
                 .clipShape(Circle())
             LibraryStepLabel(text: text, symbolTint: LibraryLandscapePalette.highlight)
-                .font(.subheadline)
+                .font(compact ? .footnote : .subheadline)
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1086,6 +1158,9 @@ struct LibraryLandscapeView: View {
     let onStats: () -> Void
     let onRA: () -> Void
     let onSettings: () -> Void
+    /// The year in review brought to the front (2026-10-28): above the rack
+    /// on its side; upright the library puts it in its List, above the hero.
+    var spotlight: AnyView? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// An iPad window: larger tiles, a wider search field, a bar that clears
@@ -1197,6 +1272,12 @@ struct LibraryLandscapeView: View {
                         topBar
                             .padding(.horizontal, 24)
                             .padding(.top, LandscapeChrome.barTopPadding(tablet: isTablet, insets: insets))
+                        if let spotlight {
+                            spotlight
+                                .frame(maxWidth: 560)
+                                .padding(.horizontal, 24)
+                                .padding(.top, 8)
+                        }
                         Spacer(minLength: 6)
                         carousel(geometry: geometry, width: size.width,
                                  height: side * LibraryCarouselGeometry.selectedScale + 8)
@@ -1382,7 +1463,7 @@ struct LibraryLandscapeView: View {
 
         if showsStats {
             FocusableButton(shape: .capsule, action: onStats) { LandscapeChrome.circle(systemName: "chart.bar.xaxis") }
-                .accessibilityLabel(NSLocalizedString("library.stats.title", comment: ""))
+                .accessibilityLabel(NSLocalizedString("story.title", comment: ""))
         }
         if showsRA {
             FocusableButton(shape: .capsule, action: onRA) { LandscapeChrome.circle(systemName: "trophy") }
@@ -1755,22 +1836,19 @@ struct LibraryLandscapeView: View {
 /// (2026-09-07), the way a console home shows the game to continue before
 /// the shelf. A search narrows it to the games found, on purpose. Since
 /// 2026-10-07 it is the first row of the library's List in every look,
-/// Classic included, and scrolls away with the games.
+/// and scrolls away with the games.
 ///
 /// The cover with its ring on the left; on the right the title with the
 /// console tag, "played 2 days ago" and the play time on their own lines as
 /// the rows show them, then Play and (i). Tapping the cover opens the game's
 /// page; a long press offers rename and delete, as the rows do.
 ///
-/// `classic` dresses it as the Classic List's own rows: the system's grouped
-/// card, light or dark with the phone, the system's type colours, the
-/// console's lettered tag, and no glow under Play. Otherwise it is the glass
-/// card on the moving ground.
+/// The glass card on the look's ground, Classic's black included
+/// (2026-10-28; it had a dress of its own on the Classic List).
 struct LibraryHeroCard: View {
     @ObservedObject var game: GameEntity
     /// Bumped by the parent when a quick-save lands, so the cover re-reads.
     let saveTick: Int
-    var classic: Bool = false
     let onOpenDetails: () -> Void
     let onPlay: () -> Void
     let onRename: () -> Void
@@ -1786,8 +1864,8 @@ struct LibraryHeroCard: View {
         return played.max { ($0.lastPlayedAt ?? .distantPast) < ($1.lastPlayedAt ?? .distantPast) } ?? games.first
     }
 
-    private var primaryInk: Color { classic ? .primary : .white }
-    private var secondaryInk: Color { classic ? .secondary : .white.opacity(0.85) }
+    private var primaryInk: Color { .white }
+    private var secondaryInk: Color { .white.opacity(0.85) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -1821,7 +1899,7 @@ struct LibraryHeroCard: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                     if let system = game.systemType {
-                        ConsoleTagBadge(systemType: system, drawing: !classic)
+                        ConsoleTagBadge(systemType: system)
                     }
                 }
                 if let ago = LibraryLandscapeView.playedAgoLine(for: game) {
@@ -1848,19 +1926,13 @@ struct LibraryHeroCard: View {
         .animation(.easeOut(duration: 0.18), value: game.objectID)
     }
 
-    @ViewBuilder
     private var cardBackground: some View {
-        if classic {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        } else {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(LandscapeChrome.cardFill))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(LandscapeChrome.cardStroke), lineWidth: 1)
-                )
-        }
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color.white.opacity(LandscapeChrome.cardFill))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(LandscapeChrome.cardStroke), lineWidth: 1)
+            )
     }
 
     /// Play and (i) at the hero's size: a shorter capsule and a 40-point circle.
@@ -1880,7 +1952,7 @@ struct LibraryHeroCard: View {
                 .padding(.horizontal, 18)
                 .frame(height: 40)
                 .background(Capsule().fill(LibraryLandscapePalette.accentGradient))
-                .shadow(color: LibraryLandscapePalette.accent.opacity(classic ? 0 : 0.55), radius: 12, y: 3)
+                .shadow(color: LibraryLandscapePalette.accent.opacity(0.55), radius: 12, y: 3)
             }
             FocusableButton(shape: .capsule) {
                 Haptics.tap()
@@ -1890,19 +1962,10 @@ struct LibraryHeroCard: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(primaryInk)
                     .frame(width: 40, height: 40)
-                    .background(infoBackground)
+                    .background(LandscapeChrome.glass(Circle()))
                     .contentShape(Circle())
             }
             .accessibilityLabel(game.title ?? "")
-        }
-    }
-
-    @ViewBuilder
-    private var infoBackground: some View {
-        if classic {
-            Circle().fill(Color(.tertiarySystemFill))
-        } else {
-            LandscapeChrome.glass(Circle())
         }
     }
 }
@@ -1955,8 +2018,7 @@ struct LibraryLandscapeTile: View {
 
     var body: some View {
         ZStack {
-            // Primary, white on every dark surface, so the empty square
-            // still shows on the Classic hero's light card (2026-10-07).
+            // Primary, white on every dark surface.
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(Color.primary.opacity(0.07))
             if let image {
@@ -2248,8 +2310,8 @@ struct LibraryPlayMenu: View {
 }
 
 extension LibraryPlayMenuModel {
-    /// What Play does for one game (2026-10-07, shared by the line, the
-    /// hero and the Classic hero): start at once with no quick-save to
+    /// What Play does for one game (2026-10-07, shared by the line and the
+    /// hero): start at once with no quick-save to
     /// offer, open the slot choice with one, nothing for a game with no file.
     enum Action {
         case nothing
@@ -2297,11 +2359,11 @@ extension LibraryPlayMenu {
 /// console still outgrows it, rather than shrinking the rows or the names.
 ///
 /// The panel is as big as its rows and no bigger (`HugContentLayout`), in
-/// every host, and centred in the HOST's frame. Upright on the List that frame
-/// ends under the search bar: the navigation bar and the search field are
-/// UIKit's, drawn above anything SwiftUI lays over the List, so a panel
-/// measured on the whole window ran under them and the search field kept the
-/// taps (seen on device 2026-10-09).
+/// every host, and centred in the HOST's frame. Upright on the Classic List
+/// (until 2026-10-28) that frame ended under the search bar: the navigation
+/// bar and the search field were UIKit's, drawn above anything SwiftUI lays
+/// over the List, so a panel measured on the whole window ran under them and
+/// the search field kept the taps (seen on device 2026-10-09).
 struct LibrarySortPicker: View {
     let upright: Bool
     @Binding var sortOrder: LibraryView.SortOrder
@@ -2486,9 +2548,9 @@ struct HugContentLayout: Layout {
 /// the name, a check on the current one. Tapping a row applies it at once,
 /// in both orientations, and closes the panel.
 ///
-/// "Classic" leads the list, in both orientations since 2026-10-07: the List
-/// upright, the flat black ground on its side. Upright (`upright`) the
-/// panel also carries the hero switch.
+/// "Classic" leads the list, in both orientations since 2026-10-07: the
+/// flat black ground. Upright (`upright`) the panel also carries the hero
+/// switch.
 struct LandscapeThemePicker: View {
     var upright: Bool = false
     let onClose: () -> Void
@@ -2600,7 +2662,7 @@ struct LandscapeThemePicker: View {
                 if upright {
                     // The last game played at the top of the List, on or off
                     // (2026-09-07); the upright phone only, the rack has no
-                    // hero. Classic has one too since 2026-10-07.
+                    // hero.
                     Divider().overlay(Color.white.opacity(0.12))
                     Toggle(isOn: $store.showsHero) {
                         Text(NSLocalizedString("library.hero.toggle", comment: ""))
@@ -2710,13 +2772,15 @@ struct LandscapeThemePicker: View {
             .padding(.vertical, 10)
     }
 
-    /// The List's swatch: the system's light ground with a grey ring, the
-    /// one look that is not a dark one.
+    /// Classic's own circle: its plain black ground with a thin neutral ring.
+    /// Its accents are Aurora's, so the look's circle below drew Aurora's
+    /// ring (2026-10-28); what sets Classic apart is the black, and a hairline
+    /// keeps it from reading as Graphite's thick grey ring.
     private var classicSwatch: some View {
         Circle()
-            .fill(Color(white: 0.95))
+            .fill(LandscapeTheme.classic.ground)
             .frame(width: 30, height: 30)
-            .overlay(Circle().strokeBorder(Color(white: 0.6), lineWidth: 4))
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1.5))
             .accessibilityHidden(true)
     }
 
@@ -2875,7 +2939,7 @@ struct LibraryLandscapeBackground: View {
     /// A 96 by 96 field of random grey, built once. Tiled at one pixel per
     /// point on purpose: at screen resolution it would be too fine to break
     /// the bands.
-    private static let grain: UIImage = {
+    static let grain: UIImage = {
         let n = 96
         var bytes = [UInt8](repeating: 0, count: n * n)
         for i in bytes.indices { bytes[i] = UInt8.random(in: 0...255) }

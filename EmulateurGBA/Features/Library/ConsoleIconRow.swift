@@ -27,10 +27,13 @@ import SwiftUI
 /// one size (`fixedSize`): the strip scrolls, so no label is ever squeezed.
 struct ConsoleIconRow: View {
     /// Every console the app runs, in the order the rows used to read.
-    static let all: [PixelConsole] = [.gb, .gbc, .gba, .nds, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp]
+    static let all: [PixelConsole] = [.gb, .gbc, .gba, .nds, .nes, .snes, .ps1, .n64, .md, .sms, .gg, .psp,
+                                      .n3ds]
 
     /// The handhelds and the two Nintendo home machines on top, the
-    /// PlayStation, the Nintendo 64, the three Segas and the PSP below.
+    /// PlayStation, the Nintendo 64, the three Segas, the PSP and the 3DS
+    /// below (seven on that line since the 3DS, 2026-10-20: each line scrolls
+    /// on its own length, so one console more on one line costs nothing).
     static let lines: [[PixelConsole]] = [Array(all.prefix(6)), Array(all.dropFirst(6))]
 
     /// Every drawing is this tall, whatever its shape.
@@ -39,13 +42,17 @@ struct ConsoleIconRow: View {
     /// False while the page is not the one on screen (another tab): the strip
     /// then stops redrawing.
     var isActive: Bool = true
+    /// Every console on one moving line instead of two: only the welcome on
+    /// a small phone on its side, when the second line's height is what
+    /// keeps the page from showing whole (2026-10-31).
+    var singleLine: Bool = false
 
     var body: some View {
         // TWO LINES THAT SCROLL AS ONE BLOCK, since 2026-10-09 (asked the
         // same day): one line showed four or five consoles at a time; two show
         // twice as many and still leave the whole welcome, the legal note
         // included, on the first screen.
-        ConsoleStrip(lines: Self.lines, isActive: isActive, item: { item($0) })
+        ConsoleStrip(lines: singleLine ? [Self.all] : Self.lines, isActive: isActive, item: { item($0) })
     }
 
     fileprivate func item(_ console: PixelConsole) -> some View {
@@ -188,7 +195,7 @@ private struct ConsoleStrip<Item: View>: View {
 }
 
 enum PixelConsole {
-    case gb, gbc, gba, nds, nes, snes, ps1, n64, md, sms, gg, psp
+    case gb, gbc, gba, nds, nes, snes, ps1, n64, md, sms, gg, psp, n3ds
 
     /// The drawing for a LAYOUT family. GB and GBC share one layout and one
     /// `PresetSystem`, so that family wears the Game Boy Color's machine: it is
@@ -210,6 +217,7 @@ enum PixelConsole {
         case .sms:  self = .sms
         case .gg:   self = .gg
         case .psp:  self = .psp
+        case .n3ds: self = .n3ds
         }
     }
 
@@ -228,6 +236,7 @@ enum PixelConsole {
         case .sms:  return SystemColor.name("sms")
         case .gg:   return SystemColor.name("gg")
         case .psp:  return SystemColor.name("psp")
+        case .n3ds: return SystemColor.name("n3ds")
         }
     }
 
@@ -254,6 +263,8 @@ enum PixelConsole {
         case .gg:       return CGSize(width: 90, height: 64)
         // The PSP, the set's third landscape handheld, in the same box.
         case .psp:      return CGSize(width: 90, height: 64)
+        // The Nintendo DS's box: the 3DS is the same clamshell, drawn beside it.
+        case .n3ds:     return CGSize(width: 80, height: 80)
         }
     }
 }
@@ -369,6 +380,13 @@ struct PixelConsoleIcon: View {
     // The PSP, from `console-psp.svg`: the Game Gear's charcoals and dark screen,
     // its shoulder tabs a step lighter, its four buttons the PlayStation's.
     private static let pspTab = Color(red: 0x5A / 255, green: 0x5C / 255, blue: 0x63 / 255)
+    // The 3DS, from `console-n3ds.svg`, in its Nostalgia dress's colours
+    // (`N3DSSkinPalette.nostalgia`, recoloured 2026-10-27 after the dress was
+    // redrawn): the dark shell, and the dress's light ink on everything that
+    // reads on it (stick caps, cross, the four faces in one colour, SELECT,
+    // HOME and START). Its screens are switched off.
+    private static let n3dsBody = Color(red: 0x47 / 255, green: 0x49 / 255, blue: 0x48 / 255)
+    private static let n3dsLight = Color(red: 0xBA / 255, green: 0xBC / 255, blue: 0xBE / 255)
 
     var body: some View {
         Canvas { ctx, size in
@@ -678,6 +696,27 @@ struct PixelConsoleIcon: View {
                 dot(77, 24, 1.9, Self.psTriangle); dot(81, 28, 1.9, Self.psCircle)
                 dot(77, 32, 1.9, Self.psCross); dot(73, 28, 1.9, Self.psSquare)
                 rect(71, 40, 5, 2, Self.ink); rect(78, 40, 5, 2, Self.ink)
+            case .n3ds:
+                // The Nintendo DS's clamshell, and what tells them apart: the
+                // top screen wider than the bottom one, the circle pad above
+                // the cross (an ink ring round a grey cap, as the PSP's nub),
+                // the New 3DS's C-stick above the four faces, SELECT, HOME and
+                // START under the touch screen. Coordinates are
+                // `console-n3ds.svg`'s.
+                rect(8, 6, 64, 34, Self.n3dsBody); frame(8, 6, 64, 34)
+                rect(18, 11, 44, 24, Self.ink)
+                rect(20, 13, 40, 20, Self.screenOff)
+                rect(8, 38, 64, 4, Self.ink)
+                rect(8, 42, 64, 32, Self.n3dsBody); frame(8, 42, 64, 32)
+                rect(22, 46, 36, 22, Self.ink)
+                rect(24, 48, 32, 18, Self.screenOff)
+                dot(15.5, 52, 3.4, Self.ink); dot(15.5, 52, 2.6, Self.n3dsLight)
+                rect(12.5, 62, 6, 2, Self.n3dsLight); rect(14.5, 60, 2, 6, Self.n3dsLight)
+                dot(64.5, 49.2, 1.7, Self.ink); dot(64.5, 49.2, 1.1, Self.n3dsLight)
+                dot(64.5, 55, 1.6, Self.n3dsLight); dot(68, 58.5, 1.6, Self.n3dsLight)
+                dot(64.5, 62, 1.6, Self.n3dsLight); dot(61, 58.5, 1.6, Self.n3dsLight)
+                rect(29, 71, 3, 1, Self.n3dsLight); rect(38.5, 71, 3, 1, Self.n3dsLight)
+                rect(48, 71, 3, 1, Self.n3dsLight)
             }
         }
     }

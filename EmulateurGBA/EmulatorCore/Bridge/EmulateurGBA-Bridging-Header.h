@@ -19,10 +19,19 @@
 #import "N64Bridge.h"
 #import "BlastEmBridge.h"
 #import "PSPBridge.h"
+#import "CTRBridge.h"
 
 // Whether a file is a PSP game, read from its bytes (`.iso` and `.pbp` are the
 // PlayStation's too). C, so the RetroAchievements client can ask it as well.
 #import "../../Data/ROMParsing/PSPDiscProbe.h"
+
+// Whether a 3DS game is encrypted, read from its bytes (Retro Pal ships no keys
+// and the core reads decrypted games only). C, so CTRBridge reads it as well.
+#import "../../Data/ROMParsing/CTRGameProbe.h"
+
+// The archives other than .zip (.7z, .rar, .tar, .gz, .xz), read through
+// libarchive (Vendor/archive-ios). C, with plain C types (`GameArchive`).
+#import "../../Data/FileStorage/GameArchiveReader.h"
 
 // RetroAchievements (rc_client) ObjC++ wrapper, exposed to Swift.
 #import "../../Data/RetroAchievements/RAClient.h"

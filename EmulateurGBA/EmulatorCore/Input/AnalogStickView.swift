@@ -87,6 +87,38 @@ final class AnalogStickView: UIView {
     // A relayout too: the PSP's nub is drawn smaller (`thumbRadius`).
     var dressVariant: DressVariant = .nostalgia { didSet { applyResting(); setNeedsLayout() } }
 
+    /// THE 3DS'S CIRCLE PAD upright (his design, 2026-10-21, third pass).
+    /// The control is two things: the SURROUND, the outer ring, which never
+    /// moves because it is the shell's hole the pad sits in (carved by the skin,
+    /// `ConsoleSkinView.drawButtonWells`), and the PAD inside it, the only part
+    /// that moves, as far as the other sticks' caps do (its edge to the
+    /// control's centre). The pad wears the PlayStation's cap, as the C-stick
+    /// does; the black under it is the pad's size. What the finger does is
+    /// unchanged (`travel`, `deadzone`).
+    enum CTRLook { case none, circlePad }
+    var ctrLook: CTRLook = .none { didSet { guard ctrLook != oldValue else { return }; applyResting(); setNeedsLayout() } }
+    /// THE 3DS'S HOLE, under both its sticks (his ask, 2026-10-21): not a flat
+    /// black disc but a well, the wall a dark grey at the lip falling to black,
+    /// the far (lower-left) wall catching a little light.
+    private let ctrHole = CAGradientLayer()
+    private let ctrHoleWall = CAGradientLayer()
+    /// THE CIRCLE PAD'S DISH (his ask, 2026-10-21): highest at its rim, sinking
+    /// steadily to its centre, the deepest point. Two layers clipped to the cap:
+    /// the depth (clear at the rim, darker to the centre) and the light, which
+    /// in a dish falls the other way from a dome's (the inner slope facing the
+    /// top-right light is the far one, lower left). The raised rim catches the
+    /// light on its own top-right edge (`ctrRim`).
+    private let ctrDepth = CAGradientLayer()
+    private let ctrDishLight = CAGradientLayer()
+    private let ctrRim = CAShapeLayer()
+
+    /// The circle pad's raised rim, as a fraction of the pad's radius.
+    static let circlePadRim: CGFloat = 0.12
+
+    /// How much of the control the circle pad itself is: the rest is the
+    /// still surround.
+    static let circlePadScale = ControlLayoutDefaults.AnalogStickViewMetrics.circlePadScale
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
@@ -117,6 +149,42 @@ final class AnalogStickView: UIView {
             piece.isHidden = true
             layer.addSublayer(piece)
         }
+        // The 3DS's hole over the plain black one (which it hides), under the cap.
+        ctrHole.type = .radial
+        ctrHole.startPoint = CGPoint(x: 0.5, y: 0.5)
+        ctrHole.endPoint = CGPoint(x: 1, y: 0.5)   // the gradient's edge on the disc's
+        ctrHole.colors = [UIColor.black.cgColor, UIColor.black.cgColor,
+                          UIColor(white: 0.10, alpha: 1).cgColor, UIColor(white: 0.22, alpha: 1).cgColor]
+        ctrHole.locations = [0, 0.62, 0.86, 1]
+        ctrHoleWall.startPoint = CGPoint(x: 1, y: 0)
+        ctrHoleWall.endPoint = CGPoint(x: 0, y: 1)
+        ctrHoleWall.colors = [UIColor.clear.cgColor, UIColor.clear.cgColor,
+                              UIColor.white.withAlphaComponent(0.16).cgColor]
+        ctrHoleWall.locations = [0, 0.6, 1]
+        layer.insertSublayer(ctrHole, above: holeLayer)
+        layer.insertSublayer(ctrHoleWall, above: ctrHole)
+        ctrDepth.type = .radial
+        ctrDepth.startPoint = CGPoint(x: 0.5, y: 0.5)
+        ctrDepth.endPoint = CGPoint(x: 1, y: 0.5)   // the gradient's edge on the disc's
+        ctrDepth.colors = [UIColor.black.withAlphaComponent(0.30).cgColor,
+                           UIColor.black.withAlphaComponent(0.12).cgColor,
+                           UIColor.clear.cgColor]
+        // Flat (clear) across the rim, so the dish starts where the rim ends.
+        ctrDepth.locations = [NSNumber(value: 0), NSNumber(value: 0.55),
+                              NSNumber(value: Double(1 - Self.circlePadRim))]
+        ctrDishLight.startPoint = CGPoint(x: 1, y: 0)
+        ctrDishLight.endPoint = CGPoint(x: 0, y: 1)
+        ctrDishLight.colors = [UIColor.black.withAlphaComponent(0.18).cgColor,
+                               UIColor.clear.cgColor,
+                               UIColor.white.withAlphaComponent(0.20).cgColor]
+        ctrDishLight.locations = [0, 0.5, 1]
+        ctrRim.fillColor = UIColor.clear.cgColor
+        ctrRim.lineCap = .round
+        for piece in [ctrHole, ctrHoleWall] as [CALayer] { piece.isHidden = true }
+        for piece in [ctrDepth, ctrDishLight, ctrRim] as [CALayer] {
+            piece.isHidden = true
+            layer.addSublayer(piece)
+        }
         applyResting()
     }
 
@@ -136,6 +204,8 @@ final class AnalogStickView: UIView {
             if dressKind == .ps1, dressVariant.isPSP {
                 face = dressVariant.pspPalette?.stick ?? UIColor(rpHex: 0x1E1E1E)
             }
+            // The 3DS's circle pad and C-stick, their own slot.
+            if let ctr = dressVariant.ctrPalette { face = ctr.sticks }
             // THE DISH IS GONE. The cap now fills the control, so a dish behind it
             // would never be seen; what reads as the seat is the black hole, which
             // is a real thing on the hardware where the dish never was.
@@ -168,7 +238,20 @@ final class AnalogStickView: UIView {
                                 UIColor.clear.cgColor,
                                 UIColor.black.withAlphaComponent(0.22).cgColor]
             thumbDome.locations = [0, 0.5, 1]
+            // The 3DS: a well under both sticks, and the circle pad's dish.
+            let isCTR = dressVariant.ctrPalette != nil
+            for piece in [ctrHole, ctrHoleWall] as [CALayer] { piece.isHidden = !isCTR }
+            let dish = isCTR && ctrLook == .circlePad
+            for piece in [ctrDepth, ctrDishLight, ctrRim] as [CALayer] { piece.isHidden = !dish }
+            if dish {
+                thumbDome.isHidden = true
+                thumbGrain.isHidden = true
+                ctrRim.strokeColor = face.rpMixed(with: .white, 0.55).cgColor
+            }
         } else {
+            for piece in [ctrHole, ctrHoleWall, ctrDepth, ctrDishLight, ctrRim] as [CALayer] {
+                piece.isHidden = true
+            }
             thumbDome.isHidden = true
             thumbGrain.isHidden = true
             for piece in [n64Rings, n64RingCatch, n64Hole, n64HoleWall] as [CALayer] {
@@ -194,6 +277,7 @@ final class AnalogStickView: UIView {
     /// knob-in-a-dish the custom-preset look has always drawn.
     private var thumbRadius: CGFloat {
         guard dressed else { return radius * 0.38 }
+        if ctrLook == .circlePad { return radius * Self.circlePadScale }
         // The PSP's nub is drawn smaller than the other consoles' sticks (asked
         // 2026-10-10); what a thumb can touch, and how far it pushes, is not.
         return dressKind == .ps1 && dressVariant.isPSP ? radius * Self.pspNubScale : radius
@@ -228,6 +312,17 @@ final class AnalogStickView: UIView {
             // Round the cap actually drawn (the PSP's is smaller than the control).
             radius: max((dressed ? thumbRadius : radius) * (1 + holeExcess), 1),
             startAngle: 0, endAngle: .pi * 2, clockwise: true).cgPath
+        // The 3DS's well, the hole's own disc.
+        let holeR = max((dressed ? thumbRadius : radius) * (1 + holeExcess), 1)
+        let holeBox = CGRect(x: bounds.midX - holeR, y: bounds.midY - holeR, width: holeR * 2, height: holeR * 2)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        for piece in [ctrHole, ctrHoleWall] as [CALayer] {
+            piece.frame = holeBox
+            let mask = CAShapeLayer()
+            mask.path = UIBezierPath(ovalIn: CGRect(origin: .zero, size: holeBox.size)).cgPath
+            piece.mask = mask
+        }
+        CATransaction.commit()
         drawThumb()
     }
 
@@ -247,12 +342,18 @@ final class AnalogStickView: UIView {
         let disc = UIBezierPath(ovalIn: CGRect(origin: .zero, size: box.size)).cgPath
         // Named `piece`, not `layer`: `layer` is this view's own and shadowing it
         // inside the loop is how the wrong one gets masked one edit from now.
-        for piece in [thumbDome, thumbGrain] as [CALayer] {
+        for piece in [thumbDome, thumbGrain, ctrDepth, ctrDishLight] as [CALayer] {
             piece.frame = box
             let mask = CAShapeLayer()
             mask.path = disc
             piece.mask = mask
         }
+        // The dish's raised rim, lit on its top-right edge (the light's side).
+        // Twice as wide since 2026-10-21 (his ask), growing inward: its outer
+        // edge stays the pad's, as the radius below keeps it.
+        ctrRim.lineWidth = max(1, thumbRadius * Self.circlePadRim)
+        ctrRim.path = UIBezierPath(arcCenter: centre, radius: thumbRadius - ctrRim.lineWidth / 2,
+                                   startAngle: -.pi * 0.85, endAngle: .pi * 0.15, clockwise: true).cgPath
         // The N64's carving, centred on the cap wherever it has moved.
         let ringWidth = max(1, thumbRadius * 0.05)
         let rings = UIBezierPath()

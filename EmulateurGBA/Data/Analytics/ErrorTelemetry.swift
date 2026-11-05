@@ -52,11 +52,30 @@ enum ImportFailureReason: String, CaseIterable {
     /// A cartridge of a machine the app does not offer: a 32X or a Sega Pico
     /// cartridge in Mega Drive clothing (2026-10-12).
     case otherConsoleCartridge = "other_console_cartridge"
+    /// A PlayStation 3 disc (its volume says "PS3"), refused at import
+    /// (2026-10-27). Apart from `otherConsoleDisc`: no console of ours is near.
+    case ps3Disc = "ps3_disc"
+    /// A UMD film or album with no game on it ("UMD VIDEO" / "UMD AUDIO",
+    /// no PSP_GAME), refused at import (2026-10-27): not a game at all.
+    case umdMedia = "umd_media"
+    /// A 3DS game that is still encrypted. Azahar reads decrypted games only
+    /// and the app ships no console keys, so the player needs a decrypted
+    /// copy (2026-10-27; it was counted as `invalid_rom` until then).
+    case ctrEncrypted = "ctr_encrypted"
     case discMissingFiles = "disc_missing_files"
     case zipNoROM = "zip_no_rom"
     case zipCorrupt = "zip_corrupt"
     case zipUnsupportedCompression = "zip_unsupported_compression"
     case zipEncrypted = "zip_encrypted"
+    /// The same four for the archives other than zip (.7z, .rar, .tar, .gz,
+    /// .xz), read since 1.3.5 by libarchive: kept apart from the zip's so a
+    /// fault in the new reader cannot hide among broken zip downloads.
+    case archiveNoROM = "archive_no_rom"
+    case archiveCorrupt = "archive_corrupt"
+    case archiveUnsupportedCompression = "archive_unsupported_compression"
+    case archiveEncrypted = "archive_encrypted"
+    /// One volume of a split archive (`.part1.rar`, 2026-10-30).
+    case archiveSplit = "archive_split"
     case duplicate = "duplicate"
     /// The game was copied but its library entry could not be saved.
     case libraryWriteFailed = "library_write_failed"
@@ -68,7 +87,8 @@ enum ImportFailureReason: String, CaseIterable {
     static let copyCauses: Set<ImportFailureReason> = [.diskFull, .sourceUnavailable, .copyTruncated, .fileAccessDenied]
     /// The narrowings an `invalidROM` may carry.
     static let invalidCauses: Set<ImportFailureReason> = [.unsupportedExtension, .invalidHeader, .discNotBootable,
-                                                          .otherConsoleDisc, .otherConsoleCartridge]
+                                                          .otherConsoleDisc, .otherConsoleCartridge,
+                                                          .ps3Disc, .umdMedia]
 }
 
 /// Why a game did not start, or stopped (`rom_load_fail`, key `reason`).
@@ -182,6 +202,12 @@ enum GameErrorReason: String, CaseIterable {
     case displayLost = "display_lost"
     /// The PlayStation core refused a disc change from the pause menu.
     case discChangeRefused = "disc_change_refused"
+    /// A 3DS game ended: it closed itself, or an in-game reboot could not
+    /// start the console again (CTRBridgeGameEndedNotification).
+    case gameEnded = "game_ended"
+    /// A PSP game that had booted stopped for good on an emulated CPU error
+    /// (PSPBridgeGameHaltedNotification, patch 0002).
+    case coreHalted = "core_halted"
 }
 
 /// How many exits of one kind a MetricKit payload counted (`app_exit`, key
@@ -323,10 +349,18 @@ enum ErrorTelemetry {
         case .zipExtractionFailed: return .zipCorrupt
         case .zipUnsupportedCompression: return .zipUnsupportedCompression
         case .zipEncrypted: return .zipEncrypted
+        case .archiveNoGame: return .archiveNoROM
+        case .archiveExtractionFailed: return .archiveCorrupt
+        case .archiveUnsupportedCompression: return .archiveUnsupportedCompression
+        case .archiveEncrypted: return .archiveEncrypted
+        case .archiveSplit: return .archiveSplit
         case .alreadyImported: return .duplicate
         case .saveFailed: return .libraryWriteFailed
         case .differentGame: return .differentGame
         case .discMissingFiles: return .discMissingFiles
+        // Its own value since 2026-10-27: a player-side file, never our bug,
+        // and the commonest 3DS refusal. A new VALUE, not a new signal.
+        case .ctrEncrypted: return .ctrEncrypted
         }
     }
 

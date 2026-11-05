@@ -41,9 +41,50 @@ enum SystemColor {
         // app's dark grounds like the Mega Drive's, and the PlayStation's grey is
         // taken, so a blue of its own, lighter than the Mega Drive's navy.
         case "psp":  return Color(red: 0.122, green: 0.290, blue: 0.561)   // #1F4A8F
+        // INTERIM, until the 3DS's dress: the original console's Aqua Blue,
+        // darkened so the badge's white letters read on it (#0E7C9B), and kept
+        // clear of the PSP's blue and the DS's.
+        case "n3ds": return Color(red: 0.055, green: 0.486, blue: 0.608)   // #0E7C9B
         default: return Color(red: 0.463, green: 0.149, blue: 0.773) // GBA = app-logo purple #7626C5
         }
     }
+
+    /// The console's colour in a chart (the Retro story's consoles donut,
+    /// 2026-10-28). Each console keeps its own colour's hue (`color(_:)`),
+    /// made vivid for the dark grounds (his ask: bright, not dull); the three
+    /// greys of the badges, which have no hue, take their console's (the Game
+    /// Boy's screen, the PlayStation's and the Nintendo 64's logos). Not the
+    /// badges' colours themselves: greys and navies there vanish on the dark
+    /// grounds and read as one. Thirteen vivid colours cannot all be told
+    /// apart (checked with the data-viz validator: contrast >= 3:1 on every
+    /// look, Classic's black included; the Game Boy family, the group most
+    /// played together, separates; a few rarer pairs stay close), so the
+    /// legend beside the ring says each console by its drawing and name.
+    static func chartColor(_ systemType: String) -> Color {
+        let hex: UInt32
+        switch systemType {
+        case "gba":  hex = 0xA968FF   // purple
+        case "gb":   hex = 0xCCCD27   // olive-yellow, the DMG screen
+        case "gbc":  hex = 0x00C55B   // green
+        case "nds":  hex = 0xFA7C20   // orange
+        case "snes": hex = 0xE369CC   // lilac-pink, its buttons
+        case "nes":  hex = 0xF14445   // red
+        case "ps1":  hex = 0xF7C243   // yellow, its logo
+        case "n64":  hex = 0x00C7AE   // teal, its logo
+        case "md":   hex = 0xB6AAFF   // lavender
+        case "sms":  hex = 0xEE5E23   // orange-red
+        case "gg":   hex = 0x0093D0   // cyan-blue
+        case "psp":  hex = 0x3A74E3   // deep blue
+        case "n3ds": hex = 0x17D0D8   // aqua
+        default:     hex = 0xA968FF
+        }
+        return Color(red: Double((hex >> 16) & 0xFF) / 255,
+                     green: Double((hex >> 8) & 0xFF) / 255,
+                     blue: Double(hex & 0xFF) / 255)
+    }
+
+    /// The folded rest of a chart: a neutral grey, never a hue.
+    static let chartOther = Color(white: 0.45)
 
     /// The console's name for a menu or a caption. Proper names, unlocalized
     /// like the theme names. The canonical order is `LibraryView`'s.
@@ -81,22 +122,31 @@ enum SystemColor {
         case "gg":   return "Game Gear"
         // The name it was sold under everywhere, in Latin letters in Japan too.
         case "psp":  return "PSP"
+        // One name everywhere, in Latin letters in Japan too (ニンテンドー3DS
+        // is written with them on the box and in the stores).
+        case "n3ds": return "Nintendo 3DS"
         default:     return "Game Boy Advance"
         }
     }
+
+    /// The lettered tag's text: the stored system type in capitals, except
+    /// where that is not the console's short name. "N3DS" reads as the New
+    /// Nintendo 3DS, a different model; the console is "3DS".
+    static func tag(_ systemType: String) -> String {
+        systemType == "n3ds" ? "3DS" : systemType.uppercased()
+    }
 }
 
-/// The small console tag of the library rows: "GBA" on the console's colour
-/// on the List, and in a look (2026-09-07) the console's own drawing, the
-/// one the rack's covers wear in their corner, bare, no pill, at the same
-/// place beside the title. Shared with the upright hero.
+/// The small console tag of the library rows: the console's own drawing, the
+/// one the rack's covers wear in their corner, bare, no pill, beside the
+/// title (2026-09-07 in the looks; in every look since 2026-10-28, when the
+/// Classic List and its lettered "GBA" tag went). Shared with the upright
+/// hero. The lettered pill stands in only for a console with no drawing.
 struct ConsoleTagBadge: View {
     let systemType: String
-    /// The drawing instead of the lettered pill.
-    var drawing: Bool = false
 
     var body: some View {
-        if drawing && SystemColor.hasDrawing(systemType) {
+        if SystemColor.hasDrawing(systemType) {
             Image(SystemColor.drawingAsset(systemType))
                 .resizable()
                 .scaledToFit()
@@ -114,7 +164,7 @@ struct ConsolePill: View {
     let systemType: String
 
     var body: some View {
-        Text(systemType.uppercased())
+        Text(SystemColor.tag(systemType))
             .font(.system(size: 9, weight: .bold))
             .foregroundColor(.white)
             .padding(.horizontal, 5)

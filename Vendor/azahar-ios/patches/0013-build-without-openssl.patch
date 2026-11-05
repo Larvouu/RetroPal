@@ -1,0 +1,135 @@
+Build without OpenSSL or LibreSSL (CITRA_NO_OPENSSL)
+
+Azahar links LibreSSL into its core for the emulated HTTP service's https
+requests (cpp-httplib's SSL client), and calls OpenSSL's RAND_bytes in two
+services. LibreSSL carries the OpenSSL and SSLeay licences, whose advertising
+clause is not compatible with the GPL, and Azahar's licence has no exception
+for it.
+
+This adds the CMake option CITRA_NO_OPENSSL (default OFF, so a build that does
+not set it is unchanged). With it on, no TLS library is built or linked;
+cpp-httplib is built without CPPHTTPLIB_OPENSSL_SUPPORT, so the 3DS's HTTP
+service keeps plain http and an https request completes as a failed request,
+as one that could not connect does; the random bytes of ssl:C's
+GenerateRandomData and of AM's ticket encryption come from Crypto++'s
+operating-system generator (OS_GenerateRandomBlock).
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -133,6 +133,7 @@
+ CMAKE_DEPENDENT_OPTION(ENABLE_ROOM_STANDALONE "Enable generating a standalone dedicated room executable" ON "ENABLE_ROOM" OFF)
+ 
+ option(ENABLE_WEB_SERVICE "Enable web services (telemetry, etc.)" ON)
++option(CITRA_NO_OPENSSL "Build without OpenSSL or LibreSSL (no https in the emulated HTTP service)" OFF)
+ option(ENABLE_SCRIPTING "Enable RPC server for scripting" ON)
+ CMAKE_DEPENDENT_OPTION(ENABLE_SCRIPTING_SYNC "Run scripting RPC requests that access emulated state on the emulation thread, in sync with the core" ON "ENABLE_SCRIPTING" OFF)
+ option(ENABLE_GDBSTUB "Enable GDB stub for emulated applications" ON)
+--- a/externals/CMakeLists.txt
++++ b/externals/CMakeLists.txt
+@@ -304,7 +304,13 @@
+ endif()
+ 
+ # OpenSSL
+-if (USE_SYSTEM_OPENSSL)
++# CITRA_NO_OPENSSL: no TLS library at all. httplib is then built without SSL
++# support, so the 3DS's HTTP service serves plain http only and an https
++# request fails as a network error; the random bytes OpenSSL gave come from
++# Crypto++'s operating-system generator.
++if (CITRA_NO_OPENSSL)
++    set(OPENSSL_LIBRARIES "")
++elseif (USE_SYSTEM_OPENSSL)
+     find_package(OpenSSL 1.1)
+     set(OPENSSL_LIBRARIES OpenSSL::SSL OpenSSL::Crypto)
+ else()
+@@ -345,8 +351,10 @@
+     target_include_directories(httplib INTERFACE ./httplib)
+     target_disable_warnings(httplib)
+ endif()
+-target_compile_options(httplib INTERFACE -DCPPHTTPLIB_OPENSSL_SUPPORT)
+-target_link_libraries(httplib INTERFACE ${OPENSSL_LIBRARIES})
++if (NOT CITRA_NO_OPENSSL)
++    target_compile_options(httplib INTERFACE -DCPPHTTPLIB_OPENSSL_SUPPORT)
++    target_link_libraries(httplib INTERFACE ${OPENSSL_LIBRARIES})
++endif()
+ 
+ if (UNIX AND NOT APPLE)
+     add_subdirectory(gamemode EXCLUDE_FROM_ALL)
+--- a/src/core/hle/service/am/am.cpp
++++ b/src/core/hle/service/am/am.cpp
+@@ -9,7 +9,11 @@
+ #include <cryptopp/aes.h>
+ #include <cryptopp/modes.h>
+ #include <fmt/format.h>
++#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+ #include <openssl/rand.h>
++#else
++#include <cryptopp/osrng.h>
++#endif
+ #include "common/alignment.h"
+ #include "common/archives.h"
+ #include "common/common_paths.h"
+@@ -5437,8 +5441,13 @@
+     std::vector<u8> key(0x10);
+     std::vector<u8> iv(0x10);
+ 
++#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+     RAND_bytes(key.data(), static_cast<int>(key.size()));
+     RAND_bytes(iv.data(), static_cast<int>(iv.size()));
++#else
++    CryptoPP::OS_GenerateRandomBlock(false, key.data(), key.size());
++    CryptoPP::OS_GenerateRandomBlock(false, iv.data(), iv.size());
++#endif
+ 
+     CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption e(key.data(), key.size(), iv.data());
+     e.ProcessData(ticket_data.data(), ticket_data.data(), ticket_data.size());
+--- a/src/core/hle/service/http/http_c.cpp
++++ b/src/core/hle/service/http/http_c.cpp
+@@ -500,6 +500,14 @@
+ 
+ void Context::MakeRequestSSL(httplib::Request& request, const Common::URLInfo& url_info,
+                              std::vector<Context::RequestHeader>& pending_headers) {
++#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
++    // Built without a TLS library (CITRA_NO_OPENSSL): an https request fails
++    // as a request that could not connect does.
++    LOG_ERROR(Service_HTTP, "Request failed: https is not available in this build ({})",
++              url_info.host);
++    state = RequestState::Completed;
++    FinishTransfer();
++#else
+     httplib::Error error{-1};
+     X509* cert = nullptr;
+     EVP_PKEY* key = nullptr;
+@@ -556,6 +564,7 @@
+     }
+ 
+     FinishTransfer();
++#endif
+ }
+ 
+ bool Context::ContentProvider(size_t offset, size_t length, httplib::DataSink& sink) {
+--- a/src/core/hle/service/ssl/ssl_c.cpp
++++ b/src/core/hle/service/ssl/ssl_c.cpp
+@@ -2,7 +2,11 @@
+ // Licensed under GPLv2 or any later version
+ // Refer to the misc/licenses/gplv2.txt file included.
+ 
++#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+ #include <openssl/rand.h>
++#else
++#include <cryptopp/osrng.h>
++#endif
+ #include "common/archives.h"
+ #include "common/common_types.h"
+ #include "core/core.h"
+@@ -75,7 +79,11 @@
+ 
+ void GenerateRandomData(std::vector<u8>& out) {
+     // Fill the output buffer with random data.
++#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+     RAND_bytes(out.data(), static_cast<int>(out.size()));
++#else
++    CryptoPP::OS_GenerateRandomBlock(false, out.data(), out.size());
++#endif
+ }
+ 
+ } // namespace Service::SSL

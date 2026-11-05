@@ -154,6 +154,29 @@ struct BoxArtMatchingTests {
         #expect(BoxArtManager.stemVariants("Tetris (World)") == ["Tetris (World)"])
     }
 
+    // MARK: - The Nintendo 3DS (2026-10-20)
+
+    /// A 3DS game is found by its header's product code when that code names
+    /// one release, and by its file's name otherwise: no CRC (images of 0.5 to
+    /// 4 GB). Serials shared across regions are not in the index (Pokémon Sun
+    /// is CTR-P-BNDA in Japan, Europe, the USA and Taiwan), so a European copy
+    /// is never named "Pocket Monsters Sun (Japan)"; its name finds Europe.
+    @Test func the3DSIsFoundBySerialOrByName() {
+        let index = BoxArtIndex.shared
+        #expect(!index.hasCRCs(for: .n3ds))
+        #expect(index.serialName("CTR-P-AJRP", system: .n3ds)
+                == "Legend of Zelda, The - Majora's Mask 3D (Europe) (En,Fr,De,Es,It)")
+        #expect(index.serialName("CTR-P-AJRE", system: .n3ds)
+                == "Legend of Zelda, The - Majora's Mask 3D (USA) (En,Fr,Es)")
+        #expect(index.serialName("CTR-P-BNDA", system: .n3ds) == nil)
+        let sun = BoxArtManager.assembleCandidates(
+            crcStem: nil, serialStem: nil,
+            filenameTitle: "Pokemon Sun", userTitle: nil, system: .n3ds, index: index)
+        #expect(sun.first?.stem.hasPrefix("Pokemon Sun (") == true, "\(sun.map(\.stem))")
+        // Another console's table is untouched by the 3DS's.
+        #expect(index.serialName("BPEF", system: .gba) == "Pokemon - Version Emeraude (France)")
+    }
+
     // MARK: - Server aliases (the PSP's thumbnails are not named after Redump)
 
     @Test func pspAliasesPointAtTheNameTheServerHolds() {

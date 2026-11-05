@@ -229,7 +229,11 @@ final class ControllerManager: ObservableObject {
     var activeMapping: ControllerMapping?
     /// The console being played, for the built-in layout only: a custom mapping
     /// is explicit and needs no console to interpret it.
-    var activeSystem: PresetSystem?
+    var activeSystem: PresetSystem? {
+        // A new game starts with its sticks centred: so does what the keyboard
+        // compares against (`lastKeyboardStick`).
+        didSet { lastKeyboardStick = (0, 0) }
+    }
 
     /// The keyboard mapping applied to key input (per console family, free;
     /// see `KeyboardMapping.swift`). Set by EmulatorViewController at session
@@ -295,9 +299,17 @@ final class ControllerManager: ObservableObject {
     private var padSticks: [UUID: Sticks] = [:]
     /// Each pad's previous snapshot, for `padActivity`'s fresh-press test.
     private var activitySnapshots: [UUID: ControllerInputSource] = [:]
+    /// Pads read BY NAME (no extended gamepad): how many value changes each
+    /// sent, and whether any of them read as a button or a direction. Many
+    /// changes and never one press is a pad whose element names our mapping
+    /// does not know: "detected, no button works" (the FlipPad, 2026-10-21).
+    /// Reported once when the pad leaves (`controller_unmapped`).
+    private var byNameActivity: [UUID: (changes: Int, mapped: Bool)] = [:]
 
     private struct Sticks {
         var leftX: CGFloat = 0, leftY: CGFloat = 0, rightX: CGFloat = 0, rightY: CGFloat = 0
+        /// The pad has no left stick (`ControllerInputSource.hasLeftStick`).
+        var stickless = false
     }
 
     /// The hardware behind the first game controller, which remap capture
@@ -417,6 +429,14 @@ final class ControllerManager: ObservableObject {
         // the triggers and both stick clicks had nowhere to go, which made
         // Gran Turismo's brake and Tomb Raider 3's fire button unreachable
         // without a Pro custom mapping.
+        // THE 3DS's ZL AND ZR are a pad's triggers, where a New 3DS has them
+        // (inward of L and R): the l2 and r2 bits, which CTRBridge sends as ZL
+        // and ZR. Everything else is the Nintendo layout above.
+        if system == .n3ds {
+            if s.leftTrigger  { mask |= GBAInput.l2.rawValue }
+            if s.rightTrigger { mask |= GBAInput.r2.rawValue }
+        }
+
         if system == .ps1 {
             if s.leftTrigger     { mask |= GBAInput.l2.rawValue }
             if s.rightTrigger    { mask |= GBAInput.r2.rawValue }
@@ -440,11 +460,12 @@ final class ControllerManager: ObservableObject {
     }
 
     /// Whether a pad's left stick reaches this console as its analog stick
-    /// ONLY, never also as the cross: the Nintendo 64 and the PSP, whose games
-    /// read the two as different controls. One answer for `buttonMask` and for
-    /// the remap screen's footer, which says what the stick does.
+    /// ONLY, never also as the cross: the Nintendo 64, the PSP and the 3DS
+    /// (its circle pad), whose games read the two as different controls. One
+    /// answer for `buttonMask` and for the remap screen's footer, which says
+    /// what the stick does.
     static func stickIsAnalogOnly(on system: PresetSystem?) -> Bool {
-        system == .n64 || system == .psp
+        system == .n64 || system == .psp || system == .n3ds
     }
 
     // MARK: - GCController glue (notification-driven — beta-validated)
@@ -490,8 +511,23 @@ final class ControllerManager: ObservableObject {
                 self?.handleInput(ControllerInputSource(pad), from: id)
             }
         } else {
-            controller.physicalInputProfile.valueDidChangeHandler = { [weak self] profile, _ in
-                self?.handleInput(ControllerInputSource(profile: profile), from: id)
+            #if DEBUG
+            // A pad read by name: what it calls its elements, the one fact the
+            // name mapping needs and nobody here has (the FlipPad's owner saw
+            // it detected and no button answer, review 2026-10-21).
+            let profile = controller.physicalInputProfile
+            print("[Controller] by name: \(controller.vendorName ?? "?") (\(controller.productCategory)) "
+                  + "buttons \(profile.buttons.keys.sorted()) dpads \(profile.dpads.keys.sorted())")
+            #endif
+            byNameActivity[id] = (changes: 0, mapped: false)
+            controller.physicalInputProfile.valueDidChangeHandler = { [weak self] profile, element in
+                #if DEBUG
+                print("[Controller] by name: changed \(element.localizedName ?? "?") "
+                      + "\(element.aliases.sorted())")
+                #endif
+                let snapshot = ControllerInputSource(profile: profile)
+                self?.noteByNameChange(snapshot, from: id)
+                self?.handleInput(snapshot, from: id)
             }
         }
         // The pause menu, from the buttons that are never game input: the
@@ -520,8 +556,34 @@ final class ControllerManager: ObservableObject {
                         name: controller.vendorName,
                         style: ControllerStyle.from(productCategory: controller.productCategory),
                         batteryLevel: Self.batteryLevel(of: controller)))
-        Analytics.signalOnce("controller_connected")
+        // `kind`: through Apple's extended gamepad, or read by element name
+        // (a pad iOS gives no standard layout, the FlipPad's path).
+        Analytics.signalOnce("controller_connected",
+                             ["kind": controller.extendedGamepad != nil ? "standard" : "by_name"])
         return true
+    }
+
+    private func noteByNameChange(_ snapshot: ControllerInputSource, from id: UUID) {
+        guard var activity = byNameActivity[id] else { return }
+        activity.changes += 1
+        if !snapshot.pressedButtons.isEmpty || snapshot.up || snapshot.down || snapshot.left || snapshot.right {
+            activity.mapped = true
+        }
+        byNameActivity[id] = activity
+    }
+
+    /// Changes from a by-name pad that never read as one press, above which
+    /// the mapping is reported as missing it. A few stray changes (a trigger
+    /// resting, a stick settling) are not a player trying every button.
+    static let unmappedReportThreshold = 10
+
+    /// Sends `controller_unmapped` for a by-name pad that is leaving after
+    /// sending many changes our mapping never read (see `byNameActivity`).
+    private func reportUnmappedIfNeeded(_ id: UUID) {
+        defer { byNameActivity[id] = nil }
+        guard let activity = byNameActivity[id], !activity.mapped,
+              activity.changes >= Self.unmappedReportThreshold else { return }
+        Analytics.signalOnce("controller_unmapped", ["kind": "by_name"])
     }
 
     /// The controller's Home button, when it has one iOS lets an app see.
@@ -581,7 +643,8 @@ final class ControllerManager: ObservableObject {
                                                     mapping: activeMapping,
                                                     system: activeSystem)
         padSticks[id] = Sticks(leftX: snapshot.leftStickX, leftY: snapshot.leftStickY,
-                               rightX: snapshot.rightStickX, rightY: snapshot.rightStickY)
+                               rightX: snapshot.rightStickX, rightY: snapshot.rightStickY,
+                               stickless: !snapshot.hasLeftStick)
         if isFirstGamepad, let mapping = activeMapping, !mapping.actions.isEmpty {
             // Shortcut verbs (wave 2): edge-detect each bound action.
             for (action, physical) in mapping.actions {
@@ -746,12 +809,65 @@ final class ControllerManager: ObservableObject {
         onButtonsChanged?(player, mask(forPlayer: player))
     }
 
-    private func emitSticks(player: Int) {
+    /// Player 1 is a pad with no stick (a FlipPad, an 8BitDo Zero in its pad
+    /// mode): its cross drives the 3DS's circle pad (`emitSticks`). Known from
+    /// the pad's first input (`padSticks`, read off its profile then): before
+    /// it, the keyboard's arrows are its buttons only, as they always were.
+    private var playerOneIsStickless: Bool {
+        guard let first = pads.first, first.kind != .keyboard else { return false }
+        return padSticks[first.id]?.stickless == true
+    }
+
+    /// Player 1's circle pad as last SENT, by any source (the keyboard folded
+    /// into player 1 on an iPad, a pad, a pad leaving): what a key compares
+    /// against, so it sends only a change. Kept from the keyboard alone, it
+    /// went stale when a pad sent between two presses, and the next arrow
+    /// equal to it was dropped (re-audit, 2026-10-29).
+    private var lastKeyboardStick: (x: CGFloat, y: CGFloat) = (0, 0)
+
+    /// `fromKeyboard`: called for a key of the keyboard folded into player 1
+    /// (an iPad, no pad). Every key used to send both sticks, centred for any
+    /// key but an arrow, which put a touch circle pad and C-stick held still
+    /// back to the centre under the thumb (audit, 2026-10-29). Now only an
+    /// arrow change sends, and only the circle pad's direction.
+    private func emitSticks(player: Int, fromKeyboard: Bool = false) {
         guard player < activePlayerCount else { return }
+        if fromKeyboard, activeSystem == .n3ds, player == 0, pads.isEmpty {
+            let m = keyboardMask
+            let x: CGFloat = (m & GBAInput.right.rawValue != 0 ? 1 : 0) - (m & GBAInput.left.rawValue != 0 ? 1 : 0)
+            let y: CGFloat = (m & GBAInput.up.rawValue != 0 ? 1 : 0) - (m & GBAInput.down.rawValue != 0 ? 1 : 0)
+            guard x != lastKeyboardStick.x || y != lastKeyboardStick.y else { return }
+            lastKeyboardStick = (x, y)
+            onSticksChanged?(player, x, y, 0, 0)
+            return
+        }
+        let isKeyboard = player < pads.count && pads[player].kind == .keyboard
+        // THE 3DS WITHOUT A STICK (audit, 2026-10-20). Its circle pad is the
+        // only way to walk in most of its games, and its cross is a separate
+        // control (`stickIsAnalogOnly`): a keyboard, or a pad with no left
+        // stick, could not move at all. For them, and only them, the cross
+        // drives the circle pad too, as a full push (y down). A pad with a
+        // stick is unchanged: its cross stays the cross alone.
+        if activeSystem == .n3ds, player == 0 {
+            // No pad at all for player 1: the keyboard is OR-ed into it
+            // (`mask(forPlayer:)`, an iPad), with the touch circle pad beside it.
+            let noPad = pads.isEmpty
+            let sticks = !pads.isEmpty && !isKeyboard ? (padSticks[pads[0].id] ?? Sticks()) : Sticks()
+            if isKeyboard || sticks.stickless || (noPad && keyboardMask != 0) {
+                let m = mask(forPlayer: player)
+                let x: CGFloat = (m & GBAInput.right.rawValue != 0 ? 1 : 0) - (m & GBAInput.left.rawValue != 0 ? 1 : 0)
+                let y: CGFloat = (m & GBAInput.up.rawValue != 0 ? 1 : 0) - (m & GBAInput.down.rawValue != 0 ? 1 : 0)
+                // +1 is UP here, as GameController measures it (flipped downstream).
+                if player == 0 { lastKeyboardStick = (x, y) }
+                onSticksChanged?(player, x, y, 0, 0)
+                return
+            }
+        }
         // A keyboard has no stick, and a stick report switches a PlayStation
         // port to a DualShock: never on the keyboard's behalf.
-        if player < pads.count, pads[player].kind == .keyboard { return }
+        if isKeyboard { return }
         let sticks = player < pads.count ? (padSticks[pads[player].id] ?? Sticks()) : Sticks()
+        if player == 0 { lastKeyboardStick = (sticks.leftX, sticks.leftY) }
         onSticksChanged?(player, sticks.leftX, sticks.leftY, sticks.rightX, sticks.rightY)
     }
 
@@ -804,6 +920,7 @@ final class ControllerManager: ObservableObject {
         let previousCount = pads.count
         let previousGamepad = firstGamepad?.id
         let wasKeyboard = (id == keyboardPadID)
+        reportUnmappedIfNeeded(id)
         pads.remove(at: index)
         if wasKeyboard { keyboardPadID = nil }
         hardware[id]?.playerIndex = .indexUnset
@@ -879,11 +996,20 @@ final class ControllerManager: ObservableObject {
         lastKeyboardMask = keyboardMask
         guard let id = keyboardPadID, let player = pads.firstIndex(where: { $0.id == id }) else {
             emitButtons(player: 0)
+            // A 3DS with no pad: the keyboard's cross is player 1's circle pad too.
+            // With a pad that has no stick (a FlipPad) its arrows are folded into
+            // that pad's cross, which drives the circle pad (`emitSticks`); they
+            // never reached it, the stick being sent on the pad's own input only
+            // (audit, 2026-10-30).
+            if activeSystem == .n3ds, pads.isEmpty { emitSticks(player: 0, fromKeyboard: true) }
+            if activeSystem == .n3ds, playerOneIsStickless { emitSticks(player: 0) }
             return
         }
         if fresh != 0 { padActivity.send(id) }
         if player == 0 { applyPlayerOneRoles(Self.snapshot(fromMask: keyboardMask)) }
         emitButtons(player: player)
+        // The 3DS takes its circle pad from the keyboard's cross (`emitSticks`).
+        if activeSystem == .n3ds { emitSticks(player: player) }
     }
 
     /// The pad a GBAInput mask describes, for the roles player 1 plays with
@@ -927,6 +1053,14 @@ final class ControllerManager: ObservableObject {
             removePad(id)
         } else {
             emitButtons(player: 0)
+            // A 3DS with no pad drives its circle pad from the keyboard's
+            // arrows (`keyboardInputChanged`): released too, or an arrow held
+            // as the keyboard left kept the character walking (audit,
+            // 2026-10-29).
+            if activeSystem == .n3ds, pads.isEmpty { emitSticks(player: 0, fromKeyboard: true) }
+            // And folded into a stick-less pad's cross: its circle pad stayed
+            // pushed by an arrow held as the keyboard left (audit, 2026-10-30).
+            if activeSystem == .n3ds, playerOneIsStickless { emitSticks(player: 0) }
         }
         updateTouchControlsMode()
         onKeyboardChanged?()

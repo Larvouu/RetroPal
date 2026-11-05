@@ -1,0 +1,295 @@
+Keep the video side across a state load of the running title
+
+A state load (System::serialize) shut the whole system down and built it
+again, the GPU and its renderer included: on an iPhone that was most of a
+4.3 s load (every cached pipeline built again, the driver pipeline cache read
+again), and on the host 290 of a 300 ms rewind restore was that teardown.
+
+A state is only ever loaded into its own title (LoadStateBuffer refuses
+another's), and the renderer depends on the system only through the memory
+system, the PICA core the GPU owns, the custom texture manager and the
+timing. So with System::SetKeepVideoAcrossLoad, a deserializing Shutdown keeps
+the GPU, the custom texture manager and the memory system (whose bookkeeping
+MemorySystem::ResetForLoad returns to a new one's; the memories' bytes are
+all written by the load), Init builds everything else as before and gives the
+kept GPU the new timing (GPU::KeepAcrossLoad: its vblank event registered there
+by name before the state's queue is read, never scheduled twice), and once the
+state's PICA is loaded every register, shader setup and table is marked dirty
+(GPU::MarkAllDirtyAfterLoad, what RecreateRenderer does). retro_unserialize and
+the rewind restore set it.
+
+Measured on the host (Tools/3ds-bench rewind): restore 290 -> 101 ms
+(Craftus Reloaded), 450-500 -> 100 ms (Majora's Mask 3D). Every frame after a
+load, picture and sound, identical with the video kept and rebuilt on Craftus
+(0 of 300, for the full state and for the rewind snapshot); on Majora's Mask
+3D with the 3DS clock fixed (a probe build), the sound identical kept and
+rebuilt (six runs gave two sequences, each produced by both modes: the
+variation is the host's, not the change's).
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -736,9 +736,15 @@
+     }
+ 
+     std::vector<u8> buffer(static_cast<const u8*>(data), static_cast<const u8*>(data) + size);
++    // A state is only ever loaded into its own title (LoadStateBuffer refuses
++    // another's): the video side stays (System::SetKeepVideoAcrossLoad).
++    system.SetKeepVideoAcrossLoad(true);
+     try {
+-        return system.LoadStateBuffer(std::move(buffer));
++        const bool loaded = system.LoadStateBuffer(std::move(buffer));
++        system.SetKeepVideoAcrossLoad(false);
++        return loaded;
+     } catch (const std::exception& e) {
++        system.SetKeepVideoAcrossLoad(false);
+         LOG_ERROR(Frontend, "Error loading state: {}", e.what());
+         return false;
+     }
+@@ -795,7 +801,9 @@
+     try {
+         Memory::MemorySystem::SetRegionsOutsideArchive(memory_outside);
+         Memory::PageTable::SetCompactArchive(memory_outside);
++        system.SetKeepVideoAcrossLoad(true);
+         const bool loaded = system.LoadStateRaw({static_cast<const u8*>(data), size});
++        system.SetKeepVideoAcrossLoad(false);
+         Memory::MemorySystem::SetRegionsOutsideArchive(false);
+         Memory::PageTable::SetCompactArchive(false);
+         // The load built a new memory system: tell the frontend where it is.
+@@ -809,6 +817,7 @@
+     } catch (const std::exception& e) {
+         Memory::MemorySystem::SetRegionsOutsideArchive(false);
+         Memory::PageTable::SetCompactArchive(false);
++        system.SetKeepVideoAcrossLoad(false);
+         LOG_ERROR(Frontend, "Error restoring a rewind state: {}", e.what());
+         return false;
+     }
+--- a/src/core/core.cpp
++++ b/src/core/core.cpp
+@@ -604,7 +604,9 @@
+ 
+     LOG_DEBUG(HW_Memory, "initialized OK");
+ 
+-    memory = std::make_unique<Memory::MemorySystem>(*this);
++    if (!video_kept) {
++        memory = std::make_unique<Memory::MemorySystem>(*this);
++    }
+ 
+     timing = std::make_unique<Timing>(num_cores, Settings::values.cpu_clock_percentage.GetValue(),
+                                       movie.GetOverrideBaseTicks());
+@@ -673,10 +675,13 @@
+         registered_image_interface = std::make_shared<Frontend::ImageInterface>();
+     }
+ 
+-    custom_tex_manager = std::make_unique<VideoCore::CustomTexManager>(*this);
+-
+     auto gsp = service_manager->GetService<Service::GSP::GSP_GPU>("gsp::Gpu");
+-    gpu = std::make_unique<VideoCore::GPU>(*this, emu_window, secondary_window);
++    if (video_kept) {
++        gpu->KeepAcrossLoad();
++    } else {
++        custom_tex_manager = std::make_unique<VideoCore::CustomTexManager>(*this);
++        gpu = std::make_unique<VideoCore::GPU>(*this, emu_window, secondary_window);
++    }
+     gpu->SetInterruptHandler([gsp](Service::GSP::InterruptId interrupt_id, u64 wait_delay_ns) {
+         gsp->SignalInterrupt(interrupt_id, wait_delay_ns);
+     });
+@@ -801,7 +806,13 @@
+     // Shutdown emulation session
+     is_powered_on = false;
+ 
+-    gpu.reset();
++    // A state load of the running title keeps the video side: the GPU, its
++    // renderer (pipelines, caches, buffers) and the memory system they hold
++    // (SetKeepVideoAcrossLoad). Everything else is built again as before.
++    const bool keep_video = is_deserializing && keep_video_across_load && gpu && memory;
++    if (!keep_video) {
++        gpu.reset();
++    }
+     if (!is_deserializing) {
+         lle_modules.clear();
+ #ifdef ENABLE_GDBSTUB
+@@ -810,7 +821,9 @@
+         perf_stats.reset();
+         app_loader.reset();
+     }
+-    custom_tex_manager.reset();
++    if (!keep_video) {
++        custom_tex_manager.reset();
++    }
+     archive_manager.reset();
+     service_manager.reset();
+     dsp_core.reset();
+@@ -828,7 +841,12 @@
+         room_member->SendGameInfo(game_info);
+     }
+ 
+-    memory.reset();
++    if (keep_video) {
++        memory->ResetForLoad();
++    } else {
++        memory.reset();
++    }
++    video_kept = keep_video;
+ 
+     SetInfoLEDColor({});
+ 
+@@ -1014,6 +1032,11 @@
+     ar&* memory.get();
+     ar&* kernel.get();
+     ar&* gpu.get();
++    if (Archive::is_loading::value && video_kept) {
++        // The kept GPU received the state's PICA: everything is new to it.
++        gpu->MarkAllDirtyAfterLoad();
++        video_kept = false;
++    }
+     ar & movie;
+ 
+     // This needs to be set from somewhere - might as well be here!
+--- a/src/core/core.h
++++ b/src/core/core.h
+@@ -157,6 +157,14 @@
+     /// Shutdown the emulated system.
+     void Shutdown(bool is_deserializing = false);
+ 
++    /// While set, a state load keeps the GPU, its renderer and the memory system
++    /// instead of building them again (the pipelines, the caches and the
++    /// buffers the renderer made stay). Only for a load of the running title:
++    /// the frontend sets it when it knows the state is this game's.
++    void SetKeepVideoAcrossLoad(bool keep) {
++        keep_video_across_load = keep;
++    }
++
+     /// Shutdown and then load again
+     void Reset();
+ 
+@@ -567,6 +575,11 @@
+     Signal current_signal;
+     u32 signal_param;
+ 
++    /// SetKeepVideoAcrossLoad, and whether the last Shutdown kept it (read by
++    /// the Init and the load that follow).
++    bool keep_video_across_load = false;
++    bool video_kept = false;
++
+     std::function<bool()> mic_permission_func;
+     bool mic_permission_granted = false;
+ 
+--- a/src/core/memory.cpp
++++ b/src/core/memory.cpp
+@@ -1326,4 +1326,11 @@
+     regions_outside_archive = outside;
+ }
+ 
++void MemorySystem::ResetForLoad() {
++    impl->current_page_table = nullptr;
++    impl->page_table_list.clear();
++    impl->cache_marker = {};
++    impl->plugin_fb_address = 0;
++}
++
+ } // namespace Memory
+--- a/src/core/memory.h
++++ b/src/core/memory.h
+@@ -784,6 +784,12 @@
+     /// state is taken and loaded without them (the caller holds them).
+     static void SetRegionsOutsideArchive(bool outside);
+ 
++    /// Back to a new memory system's bookkeeping (no page table registered or
++    /// current, nothing marked cached), for a state load that keeps this object
++    /// (System::Shutdown with the video kept). The memories' bytes stay: the
++    /// load writes every one of them.
++    void ResetForLoad();
++
+     void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode);
+ 
+     /// Returns a reference to the framebuffer address of the currently loaded 3GX plugin.
+--- a/src/video_core/gpu.cpp
++++ b/src/video_core/gpu.cpp
+@@ -90,10 +90,10 @@
+          Frontend::EmuWindow* secondary_window)
+     : right_eye_disabler{std::make_unique<RightEyeDisabler>(*this)},
+       impl{std::make_unique<Impl>(system, emu_window, secondary_window)} {
+-    impl->vblank_event = impl->timing.RegisterEvent(
++    impl->vblank_event = impl->timing->RegisterEvent(
+         "GPU::VBlankCallback",
+         [this](uintptr_t user_data, s64 cycles_late) { VBlankCallback(user_data, cycles_late); });
+-    impl->timing.ScheduleEvent(FRAME_TICKS, impl->vblank_event);
++    impl->timing->ScheduleEvent(FRAME_TICKS, impl->vblank_event);
+ 
+     // Bind the rasterizer to the PICA GPU
+     impl->pica.BindRasterizer(impl->rasterizer);
+@@ -494,7 +494,7 @@
+     impl->renderer->SwapBuffers();
+ 
+     // Reschedule recurrent event
+-    impl->timing.ScheduleEvent(FRAME_TICKS - cycles_late, impl->vblank_event);
++    impl->timing->ScheduleEvent(FRAME_TICKS - cycles_late, impl->vblank_event);
+ }
+ 
+ void GPU::RecreateRenderer(Frontend::EmuWindow& emu_window, Frontend::EmuWindow* secondary_window) {
+@@ -544,6 +544,24 @@
+     LOG_INFO(HW_GPU, "Renderer released for context destroy");
+ }
+ 
++void GPU::KeepAcrossLoad() {
++    impl->timing = &impl->system.CoreTiming();
++    impl->vblank_event = impl->timing->RegisterEvent(
++        "GPU::VBlankCallback",
++        [this](uintptr_t user_data, s64 cycles_late) { VBlankCallback(user_data, cycles_late); });
++}
++
++void GPU::MarkAllDirtyAfterLoad() {
++    impl->pica.dirty_regs.SetAllDirty();
++    impl->pica.vs_setup.uniforms_dirty = true;
++    impl->pica.vs_setup.cached_shader = nullptr;
++    impl->pica.gs_setup.uniforms_dirty = true;
++    impl->pica.gs_setup.cached_shader = nullptr;
++    impl->pica.lighting.lut_dirty = impl->pica.lighting.LutAllDirty;
++    impl->pica.fog.lut_dirty = true;
++    impl->pica.proctex.table_dirty = impl->pica.proctex.TableAllDirty;
++}
++
+ template <class Archive>
+ void GPU::serialize(Archive& ar, const u32 file_version) {
+     ar & impl->pica;
+--- a/src/video_core/gpu.h
++++ b/src/video_core/gpu.h
+@@ -99,6 +99,16 @@
+     /// Releases the renderer (for GL context destroy in libretro)
+     void ReleaseRenderer();
+ 
++    /// A state load that keeps this GPU, its renderer and everything the
++    /// renderer built (System::Shutdown with the video kept): after the system
++    /// is built again, the GPU takes the new timing and registers its vblank
++    /// event there without scheduling it (the state's own queue holds it).
++    void KeepAcrossLoad();
++
++    /// After such a load: everything the state put back is marked dirty, as a
++    /// renderer made new would see it (as RecreateRenderer does).
++    void MarkAllDirtyAfterLoad();
++
+ private:
+     void SubmitCmdList(u32 index);
+ 
+--- a/src/video_core/gpu_impl.h
++++ b/src/video_core/gpu_impl.h
+@@ -24,7 +24,9 @@
+ 
+ namespace VideoCore {
+ struct GPU::Impl {
+-    Core::Timing& timing;
++    // A pointer, not a reference: a state load that keeps the GPU rebinds it
++    // to the new timing (GPU::KeepAcrossLoad).
++    Core::Timing* timing;
+     Core::System& system;
+     Memory::MemorySystem& memory;
+     std::shared_ptr<Pica::DebugContext> debug_context;
+@@ -38,7 +40,7 @@
+ 
+     explicit Impl(Core::System& system, Frontend::EmuWindow& emu_window,
+                   Frontend::EmuWindow* secondary_window)
+-        : timing{system.CoreTiming()}, system{system}, memory{system.Memory()},
++        : timing{&system.CoreTiming()}, system{system}, memory{system.Memory()},
+           debug_context{Pica::g_debug_context}, pica{memory, debug_context},
+           renderer{VideoCore::CreateRenderer(emu_window, secondary_window, pica, system)},
+           rasterizer{renderer->Rasterizer()},

@@ -38,6 +38,17 @@ final class EmulationActivity: ObservableObject {
     }
 }
 
+/// The CRT's `screenCount` for the 3DS, in every drawing of it: upright as one
+/// picture, on its side or in a custom layout as two quads, on a TV, and in the
+/// Appearance preview. Each screen curves on its own, the lower one on its own
+/// 320 columns (`kScreensCTR` in Shaders.metal, same value; the selected filter
+/// on both screens, decided 2026-10-27). Upright and on the TV it was 1: one
+/// barrel across both screens, centred on the seam. Outside the view class so
+/// the offscreen renderer and the tests read it without the main actor.
+enum FilterScreens {
+    static let ctr: UInt32 = 3
+}
+
 final class EmulatorMetalView: MTKView, MTKViewDelegate {
     private var commandQueue: MTLCommandQueue?
     /// Boot pipelines: the trivial nearest fragment, compiled synchronously
@@ -68,6 +79,42 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     private var isDualScreen = false
     /// When true, NDS screens are rendered side-by-side (landscape mode)
     var ndsSideBySide = false { didSet { if isDualScreen { rebuildNDSVertices() } } }
+
+    /// The 3DS on its side (asked 2026-10-20, the DS's model): its one composed
+    /// picture (`CTRBridge`: the 400x240 top screen over the 320x240 bottom one,
+    /// centred) drawn as two quads side by side, top screen left, bottom
+    /// (touch) screen right, at one scale. Off, the picture is drawn whole.
+    var ctrSideBySide = false {
+        didSet { if ctrSideBySide != oldValue { rebuildCTRVertices() } }
+    }
+    /// The quads' buffer while `ctrSideBySide` is on or `ctrCustomScreens` is set.
+    private var ctrVertexBuffer: MTLBuffer?
+
+    /// The 3DS's two screens placed by a custom layout, as the DS's are
+    /// (`ndsCustomScreens`): each a rect in this view's own space with its
+    /// opacity, cut from the one picture. Wins over `ctrSideBySide`; the view
+    /// then clears to transparent outside the quads. nil = the default drawing.
+    var ctrCustomScreens: (top: CustomScreenQuad, bottom: CustomScreenQuad)? {
+        didSet {
+            clearColor = (ctrCustomScreens != nil || ndsCustomScreens != nil)
+                ? MTLClearColorMake(0, 0, 0, 0)
+                : MTLClearColorMake(0, 0, 0, 1)
+            rebuildCTRVertices()
+        }
+    }
+
+    /// The screens drawn as quads: the DS always, the 3DS on its side or in a custom layout.
+    private var drawsScreenQuads: Bool { isDualScreen || ctrSideBySide || ctrCustomScreens != nil }
+
+    /// The 3DS is running (set at `attach`).
+    private var isCTR = false
+
+    /// `FilterUniforms.screenCount` for what is being drawn.
+    private func filterScreenCount(quads: Bool) -> UInt32 {
+        if isCTR { return FilterScreens.ctr }
+        return quads ? 2 : 1
+    }
+    private var screenQuadBuffer: MTLBuffer? { isDualScreen ? ndsVertexBuffer : ctrVertexBuffer }
     var speedMultiplier: Double = 1.0 {
         // A reading taken across a speed change would compare frames run at
         // one speed with the target of another.
@@ -193,6 +240,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     private var timeAccumulator: CFTimeInterval = 0
     private var lastDrawTime: CFTimeInterval = 0
 
+    /// The 3DS's picture last uploaded (`EmulatorSession.withPublishedFrame`).
+    private var publishedGeneration = -1
+
     // NDS screen split ratios
     private static let ndsGapRatio: Float = 0.01
 
@@ -215,7 +265,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     /// clear background.
     var ndsCustomScreens: (top: CustomScreenQuad, bottom: CustomScreenQuad)? {
         didSet {
-            clearColor = ndsCustomScreens != nil
+            clearColor = (ndsCustomScreens != nil || ctrCustomScreens != nil)
                 ? MTLClearColorMake(0, 0, 0, 0)
                 : MTLClearColorMake(0, 0, 0, 1)
             if isDualScreen { rebuildNDSVertices() }
@@ -338,6 +388,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         sittingWallTime = 0
         sittingEmulatedTime = 0
         isDualScreen = session.hasTouchScreen
+        isCTR = session.isCTR
 
         guard let device = self.device else { return }
         // The core declares its own byte order. This used to read
@@ -375,12 +426,20 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         timeAccumulator = duration
         presenter?.setAllowed(true)
         startClock(fps: duration > 0 ? 1.0 / duration : 60)
+        if let session, session.runsFramesOffMain {
+            session.startEmulationLoop(frameDuration: duration, speed: speedMultiplier,
+                                       skipAudio: session.isAudioMuted)
+        }
     }
 
     func stopRendering() {
         // First, so no presentation starts once the game is paused or the app
         // is on its way to the background, where the GPU may not be used.
         presenter?.setAllowed(false)
+        // The 3DS's loop stops first, its frame in progress finished: every
+        // caller pauses before a save, a state load or a shutdown, which must
+        // never meet a frame.
+        session?.stopEmulationLoop()
         isEmulatorRunning = false
         EmulationActivity.shared.setRunning(false)
         isPaused = true
@@ -523,7 +582,7 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             usesFilterUniforms: filtered != nil,
             uniforms: FilterUniforms(
                 filterType: videoFilter.metalIndex,
-                screenCount: UInt32(isDualScreen ? 2 : 1),
+                screenCount: filterScreenCount(quads: isDualScreen),
                 gameSize: SIMD2(Float(session.textureSize.width), Float(session.textureSize.height)),
                 uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1)),
             uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1))
@@ -655,6 +714,48 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         }
     }
 
+    /// The 3DS's two screens side by side in a view of the given size, cut from
+    /// its composed picture: the top screen (all 400 columns of the upper half)
+    /// left, the bottom screen (columns 40 to 360 of the lower half) right, at
+    /// one scale, the pair centred and touching. Also what places the touch
+    /// overlay (`ctrSideBySideRects`).
+    static func ctrScreenVertices(viewW: Float, viewH: Float,
+                                  custom: (top: CustomScreenQuad, bottom: CustomScreenQuad)? = nil) -> [ScreenVertex] {
+        typealias V = ScreenVertex
+        let pair = ctrSideBySideRects(in: CGSize(width: CGFloat(viewW), height: CGFloat(viewH)))
+        let top = custom?.top ?? CustomScreenQuad(rect: pair.top, alpha: 1)
+        let bottom = custom?.bottom ?? CustomScreenQuad(rect: pair.bottom, alpha: 1)
+        func quad(_ q: CustomScreenQuad, u0: Float, u1: Float, v0: Float, v1: Float) -> [V] {
+            let r = q.rect, a = Float(q.alpha)
+            let l = Float(r.minX) / viewW * 2 - 1, rr = Float(r.maxX) / viewW * 2 - 1
+            let t = 1 - Float(r.minY) / viewH * 2, b = 1 - Float(r.maxY) / viewH * 2
+            return [
+                V(px: l, py: b, u: u0, v: v1, a: a), V(px: rr, py: b, u: u1, v: v1, a: a), V(px: l, py: t, u: u0, v: v0, a: a),
+                V(px: l, py: t, u: u0, v: v0, a: a), V(px: rr, py: b, u: u1, v: v1, a: a), V(px: rr, py: t, u: u1, v: v0, a: a),
+            ]
+        }
+        return quad(top, u0: 0, u1: 1, v0: 0, v1: 0.5)
+            + quad(bottom, u0: 40.0 / 400, u1: 360.0 / 400, v0: 0.5, v1: 1)
+    }
+
+    /// The two rects of `ctrScreenVertices`, in the view's own points.
+    static func ctrSideBySideRects(in size: CGSize) -> (top: CGRect, bottom: CGRect) {
+        EmulatorLayoutGeometry.ctrSideBySideRects(in: size)
+    }
+
+    private func rebuildCTRVertices() {
+        guard ctrSideBySide || ctrCustomScreens != nil, let device = self.device else {
+            ctrVertexBuffer = nil; return
+        }
+        let vertices = EmulatorMetalView.ctrScreenVertices(
+            viewW: Float(bounds.width > 0 ? bounds.width : 720),
+            viewH: Float(bounds.height > 0 ? bounds.height : 240),
+            custom: ctrCustomScreens)
+        ctrVertexBuffer = device.makeBuffer(bytes: vertices,
+                                            length: MemoryLayout<ScreenVertex>.stride * vertices.count,
+                                            options: .storageModeShared)
+    }
+
     /// Build vertex data for two quads rendering both NDS screens.
     /// Supports two modes: stacked (portrait) and side-by-side (landscape).
     /// Each screen maintains its native 4:3 aspect ratio.
@@ -677,6 +778,9 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         if isDualScreen {
             rebuildNDSVertices()
+        }
+        if ctrSideBySide || ctrCustomScreens != nil {
+            rebuildCTRVertices()
         }
     }
 
@@ -746,15 +850,26 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         // Skip the audio drain only while muted (saves CPU — notably at high
         // speeds, which auto-mute by default). When the user keeps sound on, we
         // drain at every speed so fast-forward plays its (sped-up) audio.
-        session.skipAudio = session.isAudioMuted
+        let skipAudio = session.isAudioMuted
 
         var didRunFrame = false
         var framesThisDraw = 0
-        while timeAccumulator >= effectiveDuration && framesThisDraw < maxFramesPerDraw {
-            session.runFrame()
-            timeAccumulator -= effectiveDuration
-            didRunFrame = true
-            framesThisDraw += 1
+        if session.runsFramesOffMain {
+            // The 3DS: its own loop runs the frames (`EmulatorSession`'s
+            // emulation loop); this tick only says what it ran and uploads the
+            // picture it last finished, below. It never waits for the loop.
+            session.updateEmulationLoop(speed: speedMultiplier, skipAudio: skipAudio)
+            let progress = session.takeLoopProgress()
+            framesThisDraw = progress.frames
+            timeAccumulator = 0
+        } else {
+            session.skipAudio = skipAudio
+            while timeAccumulator >= effectiveDuration && framesThisDraw < maxFramesPerDraw {
+                session.runFrame()
+                timeAccumulator -= effectiveDuration
+                didRunFrame = true
+                framesThisDraw += 1
+            }
         }
         if speedMultiplier == 1 {
             sittingWallTime += elapsed
@@ -771,6 +886,28 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         }
 
         guard textures.count == Self.textureCount else { return }
+
+        // The 3DS: the loop's latest picture, a copy it published, uploaded
+        // if it is new. The core's own buffer is never read here.
+        if session.runsFramesOffMain {
+            let inUse = presenter?.texturesInUse() ?? [:]
+            if let target = (0..<textures.count).first(where: {
+                $0 != latestTextureIndex && inUse[$0, default: 0] == 0
+            }) {
+                let texture = textures[target]
+                let maxHeight = session.textureSize.height
+                if let generation = session.withPublishedFrame(newerThan: publishedGeneration, { pixels, w, h, stride in
+                    texture.replace(region: MTLRegionMake2D(0, 0, min(w, stride), min(h, maxHeight)),
+                                    mipmapLevel: 0, withBytes: pixels, bytesPerRow: stride * 4)
+                }) {
+                    publishedGeneration = generation
+                    latestTextureIndex = target
+                    clipRecorder?.captureIfDue({ session.createScreenshotImage() },
+                                               pixelGrid: { session.filterPixelGrid(for: $0) })
+                }
+            }
+            didRunFrame = false
+        }
 
         // One wait per DRAWN frame, for the core that needs one (see EmulatorBridge.h). It sits
         // here rather than inside runFrame because the loop above can run up to 8 emulated frames
@@ -830,10 +967,10 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
         guard let presenter else { return }
         let wantsFilter = videoFilter != .none
         let filtered = wantsFilter
-            ? (isDualScreen ? filteredNDSPipelineState : filteredPipelineState)
+            ? (drawsScreenQuads ? filteredNDSPipelineState : filteredPipelineState)
             : nil
-        guard let pipeline = filtered ?? (isDualScreen ? ndsPipelineState : pipelineState) else { return }
-        if isDualScreen && ndsVertexBuffer == nil { return }
+        guard let pipeline = filtered ?? (drawsScreenQuads ? ndsPipelineState : pipelineState) else { return }
+        if drawsScreenQuads && screenQuadBuffer == nil { return }
         presenter.submit(FramePresenter.Frame(
             texture: textures[latestTextureIndex],
             textureIndex: latestTextureIndex,
@@ -841,11 +978,11 @@ final class EmulatorMetalView: MTKView, MTKViewDelegate {
             usesFilterUniforms: filtered != nil,
             uniforms: FilterUniforms(
                 filterType: videoFilter.metalIndex,
-                screenCount: UInt32(isDualScreen ? 2 : 1),
+                screenCount: filterScreenCount(quads: drawsScreenQuads),
                 gameSize: SIMD2(Float(session.textureSize.width), Float(session.textureSize.height)),
                 uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1)),
             uvScale: SIMD2(session.textureUVScale.0, session.textureUVScale.1),
-            ndsVertexBuffer: isDualScreen ? ndsVertexBuffer : nil,
+            ndsVertexBuffer: drawsScreenQuads ? screenQuadBuffer : nil,
             clearColor: clearColor))
         #if DEBUG
         MainThreadProbe.drawableLongest = max(MainThreadProbe.drawableLongest,

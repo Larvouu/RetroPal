@@ -40,7 +40,7 @@ struct SettingsView: View {
     /// same positions, on the ground with its rows on glass.
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
     private var uprightLook: Bool {
-        UprightLook.isActive(isLandscape: isLandscape, store: themeStore)
+        UprightLook.isActive(isLandscape: isLandscape)
     }
     /// In landscape, and upright in a look, every section's rows sit on glass
     /// over the moving ground; nil keeps the system row background on the
@@ -50,6 +50,8 @@ struct SettingsView: View {
         isLandscape || uprightLook ? Color.white.opacity(LandscapeChrome.cardFill) : nil
     }
     @State private var showRALogin = false
+    /// The supported formats, opened from the "Add a game" guide.
+    @State private var showRomGuideFormats = false
     @State private var showWhatsNew = false
     @State private var showRomGuide = false
     @State private var showSaveGuide = false
@@ -84,6 +86,8 @@ struct SettingsView: View {
     #endif
     #if DEBUG
     @AppStorage("debugForceEmptyState") private var debugForceEmptyState: Bool = false
+    /// The Retro story's year in review before December (`RetroStoryModel`).
+    @AppStorage("debugShowYearInReview") private var debugShowYearInReview: Bool = false
     /// Store screenshots: a fake library of fictional games with
     /// bundled covers stands in for the real one, both ways up, and nothing
     /// plays (2026-09-10, see `LibraryPresentation`). The language beside it
@@ -91,6 +95,10 @@ struct SettingsView: View {
     /// its bars and the demo titles all read in the chosen language.
     @AppStorage(LibraryPresentation.key) private var debugPresentationMode: Bool = false
     @AppStorage(LibraryPresentation.languageKey) private var debugPresentationLanguage: String = ""
+    /// The store-screenshot game page's console and look (2026-10-31),
+    /// remembered so the next screenshot starts where the last one was.
+    @AppStorage("debugScreenshotConsole") private var debugScreenshotConsole: String = PreviewSystem.gba.rawValue
+    @AppStorage(PreviewLook.storageKey) private var debugScreenshotLook: PreviewLook = .nostalgia
     #endif
     #if DEBUG
     @State private var showClipHintPreview = false
@@ -277,6 +285,9 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE let _ = LaunchProbe.mark("SettingsView.body")
+        // LAUNCHPROBE #endif
         Group {
             if isLandscape {
                 landscapeBody
@@ -358,6 +369,9 @@ struct SettingsView: View {
                 .presentationDetents([.large])
         }
         .sheet(isPresented: $showRomGuide) {
+            // The formats live on their own page since 2026-10-31, under the
+            // first step, as on the welcome; the footer that listed them (and
+            // repeated the legal line the intro already carries) is gone.
             HowToSheet(
                 title: NSLocalizedString("guide.importRom.title", comment: ""),
                 intro: NSLocalizedString("guide.importRom.intro", comment: ""),
@@ -367,8 +381,12 @@ struct SettingsView: View {
                     NSLocalizedString("guide.importRom.step3", comment: ""),
                     NSLocalizedString("guide.importRom.step4", comment: "")
                 ],
-                footer: NSLocalizedString("guide.importRom.footer", comment: "")
+                footer: nil,
+                linkAfterStep: 0,
+                linkTitle: NSLocalizedString("formats.link", comment: ""),
+                onLink: { showRomGuideFormats = true }
             )
+            .sheet(isPresented: $showRomGuideFormats) { GameFormatsSheet() }
         }
         .sheet(isPresented: $showSaveGuide) {
             HowToSheet(
@@ -948,6 +966,16 @@ struct SettingsView: View {
                     WhatsNew.debugResetSeen()
                 }
                 Toggle("Force empty-state onboarding", isOn: $debugForceEmptyState)
+                Toggle("Show this year's review now (Retro story)", isOn: $debugShowYearInReview)
+                    .onChange(of: debugShowYearInReview) { on in
+                        // Turning it on shows the library's spotlight again too.
+                        if on { YearSpotlight.debugReset() }
+                        RetroStoryModel.shared.recompute()
+                    }
+                Button("Show the year's spotlight in the library again") {
+                    YearSpotlight.debugReset()
+                    RetroStoryModel.shared.recompute()
+                }
                 Toggle("Presentation mode (a fake library of demo games, nothing plays)", isOn: $debugPresentationMode)
                 Picker("Presentation language (relaunches the app)", selection: $debugPresentationLanguage) {
                     Text("System").tag("")
@@ -985,10 +1013,10 @@ struct SettingsView: View {
                     Text("DS lid closed (SE / 14 Pro / Pro Max / 3 iPads)")
                 }
                 NavigationLink(destination: BadgeGalleryView()) {
-                    Text("Screenshot badges")
+                    Text("Badges (Pro crown, Retro story timeline)")
                 }
-                NavigationLink(destination: StatsCardPreviewGallery()) {
-                    Text("Stats card preview (SE / Pro Max)")
+                NavigationLink(destination: StoryBadgeUnlockPreview()) {
+                    Text("Retro story badge unlock (banner + sound)")
                 }
                 NavigationLink(destination: StatsCardLandscapePreviewGallery()) {
                     Text("Stats card LANDSCAPE (SE / Pro Max)")
@@ -1018,6 +1046,25 @@ struct SettingsView: View {
                 }
                 Button("RA overview card (30 games, 4 completed)") {
                     showRAOverviewCardPreview = true
+                }
+                // Store screenshots on the device itself, iPhone or iPad, with
+                // no game on it (2026-10-31; at the foot of Debug since the
+                // same day, it serves both): the chosen console in game, full
+                // screen, its screen black. MENU closes it.
+                Picker("Screenshot console", selection: $debugScreenshotConsole) {
+                    ForEach(PreviewSystem.galleryOrder, id: \.rawValue) { system in
+                        Text(verbatim: system.consoleName).tag(system.rawValue)
+                    }
+                }
+                Picker("Screenshot look", selection: $debugScreenshotLook) {
+                    ForEach(PreviewLook.allCases) { look in
+                        Text(look.title).tag(look)
+                    }
+                }
+                Button("Open the game page for a screenshot (MENU closes it)") {
+                    StoreScreenshotGameController.present(
+                        system: PreviewSystem(rawValue: debugScreenshotConsole) ?? .gba,
+                        look: debugScreenshotLook)
                 }
             }
                 .listRowBackground(landscapeRowBackground)

@@ -97,9 +97,22 @@ enum PresetLayoutResolver {
     /// symmetrically at the stored center, so materializing a component never
     /// jumps); the CENTER shifts encode default-position pinning and apply to
     /// fallbacks only. Legacy presets keep the raw sizes 1.0 rendered them with.
+    ///
+    /// `viewSize` / `safeInsets`: the device the size is for. Only the 3DS on
+    /// its side reads them: its page DRAWS the four shoulder bars as tall as
+    /// half their screen and the circle pad grown to its band
+    /// (`ControlLayoutDefaults.n3dsLandscapeDrawnSize`, applied by the game's
+    /// `drawnSize`), sizes that depend on the device, not on `k` alone. Without
+    /// them a preset seeded on its side, and the editor, opened with the circle
+    /// pad and the bars at the table's size (stick ~90 against ~126 drawn on a
+    /// 14 Pro), found at the 3DS checklist audit 2026-10-27. The game draws them
+    /// about the control's centre, so no centre shift goes with it. Nil (every
+    /// other caller) leaves the size as before.
     static func polishedSize(_ size: CGSize, element: ControlElement,
                              system: PresetSystem, isLandscape: Bool,
-                             deviceScale k: CGFloat) -> CGSize {
+                             deviceScale k: CGFloat,
+                             viewSize: CGSize? = nil,
+                             safeInsets: UIEdgeInsets = .zero) -> CGSize {
         var size = size
         switch system {
         case .gba where element == .btnSelect || element == .btnStart:
@@ -113,6 +126,12 @@ enum PresetLayoutResolver {
                                       : ControlElement.btnSelect.defaultSize
                 size = CGSize(width: ref.width * k, height: ref.height * k)
             }
+        case .n3ds where isLandscape:
+            guard let viewSize else { break }
+            size = ControlLayoutDefaults.n3dsLandscapeDrawnSize(
+                element, size: size, deviceSize: viewSize, scale: k,
+                safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right,
+                family: LayoutFamily.of(viewSize))
         default:
             break
         }
@@ -122,11 +141,14 @@ enum PresetLayoutResolver {
     /// The base (unscaled) size of a v2 preset component on this device: the
     /// engine size with the default-layout polish folded in.
     static func presetBaseSize(element: ControlElement, system: PresetSystem,
-                               isLandscape: Bool, deviceScale k: CGFloat) -> CGSize {
+                               isLandscape: Bool, deviceScale k: CGFloat,
+                               viewSize: CGSize? = nil,
+                               safeInsets: UIEdgeInsets = .zero) -> CGSize {
         polishedSize(
             EmulatorLayoutGeometry.buttonSize(element, system: system,
                                               isLandscape: isLandscape, deviceScale: k),
-            element: element, system: system, isLandscape: isLandscape, deviceScale: k)
+            element: element, system: system, isLandscape: isLandscape, deviceScale: k,
+            viewSize: viewSize, safeInsets: safeInsets)
     }
 
     /// The polish's center shift for a DEFAULT-positioned component (the wide
@@ -163,7 +185,7 @@ enum PresetLayoutResolver {
                 default: return 0
                 }
             }
-        case .snes, .ps1, .n64, .gbc, .nes, .md, .sms, .gg, .psp:
+        case .snes, .ps1, .n64, .gbc, .nes, .md, .sms, .gg, .psp, .n3ds:
             // NOTHING, and the two that used to nudge here were wrong to.
             //
             // This function is not a place to improve a layout. It is the MIRROR of the
@@ -391,7 +413,8 @@ enum PresetLayoutResolver {
                     // base size carries the default-layout polish, symmetric
                     // at the stored center.
                     let polishedBase = presetBaseSize(element: element, system: system,
-                                                      isLandscape: isLandscape, deviceScale: k)
+                                                      isLandscape: isLandscape, deviceScale: k,
+                                                      viewSize: viewSize, safeInsets: safeInsets)
                     let scaledSize = CGSize(width: polishedBase.width * scale,
                                             height: polishedBase.height * scale)
                     resolved = ResolvedControl(
@@ -479,11 +502,18 @@ enum PresetLayoutResolver {
             controllerConnected: controllerConnected, deviceScale: k)
         let controlsFrame = EmulatorLayoutGeometry.controlsFrame(
             deviceSize: viewSize, screenFrame: metalFrame,
-            hasTouchScreen: isNDS, isLandscape: isLandscape)
+            hasTouchScreen: isNDS, isLandscape: isLandscape, system: system)
 
         var screens: [ScreenComponent: CGRect] = [:]
         if isNDS {
             let (top, bottom) = ndsDefaultScreenRects(in: metalFrame, isLandscape: isLandscape)
+            screens[.top] = top
+            screens[.bottom] = bottom
+        } else if system == .n3ds {
+            // Where the game draws them in that frame, each at its own shape
+            // (5:3 over 4:3), so an untouched layout moves neither.
+            let (top, bottom) = EmulatorLayoutGeometry.ctrScreenRects(in: metalFrame,
+                                                                       sideBySide: isLandscape)
             screens[.top] = top
             screens[.bottom] = bottom
         } else {
@@ -494,7 +524,7 @@ enum PresetLayoutResolver {
             system: system, isLandscape: isLandscape,
             containerSize: controlsFrame.size, scale: k,
             safeLeftInset: safeInsets.left, safeRightInset: safeInsets.right,
-            family: LayoutFamily.of(viewSize))
+            family: LayoutFamily.of(viewSize), deviceSize: viewSize)
 
         var buttons: [ControlElement: (center: CGPoint, baseSize: CGSize)] = [:]
         for element in ControlElement.elements(for: system) {
@@ -515,7 +545,9 @@ enum PresetLayoutResolver {
                                               isLandscape: isLandscape, rawSize: size,
                                               deviceScale: k)
                 size = polishedSize(size, element: element, system: system,
-                                    isLandscape: isLandscape, deviceScale: k)
+                                    isLandscape: isLandscape, deviceScale: k,
+                                    viewSize: controllerConnected ? nil : viewSize,
+                                    safeInsets: safeInsets)
             }
             // With a controller on its side MENU leaves the full-height picture
             // for the right gutter, exactly as the game renders it
@@ -605,7 +637,8 @@ enum PresetLayoutResolver {
             // the stored values are already clean and resolve idempotently.
             let scale = clamp(stored.scale ?? preset.scale, minControlScale, maxControlScale)
             let v2Base = presetBaseSize(element: element, system: system,
-                                        isLandscape: isLandscape, deviceScale: k)
+                                        isLandscape: isLandscape, deviceScale: k,
+                                        viewSize: viewSize, safeInsets: safeInsets)
             let viewCenter = clampedCenter(
                 CGPoint(x: defaults.controlsFrame.minX + adj.center.x,
                         y: defaults.controlsFrame.minY + adj.center.y),
@@ -660,6 +693,10 @@ enum PresetLayoutResolver {
         // The PSP's 480x272, square pixels, as the screen was. Matches
         // `kPSPDisplayAspect` in PSPBridge, and if one moves they both move.
         case .psp: return 480.0 / 272.0
+        // The 3DS's two screens as the core composes them (phase 1): the 400x240
+        // top over the 320x240 bottom, centred. Matches `CTRPictureWidth` /
+        // `CTRPictureHeight` in CTRBridge, and if one moves they both move.
+        case .n3ds: return 400.0 / 480.0
         }
     }
 

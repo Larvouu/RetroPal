@@ -47,6 +47,7 @@ struct EngineAndLegalCoverageTests {
         "Mupen64Plus-Next": "mupen",
         "BlastEm": "blastem",
         "PPSSPP": "ppsspp",
+        "Azahar": "azahar",
     ]
 
     /// Engine name → its folder of build-time patches, `Vendor/<dir>/patches`.
@@ -58,11 +59,12 @@ struct EngineAndLegalCoverageTests {
         "Mupen64Plus-Next": "n64-ios",
         "BlastEm": "blastem-ios",
         "PPSSPP": "ppsspp-ios",
+        "Azahar": "azahar-ios",
     ]
 
     /// Every console the app plays: the drawings' own list, one per console.
     private static let allConsoles: [PixelConsole] = [.gb, .gbc, .gba, .nds, .nes, .snes,
-                                                      .ps1, .n64, .md, .sms, .gg, .psp]
+                                                      .ps1, .n64, .md, .sms, .gg, .psp, .n3ds]
 
     // MARK: - The engines screen
 
@@ -150,6 +152,7 @@ struct EngineAndLegalCoverageTests {
         case .sms: return "Master System"
         case .gg: return "Game Gear"
         case .psp: return "PSP"
+        case .n3ds: return "Nintendo 3DS"
         default: return console.label
         }
     }

@@ -147,6 +147,7 @@ final class BoxArtManager {
         .sms: "Sega - Master System - Mark III",
         .gg: "Sega - Game Gear",
         .psp: "Sony - PlayStation Portable",
+        .n3ds: "Nintendo - Nintendo 3DS",
     ]
     /// Bound on HTTP tries per game: exact + serial + a couple of fuzzy
     /// runners-up. Beyond that, a wrong cover is likelier than a right one.
@@ -381,6 +382,7 @@ final class BoxArtManager {
     /// deleted games. Terminal games cost one file-existence check each.
     func sweep(games: [GameInput]) {
         resetVerdictsIfResolutionChanged()
+        reopenConsoleAddedToBoxArt()
         let keep = Set(games.map { $0.romHash })
         workQueue.async { [directory] in
             let files = (try? FileManager.default.contentsOfDirectory(at: directory,
@@ -521,6 +523,33 @@ final class BoxArtManager {
             try? FileManager.default.removeItem(at: file)
         }
         defaults.set(Self.resolutionVersion, forKey: Self.resolutionVersionKey)
+    }
+
+    /// The 3DS reached `systemDirectories` on 2026-10-20. A 3DS game imported
+    /// before was stamped "none", which is terminal: it would never get a
+    /// cover. Once, its 3DS games still at "none" go back to "placeholder",
+    /// and their "looked, none" markers go, so the next sweep resolves them.
+    /// Scoped to that console, where a `resolutionVersion` bump would have
+    /// re-downloaded every console's covers for nothing. Main thread.
+    private static let reopenedKey = "boxArtReopened.n3ds"
+    private func reopenConsoleAddedToBoxArt() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.reopenedKey) else { return }
+        let context = PersistenceController.shared.container.viewContext
+        let request = NSFetchRequest<NSManagedObject>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "systemType == %@", ROMSystemType.n3ds.rawValue)
+        if let games = try? context.fetch(request), !games.isEmpty {
+            for entity in games {
+                if entity.value(forKey: "coverType") as? String == Self.coverStateNone {
+                    entity.setValue(Self.coverStatePlaceholder, forKey: "coverType")
+                }
+                if let romHash = entity.value(forKey: "romHash") as? String {
+                    try? FileManager.default.removeItem(at: noBoxArtMarkerURL(forROMHash: romHash))
+                }
+            }
+            try? context.save()
+        }
+        defaults.set(true, forKey: Self.reopenedKey)
     }
 
     // MARK: - Resolution (work queue, one game at a time)

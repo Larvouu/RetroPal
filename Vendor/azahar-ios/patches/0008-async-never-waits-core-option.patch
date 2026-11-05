@@ -1,0 +1,146 @@
+Let async shader compilation never build a pipeline on the emulation thread (core option)
+
+With async_shader_compilation on and patches 0005 and 0006, an iPhone 14 Pro
+(Majora's Mask 3D, Low Power Mode, 2026-10-19) still stopped 0.35 to 0.97 s
+at a new scene, each stop right after a MoltenVK "Compilation succeeded".
+Two paths still compile on the emulation thread:
+
+- GraphicsPipeline::TryBuild first asks the driver for the pipeline with
+  FAIL_ON_PIPELINE_COMPILE_REQUIRED (Build(true)). MoltenVK honours that flag
+  only for the SPIR-V to MSL step: when the MSL library is already in its
+  pipeline cache (from the disk driver cache, or another pipeline using the
+  same shader), it goes on and compiles the Metal pipeline state and waits for
+  it. The probe also takes MVKPipelineCache's shader-cache lock, which a worker
+  holds for the whole of a compile.
+- Draws whose vertices are processed in software (geometry shaders, triangle
+  fans) bind their pipeline with wait_built = true always
+  (RasterizerVulkan::Draw), so they wait for any compile.
+
+This adds the option `citra_async_never_waits` (default disabled, so a frontend
+that does not set it sees no change). When it and async_shader_compilation are
+on, a pipeline that is not built yet is queued to the pipeline workers without
+the driver probe, and software-vertex draws are skipped until it is ready, as
+accelerated draws already are. The cost is the same as 0006's: an object can
+miss a frame or two the first time. Pipelines in the disk shader cache are
+still built on the workers at boot (ShaderDiskCache::InitPLCache).
+
+--- a/src/citra_libretro/core_settings.cpp
++++ b/src/citra_libretro/core_settings.cpp
+@@ -63,6 +63,7 @@
+ static constexpr const char* async_shader_compilation =
+     citra_setting(BaseKeys::async_shader_compilation);
+ static constexpr const char* async_small_draws = "citra_async_small_draws";
++static constexpr const char* async_never_waits = "citra_async_never_waits";
+ static constexpr const char* resolution_factor = citra_setting(BaseKeys::resolution_factor);
+ static constexpr const char* texture_filter = citra_setting(BaseKeys::texture_filter);
+ static constexpr const char* texture_sampling = citra_setting(BaseKeys::texture_sampling);
+@@ -399,6 +400,23 @@
+         config::disabled
+     },
+     {
++        config::graphics::async_never_waits,
++        "Async Shaders Never Wait",
++        "Never Wait for Shaders",
++        "With Async Shader Compilation, never build a pipeline on the emulation thread: no "
++        "driver probe for a quick build, and software-processed draws skipped until ready like "
++        "the others. On drivers whose quick build can still compile, removes the last stops at "
++        "a new scene, at the cost of an object missing for a frame or two the first time.",
++        nullptr,
++        config::category::graphics,
++        {
++            { config::enabled, "Enabled" },
++            { config::disabled, "Disabled" },
++            { nullptr, nullptr }
++        },
++        config::disabled
++    },
++    {
+         config::graphics::use_disk_shader_cache,
+         "Hardware Shader Cache",
+         "Shader Cache",
+@@ -1048,6 +1066,10 @@
+         LibRetro::FetchVariable(config::graphics::async_small_draws, config::disabled) ==
+         config::enabled;
+ 
++    Settings::values.async_never_waits =
++        LibRetro::FetchVariable(config::graphics::async_never_waits, config::disabled) ==
++        config::enabled;
++
+     auto resolution = LibRetro::FetchVariable(config::graphics::resolution_factor, "1");
+     Settings::values.resolution_factor = std::stoi(resolution);
+ 
+--- a/src/common/settings.h
++++ b/src/common/settings.h
+@@ -539,6 +539,9 @@
+     /// With async_shader_compilation, small draws (six vertices or fewer) are
+     /// skipped too until their pipeline is built, instead of waiting for it.
+     bool async_small_draws{false};
++    /// With async_shader_compilation, the emulation thread never builds a pipeline itself:
++    /// no driver probe, and software-vertex draws skipped until ready like the others.
++    bool async_never_waits{false};
+     SwitchableSetting<bool> async_presentation{true, Keys::async_presentation};
+     SwitchableSetting<bool> use_hw_shader{true, Keys::use_hw_shader};
+     SwitchableSetting<bool> use_disk_shader_cache{true, Keys::use_disk_shader_cache};
+--- a/src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp
++++ b/src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp
+@@ -7,6 +7,7 @@
+ #include "common/alignment.h"
+ #include "common/hash.h"
+ #include "common/microprofile.h"
++#include "common/settings.h"
+ #include "video_core/renderer_vulkan/pica_to_vk.h"
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_instance.h"
+@@ -95,8 +96,13 @@
+         return false;
+     }
+ 
+-    // Ask the driver if it can give us the pipeline quickly.
+-    if (!shaders_pending && instance.IsPipelineCreationCacheControlSupported() && Build(true)) {
++    // Ask the driver if it can give us the pipeline quickly. Not when the caller would
++    // rather skip the draw (async_never_waits): on MoltenVK this "quick" probe can still
++    // compile a whole Metal pipeline state on the emulation thread, and holds the driver
++    // cache's lock while a worker compiles, so the game stops either way.
++    const bool probe = wait_built || !Settings::values.async_never_waits;
++    if (probe && !shaders_pending && instance.IsPipelineCreationCacheControlSupported() &&
++        Build(true)) {
+         return true;
+     }
+ 
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -76,7 +76,8 @@
+       texture_lf_buffer{instance, scheduler, vk::BufferUsageFlagBits::eUniformTexelBuffer,
+                         TextureBufferSize(instance)},
+       async_shaders{Settings::values.async_shader_compilation.GetValue()},
+-      async_small_draws{Settings::values.async_small_draws} {
++      async_small_draws{Settings::values.async_small_draws},
++      async_never_waits{async_shaders && Settings::values.async_never_waits} {
+ 
+     vertex_buffers.fill(stream_buffer.Handle());
+ 
+@@ -627,7 +628,13 @@
+     if (accelerate) {
+         succeeded = AccelerateDrawBatchInternal(is_indexed);
+     } else {
+-        pipeline_cache.BindPipeline(pipeline_info, true);
++        // Software-processed vertices (geometry shaders, triangle fans): with
++        // async_never_waits they are skipped like the others until their pipeline is built,
++        // instead of stopping the game for a whole compile.
++        if (!pipeline_cache.BindPipeline(pipeline_info, !async_never_waits)) {
++            vertex_batch.clear();
++            return true;
++        }
+ 
+         const u32 vertex_count = static_cast<u32>(vertex_batch.size());
+         const u32 vertex_size = vertex_count * sizeof(HardwareVertex);
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.h
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.h
+@@ -142,6 +142,7 @@
+     u32 uniform_size_aligned_fs;
+     bool async_shaders{false};
+     bool async_small_draws{false};
++    bool async_never_waits{false};
+ };
+ 
+ } // namespace Vulkan

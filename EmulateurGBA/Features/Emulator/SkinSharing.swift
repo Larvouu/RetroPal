@@ -175,12 +175,14 @@ extension PresetSystem {
         case .sms: return "Master System"
         case .gg: return "Game Gear"
         case .psp: return "PSP"
+        case .n3ds: return "Nintendo 3DS"
         }
     }
 
     /// Whether custom skins can be created / rendered / imported for this console: every console
     /// with a dress (the Master System, the Game Gear and the PSP since 2026-10-11). A custom skin
-    /// needs a palette of the console's own (`SkinPalette`), an editor page and an import format.
+    /// needs a palette of the console's own (`SkinPalette`), an editor page and an import format,
+    /// which every console has since the 3DS's dress (2026-10-20).
     var supportsCustomSkins: Bool {
         ConsoleSkinView.hasSkin(for: self)
     }

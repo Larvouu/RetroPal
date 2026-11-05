@@ -25,7 +25,7 @@ extension PresetSystem {
     /// accessories, so they are not counted.
     var playerCount: Int {
         switch self {
-        case .gba, .gbc, .nds, .gg, .psp: return 1   // one console, one player
+        case .gba, .gbc, .nds, .gg, .psp, .n3ds: return 1   // one console, one player
         case .nes, .snes, .ps1, .md, .sms: return 2  // two controller ports
         case .n64: return 4               // four controller ports
         }
@@ -66,6 +66,7 @@ enum PlayAsPlayerTwo {
         case .sms:      family = .sms
         case .gg:       family = .gg
         case .psp:      family = .psp
+        case .n3ds:     family = .n3ds
         }
         return family.playerCount > 1
     }

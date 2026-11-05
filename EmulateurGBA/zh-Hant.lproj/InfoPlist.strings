@@ -4,6 +4,7 @@
    name is the key. */
 
 "NSPhotoLibraryAddUsageDescription" = "將遊戲截圖儲存到你的照片圖庫";
+"NSCameraUsageDescription" = "讓使用主機相機的 Nintendo 3DS 遊戲透過你的相機看到畫面。影像只會留在你的裝置上。";
 
 "Game Boy Advance ROM" = "Game Boy Advance ROM";
 "Game Boy Color ROM" = "Game Boy Color ROM";
@@ -17,6 +18,7 @@
 "NES ROM" = "NES ROM";
 "PlayStation disc" = "PlayStation 光碟";
 "PSP game" = "PSP 遊戲";
+"Nintendo 3DS game" = "Nintendo 3DS 遊戲";
 "Game save" = "遊戲存檔";
 "Retro Pal Skin" = "Retro Pal 外觀";
 

@@ -102,6 +102,23 @@ SYSTEMS = {
     # only, the file the server really holds (see `build_aliases`).
     "psp":  {"db": "redump", "dir": "Sony - PlayStation Portable", "crc": False, "serial": False,
              "alias": True},
+    # The Nintendo 3DS (2026-10-20), No-Intro. No CRC tier: a 3DS image is
+    # 0.5 to 4 GB, minutes of reading at import for a tier the others answer.
+    # The serial tier is its exact identity: the NCCH's product code
+    # ("CTR-P-BNDA"), read from the header at import (`GBAROMParser.gameCode`),
+    # which the DAT lists per release. No alias table: 92.5 % of its retail
+    # names exist on the server as they are (measured 2026-10-20, 1,906 of
+    # 2,060), the cartridge consoles' share.
+    #
+    # `unique_serials`: a serial kept only when every release carrying it has
+    # one name (revisions aside). A 3DS game released worldwide shares ONE
+    # serial across its regions (Pokémon Sun is CTR-P-BNDA in Japan, Europe,
+    # the USA and Taiwan): 21 of its 1,795 serials, measured 2026-10-20. The
+    # first release would answer for all of them, so a European copy read the
+    # Japanese name ("Pocket Monsters Sun"). Those games are found by their
+    # file's name instead, where the region tie-break picks the player's own.
+    "n3ds": {"db": "no-intro", "dir": "Nintendo - Nintendo 3DS", "crc": False,
+             "unique_serials": True},
 }
 
 # libretro thumbnail filename substitution (documented set, '&' verified live).
@@ -172,8 +189,20 @@ def parse_dat(text: str) -> tuple[str, list[dict]]:
     return version, games
 
 
-def build_system(text: str, want_crc: bool = True, want_serial: bool = True) -> tuple[str, dict]:
+REVISION = re.compile(r"\s*\((?:Rev|v)[^)]*\)")
+
+
+def build_system(text: str, want_crc: bool = True, want_serial: bool = True,
+                 unique_serials: bool = False) -> tuple[str, dict]:
     version, games = parse_dat(text)
+    # The serials whose retail releases go by more than one name.
+    shared: set[str] = set()
+    if unique_serials:
+        named: dict[str, set[str]] = {}
+        for game in games:
+            if game["serial"] and game["retail"] and "[BIOS]" not in game["name"]:
+                named.setdefault(game["serial"], set()).add(REVISION.sub("", game["name"]))
+        shared = {serial for serial, names_ in named.items() if len(names_) > 1}
     names: list[str] = []
     name_index: dict[str, int] = {}
     crc_map: dict[str, int] = {}
@@ -192,6 +221,8 @@ def build_system(text: str, want_crc: bool = True, want_serial: bool = True) -> 
             for crc in game["crcs"]:
                 crc_map.setdefault(crc, idx)
         serial = game["serial"] if want_serial else None
+        if serial and serial in shared:
+            serial = None
         if serial and len(serial) >= 3:
             # First mapping wins unless a retail release displaces a
             # pre-release dump sharing the serial.
@@ -358,7 +389,8 @@ def main() -> None:
         print(f"{key}: {cfg['dir']} ({cfg['db']})")
         version, table = build_system(load_dat(cfg["db"], cfg["dir"], args.dat_dir),
                                       want_crc=cfg.get("crc", True),
-                                      want_serial=cfg.get("serial", True))
+                                      want_serial=cfg.get("serial", True),
+                                      unique_serials=cfg.get("unique_serials", False))
         if cfg.get("alias"):
             if args.refresh_listing:
                 refresh_listing(cfg["dir"])

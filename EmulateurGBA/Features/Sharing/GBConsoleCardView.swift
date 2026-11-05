@@ -25,6 +25,12 @@ struct GBCardLayout {
     /// When populated, the skin draws a surround rim around each, and the renderer splits the stacked
     /// frame into these two rects.
     var ndsScreens: [CGRect] = []
+    /// The 3DS card only: its cross's drawn side (`n3dsCardPadScale`).
+    var ctrPadSide: CGFloat? = nil
+    /// The 3DS card only: the DS card's anchors it shares, the components row's centre and the
+    /// bottom rail, which the renderer lays the title and the play line on as the DS card does.
+    var ctrRowCenterY: CGFloat? = nil
+    var ctrBottomRailY: CGFloat? = nil
 
     static func make(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
         let k: CGFloat = 0.78   // fixed: keeps the components at the size already validated
@@ -513,6 +519,97 @@ struct GBCardLayout {
     /// card's bottom edge, lifted off it (asked 2026-10-11). The picture sits
     /// `pspPictureDrop` lower than the standard card's, every row following.
     /// The PlayStation card's scale.
+    /// THE 3DS CARD (his ask, 2026-10-21): the DS's separated screenshot card (`nds(side:...:
+    /// separatedScreens: true)`) in EVERYTHING but these, so the two read as one family:
+    /// - each screen at the 3DS's own ratio, the DS's screen height: the upper 5:3, the lower 4:3
+    ///   (`n3dsScreenCrops` cuts the picture to them);
+    /// - ZL and ZR on the components row, inward of L and R (ZR where the DS has its light, which the
+    ///   3DS has none of);
+    /// - the cross a little smaller than the DS's, the circle pad above it in the left gutter; A B X Y
+    ///   level with the circle pad, the C-stick under them in the right gutter;
+    /// - SELECT and START centred on the card, in the middle of the space under the lower screen;
+    /// - the 3DS's own pieces (its speakers, no light), drawn by `NintendoDSSkin` with `ctr`.
+    static func n3ds(side S: CGFloat) -> GBCardLayout {
+        // The DS's card geometry, at the 3DS's picture, then its screens re-shaped.
+        let base = make(side: S, gameNativeSize: CGSize(width: 256.0 / 384.0, height: 1))
+        let k = base.deviceScale
+        var buttons = base.buttons
+        func bl(_ x: CGFloat, _ y: CGFloat, _ hidden: Bool = false) -> ButtonLayout {
+            ButtonLayout(centerX: x / S, centerY: y / S, isHidden: hidden)
+        }
+        func sz(_ e: ControlElement) -> CGSize {
+            EmulatorLayoutGeometry.buttonSize(e, system: .n3ds, isLandscape: false, deviceScale: k)
+        }
+
+        // The components row, as the DS's: [spacer, L, spacer, ZL, spacer, MIC, spacer] in the left
+        // gutter, mirrored [spacer, ZR, spacer, R, spacer] in the right one; the two rails around it.
+        let lw = ControlElement.btnL.defaultNDSPortraitSize.width * k
+        let lh = ControlElement.btnL.defaultNDSPortraitSize.height * k
+        let micw = ControlElement.btnMic.defaultNDSPortraitSize.width * k
+        let spacer = max(0, (base.screen.minX - 2 * lw - micw) / 4)
+        let rowCenterY = S / 2
+        let lCenter = spacer + lw / 2
+        let zlCenter = 2 * spacer + lw + lw / 2
+        let micCenter = 3 * spacer + 2 * lw + micw / 2
+        buttons[ControlElement.btnL.rawValue] = bl(lCenter, rowCenterY)
+        buttons[ControlElement.btnL2.rawValue] = bl(zlCenter, rowCenterY)
+        buttons[ControlElement.btnMic.rawValue] = bl(micCenter, rowCenterY)
+        buttons[ControlElement.btnR.rawValue] = bl(S - lCenter, rowCenterY)
+        buttons[ControlElement.btnR2.rawValue] = bl(S - zlCenter, rowCenterY)
+        let topRailY = rowCenterY - lh / 2 - spacer / 4
+        let bottomRailY = rowCenterY + lh / 2 + spacer / 4
+
+        // The two screens, at the DS card's screen height, each at its own 3DS ratio, on the DS's
+        // centres: the upper between the card's top and the top rail, the lower between the bottom
+        // rail and the card's bottom.
+        let perH = (base.screen.height / 2) * 1.2
+        let upperW = perH * 400 / 240, lowerW = perH * 320 / 240
+        let cx = base.screen.midX
+        let upper = CGRect(x: cx - upperW / 2, y: topRailY / 2 - perH / 2, width: upperW, height: perH)
+        let lower = CGRect(x: cx - lowerW / 2, y: (bottomRailY + S) / 2 - perH / 2, width: lowerW, height: perH)
+
+        // The DS's line under the rails (60 % of the way to the card's bottom) holds the cross and
+        // the C-stick; the circle pad and A B X Y stand above them, level with each other.
+        let lineY = bottomRailY + 0.6 * (S - bottomRailY)
+        let leftCX = upper.minX / 2
+        let rightCX = (lower.maxX + S) / 2
+        // The circle pad and A B X Y where they stood with a 14-point gap over the cross; the cross
+        // and the C-stick moved down to three times that gap (his look, 2026-10-21).
+        let pad = sz(.dpad).width * Self.n3dsCardPadScale
+        let stick = sz(.stickLeft).width
+        let columnGap: CGFloat = 14
+        let upperY = lineY - pad / 2 - columnGap - stick / 2
+        buttons[ControlElement.stickLeft.rawValue] = bl(leftCX, upperY)
+        buttons[ControlElement.dpad.rawValue] = bl(leftCX, upperY + stick / 2 + 3 * columnGap + pad / 2)
+        let r = ControlElement.btnX.defaultSize.height * k * 0.92
+        for (element, dx, dy) in [(ControlElement.btnA, r, CGFloat(0)), (.btnY, -r, 0),
+                                  (.btnX, CGFloat(0), -r), (.btnB, 0, r)] {
+            buttons[element.rawValue] = bl(rightCX + dx, upperY + dy)
+        }
+        let face = sz(.btnA).height
+        let cStick = sz(.stickRight).height
+        let firstCStickGap = (lineY - cStick / 2) - (upperY + r + face / 2)
+        buttons[ControlElement.stickRight.rawValue] = bl(rightCX, upperY + r + face / 2 + 3 * firstCStickGap + cStick / 2)
+
+        // SELECT · START centred on the card, in the middle of the space under the lower screen
+        // (his look, 2026-10-21).
+        let ssY = (lower.maxY + S) / 2
+        let ssOff = 38 * k
+        buttons[ControlElement.btnSelect.rawValue] = bl(S / 2 - ssOff, ssY)
+        buttons[ControlElement.btnStart.rawValue] = bl(S / 2 + ssOff, ssY)
+        buttons[ControlElement.btnMenu.rawValue] = bl(S / 2, S * 3)
+        buttons[ControlElement.btnClip.rawValue] = bl(S / 2, S * 3, true)
+        for hidden in [ControlElement.btnMode, .btnL3, .btnR3] {
+            buttons[hidden.rawValue] = bl(S / 2, S * 3, true)
+        }
+        return GBCardLayout(screen: base.screen, buttons: buttons, deviceScale: k,
+                            ndsScreens: [upper, lower], ctrPadSide: sz(.dpad).width * Self.n3dsCardPadScale,
+                            ctrRowCenterY: rowCenterY, ctrBottomRailY: bottomRailY)
+    }
+
+    /// The 3DS card's cross, "a bit smaller than the DS's" (his ask, 2026-10-21).
+    static let n3dsCardPadScale: CGFloat = 0.85
+
     static func psp(side S: CGFloat, gameNativeSize g: CGSize) -> GBCardLayout {
         let k: CGFloat = 0.68
         func sz(_ e: ControlElement) -> CGSize {
@@ -752,8 +849,10 @@ final class GBConsoleCardView: UIView {
         consoleSkin.screenFrame = layout.screen
         // NDS reads its screen geometry from `ndsScreens`. The screenshot card splits the screens
         // (layout.ndsScreens holds the two rects, so the surround rim follows each); the clip +
-        // combined path leave it empty and fall back to the single `screen` rect.
-        consoleSkin.ndsScreens = isNDS ? (layout.ndsScreens.isEmpty ? [layout.screen] : layout.ndsScreens) : []
+        // combined path leave it empty and fall back to the single `screen` rect. The 3DS wears the
+        // DS's dress and always has its two (`GBCardLayout.n3ds`).
+        consoleSkin.ndsScreens = isNDS ? (layout.ndsScreens.isEmpty ? [layout.screen] : layout.ndsScreens)
+            : system == .n3ds ? layout.ndsScreens : []
         consoleSkin.deviceScale = k
         consoleSkin.usesJoystick = false
         consoleSkin.variant = variant
@@ -762,13 +861,27 @@ final class GBConsoleCardView: UIView {
 
         controls.frame = bounds              // full-card container: button fractions are of the card
         controls.layoutIfNeeded()
+        // The 3DS card draws its four shoulders as the DS card draws L and R (the DS's horizontal
+        // bars), and its cross at `ctrPadSide`.
+        let ctrCard = system == .n3ds, padSide = layout.ctrPadSide
+        let dsBar = CGSize(width: ControlElement.btnL.defaultNDSPortraitSize.width * k,
+                           height: ControlElement.btnL.defaultNDSPortraitSize.height * k)
         controls.applyLayout(OrientationLayout(buttons: layout.buttons),
                              isLandscape: false, isNDS: isNDS, system: system, deviceScale: k,
-                             opacity: 1.0, scale: 1.0, useJoystick: false)
-        // The PSP's controls wear its own palette, resolved here as the game resolves it
-        // (`EmulatorViewController.dressVariant`); the shell resolves it in `ConsoleSkinView`.
+                             opacity: 1.0, scale: 1.0, useJoystick: false,
+                             drawnSize: { element, size in
+                                 guard ctrCard else { return size }
+                                 if let padSide, element == .dpad { return CGSize(width: padSide, height: padSide) }
+                                 if [.btnL, .btnL2, .btnR, .btnR2].contains(element) { return dsBar }
+                                 return size
+                             })
+        (controls as? PS1TouchControlsView)?.shouldersAgainstScreens = system == .n3ds
+        // The PSP's and the 3DS's controls wear their own palettes, resolved here as the game
+        // resolves them (`EmulatorViewController.dressVariant`); the shell resolves them in
+        // `ConsoleSkinView`.
         controls.setDressed(true, isLandscape: false, system: system,
-                            variant: system == .psp ? ConsoleSkinView.pspVariant(variant) : variant)
+                            variant: system == .psp ? ConsoleSkinView.pspVariant(variant)
+                                : system == .n3ds ? ConsoleSkinView.ctrVariant(variant) : variant)
         controls.layoutIfNeeded()
         consoleSkin.buttonFrames = controls.visibleButtonFrames(in: consoleSkin)
     }
@@ -784,7 +897,7 @@ final class GBConsoleCardView: UIView {
 
     static func image(layout: GBCardLayout, side: CGFloat,
                       system: PresetSystem = .gbc, variant: DressVariant = .nostalgia) -> UIImage {
-        let key = "\(system.rawValue)-\(variant.cacheKey)-\(Int(side))-\(Int(layout.screen.width))x\(Int(layout.screen.height))"
+        let key = "\(system.rawValue)-\(variant.cacheKey)-\(Int(side))-\(Int(layout.screen.width))x\(Int(layout.screen.height))-\(layout.ndsScreens.count)"
         if let cached = cache[key] { return cached }
 
         let view = GBConsoleCardView(layout: layout, system: system, variant: variant)

@@ -1,0 +1,505 @@
+The 3DS cameras from the frontend's, through libretro's camera interface
+
+The libretro core registered no camera, so every 3DS camera was the blank one:
+a game that photographs, or reads a QR code, saw black. This adds a camera
+backed by RETRO_ENVIRONMENT_GET_CAMERA_INTERFACE (raw XRGB8888 frames), named
+"libretro" and given to the three cameras when the frontend offers one (outer
+right and outer left "outer", inner "inner"); otherwise nothing changes.
+
+A game's frame is the frontend's latest picture filled to the resolution it
+asks, centred, flipped as it asks, in RGB565 or YUV422 (the YUV conversion of
+citra_qt's camera_util.cpp, its tables copied unchanged). Black until the
+first frame. Starting a camera tells the frontend which one through a private
+environment command (RETRO_ENVIRONMENT_PRIVATE + 0x3D5, an "inner" or "outer"
+string), so a frontend with several lenses can turn to the right one; a
+frontend that does not know the command keeps its one camera for all three.
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -31,6 +31,7 @@
+ #include "citra_libretro/citra_libretro.h"
+ #include "citra_libretro/core_settings.h"
+ #include "citra_libretro/environment.h"
++#include "citra_libretro/libretro_camera.h"
+ #include "citra_libretro/input/input_factory.h"
+ 
+ #include "common/arch.h"
+@@ -516,6 +517,9 @@
+ 
+     UpdateSettings();
+ 
++    // The 3DS's cameras from the frontend's, before System::Load creates them.
++    LibRetro::Camera::Init();
++
+     // If using HW rendering, don't actually load the game here. azahar wants
+     // the graphics context ready and available before calling System::Load.
+     LibRetro::settings.file_path = info->path;
+@@ -637,6 +641,7 @@
+ void retro_unload_game() {
+     LOG_DEBUG(Frontend, "Unloading game...");
+     Core::System::GetInstance().Shutdown();
++    LibRetro::Camera::Shutdown();
+ }
+ 
+ unsigned retro_get_region() {
+--- a/src/citra_libretro/CMakeLists.txt
++++ b/src/citra_libretro/CMakeLists.txt
+@@ -9,6 +9,8 @@
+         input/input_factory.h
+         input/mouse_tracker.cpp
+         input/mouse_tracker.h
++        libretro_camera.cpp
++        libretro_camera.h
+         $<$<BOOL:${ENABLE_VULKAN}>: libretro_vk.cpp libretro_vk.h>
+         environment.cpp
+         environment.h
+--- a/src/citra_libretro/environment.cpp
++++ b/src/citra_libretro/environment.cpp
+@@ -11,6 +11,7 @@
+ #include "core_settings.h"
+ #include "emu_window/libretro_window.h"
+ #include "environment.h"
++#include "libretro_camera.h"
+ 
+ #ifdef HAVE_LIBRETRO_VFS
+ #include "streams/file_stream.h"
+@@ -62,6 +63,14 @@
+     return environ_cb(RETRO_ENVIRONMENT_GET_MICROPHONE_INTERFACE, mic_interface);
+ }
+ 
++bool GetCameraInterface(struct retro_camera_callback* camera_interface) {
++    return environ_cb(RETRO_ENVIRONMENT_GET_CAMERA_INTERFACE, camera_interface);
++}
++
++bool SetCameraLens(const char* lens) {
++    return environ_cb(LibRetro::Camera::ENVIRONMENT_SET_CAMERA_LENS, const_cast<char*>(lens));
++}
++
+ Settings::GraphicsAPI GetPreferredRenderer() {
+     // On Android, we really want to default to Vulkan if we can, so we'll ignore the frontend's
+     // recommendation if possible...
+--- a/src/citra_libretro/environment.h
++++ b/src/citra_libretro/environment.h
+@@ -34,6 +34,13 @@
+ /// Gets the microphone interface for audio input
+ bool GetMicrophoneInterface(struct retro_microphone_interface* mic_interface);
+ 
++/// Returns the frontend's camera interface, filled in, if it offers one.
++bool GetCameraInterface(struct retro_camera_callback* camera_interface);
++
++/// Tells the frontend which 3DS camera a game starts, "inner" or "outer"
++/// (LibRetro::Camera::ENVIRONMENT_SET_CAMERA_LENS). False when it does not ask.
++bool SetCameraLens(const char* lens);
++
+ /// Sets the environmental variables used for settings.
+ bool SetVariables(const retro_variable vars[]);
+ 
+--- /dev/null
++++ b/src/citra_libretro/libretro_camera.h
+@@ -0,0 +1,26 @@
++// Copyright Citra Emulator Project / Azahar Emulator Project
++// Licensed under GPLv2 or any later version
++// Refer to the license.txt file included.
++
++#pragma once
++
++#include <memory>
++#include <string>
++#include "libretro.h"
++
++namespace LibRetro::Camera {
++
++/// The private environment command a frontend may answer to learn which 3DS
++/// camera a game is starting: data is a `const char*`, "inner" or "outer".
++/// A frontend that does not know it returns false, and its one camera serves
++/// all three.
++constexpr unsigned ENVIRONMENT_SET_CAMERA_LENS = RETRO_ENVIRONMENT_PRIVATE + 0x3D5;
++
++/// Registers the "libretro" camera with the core and points the three 3DS
++/// cameras at it, when the frontend offers a camera (RETRO_ENVIRONMENT_GET_
++/// CAMERA_INTERFACE). Otherwise the cameras stay blank, as before.
++void Init();
++
++void Shutdown();
++
++} // namespace LibRetro::Camera
+--- /dev/null
++++ b/src/citra_libretro/libretro_camera.cpp
+@@ -0,0 +1,377 @@
++// Copyright Citra Emulator Project / Azahar Emulator Project
++// Licensed under GPLv2 or any later version
++// Refer to the license.txt file included.
++
++// The 3DS's cameras from the frontend's, through libretro's camera interface.
++// The frontend delivers XRGB8888 frames (frame_raw_framebuffer); each is kept,
++// and a game's frame is that picture filled to its resolution, centred,
++// flipped as it asks, in RGB565 or YUV422 (the conversion of citra_qt's
++// camera_util.cpp, its tables unchanged). Until a first frame arrives, and
++// when the frontend has no camera, the game receives black.
++
++#include <algorithm>
++#include <array>
++#include <cstring>
++#include <mutex>
++#include <vector>
++#include "citra_libretro/environment.h"
++#include "citra_libretro/libretro_camera.h"
++#include "common/settings.h"
++#include "core/frontend/camera/factory.h"
++#include "core/frontend/camera/interface.h"
++#include "core/hle/service/cam/cam.h"
++#include "libretro.h"
++
++namespace LibRetro::Camera {
++
++namespace {
++
++namespace YuvTable {
++
++constexpr std::array<int, 256> Y_R = {
++    53,  53,  53,  54,  54,  54,  55,  55,  55,  56,  56,  56,  56,  57,  57,  57,  58,  58,  58,
++    59,  59,  59,  59,  60,  60,  60,  61,  61,  61,  62,  62,  62,  62,  63,  63,  63,  64,  64,
++    64,  65,  65,  65,  65,  66,  66,  66,  67,  67,  67,  67,  68,  68,  68,  69,  69,  69,  70,
++    70,  70,  70,  71,  71,  71,  72,  72,  72,  73,  73,  73,  73,  74,  74,  74,  75,  75,  75,
++    76,  76,  76,  76,  77,  77,  77,  78,  78,  78,  79,  79,  79,  79,  80,  80,  80,  81,  81,
++    81,  82,  82,  82,  82,  83,  83,  83,  84,  84,  84,  85,  85,  85,  85,  86,  86,  86,  87,
++    87,  87,  87,  88,  88,  88,  89,  89,  89,  90,  90,  90,  90,  91,  91,  91,  92,  92,  92,
++    93,  93,  93,  93,  94,  94,  94,  95,  95,  95,  96,  96,  96,  96,  97,  97,  97,  98,  98,
++    98,  99,  99,  99,  99,  100, 100, 100, 101, 101, 101, 102, 102, 102, 102, 103, 103, 103, 104,
++    104, 104, 105, 105, 105, 105, 106, 106, 106, 107, 107, 107, 108, 108, 108, 108, 109, 109, 109,
++    110, 110, 110, 110, 111, 111, 111, 112, 112, 112, 113, 113, 113, 113, 114, 114, 114, 115, 115,
++    115, 116, 116, 116, 116, 117, 117, 117, 118, 118, 118, 119, 119, 119, 119, 120, 120, 120, 121,
++    121, 121, 122, 122, 122, 122, 123, 123, 123, 124, 124, 124, 125, 125, 125, 125, 126, 126, 126,
++    127, 127, 127, 128, 128, 128, 128, 129, 129,
++};
++
++constexpr std::array<int, 256> Y_G = {
++    -79, -79, -78, -78, -77, -77, -76, -75, -75, -74, -74, -73, -72, -72, -71, -71, -70, -70, -69,
++    -68, -68, -67, -67, -66, -65, -65, -64, -64, -63, -62, -62, -61, -61, -60, -60, -59, -58, -58,
++    -57, -57, -56, -55, -55, -54, -54, -53, -52, -52, -51, -51, -50, -50, -49, -48, -48, -47, -47,
++    -46, -45, -45, -44, -44, -43, -42, -42, -41, -41, -40, -40, -39, -38, -38, -37, -37, -36, -35,
++    -35, -34, -34, -33, -33, -32, -31, -31, -30, -30, -29, -28, -28, -27, -27, -26, -25, -25, -24,
++    -24, -23, -23, -22, -21, -21, -20, -20, -19, -18, -18, -17, -17, -16, -15, -15, -14, -14, -13,
++    -13, -12, -11, -11, -10, -10, -9,  -8,  -8,  -7,  -7,  -6,  -5,  -5,  -4,  -4,  -3,  -3,  -2,
++    -1,  -1,  0,   0,   0,   1,   1,   2,   2,   3,   4,   4,   5,   5,   6,   6,   7,   8,   8,
++    9,   9,   10,  11,  11,  12,  12,  13,  13,  14,  15,  15,  16,  16,  17,  18,  18,  19,  19,
++    20,  21,  21,  22,  22,  23,  23,  24,  25,  25,  26,  26,  27,  28,  28,  29,  29,  30,  31,
++    31,  32,  32,  33,  33,  34,  35,  35,  36,  36,  37,  38,  38,  39,  39,  40,  41,  41,  42,
++    42,  43,  43,  44,  45,  45,  46,  46,  47,  48,  48,  49,  49,  50,  50,  51,  52,  52,  53,
++    53,  54,  55,  55,  56,  56,  57,  58,  58,  59,  59,  60,  60,  61,  62,  62,  63,  63,  64,
++    65,  65,  66,  66,  67,  68,  68,  69,  69,
++};
++
++constexpr std::array<int, 256> Y_B = {
++    25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28,
++    28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31,
++    31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 33, 33, 33, 33, 33, 33, 33, 33,
++    34, 34, 34, 34, 34, 34, 34, 34, 34, 35, 35, 35, 35, 35, 35, 35, 35, 35, 36, 36, 36, 36, 36, 36,
++    36, 36, 36, 37, 37, 37, 37, 37, 37, 37, 37, 38, 38, 38, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39,
++    39, 39, 39, 39, 39, 40, 40, 40, 40, 40, 40, 40, 40, 40, 41, 41, 41, 41, 41, 41, 41, 41, 41, 42,
++    42, 42, 42, 42, 42, 42, 42, 43, 43, 43, 43, 43, 43, 43, 43, 43, 44, 44, 44, 44, 44, 44, 44, 44,
++    44, 45, 45, 45, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 46, 46, 46, 46, 47, 47, 47, 47, 47, 47,
++    47, 47, 47, 48, 48, 48, 48, 48, 48, 48, 48, 48, 49, 49, 49, 49, 49, 49, 49, 49, 49, 50, 50, 50,
++    50, 50, 50, 50, 50, 51, 51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52, 52, 53,
++    53, 53, 53, 53, 53, 53, 53, 53, 54, 54, 54, 54, 54, 54, 54, 54,
++};
++
++static constexpr int Y(int r, int g, int b) {
++    return Y_R[r] + Y_G[g] + Y_B[b];
++}
++
++constexpr std::array<int, 256> U_R = {
++    30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 33, 33, 33, 33, 33, 33, 34,
++    34, 34, 34, 34, 34, 35, 35, 35, 35, 35, 35, 36, 36, 36, 36, 36, 36, 37, 37, 37, 37, 37, 37, 38,
++    38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 39, 40, 40, 40, 40, 40, 40, 41, 41, 41, 41, 41, 41, 42,
++    42, 42, 42, 42, 42, 43, 43, 43, 43, 43, 43, 44, 44, 44, 44, 44, 45, 45, 45, 45, 45, 45, 46, 46,
++    46, 46, 46, 46, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48, 48, 48, 49, 49, 49, 49, 49, 49, 50, 50,
++    50, 50, 50, 50, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 53, 53, 53, 53, 53, 53, 54, 54,
++    54, 54, 54, 54, 55, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 57, 57, 57, 57, 57, 57, 58, 58,
++    58, 58, 58, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 61, 61, 61, 61, 61, 61, 62, 62, 62,
++    62, 62, 62, 63, 63, 63, 63, 63, 63, 64, 64, 64, 64, 64, 64, 65, 65, 65, 65, 65, 65, 66, 66, 66,
++    66, 66, 66, 67, 67, 67, 67, 67, 67, 68, 68, 68, 68, 68, 68, 69, 69, 69, 69, 69, 69, 70, 70, 70,
++    70, 70, 70, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 73, 73,
++};
++
++constexpr std::array<int, 256> U_G = {
++    -45, -44, -44, -44, -43, -43, -43, -42, -42, -42, -41, -41, -41, -40, -40, -40, -39, -39, -39,
++    -38, -38, -38, -37, -37, -37, -36, -36, -36, -35, -35, -35, -34, -34, -34, -33, -33, -33, -32,
++    -32, -32, -31, -31, -31, -30, -30, -30, -29, -29, -29, -28, -28, -28, -27, -27, -27, -26, -26,
++    -26, -25, -25, -25, -24, -24, -24, -23, -23, -23, -22, -22, -22, -21, -21, -21, -20, -20, -20,
++    -19, -19, -19, -18, -18, -18, -17, -17, -17, -16, -16, -16, -15, -15, -15, -14, -14, -14, -14,
++    -13, -13, -13, -12, -12, -12, -11, -11, -11, -10, -10, -10, -9,  -9,  -9,  -8,  -8,  -8,  -7,
++    -7,  -7,  -6,  -6,  -6,  -5,  -5,  -5,  -4,  -4,  -4,  -3,  -3,  -3,  -2,  -2,  -2,  -1,  -1,
++    -1,  0,   0,   0,   0,   0,   0,   1,   1,   1,   2,   2,   2,   3,   3,   3,   4,   4,   4,
++    5,   5,   5,   6,   6,   6,   7,   7,   7,   8,   8,   8,   9,   9,   9,   10,  10,  10,  11,
++    11,  11,  12,  12,  12,  13,  13,  13,  14,  14,  14,  15,  15,  15,  16,  16,  16,  17,  17,
++    17,  18,  18,  18,  19,  19,  19,  20,  20,  20,  21,  21,  21,  22,  22,  22,  23,  23,  23,
++    24,  24,  24,  25,  25,  25,  26,  26,  26,  27,  27,  27,  28,  28,  28,  29,  29,  29,  30,
++    30,  30,  31,  31,  31,  32,  32,  32,  33,  33,  33,  34,  34,  34,  35,  35,  35,  36,  36,
++    36,  37,  37,  37,  38,  38,  38,  39,  39,
++};
++
++constexpr std::array<int, 256> U_B = {
++    113, 113, 114, 114, 115, 115, 116, 116, 117, 117, 118, 118, 119, 119, 120, 120, 121, 121, 122,
++    122, 123, 123, 124, 124, 125, 125, 126, 126, 127, 127, 128, 128, 129, 129, 130, 130, 131, 131,
++    132, 132, 133, 133, 134, 134, 135, 135, 136, 136, 137, 137, 138, 138, 139, 139, 140, 140, 141,
++    141, 142, 142, 143, 143, 144, 144, 145, 145, 146, 146, 147, 147, 148, 148, 149, 149, 150, 150,
++    151, 151, 152, 152, 153, 153, 154, 154, 155, 155, 156, 156, 157, 157, 158, 158, 159, 159, 160,
++    160, 161, 161, 162, 162, 163, 163, 164, 164, 165, 165, 166, 166, 167, 167, 168, 168, 169, 169,
++    170, 170, 171, 171, 172, 172, 173, 173, 174, 174, 175, 175, 176, 176, 177, 177, 178, 178, 179,
++    179, 180, 180, 181, 181, 182, 182, 183, 183, 184, 184, 185, 185, 186, 186, 187, 187, 188, 188,
++    189, 189, 190, 190, 191, 191, 192, 192, 193, 193, 194, 194, 195, 195, 196, 196, 197, 197, 198,
++    198, 199, 199, 200, 200, 201, 201, 202, 202, 203, 203, 204, 204, 205, 205, 206, 206, 207, 207,
++    208, 208, 209, 209, 210, 210, 211, 211, 212, 212, 213, 213, 214, 214, 215, 215, 216, 216, 217,
++    217, 218, 218, 219, 219, 220, 220, 221, 221, 222, 222, 223, 223, 224, 224, 225, 225, 226, 226,
++    227, 227, 228, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233, 233, 234, 234, 235, 235, 236,
++    236, 237, 237, 238, 238, 239, 239, 240, 240,
++};
++
++static constexpr int U(int r, int g, int b) {
++    return -U_R[r] - U_G[g] + U_B[b];
++}
++
++constexpr std::array<int, 256> V_R = {
++    89,  90,  90,  91,  91,  92,  92,  93,  93,  94,  94,  95,  95,  96,  96,  97,  97,  98,  98,
++    99,  99,  100, 100, 101, 101, 102, 102, 103, 103, 104, 104, 105, 105, 106, 106, 107, 107, 108,
++    108, 109, 109, 110, 110, 111, 111, 112, 112, 113, 113, 114, 114, 115, 115, 116, 116, 117, 117,
++    118, 118, 119, 119, 120, 120, 121, 121, 122, 122, 123, 123, 124, 124, 125, 125, 126, 126, 127,
++    127, 128, 128, 129, 129, 130, 130, 131, 131, 132, 132, 133, 133, 134, 134, 135, 135, 136, 136,
++    137, 137, 138, 138, 139, 139, 140, 140, 141, 141, 142, 142, 143, 143, 144, 144, 145, 145, 146,
++    146, 147, 147, 148, 148, 149, 149, 150, 150, 151, 151, 152, 152, 153, 153, 154, 154, 155, 155,
++    156, 156, 157, 157, 158, 158, 159, 159, 160, 160, 161, 161, 162, 162, 163, 163, 164, 164, 165,
++    165, 166, 166, 167, 167, 168, 168, 169, 169, 170, 170, 171, 171, 172, 172, 173, 173, 174, 174,
++    175, 175, 176, 176, 177, 177, 178, 178, 179, 179, 180, 180, 181, 181, 182, 182, 183, 183, 184,
++    184, 185, 185, 186, 186, 187, 187, 188, 188, 189, 189, 190, 190, 191, 191, 192, 192, 193, 193,
++    194, 194, 195, 195, 196, 196, 197, 197, 198, 198, 199, 199, 200, 200, 201, 201, 202, 202, 203,
++    203, 204, 205, 205, 206, 206, 207, 207, 208, 208, 209, 209, 210, 210, 211, 211, 212, 212, 213,
++    213, 214, 214, 215, 215, 216, 216, 217, 217,
++};
++
++constexpr std::array<int, 256> V_G = {
++    -57, -56, -56, -55, -55, -55, -54, -54, -53, -53, -52, -52, -52, -51, -51, -50, -50, -50, -49,
++    -49, -48, -48, -47, -47, -47, -46, -46, -45, -45, -45, -44, -44, -43, -43, -42, -42, -42, -41,
++    -41, -40, -40, -39, -39, -39, -38, -38, -37, -37, -37, -36, -36, -35, -35, -34, -34, -34, -33,
++    -33, -32, -32, -31, -31, -31, -30, -30, -29, -29, -29, -28, -28, -27, -27, -26, -26, -26, -25,
++    -25, -24, -24, -24, -23, -23, -22, -22, -21, -21, -21, -20, -20, -19, -19, -18, -18, -18, -17,
++    -17, -16, -16, -16, -15, -15, -14, -14, -13, -13, -13, -12, -12, -11, -11, -10, -10, -10, -9,
++    -9,  -8,  -8,  -8,  -7,  -7,  -6,  -6,  -5,  -5,  -5,  -4,  -4,  -3,  -3,  -3,  -2,  -2,  -1,
++    -1,  0,   0,   0,   0,   0,   1,   1,   2,   2,   2,   3,   3,   4,   4,   4,   5,   5,   6,
++    6,   7,   7,   7,   8,   8,   9,   9,   10,  10,  10,  11,  11,  12,  12,  12,  13,  13,  14,
++    14,  15,  15,  15,  16,  16,  17,  17,  17,  18,  18,  19,  19,  20,  20,  20,  21,  21,  22,
++    22,  23,  23,  23,  24,  24,  25,  25,  25,  26,  26,  27,  27,  28,  28,  28,  29,  29,  30,
++    30,  31,  31,  31,  32,  32,  33,  33,  33,  34,  34,  35,  35,  36,  36,  36,  37,  37,  38,
++    38,  38,  39,  39,  40,  40,  41,  41,  41,  42,  42,  43,  43,  44,  44,  44,  45,  45,  46,
++    46,  46,  47,  47,  48,  48,  49,  49,  49,
++};
++
++constexpr std::array<int, 256> V_B = {
++    18, 18, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20, 20,
++    20, 20, 20, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 22, 22, 22,
++    22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 24, 24, 24,
++    24, 24, 24, 24, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 26, 26, 26,
++    26, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28,
++    28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30,
++    30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32,
++    32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 34,
++    34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35,
++    36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37,
++    38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39,
++};
++
++static constexpr int V(int r, int g, int b) {
++    return V_R[r] - V_G[g] - V_B[b];
++}
++} // namespace YuvTable
++
++std::mutex frame_mutex;
++std::vector<u32> frame_pixels;
++unsigned frame_width = 0;
++unsigned frame_height = 0;
++
++retro_camera_callback camera_cb{};
++bool camera_available = false;
++int capturing = 0;
++
++void RETRO_CALLCONV OnFrame(const uint32_t* buffer, unsigned width, unsigned height,
++                            size_t pitch) {
++    if (!buffer || !width || !height || pitch < width * 4) {
++        return;
++    }
++    std::lock_guard lock{frame_mutex};
++    frame_pixels.resize(static_cast<std::size_t>(width) * height);
++    for (unsigned y = 0; y < height; y++) {
++        std::memcpy(frame_pixels.data() + static_cast<std::size_t>(y) * width,
++                    reinterpret_cast<const u8*>(buffer) + y * pitch, width * 4);
++    }
++    frame_width = width;
++    frame_height = height;
++}
++
++class LibRetroCamera final : public ::Camera::CameraInterface {
++public:
++    explicit LibRetroCamera(std::string lens_, Service::CAM::Flip flip)
++        : lens(std::move(lens_)) {
++        SetFlip(flip);
++    }
++
++    ~LibRetroCamera() override {
++        StopCapture();
++    }
++
++    void StartCapture() override {
++        if (started || !camera_available) {
++            return;
++        }
++        started = true;
++        LibRetro::SetCameraLens(lens.c_str());
++        if (capturing++ == 0 && camera_cb.start) {
++            camera_cb.start();
++        }
++    }
++
++    void StopCapture() override {
++        if (!started) {
++            return;
++        }
++        started = false;
++        if (--capturing == 0 && camera_cb.stop) {
++            camera_cb.stop();
++        }
++    }
++
++    void SetResolution(const Service::CAM::Resolution& resolution) override {
++        width = resolution.width;
++        height = resolution.height;
++    }
++
++    void SetFlip(Service::CAM::Flip flip) override {
++        using Service::CAM::Flip;
++        flip_horizontal = flip == Flip::Horizontal || flip == Flip::Reverse;
++        flip_vertical = flip == Flip::Vertical || flip == Flip::Reverse;
++    }
++
++    void SetEffect(Service::CAM::Effect) override {}
++
++    void SetFormat(Service::CAM::OutputFormat format) override {
++        output_rgb = format == Service::CAM::OutputFormat::RGB565;
++    }
++
++    void SetFrameRate(Service::CAM::FrameRate) override {}
++
++    std::vector<u16> ReceiveFrame() override {
++        const int w = std::max(width, 0), h = std::max(height, 0);
++        std::vector<u32> rgb(static_cast<std::size_t>(w) * h, 0);
++        {
++            std::lock_guard lock{frame_mutex};
++            if (frame_width && frame_height && w && h) {
++                // Filled, not fitted: the picture covers the whole frame and
++                // its longer side is cropped, centred (citra_qt's
++                // KeepAspectRatioByExpanding).
++                const double scale = std::max(static_cast<double>(w) / frame_width,
++                                              static_cast<double>(h) / frame_height);
++                const double ox = (frame_width * scale - w) / 2.0;
++                const double oy = (frame_height * scale - h) / 2.0;
++                for (int y = 0; y < h; y++) {
++                    const int ty = flip_vertical ? h - 1 - y : y;
++                    const auto sy = std::min<unsigned>(
++                        static_cast<unsigned>((y + oy + 0.5) / scale), frame_height - 1);
++                    for (int x = 0; x < w; x++) {
++                        const int tx = flip_horizontal ? w - 1 - x : x;
++                        const auto sx = std::min<unsigned>(
++                            static_cast<unsigned>((x + ox + 0.5) / scale), frame_width - 1);
++                        rgb[static_cast<std::size_t>(ty) * w + tx] =
++                            frame_pixels[static_cast<std::size_t>(sy) * frame_width + sx];
++                    }
++                }
++            }
++        }
++        std::vector<u16> out(static_cast<std::size_t>(w) * h);
++        if (output_rgb) {
++            for (std::size_t i = 0; i < rgb.size(); i++) {
++                const u32 p = rgb[i];
++                out[i] = static_cast<u16>(((p >> 8) & 0xF800) | ((p >> 5) & 0x07E0) |
++                                          ((p >> 3) & 0x001F));
++            }
++            return out;
++        }
++        // YUV422: two pixels share one U and one V (citra_qt's Rgb2Yuv).
++        auto dest = out.begin();
++        bool write = false;
++        int py = 0, pu = 0, pv = 0;
++        for (const u32 p : rgb) {
++            const int r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
++            const int y = YuvTable::Y(r, g, b);
++            const int u = YuvTable::U(r, g, b);
++            const int v = YuvTable::V(r, g, b);
++            if (write) {
++                pu = (pu + u) / 2;
++                pv = (pv + v) / 2;
++                *(dest++) =
++                    static_cast<u16>(std::clamp(py, 0, 0xFF) | (std::clamp(pu, 0, 0xFF) << 8));
++                *(dest++) =
++                    static_cast<u16>(std::clamp(y, 0, 0xFF) | (std::clamp(pv, 0, 0xFF) << 8));
++            } else {
++                py = y;
++                pu = u;
++                pv = v;
++            }
++            write = !write;
++        }
++        return out;
++    }
++
++    bool IsPreviewAvailable() override {
++        return camera_available;
++    }
++
++private:
++    std::string lens;
++    int width = 0;
++    int height = 0;
++    bool output_rgb = false;
++    bool flip_horizontal = false;
++    bool flip_vertical = false;
++    bool started = false;
++};
++
++class LibRetroCameraFactory final : public ::Camera::CameraFactory {
++public:
++    std::unique_ptr<::Camera::CameraInterface> Create(const std::string& config,
++                                                      const Service::CAM::Flip& flip) override {
++        return std::make_unique<LibRetroCamera>(config, flip);
++    }
++};
++
++} // namespace
++
++void Init() {
++    camera_cb = {};
++    camera_cb.caps = 1 << RETRO_CAMERA_BUFFER_RAW_FRAMEBUFFER;
++    camera_cb.frame_raw_framebuffer = OnFrame;
++    camera_available = LibRetro::GetCameraInterface(&camera_cb);
++    if (!camera_available) {
++        return;
++    }
++    ::Camera::RegisterFactory("libretro", std::make_unique<LibRetroCameraFactory>());
++    using namespace Service::CAM;
++    Settings::values.camera_name[OuterRightCamera] = "libretro";
++    Settings::values.camera_config[OuterRightCamera] = "outer";
++    Settings::values.camera_name[InnerCamera] = "libretro";
++    Settings::values.camera_config[InnerCamera] = "inner";
++    Settings::values.camera_name[OuterLeftCamera] = "libretro";
++    Settings::values.camera_config[OuterLeftCamera] = "outer";
++}
++
++void Shutdown() {
++    if (capturing > 0 && camera_cb.stop) {
++        camera_cb.stop();
++    }
++    capturing = 0;
++    std::lock_guard lock{frame_mutex};
++    frame_pixels.clear();
++    frame_width = frame_height = 0;
++}
++
++} // namespace LibRetro::Camera

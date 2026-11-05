@@ -4,6 +4,7 @@
    name is the key. */
 
 "NSPhotoLibraryAddUsageDescription" = "게임 스크린샷을 사진 보관함에 저장합니다";
+"NSCameraUsageDescription" = "닌텐도 3DS의 카메라를 사용하는 게임이 이 기기의 카메라로 볼 수 있게 합니다. 영상은 기기 밖으로 나가지 않습니다.";
 
 "Game Boy Advance ROM" = "Game Boy Advance ROM";
 "Game Boy Color ROM" = "Game Boy Color ROM";
@@ -17,6 +18,7 @@
 "NES ROM" = "NES ROM";
 "PlayStation disc" = "PlayStation 디스크";
 "PSP game" = "PSP 게임";
+"Nintendo 3DS game" = "닌텐도 3DS 게임";
 "Game save" = "게임 세이브";
 "Retro Pal Skin" = "Retro Pal 스킨";
 

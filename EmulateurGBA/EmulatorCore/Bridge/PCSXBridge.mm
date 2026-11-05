@@ -637,7 +637,10 @@ static int16_t PCSXClampAxis(float v) {
         // always works, there is no path by which a BIOS file could reach the
         // app, and a setting that invited one would tell every player their
         // console is missing a part. Refusing is the honest answer to a
-        // question we have chosen not to have.
+        // question we have chosen not to have. Re-asked 2026-10-27, after two
+        // Jikkyou Powerful Pro Yakyuu games hung on HLE (title screen, memory
+        // card) and an optional, contextual BIOS import was proposed: kept HLE
+        // only. The core was moved to upstream's newer HLE instead.
         *(const char **)data = NULL;
         return false;
 

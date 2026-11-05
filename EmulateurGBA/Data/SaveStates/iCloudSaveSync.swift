@@ -75,6 +75,9 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
     private var _state: State = .resolving
     private var _iCloudRoot: URL?
     private var _iCloudBatteryRoot: URL?
+    /// The play history's folder, at the container's root, outside the
+    /// Documents folder the Files app shows (`PlayHistorySync`).
+    private var _iCloudHistoryRoot: URL?
 
     private var metadataQuery: NSMetadataQuery?
     /// Debounce for the outward `.saveStatesDidChange` UI notification.
@@ -171,13 +174,27 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
     /// Covers both trees: save states, then battery saves (minus the live
     /// session's file, which the core holds open).
     private func reconcileOnce(force: Bool) {
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("iCloudSaveSync.reconcileOnce start")
+        // LAUNCHPROBE defer { LaunchProbe.mark("iCloudSaveSync.reconcileOnce end") }
+        // LAUNCHPROBE #endif
         if !force && !syncEnabled { return }
-        let roots: (states: URL, battery: URL)? = {
+        let roots: (states: URL, battery: URL, history: URL?)? = {
             lock.lock(); defer { lock.unlock() }
             guard _state == .available, let s = _iCloudRoot, let b = _iCloudBatteryRoot else { return nil }
-            return (s, b)
+            return (s, b, _iCloudHistoryRoot)
         }()
         guard let roots else { return }
+
+        // The play history first: small, and what the Retro story reads.
+        if let historyRoot = roots.history,
+           PlayHistorySync.reconcile(cloudRoot: historyRoot,
+                                     ownFileName: PlayHistory.shared.fileName,
+                                     materialize: { Self.materializeUbiquitousItem($0) }) {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: PlayHistory.didChange, object: nil)
+            }
+        }
 
         var reconciler = SaveSyncReconciler(localRoot: Self.localSaveStatesRoot(), cloudRoot: roots.states)
         reconciler.materialize = { Self.materializeUbiquitousItem($0) }
@@ -188,6 +205,11 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
         battery.materialize = { Self.materializeUbiquitousItem($0) }
         let batteryResult = battery.reconcileBatterySaves(
             skipping: BatterySaveImporter.activeSessionBasenames)
+        // The 3DS's save folders, one zip each (`CTRSaveSync`), in their own
+        // subfolder of the same battery tree, under the same rules.
+        let ctrResult = CTRSaveSync.reconcile(
+            cloudRoot: roots.battery.appendingPathComponent("3DS", isDirectory: true),
+            materialize: { Self.materializeUbiquitousItem($0) })
 
         // A version was archived under `_Conflicts` (the other device's, or
         // this one's). Once per tree per launch (`signalOnce`), not once per
@@ -195,14 +217,14 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
         if stateResult.conflicts > 0 {
             Analytics.signalOnce("icloud_conflict", ["reason": SyncConflictReason.saveState.rawValue])
         }
-        if batteryResult.conflicts > 0 {
+        if batteryResult.conflicts > 0 || ctrResult.conflicts > 0 {
             Analytics.signalOnce("icloud_conflict", ["reason": SyncConflictReason.batterySave.rawValue])
         }
-        if stateResult.cloudHadFiles || batteryResult.cloudHadFiles, !hasSeeniCloudSaves {
+        if stateResult.cloudHadFiles || batteryResult.cloudHadFiles || ctrResult.cloudHadFiles, !hasSeeniCloudSaves {
             UserDefaults.standard.set(true, forKey: hasSeeniCloudSavesKey)
             DispatchQueue.main.async { [weak self] in self?.objectWillChange.send() }
         }
-        if stateResult.localChanged || batteryResult.localChanged {
+        if stateResult.localChanged || batteryResult.localChanged || ctrResult.localChanged {
             postCoalescedNotification()   // a pull happened: refresh slot UI
         }
     }
@@ -257,6 +279,9 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
             #if DEBUG
             print("[iCloudSaveSync] resolved: \(cloudRoot.path)")
             #endif
+            lock.lock()
+            _iCloudHistoryRoot = containerURL.appendingPathComponent("PlayHistory", isDirectory: true)
+            lock.unlock()
             setState(.available, cloudRoot: cloudRoot, batteryRoot: batteryRoot)
             if syncEnabled {
                 startMetadataQuery()
@@ -293,10 +318,11 @@ final class iCloudSaveSync: ObservableObject, @unchecked Sendable {
             let query = NSMetadataQuery()
             query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
             query.predicate = NSPredicate(
-                format: "%K LIKE[c] %@ OR %K LIKE[c] %@ OR %K LIKE[c] %@",
+                format: "%K LIKE[c] %@ OR %K LIKE[c] %@ OR %K LIKE[c] %@ OR %K LIKE[c] %@",
                 NSMetadataItemFSNameKey, "*.state",
                 NSMetadataItemFSNameKey, "*.png",
-                NSMetadataItemFSNameKey, "*.sav"
+                NSMetadataItemFSNameKey, "*.sav",
+                NSMetadataItemFSNameKey, "*.zip"
             )
             let nc = NotificationCenter.default
             nc.addObserver(forName: .NSMetadataQueryDidFinishGathering,

@@ -73,17 +73,26 @@ struct ScreenshotCardRenderer {
     /// drop shadow and a warm gold halo. Square `side`, with extra margin around
     /// it for the glow so it isn't clipped. Icon only — no background, no text.
     static func proCrownBadgeImage(side: CGFloat) -> UIImage {
+        metalBadgeImage(systemName: "crown.fill", side: side)
+    }
+
+    /// The Pro crown's metal treatment for any SF Symbol (2026-10-28): the
+    /// Retro story's timeline badges wear it, so every badge in the app is one
+    /// family. The crown is this with "crown.fill", drawn by the same lines as
+    /// before, so its pixels did not change. The canvas is `side` plus a 26 %
+    /// margin each way, for the glow; a missing symbol draws an empty canvas.
+    static func metalBadgeImage(systemName: String, side: CGFloat) -> UIImage {
         let margin = side * 0.26
         let canvas = CGSize(width: side + margin * 2, height: side + margin * 2)
         let cfg = UIImage.SymbolConfiguration(pointSize: side * 0.74, weight: .bold)
-        let crown = UIImage(systemName: "crown.fill", withConfiguration: cfg)?
+        let crown = UIImage(systemName: systemName, withConfiguration: cfg)?
             .withTintColor(.white, renderingMode: .alwaysOriginal)
 
         return UIGraphicsImageRenderer(size: canvas).image { rctx in
             let ctx = rctx.cgContext
             guard let crown = crown else { return }
 
-            // Aspect-fit the crown (wider than tall) into the square box.
+            // Aspect-fit the symbol (the crown is wider than tall) into the square box.
             let box = CGRect(x: margin, y: margin, width: side, height: side)
             let cs = crown.size
             let fit = min(box.width / cs.width, box.height / cs.height)
@@ -144,6 +153,28 @@ struct ScreenshotCardRenderer {
         let fit = min((side - 120) / gw, 640 / gh)
         let fW = gw * fit, fH = gh * fit
         return CGRect(x: (side - fW) / 2, y: 174, width: fW, height: fH)
+    }
+
+    /// THE 3DS ON THE CLASSIC CARD (his report, 2026-10-30: its screens were wrong there). The
+    /// two screens inside the standard game rect (`standardGameScreenRect` of the composed
+    /// 400 x 480 picture), so the title and play line stay where every other console's Classic
+    /// card has them: each at its own ratio (upper 5:3, lower 4:3, the same height), centred,
+    /// their neon frames `bezelPadding` around each and `hinge` apart. It used to give the lower
+    /// screen whatever height was left, about 1.39:1 instead of 4:3 (the picture stretched), and
+    /// its frame overlapped the upper one's. The screenshot card, the exported clip and the clip
+    /// preview all read it.
+    /// `frameAspect` is the composed picture's (400 / 480 as the bridge sends it), so the box is
+    /// the very rect the title below it is placed from.
+    static func classicN3DSScreens(side: CGFloat, frameAspect: CGFloat = 400.0 / 480.0,
+                                   bezelPadding: CGFloat = 8,
+                                   hinge: CGFloat = 12) -> (top: CGRect, bottom: CGRect) {
+        let box = standardGameScreenRect(side: side, gameNativeSize: CGSize(width: frameAspect, height: 1))
+        let gap = bezelPadding * 2 + hinge
+        let h = min((box.height - gap) / 2, box.width * 240 / 400)
+        let upperW = h * 400 / 240, lowerW = h * 320 / 240
+        let top = CGRect(x: box.midX - upperW / 2, y: box.minY, width: upperW, height: h)
+        let bottom = CGRect(x: box.midX - lowerW / 2, y: box.minY + h + gap, width: lowerW, height: h)
+        return (top, bottom)
     }
 
     /// The Y centre of the play-time / crown / Pro-member line on the standard info block, for a
@@ -370,6 +401,8 @@ struct ScreenshotCardRenderer {
         case .md: return true
         // Their cards since 2026-10-11, once their dresses were approved.
         case .sms, .gg, .psp: return true
+        // Its card since 2026-10-21, once its iPhone dress was done.
+        case .n3ds: return true
         }
     }
 
@@ -417,6 +450,9 @@ struct ScreenshotCardRenderer {
         case .psp:
             return (pspConsoleCard(gameFrame: gameFrame, gameAspect: gameAspect, info: info, variant: variant),
                     GBCardLayout.psp(side: side, gameNativeSize: gameSize))
+        case .n3ds:
+            return (n3dsConsoleCard(gameFrame: gameFrame, info: info, variant: variant),
+                    GBCardLayout.n3ds(side: side))
         }
     }
 
@@ -513,6 +549,33 @@ struct ScreenshotCardRenderer {
         // MIDDLE SECTION: Game frame with neon bezel
         // ============================================================
 
+        // THE 3DS (asked 2026-10-21): its two screens apart, each at its own width, so the lower
+        // one shows without the black either side of it (`n3dsScreenCrops`). Same bezel, glow and
+        // border as the one-picture path, twice.
+        if system == .n3ds {
+            let crops = n3dsScreenCrops(frameWidth: gameFrame.width, frameHeight: gameFrame.height)
+            let rects = classicN3DSScreens(side: cardW, frameAspect: nativeW / max(nativeH, 1),
+                                           bezelPadding: bezelPadding)
+            for (crop, rect) in [(crops.top, rects.top), (crops.bottom, rects.bottom)] {
+                let bezel = rect.insetBy(dx: -bezelPadding, dy: -bezelPadding)
+                ctx.saveGState()
+                ctx.setShadow(offset: .zero, blur: 12, color: purple.withAlphaComponent(0.4).cgColor)
+                ctx.setFillColor(UIColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1).cgColor)
+                UIBezierPath(roundedRect: bezel, cornerRadius: bezelRadius).fill()
+                ctx.restoreGState()
+                if let cg = gameFrame.cropping(to: crop.integral) {
+                    let img = cleanGameImage(cg, target: rect.size, filter: info.filter)
+                    ctx.saveGState()
+                    UIBezierPath(roundedRect: rect, cornerRadius: bezelRadius - 4).addClip()
+                    img.draw(in: rect)
+                    ctx.restoreGState()
+                }
+                purple.withAlphaComponent(0.6).setStroke()
+                let border = UIBezierPath(roundedRect: bezel, cornerRadius: bezelRadius)
+                border.lineWidth = 1.5
+                border.stroke()
+            }
+        } else {
         // Bezel with purple border glow
         let bezelRect = CGRect(
             x: gameX - bezelPadding,
@@ -551,6 +614,7 @@ struct ScreenshotCardRenderer {
         let bezelPath = UIBezierPath(roundedRect: bezelRect, cornerRadius: bezelRadius)
         bezelPath.lineWidth = 1.5
         bezelPath.stroke()
+        }
 
         // ============================================================
         // BOTTOM SECTION: Game name, play time (+ Pro crown line), footer
@@ -1058,6 +1122,75 @@ struct ScreenshotCardRenderer {
         let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
         let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
         variant.cardEdgeColor(for: .nds).setStroke()
+        edgePath.lineWidth = 3
+        edgePath.stroke()
+
+        let result = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return result
+    }
+
+    // MARK: - 3DS console card
+
+    /// Which part of the 3DS's composed picture (400 x 480) each screen is, in its pixels: the top
+    /// screen the upper half, the bottom (touch) screen 320 wide, centred, in the lower half. The
+    /// card crops the lower one to it (his precision, 2026-10-21: the lower screen at its own ratio,
+    /// the black either side of it left out), in the screenshot, the exported clip and its preview.
+    static func n3dsScreenCrops(frameWidth W: Int, frameHeight H: Int) -> (top: CGRect, bottom: CGRect) {
+        let w = CGFloat(W), h = CGFloat(H)
+        let bottomW = w * 320 / 400
+        return (CGRect(x: 0, y: 0, width: w, height: h / 2),
+                CGRect(x: (w - bottomW) / 2, y: h / 2, width: bottomW, height: h - h / 2))
+    }
+
+    /// THE 3DS CARD (his ask, 2026-10-21): the DS's separated card (`ndsConsoleCard`) but for its
+    /// own pieces (`GBCardLayout.n3ds`): the game's two screens cut to their own sizes
+    /// (`n3dsScreenCrops`), the title on the components row and the play line under the bottom
+    /// rail, as the DS card lays them.
+    static func n3dsConsoleCard(gameFrame: CGImage?, info: GameInfo,
+                                variant: DressVariant = .nostalgia) -> UIImage? {
+        let cardW: CGFloat = 1080, cardH: CGFloat = 1080
+        let cardCorner: CGFloat = 48
+        let size = CGSize(width: cardW, height: cardH)
+        let layout = GBCardLayout.n3ds(side: cardW)
+        let console = GBConsoleCardView.image(layout: layout, side: cardW, system: .n3ds, variant: variant)
+
+        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+        guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
+        UIColor.black.setFill()
+        ctx.fill(CGRect(origin: .zero, size: size))
+        ctx.saveGState()
+        UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cardCorner).addClip()
+        console.draw(in: CGRect(origin: .zero, size: size))
+
+        if let gameFrame, layout.ndsScreens.count == 2 {
+            let crops = n3dsScreenCrops(frameWidth: gameFrame.width, frameHeight: gameFrame.height)
+            for (crop, rect) in [(crops.top, layout.ndsScreens[0]), (crops.bottom, layout.ndsScreens[1])] {
+                guard let cg = gameFrame.cropping(to: crop.integral) else { continue }
+                let img = cleanGameImage(cg, target: rect.size, filter: info.filter)
+                ctx.saveGState()
+                UIBezierPath(roundedRect: rect, cornerRadius: 6).addClip()
+                img.draw(in: rect)
+                ctx.restoreGState()
+            }
+        }
+
+        let lightBody = variant.bodyColor(for: .n3ds).rpLuminance > 0.5
+        if let rowCenterY = layout.ctrRowCenterY, let bottomRailY = layout.ctrBottomRailY,
+           layout.ndsScreens.count == 2 {
+            drawNDSSeparatedInfo(in: ctx, cardW: cardW, info: info, rowCenterY: rowCenterY,
+                                 componentsLineHeight: ControlElement.btnL.defaultNDSPortraitSize.height * layout.deviceScale,
+                                 bottomRailY: bottomRailY, lowerScreenTop: layout.ndsScreens[1].minY,
+                                 titleColor: lightBody ? UIColor(white: 0.12, alpha: 0.92) : .white,
+                                 mutedColor: lightBody ? UIColor(white: 0.12, alpha: 0.75)
+                                                       : UIColor.white.withAlphaComponent(0.55))
+        }
+        ctx.restoreGState()
+
+        let inset: CGFloat = 2
+        let edgeRect = CGRect(x: inset, y: inset, width: cardW - inset * 2, height: cardH - inset * 2)
+        let edgePath = UIBezierPath(roundedRect: edgeRect, cornerRadius: cardCorner - inset)
+        variant.cardEdgeColor(for: .n3ds).setStroke()
         edgePath.lineWidth = 3
         edgePath.stroke()
 

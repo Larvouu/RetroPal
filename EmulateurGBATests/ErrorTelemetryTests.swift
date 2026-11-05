@@ -96,10 +96,16 @@ struct ErrorTelemetryTests {
             (.zipExtractionFailed, .zipCorrupt),
             (.zipUnsupportedCompression, .zipUnsupportedCompression),
             (.zipEncrypted, .zipEncrypted),
+            (.archiveNoGame, .archiveNoROM),
+            (.archiveExtractionFailed, .archiveCorrupt),
+            (.archiveUnsupportedCompression, .archiveUnsupportedCompression),
+            (.archiveEncrypted, .archiveEncrypted),
+            (.archiveSplit, .archiveSplit),
             (.alreadyImported, .duplicate),
             (.saveFailed, .libraryWriteFailed),
             (.differentGame, .differentGame),
             (.discMissingFiles(names: ["Game (Track 02).bin"]), .discMissingFiles),
+            (.ctrEncrypted, .ctrEncrypted),
         ]
         for (error, expected) in cases {
             #expect(ErrorTelemetry.importReason(for: error) == expected, "\(error.analyticsID) mapped wrong")
@@ -114,10 +120,39 @@ struct ErrorTelemetryTests {
         #expect(ErrorTelemetry.importReason(for: ROMImportError.copyFailed, noted: .sourceUnavailable) == .sourceUnavailable)
         #expect(ErrorTelemetry.importReason(for: ROMImportError.invalidROM, noted: .unsupportedExtension) == .unsupportedExtension)
         #expect(ErrorTelemetry.importReason(for: ROMImportError.invalidROM, noted: .discNotBootable) == .discNotBootable)
+        #expect(ErrorTelemetry.importReason(for: ROMImportError.invalidROM, noted: .ps3Disc) == .ps3Disc)
+        #expect(ErrorTelemetry.importReason(for: ROMImportError.invalidROM, noted: .umdMedia) == .umdMedia)
+        #expect(ErrorTelemetry.importReason(for: ROMImportError.copyFailed, noted: .umdMedia) == .copyFailed)
 
         #expect(ErrorTelemetry.importReason(for: ROMImportError.zipExtractionFailed, noted: .diskFull) == .zipCorrupt)
         #expect(ErrorTelemetry.importReason(for: ROMImportError.invalidROM, noted: .diskFull) == .invalidROM)
         #expect(ErrorTelemetry.importReason(for: ROMImportError.copyFailed, noted: .invalidHeader) == .copyFailed)
+    }
+
+    /// A full phone while a game was written out of an archive says "free up
+    /// storage" (`copyFailed`), not "this ZIP couldn't be opened, extract it
+    /// in Files", which needs the same space again (audit, 2026-10-29). Both
+    /// readers' full-disk errors: the zip reader's raw POSIX error, and the
+    /// one the libarchive reader's GameArchiveNoSpace becomes.
+    @Test func aFullPhoneDuringExtractionSaysFreeUpStorage() {
+        let full = NSError(domain: NSPOSIXErrorDomain, code: Int(POSIXErrorCode.ENOSPC.rawValue))
+        let quota = NSError(domain: NSPOSIXErrorDomain, code: Int(POSIXErrorCode.EDQUOT.rawValue))
+        let cocoaFull = NSError(domain: NSCocoaErrorDomain, code: CocoaError.Code.fileWriteOutOfSpace.rawValue)
+        for archive in ["game.zip", "game.7z"] {
+            let url = URL(fileURLWithPath: "/tmp/\(archive)")
+            for error in [full, quota, cocoaFull] {
+                guard case .copyFailed = importError(for: error, archive: url) else {
+                    Issue.record("a full phone during \(archive) extraction did not say free up storage")
+                    continue
+                }
+            }
+            // Any other failure keeps its archive sentence.
+            guard case .zipExtractionFailed = importError(for: ZIPExtractorError.extractionFailed,
+                                                         archive: URL(fileURLWithPath: "/tmp/game.zip")) else {
+                Issue.record("a damaged zip no longer says so")
+                continue
+            }
+        }
     }
 
     @Test func fileSystemErrorsMapByCodeNeverByText() {

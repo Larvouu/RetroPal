@@ -23,7 +23,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// the Quit button) when iCloud was wedged. Serial so two operations never
     /// touch the emulator bridge at once. Safe because the emulator is always
     /// paused at these points (the pause menu pauses it; backgrounding pauses it).
-    private let saveIOQueue = DispatchQueue(label: "com.retropal.save-io", qos: .userInitiated)
+    /// Shared by every game screen (`EmulatorSession.workQueue`).
+    private let saveIOQueue = EmulatorSession.workQueue
     private let romURL: URL
     /// Which control/layout family this game belongs to (GBA, GB/GBC, or NDS).
     /// Drives the on-screen button set, the default layout, and the active preset
@@ -53,6 +54,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// metal view holds a weak ref and feeds it frames during play.
     private let clipRecorder = GameplayClipRecorder()
     private var ndsTouchOverlay: NDSTouchOverlay?
+    /// The 3DS's touch screen, over the bottom screen inside its one picture
+    /// (phase 1, CTRTouchOverlay.swift). nil on every other console.
+    private var ctrTouchOverlay: CTRTouchOverlay?
     /// The DS's lid, closed from the pause menu (asked 2026-09-28): the core is
     /// told, and the top screen shows `lidMessage` until the player opens it,
     /// with any button or from the menu.
@@ -76,6 +80,13 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     /// loaded in init and applied on first appearance + when changed.
     private var currentOrientationMode: GameOrientationMode = .auto
     private var didApplyInitialOrientation = false
+    /// `viewDidAppear` has run once. A question asked before (`resumeFailed`,
+    /// which the twelve non-3DS consoles reach inside `viewDidLoad`, while the
+    /// screen is still being presented) waits in `askWhenOnScreen`: presented
+    /// during that transition, UIKit drops it, and the game stayed black and
+    /// stopped with nothing asked (audit, 2026-10-29).
+    private var hasAppeared = false
+    private var askWhenOnScreen: (() -> Void)?
 
     /// Tracks active play time (excludes paused/overlay time).
     /// Reset on each resume, accumulated into `accumulatedPlaySeconds`.
@@ -88,6 +99,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
 
     /// Slot to load immediately after ROM loads (nil = fresh start)
     var loadSlotOnStart: Int?
+
+    /// Between `loadAndStart` and the game running: the boot is on the save
+    /// queue and the loading cover is up. Nothing may pause, resume or open the
+    /// pause menu on a game that does not exist yet.
+    private var isBooting = false
+    /// The slot a resume could not load, kept from the auto-save until the
+    /// player decides (`resumeFailed`): an auto-save over it would destroy it.
+    private var unloadedResumeSlot: Int?
+    /// The 3DS's loading cover (`showLoadingCover`).
+    private var loadingCover: UIView?
 
     /// User-facing display name (post-rename). Used for the screenshot share card
     /// so a renamed game shows the user's chosen title, not the raw ROM filename.
@@ -179,15 +200,15 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // to flip: GameController is the one source that measures the other way.
         (controls as? PS1TouchControlsView)?.onSticksChanged = { [weak self] left, right in
             guard let self else { return }
-            self.session.setAnalogSticks(leftX: left.x, leftY: left.y,
-                                         rightX: right.x, rightY: right.y, player: self.touchPlayer)
+            self.touchSticks = (left, right)
+            self.sendSticks(port: self.touchPlayer)
         }
         // The Nintendo 64's control stick, its only one: the C buttons are
         // buttons and travel in the mask, so the right stick stays centred.
         (controls as? N64TouchControlsView)?.onStickChanged = { [weak self] value in
             guard let self else { return }
-            self.session.setAnalogSticks(leftX: value.x, leftY: value.y, rightX: 0, rightY: 0,
-                                         player: self.touchPlayer)
+            self.touchSticks = (value, .zero)
+            self.sendSticks(port: self.touchPlayer)
         }
         // In-game clip control: same flow as the pause menu's Clip button, one tap.
         // Guard re-entry. the touch handler can fire repeatedly while a finger rests
@@ -210,6 +231,15 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // The closed-lid message, over the screens and under the controls.
             lidMessage.isHidden = true
             view.insertSubview(lidMessage, aboveSubview: touchOverlay)
+        } else if presetSystem == .n3ds {
+            // The 3DS's bottom screen is part of its one picture (phase 1), so
+            // it is not `hasTouchScreen`: its own overlay, at the same place in
+            // the stacking, framed in `layoutGameView`.
+            let touchOverlay = CTRTouchOverlay()
+            touchOverlay.delegate = self
+            touchOverlay.translatesAutoresizingMaskIntoConstraints = true
+            view.insertSubview(touchOverlay, aboveSubview: metalView)
+            ctrTouchOverlay = touchOverlay
         }
 
         // Pause overlay (hidden initially)
@@ -217,7 +247,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // samples every five seconds and stores deltas rather than appending a
         // 19 MB state per frame; see MelonDSBridge's rewind section for the
         // measurements behind that.
-        overlay.rewindHidden = false
+        // The 3DS's too since 2026-10-20 (CTRBridge.mm, Rewind: patches 0014
+        // to 0016).
         // From the controls themselves, not from `hasTouchScreen`: the SNES locks
         // X and Y as well and that flag cannot say so.
         overlay.setLockableButtons(controls.lockableLetters)
@@ -311,6 +342,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             didApplyInitialOrientation = true
             applyOrientation(currentOrientationMode)
         }
+        hasAppeared = true
+        if let ask = askWhenOnScreen {
+            askWhenOnScreen = nil
+            ask()
+        }
         // Hand the live game view to any connected television. Idempotent, and
         // a no-op when nothing is plugged in or the user is not Pro.
         ExternalDisplayManager.shared.setSource(metalView)
@@ -378,10 +414,75 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // and a game it cannot start fails there (PSPBridge.h).
         nc.addObserver(self, selector: #selector(pspBootFailed),
                        name: Notification.Name("PSPBridgeBootFailedNotification"), object: nil)
+        // A PSP game that had booted and stopped for good (PSPBridge.h, patch 0002).
+        nc.addObserver(self, selector: #selector(pspGameHalted),
+                       name: Notification.Name("PSPBridgeGameHaltedNotification"), object: nil)
+        // The 3DS draws through the same Vulkan frontend too (CTRBridge.h).
+        nc.addObserver(self, selector: #selector(n64DisplayLost),
+                       name: Notification.Name("CTRBridgeDisplayLostNotification"), object: nil)
+        // A 3DS game that has ended: closed itself, or not started again by
+        // an in-game reboot (CTRBridge.h).
+        nc.addObserver(self, selector: #selector(ctrGameEnded),
+                       name: Notification.Name("CTRBridgeGameEndedNotification"), object: nil)
+        // A 3DS game started a camera the player has not allowed (CTRCamera).
+        nc.addObserver(self, selector: #selector(ctrCameraDenied),
+                       name: CTRCamera.deniedNotification, object: nil)
     }
 
-    /// Set once the core can no longer run this game: the Nintendo 64's or the
-    /// PSP's picture can no longer be updated, or the PSP could not start the
+    /// The game sees black through its camera because the player refused the
+    /// permission (or the device restricts it): said once per game, with the
+    /// way to allow it. The game is paused while the message shows.
+    @objc private func ctrCameraDenied() {
+        guard !coreHalted else { return }
+        let wasRunning = session.isRunning
+        if wasRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            session.pause()
+            // The frames stop too, as at every other pause: the 3DS's loop
+            // reads no running flag, so a pause of the session alone left the
+            // game playing under the message, and on in the background when
+            // the player left from it (audit, 2026-10-20).
+            metalView.stopRendering()
+        }
+        // The usual resume, which waits for the app to be in front with
+        // nothing over the game; the message being dismissed is what is over
+        // it now (`viaDismiss`).
+        // During the boot too: `didLoad` does not start the game under the
+        // message, so its dismissal must (it stayed paused until the menu,
+        // audit 2026-10-29). Still booting then, the resume waits for
+        // `didLoad`, which starts it with nothing presented.
+        // And whatever `wasRunning` said: the first time, iOS's own permission
+        // prompt has already paused the game (`appWillResignActive`), and the
+        // refusal reaches here on its own hop, often before the app is active
+        // again, whose resume this message then blocks. Gated on "was
+        // running", the game stayed paused behind an OK that did nothing
+        // (audit, 2026-10-30). The resume's own guards are what keep a game
+        // paused that should be (the pause menu, a failed resume's question,
+        // a halted core, the boot); a share card is the one `viaDismiss` does
+        // not look at, so it is looked at here.
+        let resume = { [weak self] in
+            guard let self, self.shareModel?.card == nil else { return }
+            self.resumeGameplayIfForeground(viaDismiss: true)
+        }
+        // No screen to present on: no action would ever run, so the game is
+        // not left paused waiting for one.
+        let shown = ControllerAlert.present(
+            title: NSLocalizedString("n3ds.cameraDenied.title", comment: ""),
+            message: NSLocalizedString("n3ds.cameraDenied.message", comment: ""),
+            actions: [
+                .init(title: NSLocalizedString("n3ds.cameraDenied.settings", comment: "")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                    resume()
+                },
+                .init(title: NSLocalizedString("n3ds.cameraDenied.ok", comment: ""), style: .cancel) { resume() },
+            ])
+        if !shown { resume() }
+    }
+
+    /// Set once the core can no longer run this game: the Nintendo 64's, the
+    /// PSP's or the 3DS's picture can no longer be updated, or the PSP could not start the
     /// game at all. From then the game stays paused: nothing resumes it, and
     /// the only way on is the quit the player is offered.
     private var coreHalted = false
@@ -413,14 +514,76 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         metalView.stopRendering()
         // A controller can answer it too (`ControllerAlert`): the app's own
         // dialog with a controller in hand, the system alert otherwise.
-        ControllerAlert.present(
-            title: NSLocalizedString("n64.displayLost.title", comment: ""),
-            message: NSLocalizedString("n64.displayLost.message", comment: ""),
-            actions: [
-                .init(title: NSLocalizedString("n64.displayLost.quit", comment: "")) { [weak self] in
-                    self?.overlayDidTapQuit()
-                },
-            ])
+        presentWhenOnScreen {
+            ControllerAlert.present(
+                title: NSLocalizedString("n64.displayLost.title", comment: ""),
+                message: NSLocalizedString("n64.displayLost.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("n64.displayLost.quit", comment: "")) { [weak self] in
+                        self?.overlayDidTapQuit()
+                    },
+                ])
+        }
+    }
+
+    /// The 3DS game has ended (CTRBridgeGameEndedNotification): it closed
+    /// itself, or an in-game reboot could not start the console again. Until
+    /// patch 0021 the core looped on it for good with its lock held, and the
+    /// next pause froze the app (audit, 2026-10-20). Now nothing more runs and
+    /// nothing is saved (the bridge refuses a state from then on, so the
+    /// quit's auto-save keeps the last good one), and the one way on is out.
+    @objc private func ctrGameEnded() {
+        guard !coreHalted else { return }
+        coreHalted = true
+        session.coreHalted = true
+        Analytics.signalOnce("game_error", ["system": romSystem?.rawValue ?? "unknown",
+                                            "reason": GameErrorReason.gameEnded.rawValue])
+        if session.isRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            lastResumeTime = Date()
+            session.pause()
+        }
+        metalView.stopRendering()
+        presentWhenOnScreen {
+            ControllerAlert.present(
+                title: NSLocalizedString("n3ds.gameEnded.title", comment: ""),
+                message: NSLocalizedString("n3ds.gameEnded.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("psp.bootFailed.quit", comment: "")) { [weak self] in
+                        self?.overlayDidTapQuit()
+                    },
+                ])
+        }
+    }
+
+    /// A PSP game that was playing stopped for good (PSPBridgeGameHaltedNotification):
+    /// the emulated console hit an error in the game's code it cannot go on from.
+    /// It used to freeze the picture and the sound with no word (audit 2026-10-27).
+    /// Same way out as a failed boot: paused, the core never called again, and the
+    /// quit's auto-save writes nothing (the bridge refuses a state once the core has
+    /// stopped), so the player's last good save stays as it was.
+    @objc private func pspGameHalted() {
+        guard !coreHalted else { return }
+        coreHalted = true
+        session.coreHalted = true
+        Analytics.signalOnce("game_error", ["system": romSystem?.rawValue ?? "unknown",
+                                            "reason": GameErrorReason.coreHalted.rawValue])
+        if session.isRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            lastResumeTime = Date()
+            session.pause()
+        }
+        metalView.stopRendering()
+        presentWhenOnScreen {
+            ControllerAlert.present(
+                title: NSLocalizedString("psp.gameHalted.title", comment: ""),
+                message: NSLocalizedString("psp.gameHalted.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("psp.bootFailed.quit", comment: "")) { [weak self] in
+                        self?.overlayDidTapQuit()
+                    },
+                ])
+        }
     }
 
     /// The PSP could not start the game (PSPBridgeBootFailedNotification). Its
@@ -434,6 +597,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     @objc private func pspBootFailed() {
         guard !coreHalted else { return }
         coreHalted = true
+        session.coreHalted = true
         Analytics.signal("rom_load_fail", ["system": romSystem?.rawValue ?? "unknown",
                                            "reason": LoadFailureReason.bootFailed.rawValue])
         if session.isRunning {
@@ -442,14 +606,16 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             session.pause()
         }
         metalView.stopRendering()
-        ControllerAlert.present(
-            title: NSLocalizedString("psp.bootFailed.title", comment: ""),
-            message: NSLocalizedString("psp.bootFailed.message", comment: ""),
-            actions: [
-                .init(title: NSLocalizedString("psp.bootFailed.quit", comment: "")) { [weak self] in
-                    self?.overlayDidTapQuit()
-                },
-            ])
+        presentWhenOnScreen {
+            ControllerAlert.present(
+                title: NSLocalizedString("psp.bootFailed.title", comment: ""),
+                message: NSLocalizedString("psp.bootFailed.message", comment: ""),
+                actions: [
+                    .init(title: NSLocalizedString("psp.bootFailed.quit", comment: "")) { [weak self] in
+                        self?.overlayDidTapQuit()
+                    },
+                ])
+        }
     }
 
     @objc private func externalDisplayDidChange() { updateIdleTimer() }
@@ -562,7 +728,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     ///     stuck. The pause-menu (option 2) case stays correctly paused via
     ///     `overlay.isHidden`.
     private func resumeGameplayIfForeground(viaDismiss: Bool = false) {
-        guard !coreHalted,
+        guard !coreHalted, !isBooting, unloadedResumeSlot == nil,
               UIApplication.shared.applicationState == .active,
               viaDismiss || presentedViewController == nil,
               viaDismiss || shareModel?.card == nil,
@@ -656,6 +822,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             self?.updateSystemChrome(isPortrait: size.height >= size.width)
             // Re-fit the Skin picker sheet so it never keeps the previous orientation's detent.
             self?.updateSkinSheetDetents(for: size)
+        }, completion: { [weak self] _ in
+            // The 3DS's tilt follows the screen (CTRMotion).
+            self?.session.interfaceOrientationDidChange()
         })
     }
 
@@ -692,7 +861,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // more than once per tap; without this guard each call re-banked the play
         // interval since the last resume, over-counting play time (worse the more
         // you opened the menu, e.g. to change speed).
-        guard overlay.isHidden else { return }
+        // Not while the game boots: there is nothing to pause yet, and closing
+        // the menu would start a game half loaded (a controller's menu button
+        // reaches here even under the loading cover).
+        guard overlay.isHidden, !isBooting else { return }
         session.pause()
         metalView.stopRendering()
         // ⚠ FLUSH THE BATTERY SAVE HERE, and the PlayStation is why.
@@ -787,14 +959,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         setLid(closed: !ndsLidClosed)
         hideOverlay()
         // Pressed with a controller's A: that A must not reach the game.
-        session.setKeys(0)
+        releaseHeldKeys()
     }
 
     func overlayDidTapResume() {
         hideOverlay()
         // Resume pressed with a controller's A: that A is still held, and must
         // not reach the game as a press (its release re-syncs the mask).
-        session.setKeys(0)
+        releaseHeldKeys()
     }
 
     func overlayDidSelectSpeed(_ multiplier: Double) {
@@ -932,6 +1104,18 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 if success {
                     Analytics.signalOnce("save_state", ["action": "load"])
                     self?.hideOverlay()
+                } else {
+                    // It used to say nothing: the menu stayed and the button seemed
+                    // dead (audit 2026-10-27). Most refusals come before anything is
+                    // applied (missing file, size, header), but a core failing inside
+                    // its own unserialize may leave a partial state, so the message
+                    // promises the in-game save (backed up before every load), not
+                    // the game's position. The report is already sent
+                    // (`save_failure` kind=state_load, from the session).
+                    ControllerAlert.present(
+                        title: String(format: NSLocalizedString("overlay.load.failed.title", comment: ""), "\(slot)"),
+                        message: NSLocalizedString("overlay.load.failed.message", comment: ""),
+                        actions: [.init(title: NSLocalizedString("common.ok", comment: ""))])
                 }
             }
         }
@@ -998,6 +1182,14 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let frames = max(1, seconds) * 60
         let success = session.rewind(frames: frames)
         hideOverlay()
+        // The 3DS only (his call, 2026-10-21; the other consoles keep their
+        // way): its rewind takes a snapshot every five seconds, none in the
+        // first moments after a start or a state load, and gives them all back
+        // when iOS runs short of memory. A tap then went back nowhere, the
+        // menu closed, and nothing said why. Said now; the game waits under it.
+        if !success, presetSystem == .n3ds {
+            showRewindUnavailable()
+        }
         if isPro && success {
             Analytics.signal("pro_feature_used", ["feature": "rewind_30s"])
         }
@@ -1019,6 +1211,41 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 }
             }
         }
+    }
+
+    /// A halted core's message (`n64DisplayLost`, `ctrGameEnded`,
+    /// `pspGameHalted`, `pspBootFailed`). Its notification is posted to the
+    /// main queue from the boot, which for the twelve non-3DS consoles runs
+    /// inside `viewDidLoad`: it can land while the screen is still being
+    /// presented, where UIKit drops the alert, and the game stayed black and
+    /// paused with nothing said (audit, 2026-10-30; the resume question's
+    /// fix of 10-29 did not cover these). Waits for `viewDidAppear` like the
+    /// question, and replaces a question still waiting there: with the core
+    /// stopped, none of its answers but quitting could do anything.
+    private func presentWhenOnScreen(_ present: @escaping () -> Void) {
+        if hasAppeared {
+            present()
+        } else {
+            askWhenOnScreen = present
+        }
+    }
+
+    /// The 3DS's rewind found nothing to go back to (`performRewind`). Paused
+    /// while it shows, as the camera's message is, and resumed by the same rule.
+    private func showRewindUnavailable() {
+        if session.isRunning {
+            accumulatedPlaySeconds += Date().timeIntervalSince(lastResumeTime)
+            lastResumeTime = Date()
+            session.pause()
+            metalView.stopRendering()
+        }
+        let shown = ControllerAlert.present(
+            title: NSLocalizedString("n3ds.rewindUnavailable.title", comment: ""),
+            message: NSLocalizedString("n3ds.rewindUnavailable.message", comment: ""),
+            actions: [.init(title: NSLocalizedString("common.ok", comment: "")) { [weak self] in
+                self?.resumeGameplayIfForeground(viaDismiss: true)
+            }])
+        if !shown { resumeGameplayIfForeground() }
     }
 
     func overlayDidTapLockedFeature(context: ProPromptContext) {
@@ -1223,7 +1450,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // Only during active gameplay, max once per session, and never stacked over
         // a share card already up (those are SwiftUI `.sheet`s, so they don't show as
         // `presentedViewController` — guard on the model instead).
-        guard overlay.isHidden,
+        guard overlay.isHidden, !isBooting,
               presentedViewController == nil,
               shareModel?.card == nil,
               !hasShownScreenshotPopupThisSession else { return }
@@ -1305,19 +1532,42 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                     _ = self?.session.addCheat(cheat.code)
                 }
             },
+            // The 3DS's backup save and its restore on the work queue, as its
+            // every state save and load (the game is paused, the pause menu
+            // open): on the main thread they froze the screen a second to save
+            // and up to four to load (audit, 2026-10-20). The queue is serial,
+            // so the restore lands before the resume below. Its cheats only run
+            // in frames (none while paused), so a backup taken after the first
+            // code is set still holds the game without it. The other consoles
+            // keep the old way: some cores write a code into memory as it is set.
             onBackupSave: { [weak self] in
-                _ = self?.session.savePreCheatBackup()
+                guard let self else { return }
+                let session = self.session
+                if self.presetSystem == .n3ds {
+                    self.saveIOQueue.async { _ = session.savePreCheatBackup() }
+                } else {
+                    _ = session.savePreCheatBackup()
+                }
             },
             onRestoreBackup: { [weak self] in
-                self?.session.loadPreCheatBackup() ?? false
+                guard let self else { return false }
+                let session = self.session
+                if self.presetSystem == .n3ds {
+                    self.saveIOQueue.async { _ = session.loadPreCheatBackup() }
+                    return true
+                }
+                return session.loadPreCheatBackup()
             },
             hasBackup: hasBackup,
             onResume: { [weak self] in
                 // The user confirmed "Restore pre-cheat save". Dismiss
                 // the cheats sheet first, then close the overlay menu and
-                // resume the game so we land directly back in gameplay.
+                // resume the game so we land directly back in gameplay,
+                // once the restore queued just before has run.
                 self?.dismiss(animated: true) {
-                    self?.hideOverlay()
+                    self?.saveIOQueue.async {
+                        DispatchQueue.main.async { self?.hideOverlay() }
+                    }
                 }
             }
         )
@@ -1410,6 +1660,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         if presetSystem == .psp, case .builtin(let look) = effectiveSelection, look != .invisible {
             return ConsoleSkinView.pspVariant(look == .retroPal ? .retroPal : .nostalgia)
         }
+        // The 3DS wears the DS's dress in its own colours, the same way.
+        if presetSystem == .n3ds, case .builtin(let look) = effectiveSelection, look != .invisible {
+            return ConsoleSkinView.ctrVariant(look == .retroPal ? .retroPal : .nostalgia)
+        }
         switch effectiveSelection {
         case .builtin(.retroPal): return .retroPal
         case .builtin:            return .nostalgia
@@ -1447,6 +1701,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     private var skinIconAssetName: String {
         // Asked before the extensions: a PSP `.iso` is a disc extension.
         if romSystem == .psp { return "console-psp" }
+        // No drawing yet: the Skin button keeps its SF Symbol (`setSkinIcon`
+        // keeps it when there is no image) rather than another console's.
+        if romSystem == .n3ds { return "console-n3ds" }
         switch romURL.pathExtension.lowercased() {
         case "gb":  return "console-gb"
         case "gbc": return "console-gbc"
@@ -1482,6 +1739,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         case .sms:      return .sms
         case .gg:       return .gg
         case .psp:      return .psp
+        case .n3ds:     return .n3ds
         case .gba, nil: return .gba
         }
     }
@@ -1685,6 +1943,19 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         }
     }
 
+    /// The library's identity of this game for the play history: its hash (the
+    /// key every device shares), its title and console. Read once, the first
+    /// time play is banked; nil for a file the library does not hold.
+    private lazy var historyGame: (romHash: String, title: String, system: String)? = {
+        let request = NSFetchRequest<GameEntity>(entityName: "GameEntity")
+        request.predicate = NSPredicate(format: "romFilePath == %@",
+                                        RetroAchievements.libraryKey(forROMPath: romURL.path))
+        request.fetchLimit = 1
+        guard let game = try? PersistenceController.shared.container.viewContext.fetch(request).first,
+              let hash = game.romHash, !hash.isEmpty else { return nil }
+        return (hash, game.title ?? "", game.systemType ?? romSystem?.rawValue ?? "gba")
+    }()
+
     /// Save accumulated play time to PromptTracker. Called on quit and app background.
     private func persistPlayTime() {
         // Add any time since last resume (if game was actively running)
@@ -1696,6 +1967,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         let gameName = romName
         PromptTracker.shared.recordSessionEnd(playSeconds: accumulatedPlaySeconds)
         PromptTracker.shared.recordGamePlayTime(romName: gameName, seconds: accumulatedPlaySeconds)
+        // The Retro story's history, the same seconds, kept per day and synced.
+        if let game = historyGame {
+            PlayHistory.shared.record(seconds: accumulatedPlaySeconds, romHash: game.romHash,
+                                      title: game.title, system: game.system)
+        }
         sessionTotalPlaySeconds += accumulatedPlaySeconds
         accumulatedPlaySeconds = 0
     }
@@ -1716,12 +1992,50 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
     // MARK: - TouchControlsDelegate
 
     func touchControlsDidChange(buttons: UInt32) {
-        // The DS is one player, so the lid gate only ever meets player 1.
-        if touchPlayer == 0 {
-            session.setKeys(buttonsAfterLid(buttons))
-        } else {
-            session.setKeys(buttons, player: touchPlayer)
-        }
+        touchKeys = buttons
+        sendKeys(port: touchPlayer)
+    }
+
+    /// What the touch controls and the controllers last sent, kept apart and
+    /// sent together. On an iPad the keyboard plays player 1 WITH the touch
+    /// controls on screen, and each source used to send the whole of player
+    /// 1's state: any key released a button held on the glass, any glass
+    /// press dropped a held arrow, and on the 3DS any arrow put a C-stick
+    /// held on the glass back to the centre (audit, 2026-10-30). With a pad,
+    /// the touch controls hide and let go (`releaseAllInputs`), so nothing
+    /// changes there.
+    private var touchKeys: UInt32 = 0
+    /// By port (`port(for:)`), as the session hears them.
+    private var controllerKeys: [Int: UInt32] = [:]
+    private var touchSticks: (left: CGPoint, right: CGPoint) = (.zero, .zero)
+    private var controllerSticks: [Int: (left: CGPoint, right: CGPoint)] = [:]
+
+    /// A port's buttons: the controllers' and, on the touch controls' port,
+    /// theirs too. The DS is one player, so the lid gate only ever meets port 0.
+    private func sendKeys(port: Int) {
+        var keys = controllerKeys[port] ?? 0
+        if port == touchPlayer { keys |= touchKeys }
+        session.setKeys(port == 0 ? buttonsAfterLid(keys) : keys, player: port)
+    }
+
+    /// A port's sticks: each one the glass's while a finger holds it off
+    /// centre, the controllers' otherwise.
+    private func sendSticks(port: Int) {
+        let centred: (left: CGPoint, right: CGPoint) = (left: .zero, right: .zero)
+        let pad = controllerSticks[port] ?? centred
+        let touch = port == touchPlayer ? touchSticks : centred
+        let left = touch.left != .zero ? touch.left : pad.left
+        let right = touch.right != .zero ? touch.right : pad.right
+        session.setAnalogSticks(leftX: left.x, leftY: left.y, rightX: right.x, rightY: right.y,
+                                player: port)
+    }
+
+    /// Drops player 1's held buttons, as a press that closed a menu or a card
+    /// must not reach the game; each source's next change sends its state again.
+    private func releaseHeldKeys() {
+        controllerKeys[0] = nil
+        if touchPlayer == 0 { touchKeys = 0 }
+        session.setKeys(0)
     }
 
     /// Any button opens a closed DS lid, and that press is swallowed until
@@ -1771,9 +2085,11 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         manager.activePlayerCount = presetSystem.playerCount
         manager.onButtonsChanged = { [weak self] player, mask in
             guard let self else { return }
-            // Player 1 (the DS's only one) can open a closed lid with any button.
-            let buttons = player == 0 ? self.buttonsAfterLid(mask) : mask
-            self.session.setKeys(buttons, player: self.port(for: player))
+            // Player 1 (the DS's only one) can open a closed lid with any
+            // button (`sendKeys`, with the touch controls' own).
+            let port = self.port(for: player)
+            self.controllerKeys[port] = mask
+            self.sendKeys(port: port)
         }
         // The consoles whose ports must be told a pad is there (SNES, NES)
         // hear how many players have one, now and on every change.
@@ -1791,8 +2107,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // this is where it is turned the right way up. Everything downstream
             // speaks y-down, like UIKit and like the console.
             guard let self else { return }
-            self.session.setAnalogSticks(leftX: lx, leftY: -ly, rightX: rx, rightY: -ry,
-                                         player: self.port(for: player))
+            let port = self.port(for: player)
+            self.controllerSticks[port] = (CGPoint(x: lx, y: -ly), CGPoint(x: rx, y: -ry))
+            self.sendSticks(port: port)
         }
         // Player 1's pause-menu request (its Home button while this screen
         // claims it, the spare menu-ish button of a DS4/DualSense/Xbox pad, or
@@ -1816,7 +2133,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 // SwiftUI sheet: nil-ing the item dismisses it; its onDismiss
                 // runs the unified resume.
                 self.shareModel?.card = nil
-                self.session.setKeys(0)
+                self.releaseHeldKeys()
                 return
             }
             if let presented = self.presentedViewController {
@@ -1826,12 +2143,12 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 guard !(presented is UIAlertController),
                       !(presented is ControllerConfirmDialog) else { return }
                 presented.dismiss(animated: true)
-                self.session.setKeys(0)
+                self.releaseHeldKeys()
                 return
             }
             if !self.overlay.isHidden {
                 self.hideOverlay()
-                self.session.setKeys(0)
+                self.releaseHeldKeys()
             }
         }
         // Bound shortcut verbs (wave 2; unbound by default).
@@ -1846,7 +2163,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // Drop any stale touch mask (e.g. a long-press-locked button) so
             // the controller starts from a clean slate. (A touch player 2's own
             // mask is released by the touch view as it hides: `releaseAllInputs`.)
-            if connected { self.session.setKeys(0) }
+            if connected { self.releaseHeldKeys() }
             // The touch player's port is plugged only while the touch controls show.
             self.session.setConnectedPlayers(self.connectedPlayers(pads: manager.pads.count))
             self.updateControlsVisibility()
@@ -1901,12 +2218,15 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                     overlay.setSoundEnabled(true)
                 }
             }
+        // Not while a 3DS boots (`isBooting`): no game yet to share, its still
+        // would read the picture the boot is writing, and the card stayed up
+        // over a game the boot then started (audit, 2026-10-20).
         case .screenshot:
-            guard pressed, overlay.isHidden, presentedViewController == nil,
+            guard pressed, overlay.isHidden, !isBooting, presentedViewController == nil,
                   shareModel?.card == nil else { return }
             presentScreenshotCard(autoDismiss: false)
         case .clip:
-            guard pressed, overlay.isHidden, presentedViewController == nil,
+            guard pressed, overlay.isHidden, !isBooting, presentedViewController == nil,
                   shareModel?.card == nil else { return }
             presentClipCard(pauseAndResume: true)
         }
@@ -1974,6 +2294,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         }
 
         metalView.ndsSideBySide = isLandscape && session.hasTouchScreen
+        // The 3DS on its side: its two screens side by side in its band.
+        metalView.ctrSideBySide = isLandscape && presetSystem == .n3ds
 
         // Resolve a layout into absolute view-space frames for every component
         // (screens + controls) — the same resolver the editor renders from, so
@@ -2005,12 +2327,24 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             presetScene = nil
         }
 
+        // The 3DS's quads belong to a custom layout only; every path below that is
+        // not one leaves the default drawing (`ctrSideBySide`, or the picture whole).
+        metalView.ctrCustomScreens = nil
         if let scene = presetScene {
             if isNDS, let top = scene.screens[.top], let bottom = scene.screens[.bottom] {
                 // The metal view spans the whole view; each screen renders as a
                 // quad at its preset rect, with its own alpha.
                 metalView.frame = view.bounds
                 metalView.ndsCustomScreens = (
+                    top: EmulatorMetalView.CustomScreenQuad(rect: top.frame, alpha: top.opacity),
+                    bottom: EmulatorMetalView.CustomScreenQuad(rect: bottom.frame, alpha: bottom.opacity))
+                metalView.alpha = 1
+            } else if presetSystem == .n3ds, let top = scene.screens[.top], let bottom = scene.screens[.bottom] {
+                // The 3DS the same way: the view spans the whole view and draws each of its
+                // two screens, cut from its one picture, at its own rect and opacity.
+                metalView.ndsCustomScreens = nil
+                metalView.frame = view.bounds
+                metalView.ctrCustomScreens = (
                     top: EmulatorMetalView.CustomScreenQuad(rect: top.frame, alpha: top.opacity),
                     bottom: EmulatorMetalView.CustomScreenQuad(rect: bottom.frame, alpha: bottom.opacity))
                 metalView.alpha = 1
@@ -2041,7 +2375,10 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // reachable. Under a preset the controls span the whole view, so they
         // claim only the touches that land on a control (pass-through below)
         // and let the rest reach the stylus overlay / screens.
-        controls.passThroughUnusedTouches = (presetScene != nil)
+        //
+        // The 3DS as well, preset or not: its touch screen is inside its one
+        // picture, and on its side the controls span that picture too.
+        controls.passThroughUnusedTouches = (presetScene != nil) || ctrTouchOverlay != nil
 
         applyControlConstraints(isLandscape: isLandscape, presetScene: presetScene)
 
@@ -2075,8 +2412,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // GPU work bought for nothing, and it landed on exactly the consoles a preset is
             // most likely to be used on. It stays non-opaque when the preset really does make
             // the screen translucent, which is the only case where the blend is the point.
-            metalView.isOpaque = isNDS ? false : (metalView.alpha >= 1)
-            if isNDS { metalView.backgroundColor = .clear }
+            let screensAsQuads = isNDS || metalView.ctrCustomScreens != nil
+            metalView.isOpaque = screensAsQuads ? false : (metalView.alpha >= 1)
+            if screensAsQuads { metalView.backgroundColor = .clear }
             consoleSkin.ndsScreens = []
             if session.hasTouchScreen, let touchOverlay = ndsTouchOverlay {
                 // The stylus overlay tracks wherever the touch screen's CONTENT
@@ -2116,9 +2454,41 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                 metalView.isOpaque = false
                 metalView.backgroundColor = .clear
             }
+        } else if presetSystem == .n3ds {
+            // The 3DS's two screens inside its picture, for the dress's rims; dressed, the
+            // picture is clipped to them as the DS's is, so the shell shows in the bands
+            // beside the bottom screen (where the shoulders stand upright) and round the pair.
+            let screens = ConsoleSkinView.ctrScreens(in: metalView.frame, sideBySide: metalView.ctrSideBySide)
+            consoleSkin.ndsScreens = screens
+            if !consoleSkin.isHidden {
+                let corner = 2 * EmulatorLayoutGeometry.deviceScale(for: viewSize)
+                let maskPath = UIBezierPath()
+                for s in screens {
+                    let local = s.offsetBy(dx: -metalView.frame.minX, dy: -metalView.frame.minY)
+                    maskPath.append(UIBezierPath(roundedRect: local, cornerRadius: corner))
+                }
+                let mask = CAShapeLayer()
+                mask.path = maskPath.cgPath
+                metalView.layer.mask = mask
+                metalView.isOpaque = false
+                metalView.backgroundColor = .clear
+            }
         } else {
             consoleSkin.ndsScreens = []
         }
+        // The 3DS's bottom screen, wherever it now is: a custom layout's own rect,
+        // else inside the default picture.
+        if let touchOverlay = ctrTouchOverlay {
+            if let custom = metalView.ctrCustomScreens {
+                touchOverlay.frame = custom.bottom.rect
+            } else {
+                touchOverlay.frame = metalView.ctrSideBySide
+                    ? CTRTouchOverlay.frame(sideBySideIn: metalView.frame)
+                    : CTRTouchOverlay.frame(inPicture: metalView.frame)
+            }
+        }
+        // Its loading cover too, while it boots.
+        placeLoadingCover()
     }
 
     /// The two NDS game-screen sub-frames within the combined metal frame, in physical order:
@@ -2178,7 +2548,9 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             ])
         } else if isLandscape {
             // NDS: controls below the screens. GBA: controls overlay full screen.
-            let controlsTop = session.hasTouchScreen ? metalView.frame.maxY : 0
+            let controlsTop = EmulatorLayoutGeometry.screensBandAboveControls(
+                system: presetSystem, isLandscape: true, hasTouchScreen: session.hasTouchScreen)
+                ? metalView.frame.maxY : 0
             NSLayoutConstraint.activate([
                 controls.topAnchor.constraint(equalTo: view.topAnchor, constant: controlsTop),
                 controls.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -2224,7 +2596,8 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                                         deviceScale: deviceScale, safeLeftInset: safeLeftInset,
                                         safeRightInset: safeRightInset,
                                         family: LayoutFamily.of(view.bounds.size),
-                                        controllerScreen: controllerScreen)
+                                        controllerScreen: controllerScreen,
+                                        deviceSize: view.bounds.size)
         }
 
         // Dress the buttons (maroon A/B, grey pills, charcoal cross) when the system's buttons
@@ -2320,7 +2693,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // the app writes into a game's folder after the import, so if a total
         // ever does move, that is news and should fail loudly.
         let fm = FileManager.default
-        let onDiskSize = DiscStorage.installedSize(ofROMAt: romURL)
+        let onDiskSize = DiscStorage.installedSize(ofROMAt: romURL, system: romSystem)
         let isDisc = DiscStorage.gameFolder(forROMAt: romURL) != nil
         let exists = fm.fileExists(atPath: romURL.path)
         let sizeMismatch = expectedROMSize > 0 && onDiskSize != nil && onDiskSize != expectedROMSize
@@ -2357,14 +2730,67 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
         // core boots (carts are probed at boot, like on real hardware).
         configureGBASlot2IfNeeded()
 
-        let success = session.loadROM(at: romURL)
-
-        if success {
-            // Load save state if requested
-            if let slot = loadSlotOnStart {
+        // THE 3DS BOOTS ON THE SAVE QUEUE (2026-10-20), behind a loading
+        // cover. On the main thread, inside viewDidLoad, its boot froze the
+        // screen from the tap until the game was ready, the "loading" text
+        // never even drawn: a boot of 3.4 s and a resumed state of 4.3 s on an
+        // iPhone 14 Pro (10-19). The save queue is the one every state load,
+        // save and shutdown already runs on, serial, so nothing here can
+        // overlap a save or a quit; the core's half of the load moved
+        // (`EmulatorSession.loadROMCore`), its main-thread half runs back here
+        // (`finishLoadOnMain`), then the game starts as before.
+        // THE OTHER TWELVE boot as they always did, here, at once (his call,
+        // 2026-10-20): they are ready in a moment, and a cover would only add
+        // a step before the game.
+        let session = self.session
+        let url = romURL
+        let slot = loadSlotOnStart
+        func boot() -> (success: Bool, stateLoaded: Bool?) {
+            let success = session.loadROMCore(at: url)
+            var stateLoaded: Bool?
+            if success, let slot {
                 SessionLiveness.shared.begin(.loadingState)
-                _ = session.loadState(slot: slot)
+                stateLoaded = session.loadState(slot: slot)
+                // Kept from here: any auto-save queued behind the boot (leaving
+                // the app, a replacement) must find the flag already set
+                // (`resumeFailed`).
+                if stateLoaded == false { session.keepsAutoSave = true }
                 SessionLiveness.shared.begin(.startingGame)
+            }
+            return (success, stateLoaded)
+        }
+        guard presetSystem == .n3ds else {
+            let result = boot()
+            if result.success { session.finishLoadOnMain(romPath: url.path) }
+            didLoad(success: result.success, onDiskSize: onDiskSize, stateLoaded: result.stateLoaded)
+            return
+        }
+        isBooting = true
+        showLoadingCover()
+        saveIOQueue.async { [weak self] in
+            let result = boot()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if result.success { session.finishLoadOnMain(romPath: url.path) }
+                self.didLoad(success: result.success, onDiskSize: onDiskSize, stateLoaded: result.stateLoaded)
+            }
+        }
+    }
+
+    /// The boot's second half, on the main thread: the game started, or the
+    /// failure said. `stateLoaded` is nil when no state was asked for.
+    private func didLoad(success: Bool, onDiskSize: Int64?, stateLoaded: Bool?) {
+        isBooting = false
+        hideLoadingCover()
+        // The session was ended while it booted (a file or a widget opened
+        // meanwhile, `endForReplacement`): its shutdown is queued behind the
+        // boot, so nothing here may start it.
+        guard !didEndSession else { return }
+        if success {
+            // A halted core has its own question (quit), so no second one; the
+            // session it could not resume is kept all the same.
+            if stateLoaded == false, let slot = loadSlotOnStart, !coreHalted {
+                resumeFailed(slot: slot)
             }
             // Restore per-game speed preference (migrates Int→Double)
             let speedKey = "speed_\(romName)"
@@ -2390,7 +2816,20 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             // dimensions. Can't rely on setNeedsLayout because viewDidLayoutSubviews
             // won't fire again if the view's bounds haven't changed.
             layoutGameView()
-            session.start()
+            // Started only on screen: the boot ran in the background of a live
+            // screen, and the player may have left the app meanwhile (the
+            // foreground's return starts it, `resumeGameplayIfForeground`).
+            // Nor while a failed resume waits for the player's answer.
+            // Nor once the core halted: its display or boot failure can be
+            // posted while the boot runs on the save queue, and has already
+            // paused the game and asked the player to quit (`n64DisplayLost`,
+            // `pspBootFailed`).
+            // Nor under anything presented meanwhile (the camera's message,
+            // a card): it starts when that is dismissed, by the same rule
+            // (`resumeGameplayIfForeground`; audit, 2026-10-20).
+            let onScreen = UIApplication.shared.applicationState == .active && unloadedResumeSlot == nil
+                && !coreHalted && presentedViewController == nil && shareModel?.card == nil
+            if onScreen { session.start() }
             // This game's stored DMG palette (Classic Green default). No-op
             // for GBA/NDS; ignored by CGB-mode games (their own colors win).
             session.applyGBPalette(GBPalettes.palette(id: storedPaletteID))
@@ -2398,7 +2837,7 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
             metalView.videoFilter = VideoFilter.effective(
                 forRomBasename: romName)
             session.isAudioMuted = UserDefaults.standard.bool(forKey: "audioMuted")
-            metalView.startRendering()
+            if onScreen { metalView.startRendering() }
             SessionLiveness.shared.end(.startingGame)   // the game is running
 
             // One-time "ever played" signal, mirroring import_first: completes
@@ -2421,6 +2860,147 @@ final class EmulatorViewController: UIViewController, TouchControlsDelegate, Ove
                                                "reason": LoadFailureReason.coreRejected.rawValue])
             SessionLiveness.shared.gameEnded(generation: livenessGeneration)
             showLoadFailed()
+        }
+    }
+
+    // MARK: - Loading cover and a failed resume
+
+    /// What stands on the 3DS's screens while its game boots (2026-10-20: the
+    /// screen was frozen and empty; then, his ask, a real skeleton). The page
+    /// is the game's own from the first moment, shell, dress and controls laid
+    /// out by `layoutGameView` as for play, since nothing there waits for the
+    /// core; only the two SCREENS stand in: the top one shows the resumed
+    /// state's screenshot (the top screen, `CTRBridge.createFrameImage`) under
+    /// the app's skeleton sweep (`UI/Skeleton.swift`), the bottom one is black
+    /// with "Loading the game…". When the game is ready the cover fades and the
+    /// page does not move. The controls answer nothing until then.
+    private func showLoadingCover() {
+        loadingCover?.removeFromSuperview()
+        statusLabel.text = nil
+        let cover = CTRLoadingCover(screenshot: loadSlotOnStart.flatMap {
+            SaveStateManager(romName: romName).loadPreviewImage(slot: $0)
+        })
+        cover.isUserInteractionEnabled = false
+        // Over the picture, under the controls (the shoulders stand beside the
+        // bottom screen, over the picture's frame).
+        view.insertSubview(cover, aboveSubview: metalView)
+        loadingCover = cover
+        controls.isUserInteractionEnabled = false
+        placeLoadingCover()
+    }
+
+    /// The cover on the two screens, wherever the layout put them.
+    private func placeLoadingCover() {
+        guard let cover = loadingCover as? CTRLoadingCover else { return }
+        cover.frame = metalView.frame
+        if let custom = metalView.ctrCustomScreens {
+            // A custom layout: the cover spans the view, as the picture does, over each screen.
+            cover.screens = [custom.top.rect, custom.bottom.rect].map {
+                $0.offsetBy(dx: -metalView.frame.minX, dy: -metalView.frame.minY)
+            }
+        } else {
+            cover.screens = ConsoleSkinView.ctrScreens(in: metalView.bounds, sideBySide: metalView.ctrSideBySide)
+        }
+    }
+
+    private func hideLoadingCover() {
+        controls.isUserInteractionEnabled = true
+        guard let cover = loadingCover else { return }
+        loadingCover = nil
+        UIView.animate(withDuration: 0.25, animations: { cover.alpha = 0 },
+                       completion: { _ in cover.removeFromSuperview() })
+    }
+
+    /// The resume could not load the session (the core refused its file). It
+    /// used to start the game from its title screen without a word, and the
+    /// next auto-save wrote over the session (found 2026-10-20). Now the
+    /// session is kept (`EmulatorSession.keepsAutoSave`), the game waits
+    /// paused, and the player chooses: their newest saved slot if there is
+    /// one (a manual slot), the title screen, or back to the library with the session kept.
+    private func resumeFailed(slot: Int) {
+        unloadedResumeSlot = slot
+        session.keepsAutoSave = true
+        Self.romLoadLog.error("resume: slot \(slot) refused, kept; the player is asked")
+        Analytics.signal("save_failure", ["kind": "resume_refused",
+                                          "system": romSystem?.rawValue ?? "unknown"])
+        askResumeFailed(messageKey: "emulator.resumeFailed.message", excluding: [])
+    }
+
+    /// The question of a failed resume: the newest saved slot not yet tried,
+    /// the title screen (which gives the session up: the next auto-save
+    /// replaces it, and the message says so), or back to the library with the
+    /// session kept. Asked again, without the slot, when that slot is refused
+    /// too (`answerResumeFailed`).
+    private func askResumeFailed(messageKey: String, excluding tried: Set<Int>) {
+        let newest = (1...SaveStateManager.manualSlotCount)
+            .filter { !tried.contains($0) }
+            .compactMap { session.saveStateManager?.slotInfo(slot: $0) }
+            .filter { $0.exists && $0.date != nil }
+            .max { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
+        // Asked once the screen is on (`hasAppeared`); the game is not started
+        // until the answer (`didLoad` leaves it stopped while
+        // `unloadedResumeSlot` is set).
+        let ask: () -> Void = { [weak self] in
+            // A core that stopped meanwhile has its own message (quit), and
+            // none of these answers could do anything for it: a PSP that fails
+            // in its first frame says so a moment after the refused resume.
+            guard let self, !self.coreHalted else { return }
+            var actions: [ControllerAlert.Action] = []
+            if let newest {
+                let date = DateFormatter.localizedString(from: newest.date ?? Date(),
+                                                         dateStyle: .medium, timeStyle: .short)
+                actions.append(.init(title: String(format: NSLocalizedString("emulator.resumeFailed.loadSlot", comment: ""),
+                                                   "\(newest.slotIndex)", date)) { [weak self] in
+                    self?.answerResumeFailed(loadSlot: newest.slotIndex, tried: tried)
+                })
+            }
+            actions.append(.init(title: NSLocalizedString("emulator.resumeFailed.titleScreen", comment: "")) { [weak self] in
+                self?.answerResumeFailed(loadSlot: nil, tried: tried)
+            })
+            actions.append(.init(title: NSLocalizedString("emulator.resumeFailed.quit", comment: ""), style: .cancel) { [weak self] in
+                // The session stays as it is for a later try: Quit's auto-save
+                // is skipped while `keepsAutoSave` holds.
+                self?.overlayDidTapQuit()
+            })
+            ControllerAlert.present(
+                title: NSLocalizedString("emulator.resumeFailed.title", comment: ""),
+                message: NSLocalizedString(messageKey, comment: ""),
+                actions: actions)
+        }
+        if hasAppeared {
+            DispatchQueue.main.async(execute: ask)
+        } else {
+            askWhenOnScreen = ask
+        }
+    }
+
+    /// The player's answer to `resumeFailed`. The title screen gives the
+    /// session up: from here on the game is theirs to auto-save again. A slot
+    /// does so only once it has loaded: refused too, it used to leave the game
+    /// on its title screen with auto-saves back on, so the next one replaced
+    /// the session the question had promised to keep (audit, 2026-10-30). Now
+    /// the session stays kept and the question comes back without that slot.
+    private func answerResumeFailed(loadSlot: Int?, tried: Set<Int>) {
+        guard let slot = loadSlot else {
+            unloadedResumeSlot = nil
+            session.keepsAutoSave = false
+            resumeGameplayIfForeground()
+            return
+        }
+        let session = self.session
+        saveIOQueue.async { [weak self] in
+            let loaded = session.loadState(slot: slot)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard loaded else {
+                    self.askResumeFailed(messageKey: "emulator.resumeFailed.slotFailed",
+                                         excluding: tried.union([slot]))
+                    return
+                }
+                self.unloadedResumeSlot = nil
+                session.keepsAutoSave = false
+                self.resumeGameplayIfForeground()
+            }
         }
     }
 

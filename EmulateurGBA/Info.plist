@@ -241,6 +241,28 @@
 				<string>com.retropal.rom.psp</string>
 			</array>
 		</dict>
+		<!-- Nintendo 3DS (2026-10-19): the cartridge image (.3ds, .cci), the
+		     executable (.cxi) and homebrew (.3dsx), the four the app imports.
+		     `.cia` and `.app` are not claimed: the importer does not take them.
+		     No rival type at Alternate: Manic's (public.aoshuang.game.3ds)
+		     covers .cia and .app too, so Retro Pal would be offered for files it
+		     then refuses. -->
+		<dict>
+			<key>CFBundleTypeIconFiles</key>
+			<array>
+				<string>DocIconN3DS</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Nintendo 3DS game</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.retropal.rom.n3ds</string>
+			</array>
+		</dict>
 		<!-- The same games when ANOTHER emulator's type won the file (added
 		     2026-10-07). Every emulator exports a type of its own for the same
 		     extensions (Delta com.rileytestut.delta.game.*, Manic
@@ -529,6 +551,8 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Let Nintendo 3DS games that use the console's cameras see through your camera. Pictures stay on your device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save game screenshots to your photo library</string>
 	<key>NSUbiquitousContainers</key>
@@ -576,6 +600,10 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>GCSupportsGameMode</key>
+	<true/>
+	<key>LSSupportsGameMode</key>
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
@@ -864,6 +892,27 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>cso</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Nintendo 3DS game</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.retropal.rom.n3ds</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>3ds</string>
+					<string>cci</string>
+					<string>cxi</string>
+					<string>3dsx</string>
 				</array>
 			</dict>
 		</dict>

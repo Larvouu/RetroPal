@@ -1,0 +1,113 @@
+Raw states for a rewind
+
+A rewind takes a state every few seconds and keeps it in memory, never on
+disk. retro_serialize compresses every state with zstd, and for a New 3DS
+game's 296 MB state that compression is most of its cost (Tools/3ds-bench
+rewind, Majora's Mask 3D: 590 to 860 ms a state on the host).
+
+This adds System::SaveStateRaw / LoadStateRaw, the state as the archive writes
+it, with no header and no compression, written into the caller's buffer (its
+capacity kept between calls, so the 296 MB is allocated once), and two entry
+points for a frontend that knows them, retro_ctr_rewind_capture and
+retro_ctr_rewind_restore, which drain the pending async operations first as
+retro_serialize and retro_unserialize do. Not a format to store: valid only for
+the build and title that wrote it.
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -744,6 +744,38 @@
+     }
+ }
+ 
++// A rewind's states: the state as the archive writes it, without the header and
++// the compression retro_serialize adds (System::SaveStateRaw). Not part of the
++// libretro API; a frontend that knows them calls them by name. The capture
++// writes into the frontend's own buffer, whose capacity is kept between calls.
++// Not a format to store: valid only for this build and the running title.
++extern "C" RETRO_API bool retro_ctr_rewind_capture(std::vector<u8>* buffer) {
++    auto& system = Core::System::GetInstance();
++    if (!buffer || !system.IsPoweredOn() || !DrainAsyncOperations(system)) {
++        return false;
++    }
++    try {
++        system.SaveStateRaw(*buffer);
++        return !buffer->empty();
++    } catch (const std::exception& e) {
++        LOG_ERROR(Frontend, "Error taking a rewind state: {}", e.what());
++        return false;
++    }
++}
++
++extern "C" RETRO_API bool retro_ctr_rewind_restore(const void* data, size_t size) {
++    auto& system = Core::System::GetInstance();
++    if (!data || !size || !system.IsPoweredOn() || !DrainAsyncOperations(system)) {
++        return false;
++    }
++    try {
++        return system.LoadStateRaw({static_cast<const u8*>(data), size});
++    } catch (const std::exception& e) {
++        LOG_ERROR(Frontend, "Error restoring a rewind state: {}", e.what());
++        return false;
++    }
++}
++
+ void* retro_get_memory_data(unsigned id) {
+     // Memory is exposed via RETRO_ENVIRONMENT_SET_MEMORY_MAPS instead,
+     // using virtual addresses for stable cheat/achievement support.
+--- a/src/core/core.h
++++ b/src/core/core.h
+@@ -8,6 +8,7 @@
+ #include <chrono>
+ #include <memory>
+ #include <mutex>
++#include <span>
+ #include <string>
+ #include <boost/optional.hpp>
+ #include <boost/serialization/version.hpp>
+@@ -397,6 +398,16 @@
+ 
+     bool LoadStateBuffer(std::vector<u8> buffer);
+ 
++    /// The state as the archive writes it: no header, no compression, into
++    /// `buffer` (cleared, its capacity kept, so a caller that keeps one buffer
++    /// pays for the allocation once). For a rewind, which takes a state every
++    /// few seconds and never stores it: the compression is most of a state's
++    /// cost. Only valid for the build and title that wrote it.
++    void SaveStateRaw(std::vector<u8>& buffer) const;
++
++    /// Loads a state written by SaveStateRaw.
++    bool LoadStateRaw(std::span<const u8> state);
++
+     /// Applies any changes to settings to this core instance.
+     void ApplySettings();
+ 
+--- a/src/core/savestate.cpp
++++ b/src/core/savestate.cpp
+@@ -373,6 +373,27 @@
+     return result;
+ }
+ 
++void System::SaveStateRaw(std::vector<u8>& buffer) const {
++    buffer.clear();
++    ByteSinkBuffer sink{0};
++    sink.bytes.swap(buffer);
++    {
++        std::ostream stream{&sink};
++        oarchive oa{stream};
++        oa&* this;
++    }
++    last_state_size = sink.bytes.size();
++    sink.bytes.swap(buffer);
++}
++
++bool System::LoadStateRaw(std::span<const u8> state) {
++    ByteViewBuffer view{state.data(), state.size()};
++    std::istream stream{&view};
++    iarchive ia{stream};
++    ia&* this;
++    return true;
++}
++
+ bool System::LoadStateBuffer(std::vector<u8> buffer) {
+     CSTHeader header;
+ 

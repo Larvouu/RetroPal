@@ -106,6 +106,8 @@ struct CheatManagerView: View {
         case "sms", "gg": return "sega8"
         // CWCheat, the PSP's own format (PSPBridge's cheats).
         case "psp": return "psp"
+        // Gateway, the 3DS's own format (CTRBridge's cheats).
+        case "n3ds": return "n3ds"
         default: return "gba"
         }
     }
@@ -134,6 +136,8 @@ struct CheatManagerView: View {
         // A CWCheat line as PSP code lists print it: "_L", a 32-bit write
         // (type 2) at an offset into the game's memory, the value.
         case "psp":  return prefix + "_L 0x20123456 0x0000270F"
+        // A Gateway line: a 32-bit write (type 0) of a value to an address.
+        case "n3ds": return prefix + "0012A3F4 0000270F"
         default:     return prefix + "82003884 0001"
         }
     }
@@ -562,8 +566,10 @@ struct CheatManagerView: View {
                                      : "cheats.invalid.characters", comment: "")
         case .unpairedLine:
             // The DS's sentence names Action Replay DS; the PSP's names its own
-            // CWCheat lines.
-            return NSLocalizedString(formatKey == "psp" ? "cheats.invalid.pairs.psp" : "cheats.invalid.pairs",
+            // CWCheat lines, the 3DS's its Gateway lines.
+            return NSLocalizedString(formatKey == "psp" ? "cheats.invalid.pairs.psp"
+                                     : formatKey == "n3ds" ? "cheats.invalid.pairs.n3ds"
+                                     : "cheats.invalid.pairs",
                                      comment: "")
         case .placeholderValue:
             return NSLocalizedString("cheats.invalid.placeholder", comment: "")

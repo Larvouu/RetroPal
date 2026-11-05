@@ -284,6 +284,19 @@ enum BatterySaveImporter {
             .appendingPathComponent(stick, isDirectory: true)
     }
 
+    /// The Nintendo 3DS's own folder: the emulated console's SD card and NAND,
+    /// where every 3DS game writes its saves, and the core's shader cache
+    /// (CTRBridge `setSystemDirectory:`). ONE folder for the console, not one
+    /// per game: inside it each game's save data is filed by the game's own
+    /// title ID, as on a real 3DS. In Documents beside the PSP's memory sticks,
+    /// for the same reasons: the Files app shows it and a backup keeps it.
+    /// LOCAL to the device for now, like the PSP's: the `.sav` mirror syncs
+    /// single files, and these are folders. The bridge creates it.
+    static var ctrSystemFolder: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return docs.appendingPathComponent("3DS", isDirectory: true)
+    }
+
     // MARK: - Live-session guard (for the iCloud battery mirror)
 
     /// Basenames of the ROMs whose battery saves are currently held OPEN by a

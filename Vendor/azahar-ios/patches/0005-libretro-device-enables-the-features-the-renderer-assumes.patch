@@ -1,0 +1,120 @@
+Enable on the libretro device the features the renderer assumes it has
+
+In a libretro build the core makes its Vulkan device itself, through the
+negotiation interface (LibRetro::CreateVulkanDevice). The renderer's Instance
+then reads the features from the GPU (Instance::CreateDevice, FEAT_SET) and
+returns before making a device of its own (HAVE_LIBRETRO). So it records as
+present every feature the GPU OFFERS, whether or not the device it uses enabled
+it. Three of those were never enabled by CreateVulkanDevice:
+
+- VK_EXT_pipeline_creation_cache_control (pipelineCreationCacheControl)
+- VK_EXT_robustness2 (nullDescriptor)
+- VK_EXT_fragment_shader_interlock (fragmentShaderPixelInterlock)
+
+The first one is felt. GraphicsPipeline::TryBuild, on the emulation thread,
+asks the driver for each new pipeline with
+FAIL_ON_PIPELINE_COMPILE_REQUIRED, expecting a refusal when the driver would
+have to compile, and then hands the compile to its worker threads, while the
+draws that need the pipeline are skipped (async shader compilation). A driver
+honours that flag only when the feature is enabled on the device (MoltenVK:
+MVKPipeline::shouldFailOnPipelineCompileRequired). On MoltenVK it was not, so
+the "quick" try compiled the whole pipeline (SPIR-V to MSL to Metal) right
+there.
+
+On an iPhone 14 Pro (Majora's Mask 3D, async shader compilation on,
+2026-10-19), the game ran at 60 fps with 6 ms of work per frame, and stopped
+for 0.4 to 2.9 seconds at a new scene. Every stop came right after MoltenVK's
+"Compilation succeeded" line, on the emulation thread.
+
+This patch enables the three extensions and their features on the device,
+each only where the GPU reports the feature: the same reading the Instance
+already makes. The renderer's code is unchanged; what it already relied on is
+now true of its device.
+
+The stall itself cannot be measured on the host bench: lavapipe compiles a
+pipeline in well under a frame. Nor is the host output deterministic run to
+run, even with async compilation off: Tools/3ds-bench hash over 1800 frames of
+Majora's Mask 3D, five cold runs each, differs in 0 to 4 frames between runs of
+the SAME build, and the builds with and without this patch fall in that same
+spread. Bench frame times are unchanged. On the phone (2026-10-19) the device
+now lists the three extensions, and the longest stop at a new scene went from
+2.9 to 1.1 seconds; patch 0006 is what removes the rest.
+
+diff --git a/src/citra_libretro/libretro_vk.cpp b/src/citra_libretro/libretro_vk.cpp
+index 0a4c66e..9588ab9 100644
+--- a/src/citra_libretro/libretro_vk.cpp
++++ b/src/citra_libretro/libretro_vk.cpp
+@@ -101,6 +101,23 @@ bool CreateVulkanDevice(struct retro_vulkan_context* context, VkInstance instanc
+     const bool has_custom_border_color = AddExtensionIfAvailable(
+         enabled_exts, available_exts, VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
+ 
++    // Instance::CreateDevice decides these three from what the GPU OFFERS and,
++    // in a libretro build, returns before creating a device: this one is the
++    // device it uses, so it enables them, or the renderer relies on features
++    // its device does not have. Pipeline creation cache control is the one
++    // that is felt: GraphicsPipeline::TryBuild asks the driver for a pipeline
++    // with FAIL_ON_PIPELINE_COMPILE_REQUIRED on the emulation thread, expecting
++    // a refusal when it would have to compile, and hands the compile to its
++    // workers. A driver honours that flag only when the feature is enabled
++    // (MoltenVK: MVKPipeline::shouldFailOnPipelineCompileRequired), so without
++    // it every new pipeline was compiled right there, and the game stopped.
++    const bool has_pipeline_creation_cache_control = AddExtensionIfAvailable(
++        enabled_exts, available_exts, VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME);
++    const bool has_robustness2 =
++        AddExtensionIfAvailable(enabled_exts, available_exts, VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
++    const bool has_fragment_shader_interlock = AddExtensionIfAvailable(
++        enabled_exts, available_exts, VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
++
+     // These are beneficial but blacklisted on some platforms due to driver bugs
+     // For now, let the Instance class handle these decisions
+     // AddExtensionIfAvailable(enabled_exts, available_exts,
+@@ -180,6 +197,49 @@ bool CreateVulkanDevice(struct retro_vulkan_context* context, VkInstance instanc
+         enabled_features.pNext = &custom_border_color_features;
+     }
+ 
++    // The three features above, each enabled only where the GPU reports it,
++    // the same reading Instance::CreateDevice makes (FEAT_SET).
++    VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT supported_pcc{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT};
++    VkPhysicalDeviceRobustness2FeaturesEXT supported_robustness2{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT};
++    VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT supported_interlock{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT};
++    supported_pcc.pNext = &supported_robustness2;
++    supported_robustness2.pNext = &supported_interlock;
++    VkPhysicalDeviceFeatures2 supported{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
++    supported.pNext = &supported_pcc;
++    PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2 =
++        (PFN_vkGetPhysicalDeviceFeatures2)get_instance_proc_addr(instance,
++                                                                 "vkGetPhysicalDeviceFeatures2");
++    if (vkGetPhysicalDeviceFeatures2) {
++        vkGetPhysicalDeviceFeatures2(gpu, &supported);
++    }
++
++    VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT pcc_features{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT};
++    if (has_pipeline_creation_cache_control && supported_pcc.pipelineCreationCacheControl) {
++        pcc_features.pipelineCreationCacheControl = VK_TRUE;
++        pcc_features.pNext = enabled_features.pNext;
++        enabled_features.pNext = &pcc_features;
++    }
++
++    VkPhysicalDeviceRobustness2FeaturesEXT robustness2_features{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT};
++    if (has_robustness2 && supported_robustness2.nullDescriptor) {
++        robustness2_features.nullDescriptor = VK_TRUE;
++        robustness2_features.pNext = enabled_features.pNext;
++        enabled_features.pNext = &robustness2_features;
++    }
++
++    VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT interlock_features{
++        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT};
++    if (has_fragment_shader_interlock && supported_interlock.fragmentShaderPixelInterlock) {
++        interlock_features.fragmentShaderPixelInterlock = VK_TRUE;
++        interlock_features.pNext = enabled_features.pNext;
++        enabled_features.pNext = &interlock_features;
++    }
++
+     VkDeviceCreateInfo device_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+     device_info.queueCreateInfoCount = 1;
+     device_info.pQueueCreateInfos = &queue_info;

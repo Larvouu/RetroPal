@@ -56,6 +56,10 @@ struct ControllerInputSource {
     /// d-pad separately, so a player using the cross still gets the cross.
     var leftStickX: CGFloat = 0
     var leftStickY: CGFloat = 0
+    /// Whether the pad HAS a left stick (a pad offering only a d-pad and
+    /// buttons, the 8BitDo FlipPad, does not): the 3DS then takes its circle
+    /// pad from the d-pad (`ControllerManager.emitSticks`).
+    var hasLeftStick = true
     var rightStickX: CGFloat = 0
     var rightStickY: CGFloat = 0
 
@@ -193,6 +197,7 @@ extension ControllerInputSource {
 
         let pad = dpads[GCInputDirectionPad] ?? dpads[GCInputMicroGamepadDpad] ?? DirectionalState()
         let leftStick = dpads[GCInputLeftThumbstick] ?? DirectionalState()
+        hasLeftStick = dpads[GCInputLeftThumbstick] != nil
         let rightStick = dpads[GCInputRightThumbstick] ?? DirectionalState()
         leftStickX = leftStick.x
         leftStickY = leftStick.y

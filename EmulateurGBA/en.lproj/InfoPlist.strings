@@ -1,9 +1,10 @@
-/* Info.plist strings the system shows on our behalf: the photo-library permission
-   sentence, and the document-type names Files and the share sheet print. Launch
+/* Info.plist strings the system shows on our behalf: the photo-library and camera permission
+   sentences, and the document-type names Files and the share sheet print. Launch
    Services looks the type names up by their Info.plist VALUE, so the English
    name is the key. */
 
 "NSPhotoLibraryAddUsageDescription" = "Save game screenshots to your photo library";
+"NSCameraUsageDescription" = "Let Nintendo 3DS games that use the console's cameras see through your camera. Pictures stay on your device.";
 
 "Game Boy Advance ROM" = "Game Boy Advance ROM";
 "Game Boy Color ROM" = "Game Boy Color ROM";
@@ -17,6 +18,7 @@
 "NES ROM" = "NES ROM";
 "PlayStation disc" = "PlayStation disc";
 "PSP game" = "PSP game";
+"Nintendo 3DS game" = "Nintendo 3DS game";
 "Game save" = "Game save";
 "Retro Pal Skin" = "Retro Pal Skin";
 

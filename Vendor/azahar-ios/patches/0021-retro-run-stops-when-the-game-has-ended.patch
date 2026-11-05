@@ -1,0 +1,32 @@
+retro_run stops when the game has ended
+
+retro_run ran System::RunLoop until a frame was submitted. Two statuses never
+submit one: ShutdownRequested (the game closed itself, or a reset during its
+initial setup) and ErrorNotInitialized, which every later RunLoop returns once
+an in-game reboot (APT/NS RequestReset, System::Reset = Shutdown then Load)
+could not load the title again. The loop then never returned: it posted a
+message on every pass, and the frontend's lock around retro_run was held for
+good, so its next pause or save waited forever (audit, 2026-10-20).
+
+On any status but Success the loop now reports it as before, tells the
+frontend the game has ended (RETRO_ENVIRONMENT_SHUTDOWN, LibRetro::Shutdown)
+and returns. In the libretro build no other status reaches it: save and load
+go through retro_serialize, not RunLoop's signals, and ErrorSystemFiles is
+returned by Load, not by RunLoop.
+
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -305,6 +305,13 @@
+             }
+ 
+             LibRetro::DisplayMessage(msg.c_str());
++            // No status but Success ever submits a frame here: the game closed
++            // itself (ShutdownRequested), or an in-game reboot left the system
++            // off (ErrorNotInitialized at every later call). Looping on it
++            // never returned, with the frontend's core lock held; the
++            // frontend is told the game has ended instead.
++            LibRetro::Shutdown();
++            return;
+         }
+     }
+ }

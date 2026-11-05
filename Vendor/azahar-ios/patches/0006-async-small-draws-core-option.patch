@@ -1,0 +1,120 @@
+Let async shader compilation skip small draws too (core option)
+
+With async_shader_compilation on, RasterizerVulkan::AccelerateDrawBatchInternal
+still makes a draw WAIT for its pipeline when it has six vertices or fewer
+(wait_built = !async_shaders || num_vertices <= 6), most likely so that
+screen-wide quads are never missing. On MoltenVK that wait is a whole
+SPIR-V to MSL to Metal compile on the emulation thread.
+
+On an iPhone 14 Pro (Majora's Mask 3D, async compilation on, patch 0005 on,
+2026-10-19), the game ran at 60 fps with 6 ms of work per frame, and stopped
+for 0.3 to 1.1 seconds at a new scene, each stop right after a Metal compile.
+On the host (Tools/3ds-bench, the bridge's options, 25 s of play, the probe
+since removed), every draw that still waited for its pipeline was one of
+these: 53 waits, all of 3, 4 or 6 vertices.
+
+This adds the option `citra_async_small_draws` (default disabled, so a frontend
+that does not set it sees no change). When it is on, small draws are skipped
+until their pipeline is built, as larger ones already are. The cost is a small
+object or a screen-wide pass missing for a frame or two the first time it is
+drawn. With the option off, the code path is the core's own; host runs fall in
+the same run-to-run spread as without the patch (0 to 4 frames of 1800 differ
+between runs of one build). With it on, a state saved and loaded back on the
+host replays 300 frames with the sound identical and the picture different only
+in the first frame, as before.
+
+--- a/src/citra_libretro/core_settings.cpp
++++ b/src/citra_libretro/core_settings.cpp
+@@ -62,6 +62,7 @@
+ static constexpr const char* use_disk_shader_cache = citra_setting(BaseKeys::use_disk_shader_cache);
+ static constexpr const char* async_shader_compilation =
+     citra_setting(BaseKeys::async_shader_compilation);
++static constexpr const char* async_small_draws = "citra_async_small_draws";
+ static constexpr const char* resolution_factor = citra_setting(BaseKeys::resolution_factor);
+ static constexpr const char* texture_filter = citra_setting(BaseKeys::texture_filter);
+ static constexpr const char* texture_sampling = citra_setting(BaseKeys::texture_sampling);
+@@ -381,6 +382,23 @@
+         config::disabled
+     },
+     {
++        config::graphics::async_small_draws,
++        "Async Shaders for Small Draws",
++        "Async Small Draws",
++        "With Async Shader Compilation, also skip draws of six vertices or fewer until their "
++        "shaders are ready, instead of stopping the game to wait for them. Removes the "
++        "remaining stutter at a new scene, at the cost of small objects missing for a few "
++        "frames the first time they appear.",
++        nullptr,
++        config::category::graphics,
++        {
++            { config::enabled, "Enabled" },
++            { config::disabled, "Disabled" },
++            { nullptr, nullptr }
++        },
++        config::disabled
++    },
++    {
+         config::graphics::use_disk_shader_cache,
+         "Hardware Shader Cache",
+         "Shader Cache",
+@@ -1026,6 +1044,10 @@
+         LibRetro::FetchVariable(config::graphics::async_shader_compilation, config::disabled) ==
+         config::enabled;
+ 
++    Settings::values.async_small_draws =
++        LibRetro::FetchVariable(config::graphics::async_small_draws, config::disabled) ==
++        config::enabled;
++
+     auto resolution = LibRetro::FetchVariable(config::graphics::resolution_factor, "1");
+     Settings::values.resolution_factor = std::stoi(resolution);
+ 
+diff --git a/src/common/settings.h b/src/common/settings.h
+index 5ffc065..9746901 100644
+--- a/src/common/settings.h
++++ b/src/common/settings.h
+@@ -536,6 +536,9 @@ struct Values {
+     SwitchableSetting<bool> spirv_shader_gen{true, Keys::spirv_shader_gen};
+     SwitchableSetting<bool> disable_spirv_optimizer{true, Keys::disable_spirv_optimizer};
+     SwitchableSetting<bool> async_shader_compilation{false, Keys::async_shader_compilation};
++    /// With async_shader_compilation, small draws (six vertices or fewer) are
++    /// skipped too until their pipeline is built, instead of waiting for it.
++    bool async_small_draws{false};
+     SwitchableSetting<bool> async_presentation{true, Keys::async_presentation};
+     SwitchableSetting<bool> use_hw_shader{true, Keys::use_hw_shader};
+     SwitchableSetting<bool> use_disk_shader_cache{true, Keys::use_disk_shader_cache};
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index 0455a06..1590fa5 100644
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -75,7 +75,8 @@ RasterizerVulkan::RasterizerVulkan(Memory::MemorySystem& memory, Pica::PicaCore&
+                      TextureBufferSize(instance)},
+       texture_lf_buffer{instance, scheduler, vk::BufferUsageFlagBits::eUniformTexelBuffer,
+                         TextureBufferSize(instance)},
+-      async_shaders{Settings::values.async_shader_compilation.GetValue()} {
++      async_shaders{Settings::values.async_shader_compilation.GetValue()},
++      async_small_draws{Settings::values.async_small_draws} {
+ 
+     vertex_buffers.fill(stream_buffer.Handle());
+ 
+@@ -482,7 +483,8 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
+         SetupIndexArray();
+     }
+ 
+-    const bool wait_built = !async_shaders || regs.pipeline.num_vertices <= 6;
++    const bool wait_built =
++        !async_shaders || (!async_small_draws && regs.pipeline.num_vertices <= 6);
+     if (!pipeline_cache.BindPipeline(pipeline_info, wait_built)) {
+         return true;
+     }
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.h b/src/video_core/renderer_vulkan/vk_rasterizer.h
+index b55a446..6155553 100644
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.h
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.h
+@@ -141,6 +141,7 @@ private:
+     u32 uniform_size_aligned_vs;
+     u32 uniform_size_aligned_fs;
+     bool async_shaders{false};
++    bool async_small_draws{false};
+ };
+ 
+ } // namespace Vulkan

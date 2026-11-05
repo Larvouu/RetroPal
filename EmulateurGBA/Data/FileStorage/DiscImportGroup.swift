@@ -147,14 +147,34 @@ enum DiscStorage {
     /// Summing the folder is also a BETTER integrity check than the file alone.
     /// A disc's failure mode is one track going missing, which leaves the boot
     /// file intact and the game unplayable; a total catches it.
-    static func installedSize(ofROMAt url: URL) -> Int64? {
+    ///
+    /// The GAME's files only: its discs, their sidecars and playlist, and the
+    /// console choice the importer wrote, which is all an import ever puts in
+    /// the folder. Not what comes after it. A PSP homebrew writes its own data
+    /// beside itself (PPSSPP mounts the folder as its writable `umd0:`): 2048
+    /// saved its 12-byte `score.dat` there, the total read 168091 against the
+    /// 168079 recorded, and the preflight called the game damaged from then
+    /// on (his log, 2026-10-21). iOS and the Files app can leave a hidden
+    /// `.DS_Store` in a folder the same way. A missing track or a truncated
+    /// image still changes this total; a file added beside the game does not.
+    ///
+    /// A PSP game is ONE file, always (its discs import as separate games): its
+    /// size is that file and the console choice, nothing else in the folder.
+    /// Filtering by extension was not enough there: a homebrew writing
+    /// `save.bin` or `data.img` beside itself wrote a "disc" file, and was
+    /// called damaged from its second launch on, as 2048 was (audit 2026-10-27).
+    /// What a PSP import recorded was already exactly these two files.
+    static func installedSize(ofROMAt url: URL, system: ROMSystemType? = nil) -> Int64? {
         let fm = FileManager.default
         guard let folder = gameFolder(forROMAt: url) else {
             return (try? fm.attributesOfItem(atPath: url.path))?[.size] as? Int64
         }
         guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return nil }
+        let ownFiles: (String) -> Bool = system == .psp
+            ? { $0 == url.lastPathComponent || $0 == ROMSystemType.consoleChoiceFileName }
+            : { DiscImportGrouper.isDiscFile($0) || $0 == ROMSystemType.consoleChoiceFileName }
         var total: Int64 = 0
-        for name in names {
+        for name in names where ownFiles(name) {
             let path = folder.appendingPathComponent(name).path
             if let size = (try? fm.attributesOfItem(atPath: path))?[.size] as? Int64 {
                 total += size
@@ -447,8 +467,9 @@ enum DiscImportGrouper {
         // A Mega Drive `.bin` is a cartridge, not a disc part, and is set
         // aside before grouping (`GBAROMParser.isMegaDriveBin`).
         let megaDriveBins = Set(urls.filter(GBAROMParser.isMegaDriveBin).map(\.path))
-        let grouping = groupNames(urls.map(\.path).filter { !megaDriveBins.contains($0) }) { path in
-            byPath[path].flatMap(readText)
+        let paths = urls.map(\.path).filter { !megaDriveBins.contains($0) }
+        let grouping = groupNames(paths) { path in
+            byPath[path].flatMap { url in readDescriptor(url, among: paths) }
         }
 
         // In the batch's own order, the Mega Drive `.bin`s among them.
@@ -526,6 +547,97 @@ enum DiscImportGrouper {
         return names
     }
 
+    /// A descriptor (`.cue`, `.toc`, `.m3u`) rewritten so that every file it
+    /// names is spelled EXACTLY as stored in the game's folder, or nil when it
+    /// already is. The core opens a reference by its bytes on a volume that is
+    /// case-sensitive on iOS, and skips a track it cannot open without a word
+    /// (`cdriso.c`): `FILE "GAME.BIN"` beside `Game.bin`, or a Windows path,
+    /// imported fine and booted to nothing (audit 2026-10-27). A reference that
+    /// matches no stored name is left as it is (the grouper already refused a
+    /// game whose files are missing). Only the name changes; the rest of each
+    /// line (track type, offsets, lengths) is kept byte for byte.
+    static func descriptorPointingAt(storedNames: [String], text: String, ext: String,
+                                     renamed: [String: String] = [:]) -> String? {
+        var stored: [String: String] = [:]
+        for name in storedNames { stored[key(name)] = name }
+        // A file the import renamed (`ROMImporter`, a track name too long for
+        // the core's cue line): its old name points at the new one.
+        for (old, new) in renamed { stored[key(old)] = new }
+        var changed = false
+        let keywords: [String]
+        switch ext.lowercased() {
+        case "cue": keywords = ["FILE"]
+        case "toc": keywords = ["DATAFILE", "AUDIOFILE", "FILE"]
+        default: keywords = []   // .m3u: every non-comment line is a reference
+        }
+        // Lines are split and rejoined on "\n" so a CRLF file keeps its "\r".
+        let lines = text.components(separatedBy: "\n").map { raw -> String in
+            let body = raw.hasSuffix("\r") ? String(raw.dropLast()) : raw
+            let tail = raw.hasSuffix("\r") ? "\r" : ""
+            let trimmed = body.trimmingCharacters(in: .whitespaces)
+            if keywords.isEmpty {
+                guard !trimmed.isEmpty, !trimmed.hasPrefix("#"),
+                      let real = stored[key(trimmed)], real != trimmed else { return raw }
+                changed = true
+                return body.replacingOccurrences(of: trimmed, with: real) + tail
+            }
+            guard let keyword = keywords.first(where: { trimmed.uppercased().hasPrefix($0) }),
+                  trimmed.count > keyword.count,
+                  trimmed[trimmed.index(trimmed.startIndex, offsetBy: keyword.count)].isWhitespace
+            else { return raw }
+            // The reference: quoted, or (a .cue only) the bare token after the keyword.
+            guard let keywordRange = body.range(of: keyword, options: [.caseInsensitive, .anchored],
+                                                range: body.firstIndex(where: { !$0.isWhitespace }).map { $0..<body.endIndex })
+            else { return raw }
+            let after = body[keywordRange.upperBound...]
+            guard let start = after.firstIndex(where: { !$0.isWhitespace }) else { return raw }
+            let nameRange: Range<String.Index>
+            if body[start] == "\"" {
+                let open = body.index(after: start)
+                guard let close = body[open...].firstIndex(of: "\"") else { return raw }
+                nameRange = open..<close
+            } else {
+                guard keyword == "FILE", ext.lowercased() == "cue" else { return raw }
+                nameRange = start..<(body[start...].firstIndex(of: " ") ?? body.endIndex)
+            }
+            let reference = String(body[nameRange])
+            guard let real = stored[key(reference)], real != reference else { return raw }
+            changed = true
+            var line = body
+            line.replaceSubrange(nameRange, with: real)
+            return line + tail
+        }
+        return changed ? lines.joined(separator: "\n") : nil
+    }
+
+    /// The longest file name a `.cue` can give PCSX-ReARMed: it reads each
+    /// line into 256 bytes and the name into 255 (`cdriso.c`, `linebuf[256]`,
+    /// `%255[^"]`), so `FILE "<name>" BINARY` must fit in 255 bytes. Longer, the
+    /// line is cut, the track not opened, and the game boots to nothing.
+    static let coreCueNameMaxBytes = 255 - "FILE \"\" BINARY".utf8.count
+
+    /// A shorter name for a track whose name the core's cue line cannot hold:
+    /// its stem cut at a character boundary so the whole name, a " ~N" to keep
+    /// it unique and the extension, fits in `coreCueNameMaxBytes`. nil when the
+    /// name already fits.
+    static func coreFittingName(_ name: String, taken: Set<String>) -> String? {
+        guard name.utf8.count > coreCueNameMaxBytes else { return nil }
+        let ext = (name as NSString).pathExtension
+        let stem = (name as NSString).deletingPathExtension
+        for n in 1... {
+            let suffix = " ~\(n)" + (ext.isEmpty ? "" : "." + ext)
+            let room = coreCueNameMaxBytes - suffix.utf8.count
+            var cut = ""
+            for character in stem {
+                if cut.utf8.count + String(character).utf8.count > room { break }
+                cut.append(character)
+            }
+            let candidate = cut + suffix
+            if !taken.contains(key(candidate)) { return candidate }
+        }
+        return nil
+    }
+
     /// The discs a `.m3u` lists, in order. Blank lines and `#` comments skipped.
     static func lines(_ text: String?) -> [String] {
         guard let text else { return [] }
@@ -542,7 +654,57 @@ enum DiscImportGrouper {
     /// every Japanese cue sheet. Same chain as ZIP entry names, so a disc
     /// extracted under a decoded name is found by its decoded descriptor.
     static func decode(_ data: Data) -> String? {
-        LegacyTextEncoding.decode(data)
+        var text = LegacyTextEncoding.decode(data)
+        // A UTF-8 byte-order mark is not part of the first line: kept, it hides
+        // that line's `FILE` keyword from the parser below (audit 2026-10-27).
+        if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
+        return text
+    }
+
+    /// A descriptor's text (`.cue`, `.toc`, `.m3u`), decoded so that the files
+    /// it names are found among `names`. A descriptor says nowhere which
+    /// encoding it is in, and its names are what it is for: of the readings
+    /// that can be right, the one under which every reference is here wins.
+    ///
+    /// Valid UTF-8 is unambiguous and kept as it is. Otherwise, in order: a
+    /// UTF-16 file with its byte-order mark (Notepad's "Unicode"); the chain
+    /// zip names use, the user's OEM codepage first (`decode`), which a DOS
+    /// tool writes; the user's ANSI codepage, which a Windows tool writes
+    /// (ImgBurn, CDRWIN, Notepad's "ANSI"); then the other ANSI ones. Only the
+    /// OEM reading was tried, so a `.cue` from a French Windows naming
+    /// "Pokémon (Track 1).bin" read "PokÚmon" and its tracks were "missing"
+    /// (audit, 2026-10-29). When no reading finds everything, the zip names'
+    /// chain answers, as before.
+    static func decodeDescriptor(_ data: Data, ext descriptorExt: String, among names: [String],
+                                 preferredLanguages: [String] = LegacyTextEncoding.preferredLanguages) -> String? {
+        func stripBOM(_ text: String) -> String {
+            text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+        }
+        if let utf8 = String(data: data, encoding: .utf8) { return stripBOM(utf8) }
+        let keys = Set(names.map(key))
+        func references(_ text: String) -> [String] {
+            switch descriptorExt.lowercased() {
+            case "toc": return tocTracks(text)
+            case "m3u": return lines(text)
+            default: return cueTracks(text)
+            }
+        }
+        func resolves(_ text: String) -> Bool {
+            let refs = references(text)
+            return !refs.isEmpty && refs.allSatisfy { keys.contains(key($0)) }
+        }
+        let chain = stripBOM(LegacyTextEncoding.decodeLegacy(data, preferredLanguages: preferredLanguages))
+        var candidates: [String] = []
+        if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]),
+           let utf16 = String(data: data, encoding: .utf16) {
+            candidates.append(stripBOM(utf16))
+        }
+        candidates.append(chain)
+        let own = LegacyTextEncoding.ansiEncoding(forLanguageTag: preferredLanguages.first ?? "en")
+        for encoding in [own, .windowsCP1252, .windowsCP1250, .windowsCP1251] {
+            if let text = String(data: data, encoding: encoding) { candidates.append(stripBOM(text)) }
+        }
+        return candidates.first(where: resolves) ?? chain
     }
 
     /// Reads a small text file from a picked URL. The security scope is opened
@@ -554,6 +716,15 @@ enum DiscImportGrouper {
         return decode(data)
     }
 
+    /// A descriptor from a picked URL, decoded against the batch's names
+    /// (`decodeDescriptor`).
+    static func readDescriptor(_ url: URL, among names: [String]) -> String? {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return decodeDescriptor(data, ext: url.pathExtension, among: names)
+    }
+
     static func readCueTracks(_ url: URL) -> [String] { cueTracks(readText(url)) }
     static func readPlaylist(_ url: URL) -> [String] { lines(readText(url)) }
 
@@ -563,10 +734,20 @@ enum DiscImportGrouper {
         (name as NSString).pathExtension.lowercased()
     }
     private static func key(_ name: String) -> String {
-        (name as NSString).lastPathComponent.lowercased()
+        bareName(name).lowercased()
+    }
+    /// A reference's file name without any folder in front of it, Windows'
+    /// included: a `.cue` ripped on Windows can say `FILE "D:\rips\Game.bin"`,
+    /// and `lastPathComponent` splits on `/` only. The core strips both
+    /// (`cdriso.c`), so refusing that game as "missing files" refused one it
+    /// would play (audit 2026-10-27). Run on DECODED text only, where a
+    /// Shift-JIS trail byte 0x5C is part of its character and not a backslash.
+    static func bareName(_ reference: String) -> String {
+        let afterSlash = (reference as NSString).lastPathComponent
+        return afterSlash.split(separator: "\\", omittingEmptySubsequences: false).last.map(String.init) ?? afterSlash
     }
     private static func stem(_ name: String) -> String {
-        ((name as NSString).lastPathComponent as NSString).deletingPathExtension.lowercased()
+        (bareName(name) as NSString).deletingPathExtension.lowercased()
     }
     private static func dedupe(_ names: [String]) -> [String] {
         var seen = Set<String>()

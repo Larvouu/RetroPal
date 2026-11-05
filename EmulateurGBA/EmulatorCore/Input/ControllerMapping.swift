@@ -89,6 +89,15 @@ enum RemappableInput: String, Codable, CaseIterable {
             default: return displayName
             }
         }
+        // The 3DS's second shoulder pair is ZL and ZR (the l2 and r2 bits,
+        // CTRBridge's kButtonMap).
+        if system == .n3ds {
+            switch self {
+            case .l2: return "ZL"
+            case .r2: return "ZR"
+            default: return displayName
+            }
+        }
         // The Mega Drive prints its own letters, and its bits are chosen for
         // where a controller's buttons land (BlastEmBridge.h), so the a bit is
         // B and the y bit is A.
@@ -152,8 +161,9 @@ enum RemappableInput: String, Codable, CaseIterable {
             }
         }
         // Letters read well aloud; the Mega Drive's only need to be its own,
-        // and so do the Master System's and the Game Gear's numbers.
-        if system == .md || system == .sms || system == .gg { return displayName(for: system) }
+        // and so do the Master System's and the Game Gear's numbers, and the
+        // 3DS's ZL and ZR.
+        if system == .md || system == .sms || system == .gg || system == .n3ds { return displayName(for: system) }
         guard system == .ps1 || system == .psp else { return displayName }
         switch self {
         case .a: return "Circle"
@@ -192,6 +202,10 @@ enum RemappableInput: String, Codable, CaseIterable {
         // The PlayStation's four symbols, one shoulder pair, SELECT and START.
         // Its nub reaches the core as analog, never as a button.
         case .psp: return [.a, .b, .x, .y, .l, .r, .select, .start]
+        // A B X Y in the Nintendo diamond, L and R, ZL and ZR (the New 3DS's,
+        // `l2` and `r2`), SELECT and START. Its circle pad reaches the core as
+        // analog, never as a button; the C-stick comes with the 3DS's own page.
+        case .n3ds: return [.a, .b, .x, .y, .l, .r, .l2, .r2, .select, .start]
         }
     }
 }
@@ -360,6 +374,11 @@ struct ControllerMapping: Codable, Equatable {
             case .y: a[.y] = .faceX
             case .l: a[.l] = .shoulderL
             case .r: a[.r] = .shoulderR
+            // The 3DS's ZL and ZR on the triggers, as the built-in mask has
+            // them (`ControllerManager.buttonMask`). Only there: the
+            // PlayStation's L2 and R2 are left as they were.
+            case .l2 where system == .n3ds: a[.l2] = .leftTrigger
+            case .r2 where system == .n3ds: a[.r2] = .rightTrigger
             default: break
             }
         }

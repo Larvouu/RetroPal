@@ -91,33 +91,16 @@ struct LibraryView: View {
     /// orientations (see `LandscapeSurface`).
     @LandscapeSurface private var isLandscape
     /// An upright PHONE takes the same surface, the hero and the List on
-    /// glass, when the player picks a look from the palette beside the plus
-    /// (2026-09-07); "Classic" in that picker is the List, with its own hero
-    /// (2026-10-07), and a look of its own on its side.
+    /// glass, in every look (2026-09-07), Classic included since 2026-10-28:
+    /// Classic is the same surface on a plain black ground, where it used to
+    /// be the system's own List with its own bar, hero and cards.
     /// An iPad window narrowed to a phone's width (windowed, Stage Manager)
-    /// is an upright phone here too (decided on device, 2026-09-08): it used
-    /// to keep the List whatever the look, which read as a forced Classic.
+    /// is an upright phone here too (decided on device, 2026-09-08).
     /// An iPad window wide enough to be one shows the surface either way up.
+    /// Observed for the hero switch, which rebuilds the upright List.
     @ObservedObject private var themeStore = LandscapeThemeStore.shared
 
-    private var usesThemedPortrait: Bool {
-        !isLandscape && !themeStore.isClassic
-    }
-
     @State private var showFilePicker = false
-    /// The two glass panels of the List's bar (2026-09-07): the sort and the
-    /// look. They used to be system menus, and every switch between the List
-    /// and a look left a stale menu interaction behind the bar that UIKit
-    /// then tried to refresh ("updateVisibleMenuWithBlock while no context
-    /// menu is visible", once more per switch). The panels are plain views.
-    @State private var showSortPicker = false
-    @State private var showThemePicker = false
-    /// The Classic hero's slot choice (2026-10-07), the panel the themed
-    /// surfaces open from their Play.
-    @State private var heroPlayMenu: LibraryPlayMenuModel?
-    /// Bumped when a quick-save or a cover lands, so the Classic hero's cover
-    /// re-reads, as the themed surface does for its own.
-    @State private var heroSaveTick = 0
     @State private var launchRequest: LaunchRequest?
     @State private var importError: String?
     @State private var showImportError = false
@@ -137,25 +120,24 @@ struct LibraryView: View {
     /// (2026-09-07): the sort menu lists the consoles the library holds as a
     /// submenu so a player taps the one they are looking for.
     @AppStorage("library.consoleFilter") private var consoleFilter: String = ""
-    /// Bottom-of-library stats block. Recomputed on appear, on save changes
-    /// (returning from a game), and on add/delete — PromptTracker lives in
-    /// UserDefaults, which SwiftUI can't observe, so we refresh explicitly.
-    @State private var stats: LibraryStats?
-    /// Presents the shareable retro-story card sheet (opened by tapping the
-    /// stats area — no explicit share button, just responding to curiosity).
-    @State private var showStoryShare = false
-    /// Once-per-session guard for the library screenshot-to-share prompt,
-    /// mirroring the in-game screenshot detection's session flag.
-    @State private var hasShownStatsScreenshotThisSession = false
-    /// RetroAchievements card below the stats. Observed so the card appears/
+    /// The Retro story page, pushed from the bar's story circle (2026-10-28;
+    /// the circle opened the card's sheet directly until then).
+    @State private var showStory = false
+    /// The year in review opened from the library's spotlight (2026-10-28).
+    @State private var showYearFromSpotlight = false
+    /// The year that cover shows, taken when it opens (`spotlightCard`).
+    @State private var spotlightOpenedYear: PlayStats.Year?
+    /// Bumped when the spotlight is opened or closed, so it leaves at once.
+    @State private var spotlightTick = 0
+    /// The Retro story's stats, the circle in the bar; told when the library
+    /// changes (`refreshStats`), and on its own when a history file does.
+    @ObservedObject private var storyModel = RetroStoryModel.shared
+    /// RetroAchievements, the circle in the bar. Observed so it appears and
     /// disappears with eligibility and login state without a manual refresh.
     @ObservedObject private var ra = RetroAchievements.shared
     @ObservedObject private var raIndex = RAGameIndex.shared
     @State private var showRAProfile = false
-    @State private var showRAInfo = false
     @State private var showRALogin = false
-    /// A recent unlock tapped in the RA card; drives its share-card sheet.
-    @State private var raShareUnlock: RAUnlockLogEntry?
     /// Push depth of Game Details over the library list (a row's NavigationLink
     /// bumps it on appear/disappear). Non-zero = the list is not the foreground.
     @State private var detailViewCount = 0
@@ -239,7 +221,7 @@ struct LibraryView: View {
     /// Canonical console ordering, used only as a stable tiebreak when two
     /// consoles have identical play time (e.g. none played yet).
     private static let consoleFallbackOrder = ["gba", "gb", "gbc", "nds", "snes", "nes", "ps1", "n64", "md",
-                                               "sms", "gg", "psp"]
+                                               "sms", "gg", "psp", "n3ds"]
 
     private var filteredGames: [GameEntity] {
         let sorted: [GameEntity]
@@ -297,7 +279,7 @@ struct LibraryView: View {
         var secondsPerConsole: [String: TimeInterval] = [:]
         for game in displayedGames {
             let system = game.systemType ?? "gba"
-            let seconds = LibraryStats.romName(for: game.romFilePath)
+            let seconds = Self.romName(for: game.romFilePath)
                 .map { PromptTracker.shared.gamePlayTime(romName: $0) } ?? 0
             secondsPerConsole[system, default: 0] += seconds
         }
@@ -339,14 +321,36 @@ struct LibraryView: View {
             .appendingPathComponent("ROMs", isDirectory: true)
     }
 
-    /// Recompute the bottom-of-library stats from the current games + PromptTracker.
+    /// The PromptTracker per-game key basename from a stored ROM path, the
+    /// derivation the rows and covers use (was `LibraryStats.romName`).
+    private static func romName(for path: String?) -> String? {
+        guard let path else { return nil }
+        let name = BatterySaveImporter.romBasename(forStoredFilename: path)
+        return name.isEmpty ? nil : name
+    }
+
+    /// Keeps what reads the library in step with it: the Retro story, the
+    /// play history's one-time baseline, RetroAchievements, the covers.
     private func refreshStats() {
-        let inputs = games.map {
-            LibraryStats.GameInput(title: $0.title ?? "",
-                                   romFilePath: $0.romFilePath,
-                                   systemType: $0.systemType)
-        }
-        stats = LibraryStats.compute(games: inputs)
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("Library.refreshStats start")
+        // LAUNCHPROBE #endif
+        // The play history takes the old per-game totals once, as its
+        // baseline, while the library still knows each game's hash. Before the
+        // story reads the files: read first, the badges' first look could miss
+        // the baseline, seed the seen set without its badges, and the next
+        // read announce all of them at once (audit, 2026-10-29).
+        PlayHistory.shared.importBaselineIfNeeded(games: games.compactMap { game in
+            guard let hash = game.romHash, let name = Self.romName(for: game.romFilePath) else { return nil }
+            return (hash, name, game.title ?? "", game.systemType ?? "gba")
+        })
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("Library.refreshStats PlayHistory baseline done")
+        // LAUNCHPROBE #endif
+        storyModel.update(library: Array(games))
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("Library.refreshStats storyModel.update done")
+        // LAUNCHPROBE #endif
         // Keep the RA index in step with the library: resolves eligibility for
         // new imports (credential-free), drops records of deleted games, and
         // refreshes per-game progress (throttled).
@@ -356,6 +360,9 @@ struct LibraryView: View {
                          path: romsDir.appendingPathComponent(filename).path,
                          title: game.title ?? "")
         })
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("Library.refreshStats ra.syncLibraryGames done")
+        // LAUNCHPROBE #endif
         // Same rhythm for box art: silently resolve covers for games still
         // pending, prune covers of deleted games. Terminal games are a
         // file-existence check each; nothing here touches the network unless
@@ -368,31 +375,15 @@ struct LibraryView: View {
                          system: game.systemType ?? "gba",
                          coverState: game.coverType)
         })
-    }
-
-    /// Screenshot-to-share for the library, mirroring the in-game screenshot
-    /// detection: present the stats share card once per session — but only when
-    /// the library list is the foreground (active tab, no game, no sheet up) and
-    /// the stats panel is actually visible (its appearance condition is met).
-    private func handleLibraryScreenshot() {
-        // The List only: the condition below reads "the stats card is on
-        // screen", and on the themed surface, either way up, the card is an
-        // icon in the bar, so a screenshot of the line opened the story
-        // sheet (audit, 2026-09-05).
-        guard isActiveTab, !isLandscape, !usesThemedPortrait,
-              detailViewCount == 0,
-              launchRequest == nil,
-              !showStoryShare, !showFilePicker, !showSaveRedirect,
-              !showImportError, !showNavigateDestination, renamingGame == nil,
-              activeZipSelection == nil, !showWhatsNew,
-              searchText.isEmpty,
-              let stats, stats.hasData,
-              !hasShownStatsScreenshotThisSession else { return }
-        hasShownStatsScreenshotThisSession = true
-        showStoryShare = true
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE LaunchProbe.mark("Library.refreshStats end (BoxArtManager.sweep done)")
+        // LAUNCHPROBE #endif
     }
 
     var body: some View {
+        // LAUNCHPROBE #if DEBUG
+        // LAUNCHPROBE let _ = LaunchProbe.mark("LibraryView.body")
+        // LAUNCHPROBE #endif
         // Split into stages via intermediate properties. Each stage is
         // typechecked independently — keeps total chain depth under the
         // SwiftUI type-checker's budget.
@@ -402,6 +393,19 @@ struct LibraryView: View {
             }
             .navigationDestination(isPresented: $showRAProfile) {
                 RetroAchievementsView()
+            }
+            .fullScreenCover(isPresented: $showYearFromSpotlight) {
+                // The year as it was when opened, never the live model (as
+                // `RetroStoryView`'s: a year taken away while open left a
+                // black cover with no way out; audit, 2026-10-30).
+                if let year = spotlightOpenedYear {
+                    YearInReviewView(year: year) { showYearFromSpotlight = false }
+                }
+            }
+            .navigationDestination(isPresented: $showStory) {
+                RetroStoryView(
+                    gamePage: { hash in AnyView(storyGamePage(romHash: hash)) },
+                    onLoginRA: { showRALogin = true })
             }
             .onChange(of: pendingOpenURL) { url in
                 guard let url = url else { return }
@@ -414,21 +418,18 @@ struct LibraryView: View {
                 handlePlayRequest(request)
             }
             .overlay { importingOverlay }
-            .onReceive(NotificationCenter.default.publisher(
-                for: UIApplication.userDidTakeScreenshotNotification)) { _ in
-                handleLibraryScreenshot()
+            // A Retro story badge earned at quit lands here, the game gone;
+            // only while the library itself is in sight (not under a game, a
+            // pushed page or the year in review, not behind the Settings
+            // tab): its four seconds run only while it can be seen.
+            .overlay(alignment: .top) {
+                StoryBadgeHUD(isActive: isActiveTab && launchRequest == nil && detailViewCount == 0
+                              && !showNavigateDestination && !showRAProfile && !showStory
+                              && !showYearFromSpotlight)
             }
-            .sheet(isPresented: $showRAInfo) { RAAboutSheet() }
             .sheet(isPresented: $showRALogin) { RALoginView() }
             .sheet(isPresented: $showWhatsNew) { WhatsNewSheet() }
             .onAppear(perform: checkWhatsNewPresentation)
-            .sheet(item: $raShareUnlock) { entry in
-                RAShareView(achievement: entry.asAchievementInfo(),
-                            gameName: entry.gameTitle,
-                            boxArtURL: entry.boxArtURL.flatMap(URL.init(string:)),
-                            romFilename: raIndex.filename(forGameID: entry.gameID),
-                            onClose: { raShareUnlock = nil })
-            }
     }
 
     /// Wraps `bodyCore` with the redirect popup shown when a `.sav`/`.srm`
@@ -462,8 +463,8 @@ struct LibraryView: View {
                                           onSettings: { selectedTab = .settings })
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
-            } else if showEmptyState, usesThemedPortrait {
-                // The welcome upright in a chosen look: same ground and bar,
+            } else if showEmptyState {
+                // The welcome upright, in every look: same ground and bar,
                 // stacked; the tab bar stays as it does on the game list.
                 LibraryEmptyLandscapeView(upright: true,
                                           isActive: isActiveTab,
@@ -472,13 +473,6 @@ struct LibraryView: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbarBackground(.visible, for: .tabBar)
                     .toolbarColorScheme(.dark, for: .tabBar)
-            } else if showEmptyState {
-                // Onboarding: no large title, no search bar — the whole
-                // pitch (headline, consoles, steps, CTA) fits without
-                // scrolling. The toolbar stays reachable.
-                emptyState
-                    .navigationTitle("")
-                    .navigationBarTitleDisplayMode(.inline)
             } else if isLandscape {
                 // No title, no system search bar and no navigation bar at
                 // all: the landscape surface draws its own top bar (sort,
@@ -492,8 +486,8 @@ struct LibraryView: View {
                 gameList
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
-            } else if usesThemedPortrait {
-                // Upright in a look: the surface draws its own bar, so the
+            } else {
+                // Upright, in every look: the surface draws its own bar, so the
                 // navigation bar goes; the TAB bar stays, dark to sit on the
                 // ground, because portrait keeps its navigation model and
                 // Settings is a tab.
@@ -501,14 +495,8 @@ struct LibraryView: View {
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbarBackground(.visible, for: .tabBar)
                     .toolbarColorScheme(.dark, for: .tabBar)
-            } else {
-                gameList
-                    .modifier(ClassicLibraryTitle())
-                    .searchable(text: $searchText, prompt: NSLocalizedString("library.search", comment: ""))
             }
         }
-        .toolbar { libraryToolbar }
-        .overlay { barPanels }
         .sheet(isPresented: $showFilePicker) {
             DocumentPickerView(allowsMultipleSelection: true) { urls in
                 // Stage the skeleton row the instant a ROM is picked, so the
@@ -581,100 +569,15 @@ struct LibraryView: View {
     // SwiftUI's type-checker. Each closure-bearing modifier (toolbar,
     // fullScreenCover, overlay) is compiled in isolation now.
 
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            FocusableButton(shape: .capsule) {
-                showSortPicker = true
-            } label: {
-                Image(systemName: "arrow.up.arrow.down")
-            }
-            .accessibilityLabel(sortOrder.displayName)
-        }
-        // Two items, not one HStack: iOS 26 draws one glass pill around a
-        // whole item, and the badge is not a button (decided on device, 2026-09-04). The
-        // badge is declared first so it sits left of the plus, and its shared
-        // background is hidden on iOS 26 the way the RetroAchievements pages
-        // hide the about button's.
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .navigationBarTrailing) { ClassicBarBadge() }
-            .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .navigationBarTrailing) { ClassicBarBadge() }
-        }
-        // The look of the library, left of the plus (2026-09-07): the
-        // five looks of the themed surface, which turn it on upright, and
-        // "Classic", this List. This bar is only ever the upright one, on a
-        // phone or in an iPad window narrowed to a phone's width, and both
-        // take the look (2026-09-08; the narrow window used to keep the List
-        // and hid this button).
-        // On iOS 26 two adjacent items share one glass pill, and the
-        // palette and the plus are two actions, not one: a fixed spacer
-        // between them gives each its own pill (2026-09-07).
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .navigationBarTrailing) { paletteButton }
-            ToolbarSpacer(.fixed, placement: .navigationBarTrailing)
-        } else {
-            ToolbarItem(placement: .navigationBarTrailing) { paletteButton }
-        }
-        // The import "+" in the Play button's accent (asked 2026-09-27): the
-        // one action on this bar that matters more than the others. On iOS 26
-        // the system's glass pill is hidden around it, as around the badge, so
-        // the accent disc is what shows.
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .navigationBarTrailing) { importButton }
-                .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .navigationBarTrailing) { importButton }
-        }
-    }
-
-    private var importButton: some View {
-        FocusableButton(shape: .capsule) {
-            showFilePicker = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(LibraryLandscapePalette.accentGradient))
-        }
-        .accessibilityLabel(NSLocalizedString("guide.importRom.title", comment: ""))
-    }
-
-    /// The palette in the List's bar: opens the same look panel the themed
-    /// surfaces use (Classic, the five looks, the hero switch once a look is
-    /// on), so the List and the looks pick the look the same way.
-    private var paletteButton: some View {
-        FocusableButton(shape: .capsule) {
-            showThemePicker = true
-        } label: {
-            Image(systemName: "paintpalette")
-        }
-        .accessibilityLabel(themeStore.theme.name)
-    }
-
-    /// The two panels over whichever surface the page shows; only the
-    /// List's bar sets their state, the themed bars keep their own.
-    @ViewBuilder
-    private var barPanels: some View {
-        if showSortPicker {
-            LibrarySortPicker(upright: true, sortOrder: $sortOrder, consoleFilter: $consoleFilter,
-                              consoles: consolesInLibrary, onClose: { showSortPicker = false })
-        }
-        if showThemePicker {
-            LandscapeThemePicker(upright: true, onClose: { showThemePicker = false })
-        }
-        if let menu = heroPlayMenu {
-            LibraryPlayMenu(model: menu,
-                            onPick: { slot in pickHeroSlot(slot, for: menu.game) },
-                            onClose: { heroPlayMenu = nil })
-        }
-    }
-
     /// The core that runs a given console. mGBA stays the default so a library
     /// row whose systemType is somehow unset still launches where it always did.
     private static func makeBridge(systemType: String?) -> any EmulatorBridge {
+        // The previous game's auto-save and shutdown first: they are queued on
+        // the shared work queue when its screen goes, and a new bridge of the
+        // same core shuts the previous one down in its init (one core per
+        // process), which must not happen while that work still uses it.
+        // Instant when nothing is pending; at worst the end of a save.
+        EmulatorSession.workQueue.sync {}
         switch systemType {
         case "nds":            return MelonDSBridge()
         // MesenCE runs four consoles, the Master System and the Game Gear
@@ -684,6 +587,7 @@ struct LibraryView: View {
         case "n64":            return N64Bridge()
         case "md":             return BlastEmBridge()
         case "psp":            return PSPBridge()
+        case "n3ds":           return CTRBridge()
         default:               return MGBABridge()
         }
     }
@@ -732,118 +636,8 @@ struct LibraryView: View {
         #endif
     }
 
-    // MARK: - Empty State
-
-    /// The welcome, upright, on the List. Everything it says fits ONE screen
-    /// (2026-10-09, asked: the last two lines, where to find games and the
-    /// legal note, fell below the fold on smaller phones once the consoles
-    /// took four rows). The consoles are one strip now, and the page takes
-    /// the roomy spacing when it fits and a tighter one when it does not;
-    /// the ScrollView stays as the last resort for the largest text sizes,
-    /// where nothing can fit, rather than clipping.
-    private var emptyState: some View {
-        ViewThatFits(in: .vertical) {
-            emptyStateContent(gap: 18, top: 32, bottom: 24)
-            emptyStateContent(gap: 10, top: 8, bottom: 8)
-            ScrollView { emptyStateContent(gap: 10, top: 8, bottom: 8) }
-        }
-    }
-
-    private func emptyStateContent(gap: CGFloat, top: CGFloat, bottom: CGFloat) -> some View {
-            VStack(spacing: gap) {
-                Spacer(minLength: top)
-                Text(NSLocalizedString("library.empty.title", comment: ""))
-                    .font(.title2.bold())
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-
-                Text(DeviceWording.string("library.empty.subtitle"))
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 32)
-
-                // Every console, named, in one scrolling strip, so a newcomer
-                // sees at a glance what plays here.
-                ConsoleIconRow(isActive: isActiveTab)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 2)
-
-                stepsCard
-                    .padding(.horizontal, 24)
-                    .padding(.top, 4)
-
-                importCTA
-                    .padding(.horizontal, 32)
-                    .padding(.top, 4)
-
-                Text(NSLocalizedString("library.empty.romHint", comment: ""))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 4)
-
-                HStack(alignment: .center, spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption2)
-                        .foregroundColor(.orange.opacity(0.75))
-                    Text(NSLocalizedString("library.empty.legal", comment: ""))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.orange.opacity(0.07))
-                )
-                .padding(.horizontal, 32)
-
-                Spacer(minLength: bottom)
-            }
-    }
-
-    private var stepsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            stepRow(num: 1, text: DeviceWording.string("library.empty.step1"))
-            stepRow(num: 2, text: NSLocalizedString("library.empty.step2", comment: ""))
-            stepRow(num: 3, text: NSLocalizedString("library.empty.step3", comment: ""))
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func stepRow(num: Int, text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(num)")
-                .font(.subheadline.bold())
-                .foregroundColor(.primary)
-                .frame(width: 26, height: 26)
-                .background(Color.primary.opacity(0.1))
-                .clipShape(Circle())
-
-            LibraryStepLabel(text: text)
-                .font(.subheadline)
-                .foregroundColor(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    /// The shared call to action (`LibraryImportCTA`), also the welcome on its side's.
-    private var importCTA: some View {
-        LibraryImportCTA { showFilePicker = true }
-    }
-
-
-    /// The games surface. Portrait keeps the single-column List; landscape is
-    /// the one-line carousel (`LibraryLandscapeView`). The shared data hooks +
+    /// The games surface (`LibraryLandscapeView`): the one-line carousel on
+    /// its side, the hero and the List on glass upright. The shared data hooks +
     /// the story-share sheet + the rename alert live on the wrapper so both
     /// layouts get them without duplication.
     private var gameList: some View {
@@ -851,18 +645,8 @@ struct LibraryView: View {
             .onAppear { refreshStats() }
             .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
                 refreshStats()
-                heroSaveTick &+= 1
-            }
-            // The library's default cover was switched, or an image it needs landed.
-            .onReceive(NotificationCenter.default.publisher(for: BoxArtManager.LibraryCoverSource.didChange)) { _ in
-                heroSaveTick &+= 1
             }
             .onChange(of: games.count) { _ in refreshStats() }
-            .sheet(isPresented: $showStoryShare) {
-                if let stats {
-                    RetroStoryShareView(stats: stats) { showStoryShare = false }
-                }
-            }
             .alert(
                 NSLocalizedString("details.rename.title", comment: ""),
                 isPresented: Binding(
@@ -882,87 +666,36 @@ struct LibraryView: View {
             }
     }
 
-    @ViewBuilder
     private var gameListContent: some View {
-        if isLandscape {
-            themedSurface(upright: false)
-        } else if usesThemedPortrait {
-            themedSurface(upright: true)
-        } else {
-            portraitGameList
-        }
-    }
-
-    /// Portrait: the original single-column List (swipe-to-delete, grouped
-    /// style), with the hero at its top when it is on (2026-10-07). As in the
-    /// looks, a library of one game shows that game once, as the hero.
-    private var portraitGameList: some View {
-        let heroGame = themeStore.showsHero ? LibraryHeroCard.game(in: filteredGames) : nil
-        let heroIsLibrary = heroGame != nil && !isImporting && displayedGames.count == 1
-        return gameList(settlingWith: nil,
-                        hero: heroGame.map { AnyView(classicHero($0)) },
-                        showsGames: !heroIsLibrary)
-    }
-
-    /// The hero in the Classic List's own dress. Borderless buttons: in a List
-    /// row, plain ones answer a tap anywhere in the row.
-    private func classicHero(_ game: GameEntity) -> some View {
-        LibraryHeroCard(
-            game: game,
-            saveTick: heroSaveTick,
-            classic: true,
-            onOpenDetails: {
-                guard !presenting else { return }
-                navigateToGame = game
-                showNavigateDestination = true
-            },
-            onPlay: { heroPlayTapped(game) },
-            onRename: {
-                guard !presenting else { return }
-                renameDraft = game.title ?? ""
-                renamingGame = game
-            },
-            onDelete: { deleteGame(game) }
-        )
-        .buttonStyle(.borderless)
-    }
-
-    /// The Classic hero's Play: the themed hero's rule (start at once, or
-    /// the slot choice when a quick-save exists).
-    private func heroPlayTapped(_ game: GameEntity) {
-        guard !presenting, let filename = game.romFilePath else { return }
-        switch LibraryPlayMenuModel.action(for: game) {
-        case .nothing:
-            break
-        case .start:
-            playGame(game, url: romsDir.appendingPathComponent(filename), slot: nil)
-        case .choose(let model):
-            heroPlayMenu = model
-        }
-    }
-
-    private func pickHeroSlot(_ slot: Int?, for game: GameEntity) {
-        heroPlayMenu = nil
-        guard let filename = game.romFilePath else { return }
-        let url = romsDir.appendingPathComponent(filename)
-        if let slot {
-            playGame(game, url: url, slot: slot)
-        } else {
-            LibraryPlayMenu.confirmFreshStart { playGame(game, url: url, slot: nil) }
-        }
+        themedSurface(upright: !isLandscape)
     }
 
     /// The identity of the hero's row, which the themed List is seated on.
     private static let heroRowID = "library.hero"
+    /// The year in review's row above the hero, which the List is seated on
+    /// when it shows (2026-10-28: seated on the hero, it started off-screen).
+    private static let spotlightRowID = "library.yearSpotlight"
 
-    /// The List itself. `proxy` is the themed surface's: with one, the List
-    /// re-seats itself at its top once it is on screen (see
-    /// `settleAtTop(_:)`); the Classic List keeps its bar and needs none.
+    /// The List itself, upright under the surface's bar. It re-seats itself
+    /// at its top once it is on screen (see `settleAtTop(_:)`).
     /// `hero`, when given, is the List's first row and scrolls with the games
     /// (2026-10-07); `showsGames` is false when the hero is the whole library.
-    private func gameList(settlingWith proxy: ScrollViewProxy?, hero: AnyView?,
+    private func gameList(settlingWith proxy: ScrollViewProxy, hero: AnyView?,
                           showsGames: Bool) -> some View {
         List {
+            // The year in review, once a year, above everything (2026-10-28).
+            // Borderless buttons, as the hero's: in a row, plain ones would
+            // all answer one tap.
+            if let year = spotlightYear {
+                Section {
+                    spotlightCard(year, compact: false)
+                        .buttonStyle(.borderless)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .id(Self.spotlightRowID)
+                }
+            }
             // The hero in a section of its own, edge to edge of the section's
             // margins, with no row background: its card carries its own.
             if let hero {
@@ -975,9 +708,8 @@ struct LibraryView: View {
                 }
             }
 
-            // Games in their own section(s) so the group keeps its rounded corners
-            // (the stats block below must not join this section, or the last
-            // game row loses its rounded bottom). The "Par console" sort yields one
+            // Games in their own section(s) so the group keeps its rounded corners.
+            // The "Par console" sort yields one
             // section per console — grouped-List section spacing IS the small gap
             // between blocks (no titles); every other sort is a single section.
             if showsGames {
@@ -1005,6 +737,7 @@ struct LibraryView: View {
                                 },
                                 onPlay: { url, slot in playGame(game, url: url, slot: slot) },
                                 onDelete: { deleteGame(game) },
+                                onRequestDelete: { confirmDelete(game) },
                                 onRename: {
                                     guard !presenting else { return }
                                     renameDraft = game.title ?? ""
@@ -1013,47 +746,16 @@ struct LibraryView: View {
                                 detailViewCount: $detailViewCount
                             )
                         }
-                        .onDelete { offsets in deleteGames(in: group, at: offsets) }
                     }
-                    // Glass under a look (the scaffold's flag), the system row
-                    // background on the List; nothing changes in the rows.
+                    // On glass (the scaffold's flag); nothing changes in the rows.
                     .landscapeGlassRow()
-                }
-            }
-
-            // "Retro story" stats card, anchored at the bottom after the games
-            // (no positioning tricks — for a library worth showing stats, the
-            // games scroll, so it's naturally a discovery). Hidden while
-            // searching; appears once at least two games are played. In a
-            // look the card and RetroAchievements are circles in the bar.
-            if searchText.isEmpty, !usesThemedPortrait, !presenting, let stats, stats.hasData {
-                Section {
-                    LibraryStatsCard(stats: stats)   // library face
-                        .contentShape(Rectangle())
-                        .onTapGesture { Haptics.tap(); showStoryShare = true }
-                        .controllerFocusable(shape: .rounded(16)) { Haptics.tap(); showStoryShare = true }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 16, trailing: 16))
-                }
-            }
-
-            // RetroAchievements card below the stats: appears as soon as one
-            // imported game has an RA set (as an invite when not connected),
-            // and disappears with the last eligible game.
-            if searchText.isEmpty, !usesThemedPortrait, !presenting, ra.isEnabled, raIndex.hasEligibleGame {
-                Section {
-                    raLibraryCard
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 16, trailing: 16))
                 }
             }
         }
         // Inside the `.id` below on purpose: a rebuilt List is a new view and
         // appears again, so every List this page creates gets seated.
         .onAppear {
-            if let proxy { settleAtTop(proxy, onHero: hero != nil) }
+            settleAtTop(proxy, onSpotlight: spotlightYear != nil, onHero: hero != nil)
         }
         // A new order or a new console rebuilds the List, so it opens at its
         // top as if the page had been reloaded (2026-09-07), the way the rack
@@ -1062,7 +764,10 @@ struct LibraryView: View {
         // where it sits when it is CREATED, so one created with the hero off
         // kept a zero inset once the hero appeared above it, and the gap
         // between the two was gone until a sort or a relaunch rebuilt it.
-        .id("\(sortOrder.rawValue)#\(consoleFilter)#\(themeStore.showsHero)")
+        // The spotlight too: the year arrives after the List is built (it is
+        // computed off the main thread), and a row added above the seat would
+        // leave the List resting on the hero; rebuilt, it seats on the year.
+        .id("\(sortOrder.rawValue)#\(consoleFilter)#\(themeStore.showsHero)#\(spotlightYear != nil)")
     }
 
     /// The List as the upright surface shows it (2026-09-07): the same rows,
@@ -1076,7 +781,7 @@ struct LibraryView: View {
                 // The space above the first section is OURS, not UIKit's (device
                 // log, 2026-09-07): a grouped List reserves a default header
                 // height above a first section with no header, 35 points, and a
-                // List created while the Classic navigation bar is still going
+                // List created while the navigation bar is still going
                 // away got none of it, so the rows sat 35 points closer to the
                 // bar until the next rebuild. Reserve nothing, then pad.
                 .environment(\.defaultMinListHeaderHeight, 0)
@@ -1100,16 +805,20 @@ struct LibraryView: View {
     /// it rests where a scroll would have left it. Hero on or off, the same
     /// call; a List with no section (a search with no hit) has nothing to
     /// scroll to and is left alone.
-    private func settleAtTop(_ proxy: ScrollViewProxy, onHero: Bool) {
+    private func settleAtTop(_ proxy: ScrollViewProxy, onSpotlight: Bool, onHero: Bool) {
         for delay in [0.0, 0.45] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    // The hero's row when there is one (2026-10-07); otherwise
-                    // the game sections, identified by their offset, so the
-                    // first one is 0 under every sort, headers included.
-                    if onHero {
+                    // The year in review when it shows (it stands above the
+                    // hero); else the hero's row when there is one
+                    // (2026-10-07); otherwise the game sections, identified by
+                    // their offset, so the first one is 0 under every sort,
+                    // headers included.
+                    if onSpotlight {
+                        proxy.scrollTo(Self.spotlightRowID, anchor: .top)
+                    } else if onHero {
                         proxy.scrollTo(Self.heroRowID, anchor: .top)
                     } else {
                         proxy.scrollTo(0, anchor: .top)
@@ -1119,12 +828,25 @@ struct LibraryView: View {
         }
     }
 
-    private var raLibraryCard: some View {
-        RALibraryCard(
-            onConnect: { showRALogin = true },
-            onInfo: { showRAInfo = true },
-            onOpenProfile: { showRAProfile = true },
-            onShareUnlock: { raShareUnlock = $0 })
+    /// The year in review at the front of the library, once per year: while
+    /// it is offered (December 1 to January 6) and not yet opened or closed.
+    private var spotlightYear: PlayStats.Year? {
+        _ = spotlightTick
+        guard searchText.isEmpty, !presenting, let year = storyModel.year,
+              !YearSpotlight.isSeen(year.year) else { return nil }
+        return year
+    }
+
+    private func spotlightCard(_ year: PlayStats.Year, compact: Bool) -> some View {
+        YearSpotlightCard(year: year, onOpen: {
+            YearSpotlight.markSeen(year.year)
+            spotlightTick &+= 1
+            spotlightOpenedYear = year
+            showYearFromSpotlight = true
+        }, onDismiss: {
+            YearSpotlight.markSeen(year.year)
+            withAnimation(.easeOut(duration: 0.25)) { spotlightTick &+= 1 }
+        }, compact: compact)
     }
 
     /// The themed surface: the line of covers on its side, or the rack on
@@ -1146,12 +868,15 @@ struct LibraryView: View {
             consoleFilter: $consoleFilter,
             consoles: consolesInLibrary,
             searchText: $searchText,
-            showsStats: searchText.isEmpty && !presenting && (stats?.hasData ?? false),
+            // The story as soon as anything was played (the page has
+            // something to say about one game; the old card needed two).
+            showsStats: searchText.isEmpty && !presenting && (storyModel.stats?.hasData ?? false),
             showsRA: searchText.isEmpty && !presenting && ra.isEnabled && raIndex.hasEligibleGame,
             // Also paused while a page sits over the library (a game's page,
             // the RetroAchievements profile): the pushed page draws the same
             // ground from the same clock, so the one underneath can rest.
-            isActive: isActiveTab && detailViewCount == 0 && !showNavigateDestination && !showRAProfile,
+            isActive: isActiveTab && detailViewCount == 0 && !showNavigateDestination && !showRAProfile
+                && !showStory && !showYearFromSpotlight,
             onPlay: { game, slot in
                 guard !presenting, let filename = game.romFilePath else { return }
                 playGame(game, url: romsDir.appendingPathComponent(filename), slot: slot)
@@ -1166,17 +891,18 @@ struct LibraryView: View {
                 renameDraft = game.title ?? ""
                 renamingGame = game
             },
-            onDelete: { game in deleteGame(game) },
+            onDelete: { game in confirmDelete(game) },
             onImport: { showFilePicker = true },
             onStats: {
                 Haptics.tap()
-                showStoryShare = true
+                showStory = true
             },
             onRA: {
                 Haptics.tap()
                 if ra.isLoggedIn { showRAProfile = true } else { showRALogin = true }
             },
-            onSettings: { selectedTab = .settings }
+            onSettings: { selectedTab = .settings },
+            spotlight: upright ? nil : spotlightYear.map { AnyView(spotlightCard($0, compact: true)) }
         )
     }
 
@@ -1192,8 +918,8 @@ struct LibraryView: View {
         game.title = trimmed
         try? viewContext.save()
         // A rename changes a title without changing games.count, so refresh the
-        // stats explicitly — otherwise a renamed game keeps its old name in the
-        // ranking (library footer + the shareable card use the same `stats`).
+        // stats explicitly — otherwise a renamed game keeps its old name on
+        // the Retro story page, which reads the library's titles.
         refreshStats()
     }
 
@@ -1633,6 +1359,20 @@ struct LibraryView: View {
         openGame(target.game, with: target.save)
     }
 
+    /// A game's page as the story page pushes it, on top of itself: the same
+    /// page and actions as the library's own push. A game no longer in the
+    /// library has no page (the story shows its row without a link).
+    @ViewBuilder
+    private func storyGamePage(romHash: String) -> some View {
+        if let game = games.first(where: { $0.romHash == romHash }) {
+            GameDetailsView(
+                game: game,
+                onPlay: { url, slot in playGame(game, url: url, slot: slot) },
+                onDelete: { deleteGame(game) }
+            )
+        }
+    }
+
     /// Push the game's page with the save for it to write. When the opened-game
     /// page is already up (the push target is reused), its `onChange` picks the
     /// save up instead: setting the flag again would not push anything.
@@ -1691,16 +1431,28 @@ struct LibraryView: View {
         try? viewContext.save()
     }
 
-    /// Swipe-to-delete handler. Offsets are relative to the section's own block,
-    /// so resolve them against that block, not the raw fetch list — otherwise a
-    /// non-default sort (or an active search, or a console block) would map the
-    /// swiped row to the wrong game.
-    private func deleteGames(in group: [GameEntity], at offsets: IndexSet) {
+    /// "Delete this game?" before every deletion the library starts itself:
+    /// the swipe (`LibraryRow`'s swipe action), the long-press menus of a row,
+    /// a tile and the hero. Game
+    /// Details asks on its own page and calls `deleteGame` directly, so it is
+    /// never asked twice. Same dialog, title, message and two ways as Game
+    /// Details (`ControllerAlert`: the system alert by touch, the app's dialog
+    /// a controller answers while one is in hand). The swipe asked nothing
+    /// until 1.3.5 (audit 2026-10-12), and a deletion takes the game's save
+    /// states and cheats with it.
+    private func confirmDelete(_ game: GameEntity) {
         guard !presenting else { return }
-        for index in offsets {
-            deleteGame(group[index])
-        }
+        ControllerAlert.present(
+            title: NSLocalizedString("details.delete.confirm", comment: ""),
+            message: NSLocalizedString("details.delete.confirm.message", comment: ""),
+            actions: [
+                .init(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel),
+                .init(title: NSLocalizedString("details.delete", comment: ""), style: .destructive) {
+                    deleteGame(game)
+                },
+            ])
     }
+
 }
 
 // MARK: - Library Row
@@ -1709,21 +1461,6 @@ struct LibraryView: View {
 /// (rename, replay timestamp, etc.) re-renders the row immediately — the
 /// surrounding @FetchRequest only fires on collection changes, not on field
 /// edits to existing entities.
-/// The library "retro story" panel with a static 3D tilt (the shareable card
-/// keeps the continuous sway). Library palette (no purple, no logo/footer — just
-/// the stats face), sized to its content. Tapping it still opens the share sheet
-/// (the behavior lives in the Section, unchanged).
-private struct LibraryStatsCard: View {
-    let stats: LibraryStats
-
-    var body: some View {
-        // Flat, straight-on panel (the 3D tilt was removed 2026-07-06; any
-        // motion stays on the shareable card).
-        RetroStoryCardView(stats: stats)   // no branding: stats only, library colors
-            .shadow(color: .black.opacity(0.35), radius: 12, y: 8)
-    }
-}
-
 /// Placeholder row shown at the top of the library while a ROM imports: the
 /// real row's shape (cover + title + last-played + play-time) with shimmering
 /// blocks instead of values, so the wait reads as content about to appear.
@@ -1755,7 +1492,10 @@ private struct LibraryRow: View {
     /// What a controller's A does on this row: the same page the link opens.
     let onOpenDetails: () -> Void
     let onPlay: (URL, Int?) -> Void
+    /// Deletes at once: what Game Details calls after its own confirmation.
     let onDelete: () -> Void
+    /// Asks first: the row's long-press menu.
+    let onRequestDelete: () -> Void
     let onRename: () -> Void
     /// Push depth of Game Details, owned by LibraryView; bumped while this row's
     /// detail view is on screen so the library screenshot prompt won't fire there.
@@ -1764,9 +1504,6 @@ private struct LibraryRow: View {
     /// written auto-save preview. lastPlayedAt alone refreshes the cover too
     /// early — it is re-stamped at dismiss, before the async write lands.
     @State private var saveTick = 0
-    /// True inside the upright look (the List's rows sit on glass there):
-    /// the console tag is the console's drawing rather than the lettered pill.
-    @Environment(\.landscapeGlassRows) private var inLook
 
     /// Local cover file by priority: the user-picked custom cover beats the
     /// adopted RA image (which BoxArtManager only grants over a heuristic
@@ -1801,9 +1538,28 @@ private struct LibraryRow: View {
                 Label(NSLocalizedString("details.rename", comment: ""), systemImage: "pencil")
             }
             Button(role: .destructive) {
-                onDelete()
+                onRequestDelete()
             } label: {
                 Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
+            }
+        }
+        // The swipe REVEALS Delete and asks before anything goes (2026-10-28).
+        // Not `.onDelete`: that one removes the row from the list as soon as
+        // the swipe ends, so the row vanished while "Delete this game?" was
+        // still open, and Cancel left the list one row short of its data,
+        // which crashed the app (reported on device, 10-28). Here the list
+        // only changes when the game itself is deleted. Not `role:
+        // .destructive` either: on a swipe action that role can animate the
+        // row away by itself; the red is a tint. No full swipe: it would fire
+        // before the question could be read.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if !presenting {
+                Button {
+                    onRequestDelete()
+                } label: {
+                    Label(NSLocalizedString("details.delete", comment: ""), systemImage: "trash")
+                }
+                .tint(.red)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .saveStatesDidChange)) { _ in
@@ -1852,7 +1608,7 @@ private struct LibraryRow: View {
                             // link tint.
                             .foregroundColor(.primary)
                         if let sys = game.systemType {
-                            ConsoleTagBadge(systemType: sys, drawing: inLook)
+                            ConsoleTagBadge(systemType: sys)
                         }
                     }
                     if let lastPlayed = game.lastPlayedAt {
@@ -1908,8 +1664,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         UTType(filenameExtension: "srm") ?? .data,
         UTType(filenameExtension: "mcd") ?? .data,
         UTType(filenameExtension: "retropalskin") ?? .data,   // silently accepted; routed to skin import
-        .zip,
-    ]
+    ] + archiveTypes
 
     /// One list, built from the parser's own extensions, so a console can never
     /// be importable in code while greyed out in the picker.
@@ -1948,7 +1703,14 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     ]
     /// ROM files only (no saves), used by the per-game "Replace game file"
     /// recovery on the Game Details screen.
-    static let romTypes: [UTType] = romTypesWithoutZip + [.zip]
+    static let romTypes: [UTType] = romTypesWithoutZip + archiveTypes
+
+    /// Every archive a game is read from (`GameArchive.extensions`): `.zip`
+    /// and, since 1.3.5, `.7z`, `.rar`, `.tar`, `.gz` / `.tgz`, `.xz` / `.txz`.
+    /// The system's own type for each where it has one (`.zip` is
+    /// `public.zip-archive`, `.gz` `org.gnu.gnu-zip-archive`...), else a
+    /// dynamic one from the extension, as for the ROM types above.
+    private static let archiveTypes: [UTType] = GameArchive.extensions.compactMap(romContentType)
 
     var contentTypes: [UTType] = DocumentPickerView.romAndSaveTypes
     /// Multi-select is only for the library `+` (importing a collection in one
@@ -1975,57 +1737,6 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard !urls.isEmpty else { return }
             onPick(urls)
-        }
-    }
-}
-
-// MARK: - The Classic bar's controller badge (2026-10-09)
-
-/// The badge in the Classic List's bar, ONE controller only.
-///
-/// It showed the controller glyph alone there, with no battery, whatever the
-/// pad (device report, 2026-10-09): a bar item is offered almost no width,
-/// and `ControllerStatusBadge` shows the first of its forms that fits the
-/// width it is offered, so it always fell to its last one. The bar's other
-/// items are fixed-size glyphs, so the badge takes its own size as well and
-/// the full form shows. With two or more players the badge leaves the bar for
-/// the title's line (`ClassicLibraryTitle`), where it has the page's width.
-struct ClassicBarBadge: View {
-    @ObservedObject private var controllers = ControllerManager.shared
-
-    var body: some View {
-        if controllers.pads.count <= 1 {
-            ControllerStatusBadge(tint: .primary, compact: true)
-                .fixedSize()
-        }
-    }
-}
-
-/// The Classic List's title line (asked 2026-10-09): "Library" while one
-/// controller or none is connected; with two to four players the line carries
-/// their chips instead, one per player with its battery, as the looks' bars
-/// do. Its own view so a battery reading redraws this line, not the library.
-struct ClassicLibraryTitle: ViewModifier {
-    @ObservedObject private var controllers = ControllerManager.shared
-
-    private var showsPlayers: Bool { controllers.pads.count > 1 }
-
-    func body(content: Content) -> some View {
-        if showsPlayers {
-            content
-                .navigationTitle("")
-                .navigationBarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    HStack {
-                        ControllerStatusBadge(tint: .primary)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 20)
-                    .frame(height: 40)
-                }
-        } else {
-            content
-                .navigationTitle(NSLocalizedString("library.title", comment: ""))
         }
     }
 }

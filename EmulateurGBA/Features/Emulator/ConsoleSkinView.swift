@@ -77,7 +77,8 @@ final class ConsoleSkinView: UIView {
     /// A console without one gets the plain page, which is better than another console's body
     /// around its game. The NES, the PlayStation and the Nintendo 64 each started that way and
     /// are all dressed now, the Mega Drive since 2026-10-08, the Master System and the Game Gear
-    /// since 2026-10-09, the PSP since 2026-10-10 (the PlayStation's dress, `pspVariant`).
+    /// since 2026-10-09, the PSP since 2026-10-10 (the PlayStation's dress, `pspVariant`), the
+    /// 3DS since 2026-10-20 (the DS's dress, `ctrVariant`). Every console has one now.
     static func hasSkin(for system: PresetSystem) -> Bool { true }
 
     /// Whether the on-screen controls get the dressed look. Tracks `hasSkin`, for the same reason.
@@ -89,6 +90,25 @@ final class ConsoleSkinView: UIView {
     static func pspVariant(_ variant: DressVariant) -> DressVariant {
         if case .custom(.psp) = variant { return variant }
         return .custom(.psp(variant == .retroPal ? .retroPal : .nostalgia))
+    }
+
+    /// The 3DS's palette, whichever way the variant arrives: its two looks
+    /// are its own (`N3DSSkinPalette.nostalgia` / `retroPal`), carried in the
+    /// DS's slots because it wears that console's dress shapes.
+    static func ctrVariant(_ variant: DressVariant) -> DressVariant {
+        if case .custom(.n3ds) = variant { return variant }
+        return .custom(.n3ds(variant == .retroPal ? .retroPal : .nostalgia))
+    }
+
+    /// The 3DS's two screens inside its picture, as the game draws them: on
+    /// its side the two quads side by side (`EmulatorMetalView.ctrSideBySide`),
+    /// upright the top screen across the picture's upper half and the bottom
+    /// one (320 of 400 columns, `CTRBottomScreenRect`) centred under it.
+    /// [top, bottom], the order the DS's dress reads.
+    static func ctrScreens(in picture: CGRect, sideBySide: Bool) -> [CGRect] {
+        guard picture.width > 0, picture.height > 0 else { return [] }
+        let pair = EmulatorLayoutGeometry.ctrScreenRects(in: picture, sideBySide: sideBySide)
+        return [pair.top, pair.bottom]
     }
 
     private var skin: ConsoleSkin? {
@@ -118,6 +138,11 @@ final class ConsoleSkinView: UIView {
         // controls' own frames, so it follows the PSP's page.
         case .psp: return PlayStationSkin(variant: Self.pspVariant(variant), cardMode: cardMode,
                                           controllerConnected: controllerConnected, pspShoulders: true)
+        // The DS's dress in the 3DS's colours (`ctrVariant`), on its own two
+        // screens (`ctrScreens`), with the pieces that are its own (`ctr`).
+        case .n3ds: return NintendoDSSkin(screens: ndsScreens, micPressed: micPressed,
+                                          variant: Self.ctrVariant(variant), cardMode: cardMode,
+                                          controllerConnected: controllerConnected, ctr: true)
         }
     }
 
@@ -346,8 +371,21 @@ struct GameBoySkin: ConsoleSkin {
 
         // Grow from the screen, then clamp so the surround keeps a little space to the
         // device edges (never edge-to-edge).
-        let surroundRect = screen.insetBy(dx: -desiredPadH, dy: -desiredPadV)
+        var surroundRect = screen.insetBy(dx: -desiredPadH, dy: -desiredPadV)
             .intersection(bounds.insetBy(dx: edgeMargin, dy: edgeMargin))
+        // An upright iPad (asked 2026-11-01): a frame of even width round the
+        // picture, as the Game Gear's is, wide enough for the LED and its
+        // BATTERY word with room either side (the phone's pad, which on an
+        // iPad left the frame clamped at its edges or a thin strip). The
+        // phone and the share card keep theirs.
+        // The side is the layout's (`EmulatorLayoutGeometry.tabletGBCSurroundSide`,
+        // the cluster's width and four gaps), so MENU and CLIP, which the layout
+        // drops by the frame's extra depth, keep their gap below it.
+        if !cardMode, LayoutFamily.of(bounds.size) == .tablet {
+            let side = EmulatorLayoutGeometry.tabletGBCSurroundSide * scale
+            surroundRect = screen.insetBy(dx: -side, dy: -side)
+                .intersection(bounds.insetBy(dx: edgeMargin, dy: edgeMargin))
+        }
 
         // Cluster centered in the ACTUAL left margin; band centered in the actual top margin.
         let cx = (surroundRect.minX + screen.minX) / 2
@@ -580,6 +618,19 @@ struct GameBoySkin: ConsoleSkin {
     /// with SELECT, and the speaker in the bottom-right corner rotated 45° forward.
     private func drawLandscapeDecals(bounds: CGRect, screen: CGRect, surround: CGRect,
                                      buttons: [ControlElement: CGRect], scale: CGFloat) {
+        // On an iPad, PHONES, the speaker and the brand take the gutters' free
+        // tops (`drawTabletDecals`); the LED stays level with SELECT.
+        if LayoutFamily.of(bounds.size) == .tablet, !cardMode {
+            if let sel = buttons[.btnSelect] {
+                drawLED(center: CGPoint(x: (surround.minX + sel.minX) / 2, y: sel.midY),
+                        radius: 5 * scale, scale: scale)
+            }
+            if !controllerConnected {
+                drawTabletDecals(bounds: bounds, surround: surround, buttons: buttons, isLandscape: true,
+                                 scale: scale)
+            }
+            return
+        }
         // BATTERY LED (no label) — surround band, vertically level with SELECT (center to
         // center), horizontally centered between the surround's left edge and SELECT's left.
         if let sel = buttons[.btnSelect] {
@@ -644,6 +695,117 @@ struct GameBoySkin: ConsoleSkin {
         let dpadTop = buttons[.dpad]?.minY ?? bounds.maxY
         let bcy = (bounds.minY + dpadTop) / 2
         drawBranding(in: CGRect(x: bcx - bw / 2, y: bcy - bh / 2, width: bw, height: bh), scale: scale)
+    }
+
+    /// PHONES and the speaker on an iPad (asked 2026-10-30: they met the
+    /// controls once those stood at the bottom of the glass, and the speaker
+    /// came out a sliver on the 13-inch only). Not controls but the console's
+    /// print, so they keep the iPhone's look at the iPad's scale, growing and
+    /// spreading out with the window, and take the room the controls left:
+    ///   - upright, the band between the picture's surround and the highest
+    ///     control under it: PHONES in its middle, the speaker on the right
+    ///     above the buttons, as on the console;
+    ///   - on its side, the tops of the gutters, over the cross and the
+    ///     buttons: PHONES on the left under the brand, the speaker on the right
+    ///     under CLIP.
+    /// Each is sized to its natural size at this scale and drawn only where it
+    /// fits whole, never squeezed into another shape.
+    private func drawTabletDecals(bounds: CGRect, surround: CGRect, buttons: [ControlElement: CGRect],
+                                  isLandscape: Bool, scale: CGFloat) {
+        let margin = 12 * scale
+        let phonesSize = phonesBadgeRect(center: .zero, scale: scale).size
+        // The iPhone's speaker at its largest (`speakerSize`: 52 wide, 2.2 times taller).
+        let speakerW = 52 * scale, speakerH = speakerW * 2.2
+        let controls = buttons.values.filter { $0.minY > surround.maxY || isLandscape }
+        func fits(_ r: CGRect) -> Bool {
+            bounds.insetBy(dx: 4 * scale, dy: 4 * scale).contains(r)
+                && !r.intersects(surround.insetBy(dx: -margin / 2, dy: -margin / 2))
+                && buttons.values.allSatisfy { !$0.insetBy(dx: -margin / 2, dy: -margin / 2).intersects(r) }
+        }
+        if !isLandscape {
+            // The band between what stands under the surround (MENU, CLIP)
+            // and the controls at the bottom (the cross, A B, SELECT START).
+            let lowRow: [ControlElement] = [.dpad, .btnA, .btnB, .btnSelect, .btnStart]
+            let bottom = lowRow.compactMap { buttons[$0] }.map(\.minY).min() ?? bounds.maxY
+            let top = max(surround.maxY,
+                          controls.filter { $0.maxY < bottom }.map(\.maxY).max() ?? surround.maxY)
+            let midY = (top + bottom) / 2
+            let phones = phonesBadgeRect(center: CGPoint(x: bounds.midX, y: midY), scale: scale)
+            if fits(phones) { drawPhonesBadge(rect: phones, scale: scale) }
+            // The speaker NEXT TO START (asked 2026-11-01, as the Game Boy
+            // Advance's sits beside its START): centred between START and the
+            // A B pair, on START's line, at the largest size the gap and the
+            // glass above and below hold. It stood over A and B in the band
+            // under the picture, which kept the picture from growing into it
+            // (`EmulatorLayoutGeometry.tabletUprightDressRoom`).
+            if let start = buttons[.btnStart] {
+                let pair = [buttons[.btnA], buttons[.btnB]].compactMap { $0 }
+                let right = pair.map(\.minX).min() ?? bounds.maxX
+                let gap = right - start.maxX - margin
+                let above = start.midY - top - margin / 2
+                let below = bounds.maxY - 4 * scale - start.midY
+                var w = Swift.min(speakerW, gap * 0.55)
+                var h = w * 2.2
+                let tall = 2 * Swift.min(above, below)
+                if h > tall { h = tall; w = Swift.min(w, h / 2.2) }
+                let speaker = CGRect(x: (start.maxX + right) / 2 - w / 2, y: start.midY - h / 2,
+                                     width: w, height: h)
+                if w > 10 * scale, fits(speaker) {
+                    drawSpeakerGrille(center: CGPoint(x: speaker.midX, y: speaker.midY), compW: w,
+                                      compH: h, rotation: 0, scale: scale, spread: 1.4,
+                                      anchorBottom: true)
+                }
+            }
+            return
+        }
+        // ON ITS SIDE: each gutter's free top, between the glass's top (or the
+        // control above) and the cluster below.
+        let leftGutter = CGRect(x: bounds.minX, y: bounds.minY, width: surround.minX - bounds.minX,
+                                height: bounds.height)
+        let rightGutter = CGRect(x: surround.maxX, y: bounds.minY, width: bounds.maxX - surround.maxX,
+                                 height: bounds.height)
+        func freeBand(_ gutter: CGRect, below: [CGRect], above: CGRect?) -> CGRect {
+            let inGutter = below.filter { $0.intersects(gutter) }
+            let floor = inGutter.map(\.minY).min() ?? gutter.maxY
+            let ceiling = above?.maxY ?? gutter.minY
+            return CGRect(x: gutter.minX, y: ceiling, width: gutter.width, height: max(0, floor - ceiling))
+        }
+        // Left: the brand sits at the band's top (`drawLandscapeDecals`'s rule
+        // on the phone, centred over the cross); PHONES under it.
+        let leftBand = freeBand(leftGutter, below: [buttons[.dpad]].compactMap { $0 }, above: nil)
+        let brand = tabletLandscapeBrandRect(gutter: leftGutter, band: leftBand, scale: scale)
+        drawBranding(in: brand, scale: scale)
+        let phonesTop = brand.maxY + margin
+        let phonesBottom = leftBand.maxY - margin
+        if phonesBottom - phonesTop >= phonesSize.height {
+            let phones = phonesBadgeRect(center: CGPoint(x: leftGutter.midX, y: (phonesTop + phonesBottom) / 2),
+                                         scale: scale)
+            if fits(phones) { drawPhonesBadge(rect: phones, scale: scale) }
+        }
+        // Right: the speaker, as on the phone on its side (turned, its slits
+        // flipped), centred in the free band between CLIP and the buttons.
+        let faces = [buttons[.btnA], buttons[.btnB]].compactMap { $0 }
+        let rightBand = freeBand(rightGutter, below: faces, above: buttons[.btnClip])
+        let rot: CGFloat = 3 * .pi / 2
+        // Turned a quarter, the speaker's box is its height wide and its width tall.
+        let box = CGRect(x: rightBand.midX - speakerH / 2, y: rightBand.midY - speakerW / 2,
+                         width: speakerH, height: speakerW)
+        if fits(box) {
+            drawSpeakerGrille(center: CGPoint(x: box.midX, y: box.midY), compW: speakerW, compH: speakerH,
+                              rotation: rot, scale: scale, spread: 1.4, flipH: true)
+        }
+    }
+
+    /// The brand mark in an iPad's left gutter on its side: the phone's size
+    /// (1.5 times PHONES, less a quarter, plus three tenths), centred across
+    /// the gutter at the top of its free band.
+    private func tabletLandscapeBrandRect(gutter: CGRect, band: CGRect, scale: CGFloat) -> CGRect {
+        let phones = phonesBadgeRect(center: .zero, scale: scale)
+        var bw = phones.width * 1.125 * 1.3, bh = phones.height * 1.125 * 1.3
+        let avail = gutter.width - 24 * scale
+        if bw > avail { let f = avail / bw; bw *= f; bh *= f }
+        let top = band.minY + 24 * scale
+        return CGRect(x: gutter.midX - bw / 2, y: top, width: bw, height: bh)
     }
 
     /// Fills the dark surround panel (rounded, oversized bottom-right curve, soft shadow)
@@ -748,12 +910,21 @@ struct GameBoySkin: ConsoleSkin {
         // SELECT/START vertical level (card): PHONES and the speaker align to it.
         let ssY = (buttons[.btnSelect] ?? buttons[.btnStart])?.midY ?? lowest
 
+        // ON AN IPAD the controls stand at the bottom of the glass
+        // (`ControlLayoutDefaults.thumbsToTheEdges`, 2026-10-30), so the strip
+        // under them that PHONES and the speaker took is gone: they move into
+        // the band the controls left under the picture (`drawTabletDecals`).
+        let onTablet = LayoutFamily.of(bounds.size) == .tablet && !cardMode
+        if onTablet, !controllerConnected {
+            drawTabletDecals(bounds: bounds, surround: surround, buttons: buttons, isLandscape: false,
+                             scale: scale)
+        }
         // PHONES badge. Card: at 25% of the card width, level with SELECT/START (always drawn).
         // In-game: centred in the strip below the lowest control.
         if cardMode {
             let phonesRect = phonesBadgeRect(center: CGPoint(x: bounds.width * 0.35, y: ssY), scale: scale)
             drawPhonesBadge(rect: phonesRect, scale: scale)
-        } else if !controllerConnected {
+        } else if !controllerConnected && !onTablet {
             // A connected controller hides the PHONES badge (no controls strip to sit in).
             let stripTop = lowest + 6 * scale
             let stripBottom = bounds.maxY - 6 * scale
@@ -776,7 +947,7 @@ struct GameBoySkin: ConsoleSkin {
             let center = CGPoint(x: bounds.width * 0.65, y: ssY)
             drawSpeakerGrille(center: center, compW: cw, compH: ch, rotation: .pi / 2,
                               scale: scale, spread: 1.4, anchorBottom: false, flipH: true)
-        } else if !controllerConnected {
+        } else if !controllerConnected && !onTablet {
             // A connected controller hides the speaker (no controls area to anchor it in).
             let center = CGPoint(x: (startRight + bounds.maxX) / 2, y: (bBottom + bounds.maxY) / 2)
             drawSpeakerGrille(center: center, compW: sw, compH: sh, rotation: 0,
@@ -1925,6 +2096,10 @@ struct NintendoDSSkin: ConsoleSkin {
     /// The slot-2 GBA game's box art (dual-slot): drawn in a small recessed square on the body,
     /// PORTRAIT ONLY for now. nil = no square at all.
     var slot2Cover: UIImage? = nil
+    /// The 3DS wearing this dress (2026-10-20, `ConsoleSkinView.ctrVariant`): `screens` are its
+    /// two screens, it adds the seats of its second shoulder pair and of its two sticks, and the
+    /// brand goes where its page leaves room (`drawCTRBrand`).
+    var ctr: Bool = false
 
     // Palette: body #C4C4C4, buttons #B6B6B6, ink #777777. Retro Pal recolours only the body
     // (fond → #595A76); the ink/decals are untouched per the draft (the D-pad lines + A/B label,
@@ -1956,7 +2131,12 @@ struct NintendoDSSkin: ConsoleSkin {
     private let ledGreen   = UIColor(red: 0.22, green: 0.82, blue: 0.31, alpha: 1)    // GBA green LED
     private var ledColor: UIColor { nds?.led ?? ledGreen }
     /// Printed labels on the case (SELECT/START, MIC at rest) — the button colour, or the custom slot.
-    private var buttonLabelColor: UIColor { nds?.buttons ?? DressKind.ndsButton }
+    /// The 3DS prints them in its LETTERS colour: its controls are the shell's own colour since
+    /// 2026-10-21, so a word in the buttons' colour would vanish into the shell.
+    private var buttonLabelColor: UIColor {
+        if ctr, let p = nds { return p.letters }
+        return nds?.buttons ?? DressKind.ndsButton
+    }
 
     /// Retro Pal: brand icon + "Retro Pal" wordmark mirror the SELECT label colour (#EBEBEB).
     /// Custom auto-derives a contrasting same-hue tint from the body (not a user slot).
@@ -1987,19 +2167,171 @@ struct NintendoDSSkin: ConsoleSkin {
     func draw(in ctx: CGContext, bounds: CGRect, screenFrame screen: CGRect,
               buttons: [ControlElement: CGRect], isLandscape: Bool, usesJoystick: Bool, scale: CGFloat) {
         drawBody(ctx, bounds)
+        // The DS's card corners and rails: not the 3DS's card, whose shoulders stand beside its lower
+        // screen (the rails, laid off L, would cross the screens) and whose speakers are in the top
+        // corners.
         if cardMode {
             drawCardCorners(bounds: bounds, scale: scale)
             drawCardRails(buttons: buttons, bounds: bounds, scale: scale)
         }
-        drawButtonWells(buttons: buttons, scale: scale)
-        drawShoulderButtonSeats(buttons: buttons, scale: scale)
-        drawSelectStart(buttons: buttons, scale: scale)
+        // The 3DS has its own MENU, CLIP, SELECT, START and circle pad both
+        // ways up (his design, 2026-10-21); upright alone, its columns are set
+        // into the phone's edges. The DS keeps its own.
+        let ctrUpright = ctr && !isLandscape
+        drawButtonWells(buttons: buttons, ctrLook: ctr, ctrUpright: ctrUpright, scale: scale)
+        drawShoulderButtonSeats(buttons: buttons, ctrUpright: ctrUpright, scale: scale)
+        if ctr {
+            drawCTRSelectStart(buttons: buttons, scale: scale)
+        } else {
+            drawSelectStart(buttons: buttons, scale: scale)
+        }
         drawSlot2Well(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        // The 3DS's MIC is the DS's (his design, 2026-10-21): one slit with its hole, then "MIC.".
         drawMic(buttons: buttons, scale: scale)
-        drawSpeakers(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
-        drawLight(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
-        drawBrand(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        if ctr && !cardMode {
+            drawCTRSpeakers(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        } else if !ctr {
+            drawSpeakers(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        }
+        if ctr && cardMode {
+            // The 3DS card is the DS card (his ask, 2026-10-21) but for its own pieces: its speakers
+            // where the DS card has its packs, no light; the brand where the DS card puts it.
+            drawCTRCardSpeakers(bounds: bounds, scale: scale)
+            drawBrand(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        } else if ctr {
+            // No light for now (his design, 2026-10-21: upright, and on its side,
+            // which takes the upright page's look).
+            // The mark both ways up (his design, 2026-10-21, `drawCTRBrand`).
+            if controllerConnected {
+                drawBrand(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+            } else {
+                drawCTRBrand(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+            }
+        } else {
+            drawLight(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+            drawBrand(bounds: bounds, buttons: buttons, isLandscape: isLandscape, scale: scale)
+        }
         drawScreenOutlines(ctx, scale: scale)
+    }
+
+    // MARK: The 3DS's own pieces
+
+    /// The 3DS card's speakers, where the DS card has its packs (`drawSpeakers`, separated card):
+    /// one in each gutter beside the upper screen, level with its centre, its holes the DS card's.
+    private func drawCTRCardSpeakers(bounds: CGRect, scale: CGFloat) {
+        guard let upper = screens.first else { return }
+        for (lo, hi) in [(bounds.minX, upper.minX), (upper.maxX, bounds.maxX)] {
+            let gutter = hi - lo
+            guard gutter > 24 * scale else { continue }
+            drawCTRSpeaker(center: CGPoint(x: (lo + hi) / 2, y: upper.midY), ring: gutter / 6, scale: scale,
+                           dotScale: 2 * 1.3)
+        }
+    }
+
+    /// The 3DS's speakers, beside its top screen as on the console. Upright that screen spans the
+    /// phone and leaves no room, so none; on its side, one in each gutter beside the pair of
+    /// screens, centred on them: a hole and eight round it (`drawCTRSpeaker`).
+    /// Since 2026-10-21 the shoulder columns stand in those gutters, against the screens: each
+    /// speaker takes what is left of its gutter, outside its column, and is left out where that
+    /// is too narrow for one (his design: the speakers give way to the shoulders).
+    private func drawCTRSpeakers(bounds: CGRect, buttons: [ControlElement: CGRect],
+                                 isLandscape: Bool, scale: CGFloat) {
+        guard isLandscape, screens.count == 2 else { return }
+        let pair = screens[0].union(screens[1])
+        let leftColumn = [ControlElement.btnL, .btnL2].compactMap { buttons[$0]?.minX }.min() ?? pair.minX
+        let rightColumn = [ControlElement.btnR, .btnR2].compactMap { buttons[$0]?.maxX }.max() ?? pair.maxX
+        for (lo, hi) in [(bounds.minX, min(pair.minX, leftColumn)), (max(pair.maxX, rightColumn), bounds.maxX)] {
+            let gutter = hi - lo
+            guard gutter > 24 * scale else { continue }
+            drawCTRSpeaker(center: CGPoint(x: (lo + hi) / 2, y: pair.midY),
+                           ring: min(gutter / 4, 14 * scale), scale: scale)
+        }
+    }
+
+    /// One 3DS speaker (his design, 2026-10-21): a hole at the centre and eight round it, on a
+    /// ring of radius `ring`, each the DS's speaker hole (`drawSpeakerDot`).
+    private func drawCTRSpeaker(center c: CGPoint, ring: CGFloat, scale: CGFloat, dotScale: CGFloat = 1) {
+        // Eight round a circle are `ring * 2 sin(pi/8)` apart: the holes keep that third clear.
+        let outerR = min(2.8 * scale * dotScale, ring * 2 * sin(.pi / 8) * 0.33)
+        drawSpeakerDot(at: c, outerR: outerR)
+        for i in 0..<8 {
+            let a = CGFloat(i) * .pi / 4
+            drawSpeakerDot(at: CGPoint(x: c.x + ring * cos(a), y: c.y + ring * sin(a)), outerR: outerR)
+        }
+    }
+
+    /// The 3DS's brand (his design, 2026-10-21), centred on the page both ways up:
+    /// - ON ITS SIDE in its recessed plate, carved as the circle pad's surround is, centred in the
+    ///   gap between MENU's bottom and MIC's top;
+    /// - UPRIGHT with no plate, the icon and the word ENGRAVED in the shell, just under the lower
+    ///   screen's bottom edge.
+    /// As big as the gap and the controls either side allow.
+    private func drawCTRBrand(bounds: CGRect, buttons: [ControlElement: CGRect], isLandscape: Bool,
+                              scale: CGFloat) {
+        let cx = bounds.midX
+        let aspect = brandAspect(scale: scale)
+        if isLandscape {
+            guard let menu = buttons[.btnMenu], let mic = buttons[.btnMic] else { return }
+            let top = menu.maxY, bottom = mic.minY
+            guard bottom > top else { return }
+            let cy = (top + bottom) / 2
+            var h = min((bottom - top) * 0.7, 34 * scale)
+            var w = h * aspect
+            let availW = clearWidth(around: cx, cy: cy, h: h, buttons: buttons) - 16 * scale
+            if w > availW { w = availW; h = w / aspect }
+            guard h > 8 * scale, w > 24 * scale else { return }
+            drawBranding(in: CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h), scale: scale)
+            return
+        }
+        guard screens.count == 2 else {
+            #if DEBUG
+            print("[3DS brand] upright: \(screens.count) screens, needs 2")
+            #endif
+            return
+        }
+        let lower = screens[1]
+        // ON AN IPAD (asked 2026-10-30): the look and the size it has on its
+        // side there (the capsule, its height the side page's 34-point cap,
+        // which the iPad's band always reaches), centred across the page and
+        // in the band between the lower screen and SELECT. The engraved mark
+        // under the screen is the phone's, where that band is narrow.
+        if LayoutFamily.of(bounds.size) == .tablet, let select = buttons[.btnSelect] {
+            let h = 34 * scale
+            let w = h * aspect
+            let cy = (lower.maxY + select.minY) / 2
+            guard select.minY - lower.maxY > h + 16 * scale else { return }
+            drawBranding(in: CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h), scale: scale)
+            return
+        }
+        let gapTop = lower.maxY + 6 * scale
+        // Width first, from the controls BESIDE it across a word's height (the circle pad and X
+        // stand either side, their tops just under the screen); then the height, from what stands
+        // directly UNDER that width. Sizing the height from a fixed band round the centre took the
+        // circle pad's top, beside it, for a ceiling 2 points down, and the mark was never drawn
+        // (his report, 2026-10-21).
+        let probeH = 20 * scale
+        let availW = clearWidth(around: cx, cy: gapTop + probeH / 2, h: probeH, buttons: buttons) - 12 * scale
+        var w = min(availW, probeH * aspect * 0.8)
+        let under = buttons.values.filter { $0.minY > gapTop && $0.minX < cx + w / 2 && $0.maxX > cx - w / 2 }
+        let room = (under.map(\.minY).min() ?? (gapTop + probeH)) - gapTop - 4 * scale
+        var h = min(room, w / (aspect * 0.8), probeH)
+        w = h * aspect * 0.8
+        guard h > 6 * scale, w > 20 * scale else {
+            #if DEBUG
+            print("[3DS brand] upright: no room (width \(availW), height \(room))")
+            #endif
+            return
+        }
+        drawBrandMark(in: CGRect(x: cx - w / 2, y: gapTop, width: w, height: h), engraved: true, scale: scale)
+    }
+
+    /// The width free around `cx` across a band of height `h` centred at `cy`.
+    private func clearWidth(around cx: CGFloat, cy: CGFloat, h: CGFloat,
+                            buttons: [ControlElement: CGRect]) -> CGFloat {
+        let across = buttons.values.filter { $0.minY < cy + h / 2 && $0.maxY > cy - h / 2 }
+        let leftLimit = across.filter { $0.maxX <= cx }.map(\.maxX).max() ?? 0
+        let rightLimit = across.filter { $0.minX >= cx }.map(\.minX).min() ?? 2 * cx
+        return 2 * min(cx - leftLimit, rightLimit - cx)
     }
 
     /// Card: two full-width horizontal rails (the surround colour, with a slight relief) that
@@ -2054,6 +2386,7 @@ struct NintendoDSSkin: ConsoleSkin {
         ctx.restoreGState()
     }
 
+
     /// A thin printed rim around each screen: a #777777 stroke 2pt outside the screen, 2px wide,
     /// with a soft drop shadow so the screen reads as set into the body (the 3D effect).
     private func drawScreenOutlines(_ ctx: CGContext, scale: CGFloat) {
@@ -2074,13 +2407,51 @@ struct NintendoDSSkin: ConsoleSkin {
 
     /// Recessed creusé seats behind the round controls (A/B/X/Y, MENU, CLIP) + a dark under-disc
     /// revealed on press. The D-pad gets neither a recessed circle nor an under-cross in the NDS dress.
-    private func drawButtonWells(buttons: [ControlElement: CGRect], scale: CGFloat) {
-        let round: [ControlElement] = [.btnA, .btnB, .btnX, .btnY, .btnClip, .btnMenu]
-        for e in round {
+    /// Which side a 3DS column control is set into (`FlushEdge`). Upright, the phone's edge:
+    /// CLIP, ZL, L on the left, MENU, ZR, R on the right (`ControlLayoutDefaults.n3dsPortrait`).
+    /// On its side, the screen beside it: ZL and L right (the top screen), ZR and R left (the
+    /// bottom one); MENU and CLIP stand free there.
+    static func ctrFlush(_ e: ControlElement, upright: Bool) -> FlushEdge {
+        switch e {
+        case .btnClip: return upright ? .left : .none
+        case .btnMenu: return upright ? .right : .none
+        case .btnL, .btnL2: return upright ? .left : .right
+        case .btnR, .btnR2: return upright ? .right : .left
+        default: return .none
+        }
+    }
+
+    /// `ctrLook`: the 3DS, whose MENU and CLIP are rounded squares (`SmallButton.
+    /// squareCornerFraction`) and whose circle pad has a still surround: their seats follow.
+    /// `ctrUpright`: upright, where its columns are set into the phone's edges.
+    private func drawButtonWells(buttons: [ControlElement: CGRect], ctrLook: Bool, ctrUpright: Bool,
+                                 scale: CGFloat) {
+        let square: [ControlElement] = ctrLook ? [.btnClip, .btnMenu] : []
+        let round = [ControlElement.btnA, .btnB, .btnX, .btnY, .btnClip, .btnMenu].filter { !square.contains($0) }
+        // The 3DS's two sticks sit in a seat each, the shell carved round them as round its faces.
+        // Upright the circle pad's seat IS its surround: the control's whole size, a hole in the
+        // shell that never moves, the pad gliding inside it (`AnalogStickView.circlePadScale`).
+        for e in round + (ctr ? [.stickLeft, .stickRight] : []) {
             if let f = buttons[e] {
-                let r = min(f.width, f.height) / 2 + 4 * scale
-                drawRecessedCircle(center: CGPoint(x: f.midX, y: f.midY), radius: r, scale: scale)
+                let half = min(f.width, f.height) / 2
+                let surround = ctrLook && e == .stickLeft
+                drawRecessedCircle(center: CGPoint(x: f.midX, y: f.midY),
+                                   radius: surround ? half : half + 4 * scale, scale: scale)
             }
+        }
+        for e in square {
+            guard let f = buttons[e] else { continue }
+            let d = min(f.width, f.height)
+            let key = CGRect(x: f.midX - d / 2, y: f.midY - d / 2, width: d, height: d)
+            let seat = key.insetBy(dx: -4 * scale, dy: -4 * scale)
+            let flush = ctrUpright ? Self.ctrFlush(e, upright: true) : .none
+            drawRecessedCapsule(seat, fill: bodyMid, scale: scale,
+                                corner: seat.width * ShoulderButton.ndsCornerFactor, flush: flush)
+            let under = key.insetBy(dx: -1 * scale, dy: -1 * scale)
+            ink.setFill()
+            let r = under.width * ShoulderButton.ndsCornerFactor
+            UIBezierPath(roundedRect: under, byRoundingCorners: flush.roundedCorners,
+                         cornerRadii: CGSize(width: r, height: r)).fill()
         }
         for e in round {
             if let f = buttons[e] { drawUnderDisc(f, scale: scale) }
@@ -2089,14 +2460,16 @@ struct NintendoDSSkin: ConsoleSkin {
 
     /// A creusé seat around each shoulder button (L / R), capsule-matched — the engraved ring,
     /// no dark under-disc, filled with the body colour so only the relief shows.
-    private func drawShoulderButtonSeats(buttons: [ControlElement: CGRect], scale: CGFloat) {
-        for e in [ControlElement.btnL, .btnR] {
+    private func drawShoulderButtonSeats(buttons: [ControlElement: CGRect], ctrUpright: Bool, scale: CGFloat) {
+        // The 3DS's second pair, ZL and ZR, the same seat.
+        for e in [ControlElement.btnL, .btnR] + (ctr ? [.btnL2, .btnR2] : []) {
             guard let f = buttons[e] else { continue }
             // Rounded SQUARE seat that mimics the button's angle: the SAME corner factor applied
             // to the seat's own (slightly larger) dimensions (ShoulderButton.ndsCornerFactor).
             let seat = f.insetBy(dx: -4 * scale, dy: -4 * scale)
             drawRecessedCapsule(seat, fill: bodyMid, scale: scale,
-                                corner: min(seat.width, seat.height) * ShoulderButton.ndsCornerFactor)
+                                corner: min(seat.width, seat.height) * ShoulderButton.ndsCornerFactor,
+                                flush: ctr ? Self.ctrFlush(e, upright: ctrUpright && !cardMode) : .none)
         }
     }
 
@@ -2166,10 +2539,26 @@ struct NintendoDSSkin: ConsoleSkin {
         } else {
             guard let sel = buttons[.btnSelect], let start = buttons[.btnStart] else { return }
             cx = sel.union(start).midX
-            cy = dpad.maxY
             // Never collide with the SELECT/START row below: keep an 8pt gap.
             let bottomLimit = min(sel.minY, start.minY) - 8 * scale
-            side = min(side, 2 * (bottomLimit - cy))
+            // Level with the cross's bottom, as on the phone. On an iPad the
+            // cross now sits on the row's own line (`thumbsToTheEdges`,
+            // 2026-10-30), so the well takes the free band over the row
+            // instead: its bottom a gap above the row, under the lowest control
+            // above that column (MENU, L, R), the room it had before.
+            if dpad.maxY > bottomLimit {
+                let brand = tabletUprightBrandRect(bounds: bounds, buttons: buttons, scale: scale)
+                let above = (Array(buttons.values) + (brand.map { [$0] } ?? []))
+                    .filter { $0.maxY < bottomLimit && $0.maxX > cx - side && $0.minX < cx + side }
+                    .map(\.maxY).max() ?? bottomLimit - 2 * side
+                // Grown by half below, upward: the room is what it grows into.
+                let room = (bottomLimit - above - 8 * scale) / 1.5
+                side = min(side, room)
+                cy = bottomLimit - side / 2
+            } else {
+                cy = dpad.maxY
+                side = min(side, 2 * (bottomLimit - cy))
+            }
             guard side > 24 * scale else { return }
             // Product call after seeing both orientations: portrait reads
             // small next to landscape. Grow it by half, anchored on the SAME
@@ -2228,6 +2617,32 @@ struct NintendoDSSkin: ConsoleSkin {
         if micPressed { size *= 0.95; sz = measureLabel("MIC.", size: size, kern: kern) }
         drawEmbossedLabel("MIC.", at: CGPoint(x: centerX - sz.width / 2, y: centerY - sz.height / 2),
                           size: size, color: micPressed ? ink : buttonLabelColor, kern: kern, scale: scale)
+    }
+
+    /// The 3DS's SELECT and START upright (his design, 2026-10-21): no pill. The word, as tall as
+    /// the pill was, then the button: the tiny circle at the hitbox's right end
+    /// (`SmallButton.selectCircleOnRight`), in its seat.
+    private func drawCTRSelectStart(buttons: [ControlElement: CGRect], scale: CGFloat) {
+        for (e, text) in [(ControlElement.btnSelect, "SELECT"), (.btnStart, "START")] {
+            guard let f = buttons[e] else { continue }
+            let pillH = f.width / Self.selectPillRatio
+            let d = pillH * 0.7, pad = pillH * 0.25
+            let circleC = CGPoint(x: f.maxX - pad - d / 2, y: f.midY)
+            drawRecessedCircle(center: circleC, radius: d / 2 + 3 * scale, scale: scale)
+            let ur = d / 2 + 1 * scale
+            ink.setFill()
+            UIBezierPath(ovalIn: CGRect(x: circleC.x - ur, y: circleC.y - ur, width: 2 * ur, height: 2 * ur)).fill()
+            // The word fills the room left of the circle, as tall as the pill was.
+            let labelRight = circleC.x - d / 2 - 3 * scale - pad
+            let labelW = labelRight - f.minX
+            guard labelW > 8 else { continue }
+            let kern = 0.5 * scale
+            var size = pillH
+            var sz = measureLabel(text, size: size, kern: kern)
+            if sz.width > labelW, sz.width > 0 { size *= labelW / sz.width; sz = measureLabel(text, size: size, kern: kern) }
+            drawEmbossedLabel(text, at: CGPoint(x: labelRight - sz.width, y: f.midY - sz.height / 2),
+                              size: size, color: buttonLabelColor, kern: kern, scale: scale)
+        }
     }
 
     /// A single vertical slit (recessed #777777 groove + a cut-through `holeColor` hole) — the GBA
@@ -2417,6 +2832,14 @@ struct NintendoDSSkin: ConsoleSkin {
             return
         }
         guard let menu = buttons[.btnMenu], let dpad = buttons[.dpad] else { return }
+        // On an iPad upright, one size, the size it has on its side there (asked
+        // 2026-10-30): sized from the room above the cross, which is the whole
+        // band since the cross stands at the bottom (`thumbsToTheEdges`), it
+        // came out at its 2.5-times cap and enormous (`tabletUprightBrandRect`).
+        if !isLandscape, let rect = tabletUprightBrandRect(bounds: bounds, buttons: buttons, scale: scale) {
+            drawBranding(in: rect, scale: scale)
+            return
+        }
         var h: CGFloat, w: CGFloat, cx: CGFloat, cy: CGFloat, availW: CGFloat
         if isLandscape {
             // Centred in the gap between the D-pad's end and MENU's start, level with MENU.
@@ -2438,6 +2861,19 @@ struct NintendoDSSkin: ConsoleSkin {
         drawBranding(in: CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h), scale: scale)
     }
 
+    /// The DS's brand on an iPad upright (nil elsewhere): the size of its
+    /// mark on its side there, which is the side page's cap (34 points at the
+    /// iPhone's scale, `drawBrand`), centred under MENU a gap below it. The
+    /// slot-2 well, in the same band, keeps clear of it (`drawSlot2Well`).
+    private func tabletUprightBrandRect(bounds: CGRect, buttons: [ControlElement: CGRect],
+                                        scale: CGFloat) -> CGRect? {
+        guard !ctr, !cardMode, !controllerConnected, LayoutFamily.of(bounds.size) == .tablet,
+              bounds.height > bounds.width, let menu = buttons[.btnMenu] else { return nil }
+        let h = 34 * scale
+        let w = h * brandAspect(scale: scale)
+        return CGRect(x: menu.midX - w / 2, y: menu.maxY + 16 * scale, width: w, height: h)
+    }
+
     /// The brand mark's width/height ratio (icon + "Retro Pal" inside the capsule).
     private func brandAspect(scale: CGFloat) -> CGFloat {
         let txt = measureLabel("Retro Pal", size: 11 * scale, kern: 0.5 * scale)
@@ -2453,6 +2889,12 @@ struct NintendoDSSkin: ConsoleSkin {
         drawRecessedCapsule(rect, fill: bodyMid, scale: scale)
         let inset = rect.insetBy(dx: rect.height * 0.34, dy: rect.height * 0.20)
         guard inset.width > 4, inset.height > 4 else { return }
+        drawBrandMark(in: inset, engraved: false, scale: scale)
+    }
+
+    /// The icon and "Retro Pal" in `inset`: in relief on the plate (`drawBranding`), or ENGRAVED
+    /// straight into the shell with no plate (the 3DS upright, his design, 2026-10-21).
+    private func drawBrandMark(in inset: CGRect, engraved: Bool, scale: CGFloat) {
         let iconSide = inset.height
         let gap = iconSide * 0.22
         // Custom tints the brand icon to the auto-derived brand colour (matches the wordmark).
@@ -2465,16 +2907,37 @@ struct NintendoDSSkin: ConsoleSkin {
         }
         let textX = inset.minX + iconSide + gap
         let textRect = CGRect(x: textX, y: inset.minY, width: inset.maxX - textX, height: inset.height)
-        if textRect.width > 8 { drawBrandText("Retro Pal", in: textRect, scale: scale) }
+        if textRect.width > 8 { drawBrandText("Retro Pal", in: textRect, engraved: engraved, scale: scale) }
     }
 
-    private func drawBrandText(_ s: String, in rect: CGRect, scale: CGFloat) {
+    private func drawBrandText(_ s: String, in rect: CGRect, engraved: Bool = false, scale: CGFloat) {
         let kern = 0.5 * scale
         var fontSize = rect.height * 0.95
         var sz = measureLabel(s, size: fontSize, kern: kern)
         if sz.width > rect.width, sz.width > 0 { fontSize *= rect.width / sz.width; sz = measureLabel(s, size: fontSize, kern: kern) }
-        drawEmbossedLabel(s, at: CGPoint(x: rect.minX, y: rect.midY - sz.height / 2),
-                          size: fontSize, color: brandColor, kern: kern, scale: scale)
+        let origin = CGPoint(x: rect.minX, y: rect.midY - sz.height / 2)
+        if engraved {
+            drawEngravedLabel(s, at: origin, size: fontSize, color: brandColor, kern: kern, scale: scale)
+        } else {
+            drawEmbossedLabel(s, at: origin, size: fontSize, color: brandColor, kern: kern, scale: scale)
+        }
+    }
+
+    /// Text CUT INTO the shell: the light the other way from `drawEmbossedLabel`, a dark copy
+    /// up-left (the cut's upper wall in shadow) and a light one down-right (its lower lip catching
+    /// the light).
+    private func drawEngravedLabel(_ s: String, at origin: CGPoint, size: CGFloat,
+                                   color: UIColor, kern: CGFloat, scale: CGFloat) {
+        let d = 0.6 * scale
+        func mk(_ c: UIColor) -> NSAttributedString {
+            NSAttributedString(string: s, attributes: [
+                .font: UIFont.systemFont(ofSize: size, weight: .semibold),
+                .foregroundColor: c, .kern: kern,
+            ])
+        }
+        mk(UIColor.black.withAlphaComponent(0.40)).draw(at: CGPoint(x: origin.x - d, y: origin.y - d))
+        mk(UIColor.white.withAlphaComponent(0.35)).draw(at: CGPoint(x: origin.x + d, y: origin.y + d))
+        mk(color).draw(at: origin)
     }
 
     private func aspectFit(_ imageSize: CGSize, in rect: CGRect) -> CGRect {
@@ -2525,14 +2988,27 @@ struct NintendoDSSkin: ConsoleSkin {
 
     /// A recessed rounded rect: `fill` + half grain + carved relief. `corner` defaults to a full
     /// capsule (height/2); the L/R seat passes a small radius for the rounded-square look.
-    private func drawRecessedCapsule(_ rect: CGRect, fill: UIColor, scale: CGFloat, corner: CGFloat? = nil) {
+    /// `flush`: the seat runs off the phone's edge on that side (the 3DS's columns upright, his
+    /// design, 2026-10-21), its corners there square, so only three of its edges show carved.
+    private func drawRecessedCapsule(_ rect: CGRect, fill: UIColor, scale: CGFloat, corner: CGFloat? = nil,
+                                     flush: FlushEdge = .none) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let radius = corner ?? rect.height / 2
-        let path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+        var seat = rect
+        let overrun = radius + 6 * scale
+        switch flush {
+        case .none: break
+        case .left: seat.origin.x -= overrun; seat.size.width += overrun
+        case .right: seat.size.width += overrun
+        }
+        let corners = flush.roundedCorners
+        let path = UIBezierPath(roundedRect: seat, byRoundingCorners: corners,
+                                cornerRadii: CGSize(width: radius, height: radius))
         fill.setFill(); path.fill()
-        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5); GameBoySkin.grain.drawAsPattern(in: rect); ctx.restoreGState()
-        let outer = UIBezierPath(roundedRect: rect.insetBy(dx: -2 * scale, dy: -2 * scale),
-                                 cornerRadius: radius + 2 * scale)
+        ctx.saveGState(); path.addClip(); ctx.setAlpha(0.5); GameBoySkin.grain.drawAsPattern(in: seat); ctx.restoreGState()
+        let outer = UIBezierPath(roundedRect: seat.insetBy(dx: -2 * scale, dy: -2 * scale),
+                                 byRoundingCorners: corners,
+                                 cornerRadii: CGSize(width: radius + 2 * scale, height: radius + 2 * scale))
         drawRecessRelief(path, outer: outer, scale: scale)
     }
 
@@ -2998,6 +3474,16 @@ struct SuperNintendoSkin: ConsoleSkin {
             let x = min(max(bounds.minX + 12 * scale, d.midX - w / 2),
                         panel.minX - 12 * scale - w)
             rect = CGRect(x: x, y: cy - h / 2, width: w, height: h)
+        } else if LayoutFamily.of(bounds.size) == .tablet,
+                  let menu = buttons[.btnMenu], let select = buttons[.btnSelect] {
+            // ON AN IPAD (asked 2026-10-30): the strip under SELECT and START
+            // it took on the phone is gone, the controls standing at the bottom
+            // (`thumbsToTheEdges`). Centred across the page and in the band
+            // between MENU and SELECT, where CLIP stands level with it
+            // (`ControlLayoutDefaults.thumbsToTheEdges`).
+            let cy = (menu.maxY + select.minY) / 2
+            guard select.minY - menu.maxY > h + 16 * scale else { return }
+            rect = CGRect(x: bounds.midX - w / 2, y: cy - h / 2, width: w, height: h)
         } else {
             let rowBottom = [buttons[.btnSelect], buttons[.btnStart], buttons[.btnClip]]
                 .compactMap { $0?.maxY }.max() ?? bounds.midY
@@ -3541,6 +4027,14 @@ struct NintendoEntertainmentSystemSkin: ConsoleSkin {
             guard availH > h + 8 * scale else { return }
             let x = min(max(bounds.minX + 6 * scale, d.midX - w / 2), panel.minX - 6 * scale - w)
             rect = CGRect(x: x, y: (bounds.minY + d.minY) / 2 - h / 2, width: w, height: h)
+        } else if LayoutFamily.of(bounds.size) == .tablet,
+                  let menu = buttons[.btnMenu], let select = buttons[.btnSelect] {
+            // ON AN IPAD, the Super Nintendo's rule (asked 2026-10-30): centred
+            // across the page and in the band between MENU and SELECT, the
+            // strip under the row it took on the phone being gone.
+            let cy = (menu.maxY + select.minY) / 2
+            guard select.minY - menu.maxY > h + 16 * scale else { return }
+            rect = CGRect(x: bounds.midX - w / 2, y: cy - h / 2, width: w, height: h)
         } else {
             let rowBottom = [buttons[.btnSelect], buttons[.btnStart], buttons[.btnA]]
                 .compactMap { $0?.maxY }.max() ?? bounds.midY
@@ -4466,6 +4960,27 @@ struct PlayStationSkin: ConsoleSkin {
                             ink: ink, scale: scale)
             return
         }
+        // AN UPRIGHT IPAD (2026-11-01): the lane left of SELECT holds the left
+        // stick and L3 there (the thumb rule, 2026-10-30), and CLIP has left
+        // the marks' line for the shoulder row. The plaque is centred on the
+        // page in the band between that row and the highest thumb cluster,
+        // which is the one stretch of shell left empty, as the Nintendo 64's
+        // is between its picture and its shoulders. Left out where it is too small.
+        if LayoutFamily.of(bounds.size) == .tablet {
+            let row = [ControlElement.btnL, .btnL2, .btnR, .btnR2, .btnMenu, .btnClip]
+                .compactMap { buttons[$0]?.maxY }.max() ?? screen.maxY
+            let clusters = [ControlElement.dpad, .btnA, .btnB, .btnX, .btnY, .btnMode]
+                .compactMap { buttons[$0]?.minY }.min() ?? bounds.maxY
+            let band = clusters - row
+            guard band > 14 * scale else { return }
+            var h = Swift.min(band * 0.62, 30 * scale)
+            var w = h * aspect
+            let room = bounds.width - 32 * scale
+            if w > room { w = room; h = w / aspect }
+            drawBrandPlaque(in: CGRect(x: bounds.midX - w / 2, y: (row + clusters) / 2 - h / 2,
+                                       width: w, height: h), ink: ink, scale: scale)
+            return
+        }
         var w = (select.minX - bounds.minX) - margin * 2
         var h = w / aspect
         // Never deeper than the row it sits in.
@@ -4806,12 +5321,16 @@ struct NintendoSixtyFourSkin: ConsoleSkin {
             return
         }
         if LayoutFamily.of(bounds.size) == .tablet {
-            guard let shoulderTop = [buttons[.btnL], buttons[.btnR]].compactMap({ $0?.minY }).min()
-            else { return }
-            let band = shoulderTop - screen.maxY
-            guard band > 14 * scale else { return }
-            plaque(centre: CGPoint(x: bounds.midX, y: (screen.maxY + shoulderTop) / 2),
-                   height: Swift.min(band * 0.62, 30 * scale), maxWidth: room)
+            // ON L AND R'S LINE (asked 2026-11-01, so the picture can come down
+            // to the shoulders): centred on the page, between the feet of the
+            // two shoulder recesses (`drawShoulders`, 68 inward of each bar),
+            // as tall as the bars' band allows.
+            guard let l = buttons[.btnL], let r = buttons[.btnR] else { return }
+            let left = l.maxX + 68 * scale, right = r.minX - 68 * scale
+            let between = right - left - 16 * scale
+            guard between > 24 * scale else { return }
+            plaque(centre: CGPoint(x: (left + right) / 2, y: (l.midY + r.midY) / 2),
+                   height: Swift.min(l.height * 0.62, 30 * scale), maxWidth: between)
             return
         }
         guard let r = buttons[.btnR], let b = buttons[.btnB], let a = buttons[.btnA] else { return }
@@ -5937,7 +6456,8 @@ struct GameGearSkin: ConsoleSkin {
             .intersection(bounds.insetBy(dx: 8 * scale, dy: 8 * scale))
     }
     /// The width the pills and the lamp need beside the picture, upright.
-    private static let marginWidth: CGFloat = 44
+    /// Read by the layout too (`EmulatorLayoutGeometry.tabletUprightWidestPicture`).
+    static let marginWidth: CGFloat = 44
 
     private func drawSurround(_ ctx: CGContext, panel: CGRect, screen: CGRect, scale: CGFloat) {
         guard panel.width > 8, panel.height > 8 else { return }

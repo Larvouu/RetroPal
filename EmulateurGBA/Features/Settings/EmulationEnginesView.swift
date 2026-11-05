@@ -64,12 +64,17 @@ struct EmulationEnginesView: View {
         // Two patches (`Vendor/blastem-ios/patches`).
         Engine(name: "BlastEm", licence: "GPL-3.0 or later",
                consoles: [.md], patches: 2),
-        // PPSSPP's own libretro port, one patch since 1.3.4
-        // (`Vendor/ppsspp-ios/patches`: the PSP's memory found outside the
-        // 4-6 GB band when it is full). Its picture is drawn through MoltenVK
+        // PPSSPP's own libretro port, two patches (`Vendor/ppsspp-ios/patches`:
+        // 0001 since 1.3.4, the PSP's memory found outside the 4-6 GB band when
+        // it is full; 0002 since 1.3.5, a game that stopped for good is
+        // reported instead of freezing). Its picture is drawn through MoltenVK
         // like the Nintendo 64's.
         Engine(name: "PPSSPP", licence: "GPL-2.0 or later",
-               consoles: [.psp], patches: 1),
+               consoles: [.psp], patches: 2),
+        // Azahar, the 3DS (1.3.5), its patches in `Vendor/azahar-ios/patches`.
+        // Its picture is drawn through MoltenVK like the PSP's.
+        Engine(name: "Azahar", licence: "GPL-3.0 or later",
+               consoles: [.n3ds], patches: 21),
     ]
 
     var body: some View {

@@ -5,7 +5,8 @@
 //  Reusable step-by-step help sheet used by the Settings "Guides" section
 //  and the Controls controller row. Numbered-circle steps match the
 //  empty-state onboarding style. An optional header slot carries live
-//  status (e.g. the controller connection dot).
+//  status (e.g. the controller connection dot), and an optional link can
+//  stand under one step (the "Add a game" guide's formats page).
 //
 
 import SwiftUI
@@ -18,6 +19,12 @@ struct HowToSheet<Header: View>: View {
     let steps: [String]
     let footer: String?
     let header: () -> Header
+    /// A link under one step, by index, and what it opens (2026-10-31: the
+    /// "Add a game" guide's formats page, which replaced the format list the
+    /// step and the footer used to carry).
+    var linkAfterStep: Int? = nil
+    var linkTitle: String = ""
+    var onLink: () -> Void = {}
 
     init(title: String,
          intro: String?,
@@ -58,6 +65,17 @@ struct HowToSheet<Header: View>: View {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                         stepRow(num: index + 1, text: step)
+                        if index == linkAfterStep {
+                            FocusableButton(shape: .capsule, action: onLink) {
+                                Label(linkTitle, systemImage: "questionmark.circle")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.accentColor)
+                                    .padding(.vertical, 4)
+                                    .contentShape(Capsule())
+                            }
+                            .padding(.leading, 38)
+                            .padding(.top, -8)
+                        }
                     }
                 }
 
@@ -120,6 +138,15 @@ struct HowToSheet<Header: View>: View {
 extension HowToSheet where Header == EmptyView {
     init(title: String, intro: String?, steps: [String], footer: String?) {
         self.init(title: title, intro: intro, steps: steps, footer: footer) { EmptyView() }
+    }
+
+    /// A guide with a link under one of its steps (index from 0).
+    init(title: String, intro: String?, steps: [String], footer: String?,
+         linkAfterStep: Int, linkTitle: String, onLink: @escaping () -> Void) {
+        self.init(title: title, intro: intro, steps: steps, footer: footer) { EmptyView() }
+        self.linkAfterStep = linkAfterStep
+        self.linkTitle = linkTitle
+        self.onLink = onLink
     }
 }
 
